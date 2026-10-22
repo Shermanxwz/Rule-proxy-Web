@@ -63,9 +63,9 @@
 
 所有 death required facts、`death_extension.completed` 与 `diagnostic_completed` 均为 true，整体 `diagnostic-observed`，全部 cleanup 为 true、无需恢复；私有树保留。严格 `checks.proxy_death`、Full、`first_chain_verified`、`direct_deny_verified`、`local_c_qualified`、`product_acceptance` 仍为 false，浏览器、WinHTTP、真实应用及 selected DNS 均未由该次验证。[证据索引](../../verification/windows-2026-10-22/model2-death-01-evidence-index.json)绑定2954字节原 public（SHA256 `c7074aa14e13f42c81ed659a0556666624041146a74051bd7e1cef7d3daa68c6`）、原 preflight、逐字节 runner、摘要与安全投影。归档只读核对23份 staged 源码与受测 git、11个唯一 nonce、11条 GO、30份实际报告描述符（契约上限34）及36份 stdout/stderr 共3346字节的整体承诺，没有再次运行 actor 或网络。
 
-## ordinary DNS 同 API 机制已运行
-
 death01 完成后的[全局只读比较](../../verification/windows-2026-10-22/model2-death-after01-global-projection.json)与[取证脚本索引](../../verification/windows-2026-10-22/model2-death-after01-global-evidence-index.json)确认，防火墙 profiles、DNS、路由及用户代理的完整 JSON 与首次 baseline 相等，原始字节也相等（均7378字节，SHA256 `f05d91ee76ee8a97ae5ab3bfa092167a8ee560c083255f142e6c453f2edf7ab3`）。该比较是两个时间点的配置观察，不代替运行期间隔离证明；原始配置未公开。
+
+## ordinary DNS 同 API 机制已运行
 
 `dns-standard-local-02` 已在普通身份下完成真实 `DnsQueryEx` VERSION1 调用、专用 loopback UDP53 接收端的一次查询和答案匹配，API/query status 均为 0，记录内存、socket、线程和 held Job 清理均确认。运行前的受监督只读 DNS/有效 NRPT/53 端口占用门及两次新鲜度门均通过；运行后全局配置与原 baseline 完全相等。该结果只解决 ordinary 同 API 正控，selected DNS、默认 resolver 和系统 broker 隔离仍未验证。首次 staging 时钟范围失败历史及完整证据见[独立 DNS 检查点](2026-10-23-dns-standard-mechanism.md)。
 

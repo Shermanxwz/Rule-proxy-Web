@@ -31,6 +31,7 @@ def _load(name, filename):
 
 probe = _load('c_candidate_probe', 'windows_identity_model2_local_probe.py')
 origin = _load('c_origin_ownership', 'windows_identity_proxy_origin_probe.py')
+dns = _load('c_selected_dns_contract', 'windows_identity_model2_dns.py')
 local = probe.local
 launcher = local.launcher
 ac = origin.a
@@ -42,17 +43,19 @@ MAX_PUBLIC = 8192
 MAX_SIGNED = 0x7fffffffffffffff
 PNCS = 'S-1-15-3-3'
 CAP_PROFILES = ('identity-only', 'agentic-only', 'agentic-pncs')
-OPS = {1: 'proxy-get', 2: 'direct-tcp', 3: 'wrong-port', 4: 'wrong-peer', 5: 'proxy-after-death', 255: 'finish'}
+OPS = {1: 'proxy-get', 2: 'direct-tcp', 3: 'wrong-port', 4: 'wrong-peer', 5: 'proxy-after-death', 6: 'dns-query', 255: 'finish'}
 ACTOR = 'windows_identity_proxy_c_actor.exe'
 MANIFEST = 'identity-proxy-c-manifest.json'
 SOURCES = tuple(dict.fromkeys((*origin.SOURCES, *probe.SOURCES,
     '.github/windows_identity_model2_live.py', '.github/windows_identity_model2_maintenance.py',
     '.github/windows_identity_model2_controller.py', '.github/windows_identity_model2_local.py',
-    '.github/windows_identity_model2_firewall.ps1')))
+    '.github/windows_identity_model2_firewall.ps1', '.github/windows_identity_model2_dns.py',
+    '.github/windows_identity_dns_cases_fixture.py', '.github/windows_dns_fixture.py', dns.INVENTORY)))
 NATIVE_SOURCES = {**origin.NATIVE_SOURCES,
     'actorSourceSha256': '.github/native/windows_identity_proxy_c_actor.cpp',
     'originActorSha256': '.github/native/windows_identity_proxy_origin_actor.cpp',
-    'liveContractSha256': '.github/native/windows_identity_proxy_c_contract.hpp'}
+    'liveContractSha256': '.github/native/windows_identity_proxy_c_contract.hpp',
+    'dnsStandardProbeSha256': dns.NATIVE}
 SOURCES = tuple(dict.fromkeys((*SOURCES, *NATIVE_SOURCES.values())))
 
 
@@ -871,7 +874,8 @@ def diagnostic_ready(value, *, require_guard=True):
             and (value['wrong_peer_extension']['denied_by_access'] or value['wrong_peer_extension']['connected']
                 or value['wrong_peer_extension']['forbidden_nonce_received']))
         and ('death_extension' not in value or all(value['death_extension'][key] for key in DEATH_REQUIRED)
-            and not value['death_extension']['after_direct_connected'] and not value['death_extension']['after_forbidden_nonce_received']))
+            and not value['death_extension']['after_direct_connected'] and not value['death_extension']['after_forbidden_nonce_received'])
+        and ('dns_extension' not in value or dns.ready(value['dns_extension'])))
 
 
 def first_ready(value, *, require_guard=True):
@@ -893,6 +897,8 @@ def finalize_public(value):
         value['wrong_peer_extension']['completed'] = value['diagnostic_completed']
     if 'death_extension' in value:
         value['death_extension']['completed'] = value['diagnostic_completed']
+    if 'dns_extension' in value:
+        value['dns_extension']['completed'] = value['diagnostic_completed']
     if value['diagnostic_completed']:
         value['status'] = 'diagnostic-observed'
     elif value['local_c_qualified']:
@@ -906,11 +912,11 @@ def finalize_public(value):
     return validate_public(value)
 
 
-def blank(execution_mode='strict', wrong_port_extension=False, wrong_peer_extension=False, death_extension=False):
+def blank(execution_mode='strict', wrong_port_extension=False, wrong_peer_extension=False, death_extension=False, dns_extension=False):
     require(execution_mode in MODES and type(wrong_port_extension) is bool
         and type(wrong_peer_extension) is bool and type(death_extension) is bool
-        and sum((wrong_port_extension, wrong_peer_extension, death_extension)) <= 1
-        and (not(wrong_port_extension or wrong_peer_extension or death_extension) or execution_mode == 'profiles-off-diagnostic'), 'execution_mode')
+        and type(dns_extension) is bool and sum((wrong_port_extension, wrong_peer_extension, death_extension, dns_extension)) <= 1
+        and (not(wrong_port_extension or wrong_peer_extension or death_extension or dns_extension) or execution_mode == 'profiles-off-diagnostic'), 'execution_mode')
     value = dict(schema_version=1, stage='local-model2-live', profile='pncs-peer-port-held-barrier-v1',
         execution_mode=execution_mode, diagnostic={key: key == 'requested' and execution_mode == 'profiles-off-diagnostic'
             for key in ('requested', 'profiles_off_verified', 'exact_rule_scope_verified', 'effective_full_verified',
@@ -929,6 +935,9 @@ def blank(execution_mode='strict', wrong_port_extension=False, wrong_peer_extens
     if wrong_port_extension: value['wrong_port_extension'] = blank_wrong_port()
     if wrong_peer_extension: value['wrong_peer_extension'] = blank_wrong_peer()
     if death_extension: value['death_extension'] = blank_death()
+    if dns_extension:
+        value['dns_extension'] = dns.blank()
+        value['violations']['selected_dns_query_observed'] = False
     return value
 
 
@@ -942,6 +951,10 @@ def validate_public(value):
     if type(value) is dict and 'death_extension' in value:
         require(not any(k in value for k in ('wrong_port_extension', 'wrong_peer_extension')), 'exclusive_extension')
         template['death_extension'] = blank_death()
+    if type(value) is dict and 'dns_extension' in value:
+        require(not any(k in value for k in ('wrong_port_extension','wrong_peer_extension','death_extension')), 'exclusive_extension')
+        template['dns_extension'] = dns.blank()
+        template['violations']['selected_dns_query_observed'] = False
     require(type(value) is dict and set(value) == set(template), 'public_schema')
     for key in ('schema_version', 'stage', 'profile', 'original_stage0', 'system_dns_tested',
                 'service_brokers_tested', 'winhttp_tested', 'application_adapter_tested', 'product_acceptance'):
@@ -954,7 +967,7 @@ def validate_public(value):
         require(value[key] is None or ac.digest(value[key]), 'public_digest')
     require(value['status'] in ('ready', 'inconclusive', 'failed', 'observed', 'passed', 'diagnostic-observed')
         and value['failure'] in (None, 'platform', 'identity', 'inputs', 'deadline', 'staging', 'worker',
-            'probe', 'selected', 'firewall', 'health', 'positive', 'wrong-port', 'wrong-peer', 'death', 'cleanup', 'report'), 'public_state')
+            'probe', 'selected', 'firewall', 'health', 'positive', 'wrong-port', 'wrong-peer', 'death', 'dns', 'cleanup', 'report'), 'public_state')
     require(type(value['local_c_qualified']) is bool, 'public_types')
     require(type(value['first_chain_verified']) is bool and value['first_chain_verified'] == first_ready(value), 'public_first_cell')
     require(type(value['direct_deny_verified']) is bool
@@ -997,6 +1010,10 @@ def validate_public(value):
         require(not x['after_direct_denied_by_access'] or x['after_direct_attempted'] and not x['after_direct_connected']
             and not x['after_forbidden_nonce_received'] and x['origin_healthy_after_release'], 'death_after_deny')
         require(value['violations']['fallback_after_death'] == (x['after_direct_connected'] or x['after_forbidden_nonce_received']), 'death_violation_binding')
+    if 'dns_extension' in value:
+        x = dns.validate_public(value['dns_extension'])
+        require(value['execution_mode']=='profiles-off-diagnostic' and x['completed']==value['diagnostic_completed']
+            and x['selected_wire_query_observed']==value['violations']['selected_dns_query_observed'], 'dns_public_binding')
     if value['status'] == 'ready':
         require(value['checks']['sources'] and value['checks']['artifacts']
             and not any(v for k, v in value['checks'].items() if k not in ('sources', 'artifacts'))
@@ -1009,6 +1026,8 @@ def validate_public(value):
             require(not any(v for k, v in value['wrong_peer_extension'].items() if k != 'requested'), 'wrong_peer_readiness')
         if 'death_extension' in value:
             require(not any(v for k, v in value['death_extension'].items() if k != 'requested'), 'death_readiness')
+        if 'dns_extension' in value:
+            require(not any(v for k,v in value['dns_extension'].items() if k!='requested'), 'dns_readiness')
     require(not value['checks']['positive'] or all(value['observations'].values()), 'public_positive')
     require(len(encode(value)) <= MAX_PUBLIC, 'public_bound')
     return value

@@ -26,15 +26,16 @@ WRONG_PORT_SCOPE='one-local-model2-pncs-profiles-off-wrong-port-diagnostic-v1'
 WRONG_PORT_PSEC_SCOPE='one-local-model2-pncs-profiles-off-wrong-port-psec-control-diagnostic-v1'
 WRONG_PEER_SCOPE='one-local-model2-pncs-profiles-off-wrong-peer-diagnostic-v1'
 DEATH_SCOPE='one-local-model2-pncs-profiles-off-live-proxy-death-diagnostic-v1'
+DNS_SCOPE='one-local-model2-pncs-profiles-off-standard53-dns-diagnostic-v1'
 CONFIG_KEYS={'schema_version','stage','run','boot_case','positive_case','direct_case','health_cases','admission_nonce',
     'maintenance_nonce','capability_profile','start_qpc','frequency','deadline_qpc','root_deadline_qpc',
     'source_hashes','source_sha256','actor_sha256','manifest_sha256','guard_job_name','device_sha256','recovery_plan_sha256'}
 CHECKS=('windows_x64','ordinary','sources','artifacts','capacity','recovery_attested')
 CLEANUP=('guard_job_verified','controller_held_verified','controller_exit_verified','outer_cleanup_verified','tree_retained','recovery_required')
-def blank(mode,execution_mode='strict',wrong_port_extension=False,wrong_peer_extension=False,death_extension=False):
+def blank(mode,execution_mode='strict',wrong_port_extension=False,wrong_peer_extension=False,death_extension=False,dns_extension=False):
     return dict(schema_version=1,stage='local-model2-first-owner',mode=mode,status='inconclusive',failure=None,
         source_sha256=None,actor_sha256=None,manifest_sha256=None,recovery_plan_sha256=None,device_bound=False,
-        checks={key:False for key in CHECKS},cleanup={key:False for key in CLEANUP},result=live.blank(execution_mode,wrong_port_extension=wrong_port_extension,wrong_peer_extension=wrong_peer_extension,death_extension=death_extension))
+        checks={key:False for key in CHECKS},cleanup={key:False for key in CLEANUP},result=live.blank(execution_mode,wrong_port_extension=wrong_port_extension,wrong_peer_extension=wrong_peer_extension,death_extension=death_extension,dns_extension=dns_extension))
 def validate(value):
     template=blank(value.get('mode') if type(value) is dict else None)
     require(type(value) is dict and set(value)==set(template),'outer_schema')
@@ -59,7 +60,7 @@ def validate(value):
             and all(value['cleanup'][key] for key in CLEANUP if key!='recovery_required') and not value['cleanup']['recovery_required']
             and r['status']==value['status'],'outer_observation')
     require(len(live.encode(value))<=12288,'outer_bound');return value
-def plan(value,*,device,source,actor,manifest,execution_mode='strict',selected_admission=None,wrong_port_extension=False,wrong_peer_extension=False,death_extension=False):
+def plan(value,*,device,source,actor,manifest,execution_mode='strict',selected_admission=None,wrong_port_extension=False,wrong_peer_extension=False,death_extension=False,dns_extension=False):
     require(execution_mode in live.MODES,'execution_mode')
     keys={'schema_version','scope','device_sha256','source_sha256','actor_sha256',
         'manifest_sha256','residue_review_acknowledged','recovery_reference'}
@@ -70,7 +71,7 @@ def plan(value,*,device,source,actor,manifest,execution_mode='strict',selected_a
         live.validate_selected_admission(selected_admission);keys.add('selected_admission');scope=HELPER_DIAGNOSTIC_SCOPE
     require(type(wrong_port_extension) is bool,'wrong_port_opt_in')
     require(type(wrong_peer_extension) is bool and not(wrong_peer_extension and wrong_port_extension),'negative_extension_opt_in')
-    require(type(death_extension) is bool and sum((wrong_port_extension,wrong_peer_extension,death_extension))<=1,'exclusive_extension')
+    require(type(death_extension) is bool and type(dns_extension) is bool and sum((wrong_port_extension,wrong_peer_extension,death_extension,dns_extension))<=1,'exclusive_extension')
     if wrong_port_extension:
         require(execution_mode=='profiles-off-diagnostic' and selected_admission is not None,'wrong_port_diagnostic_only')
         keys.add('wrong_port_extension');scope=WRONG_PORT_SCOPE
@@ -80,12 +81,17 @@ def plan(value,*,device,source,actor,manifest,execution_mode='strict',selected_a
     if death_extension:
         require(execution_mode=='profiles-off-diagnostic' and selected_admission is not None,'death_diagnostic_only')
         keys.add('death_extension');scope=DEATH_SCOPE
+    if dns_extension:
+        require(execution_mode=='profiles-off-diagnostic' and selected_admission is not None,'dns_diagnostic_only')
+        keys.update(('dns_extension','standard53_impact_acknowledged'));scope=DNS_SCOPE
     require(type(value) is dict and set(value)==keys and live.execution_mode(value)==execution_mode,'plan_schema')
     if wrong_port_extension:
         extension=live.validate_wrong_port_extension(value['wrong_port_extension'])
         if extension['profile']=='same-peer-wrong-port-psec-control-v1':scope=WRONG_PORT_PSEC_SCOPE
     if wrong_peer_extension:live.validate_wrong_peer_extension(value['wrong_peer_extension'])
     if death_extension:live.validate_death_extension(value['death_extension'])
+    if dns_extension:
+        live.dns.extension(value['dns_extension']);require(value['standard53_impact_acknowledged'] is True,'dns_port53_impact')
     if selected_admission is not None:require(value['selected_admission']==selected_admission,'helper_plan_binding')
     require(type(value['schema_version']) is int and value['schema_version']==1
         and value['scope']==scope
@@ -105,8 +111,8 @@ def inputs(actor,manifest,ah,mh,bundle,runtime,work_parent,root=ROOT):
     needed+=sum((runtime/name).stat().st_size for name in probe.MEMBERS)+16*live.MAX_PRIVATE+1048576
     require(needed<=local.MAX_STAGE and shutil.disk_usage(parent).free>=needed,'stage_capacity')
     return files,hashes,closure,actor,manifest,bundle,runtime,parent
-def preflight(actor,manifest,ah,mh,bundle,runtime,work_parent,plan_path,*,api=None,root=ROOT,execution_mode='strict',allow_held_system_conhost=False,test_same_peer_wrong_port=False,test_wrong_peer=False,test_proxy_death=False):
-    value=blank('preflight',execution_mode,test_same_peer_wrong_port,test_wrong_peer,test_proxy_death);phase='platform'
+def preflight(actor,manifest,ah,mh,bundle,runtime,work_parent,plan_path,*,api=None,root=ROOT,execution_mode='strict',allow_held_system_conhost=False,test_same_peer_wrong_port=False,test_wrong_peer=False,test_proxy_death=False,test_dns=False):
+    value=blank('preflight',execution_mode,test_same_peer_wrong_port,test_wrong_peer,test_proxy_death,test_dns);phase='platform'
     try:
         require(type(allow_held_system_conhost) is bool and (not allow_held_system_conhost or execution_mode=='profiles-off-diagnostic'),'helper_diagnostic_only')
         require(type(test_same_peer_wrong_port) is bool and (not test_same_peer_wrong_port or execution_mode=='profiles-off-diagnostic' and allow_held_system_conhost),'wrong_port_diagnostic_only')
@@ -114,6 +120,8 @@ def preflight(actor,manifest,ah,mh,bundle,runtime,work_parent,plan_path,*,api=No
             and (not test_wrong_peer or execution_mode=='profiles-off-diagnostic' and allow_held_system_conhost),'wrong_peer_diagnostic_only')
         require(type(test_proxy_death) is bool and sum((test_same_peer_wrong_port,test_wrong_peer,test_proxy_death))<=1
             and (not test_proxy_death or execution_mode=='profiles-off-diagnostic' and allow_held_system_conhost),'death_diagnostic_only')
+        require(type(test_dns) is bool and sum((test_same_peer_wrong_port,test_wrong_peer,test_proxy_death,test_dns))<=1
+            and (not test_dns or execution_mode=='profiles-off-diagnostic' and allow_held_system_conhost),'dns_diagnostic_only')
         require(os.name=='nt','windows_required');api=local.LocalNativeAPI() if api is None else api
         require(api.windows_x64(),'windows_x64');value['checks']['windows_x64']=True
         phase='identity';local.ordinary(api);value['checks']['ordinary']=True
@@ -122,7 +130,7 @@ def preflight(actor,manifest,ah,mh,bundle,runtime,work_parent,plan_path,*,api=No
         value['checks'].update(sources=True,artifacts=True,capacity=True)
         phase='plan';raw=local.bounded(plan_path,8192)
         admission=live.system_conhost_record(api) if allow_held_system_conhost else None
-        plan(live.decode(raw),device=api.device_sha256(),source=closure,actor=ah,manifest=mh,execution_mode=execution_mode,selected_admission=admission,wrong_port_extension=test_same_peer_wrong_port,wrong_peer_extension=test_wrong_peer,death_extension=test_proxy_death)
+        plan(live.decode(raw),device=api.device_sha256(),source=closure,actor=ah,manifest=mh,execution_mode=execution_mode,selected_admission=admission,wrong_port_extension=test_same_peer_wrong_port,wrong_peer_extension=test_wrong_peer,death_extension=test_proxy_death,dns_extension=test_dns)
         value.update(recovery_plan_sha256=live.sha(raw),device_bound=True);value['checks']['recovery_attested']=True
         value['result'].update(source_sha256=closure,actor_sha256=ah,manifest_sha256=mh,status='ready')
         value['result']['checks'].update(sources=True,artifacts=True);value['status']='ready'
@@ -144,6 +152,10 @@ def validate_config(config):
         require(mode=='profiles-off-diagnostic' and 'selected_admission' in config
             and not any(key in config for key in ('wrong_port_extension','wrong_peer_extension')),'death_diagnostic_only')
         live.validate_death_extension(config['death_extension']);keys=keys | {'death_extension'}
+    if type(config) is dict and 'dns_extension' in config:
+        require(mode=='profiles-off-diagnostic' and 'selected_admission' in config
+            and not any(key in config for key in ('wrong_port_extension','wrong_peer_extension','death_extension')),'dns_diagnostic_only')
+        live.dns.extension(config['dns_extension']);keys=keys | {'dns_extension'}
     require(type(config) is dict and set(config)==keys and type(config['schema_version']) is int and config['schema_version']==1
         and config['stage']=='model2-first-owned-input' and config['capability_profile']=='agentic-pncs','worker_config')
     live.clock_record(config['start_qpc'],config['frequency'],config['root_deadline_qpc'])
@@ -154,6 +166,7 @@ def validate_config(config):
     if 'wrong_port_extension' in config:nonces += [v for k,v in config['wrong_port_extension'].items() if k!='profile']
     if 'wrong_peer_extension' in config:nonces += [v for k,v in config['wrong_peer_extension'].items() if k!='profile']
     if 'death_extension' in config:nonces += [v for k,v in config['death_extension'].items() if k!='profile']
+    if 'dns_extension' in config:nonces += [v for k,v in config['dns_extension'].items() if k!='profile']
     require(all(live.ac.nonce(x) for x in nonces) and len(set(nonces))==len(nonces),'distinct_nonces')
     require(config['guard_job_name']=='Local\\RuleProxy.LocalGuard.'+config['run'],'guard_binding')
     require(type(config['source_hashes']) is dict and set(config['source_hashes'])==set(live.SOURCES)
@@ -175,6 +188,7 @@ def bind_controller(report,config,launch):
     require(('wrong_port_extension' in r)==('wrong_port_extension' in config),'controller_extension_binding')
     require(('wrong_peer_extension' in r)==('wrong_peer_extension' in config),'controller_peer_extension_binding')
     require(('death_extension' in r)==('death_extension' in config),'controller_death_extension_binding')
+    require(('dns_extension' in r)==('dns_extension' in config),'controller_dns_extension_binding')
     for key,check in (('source_sha256','sources'),('actor_sha256','artifacts'),('manifest_sha256','artifacts')):
         require(r[key]==config[key] if r['checks'][check] else r[key] in (None,config[key]),'controller_result')
     run_hash=live.sha(config['run'].encode('ascii'))
@@ -195,10 +209,11 @@ def worker(config_path):
     plan_raw=local.bounded(root/'recovery-plan.json',8192);require(live.sha(plan_raw)==config['recovery_plan_sha256'],'worker_plan')
     admission=config.get('selected_admission')
     if admission is not None:require(live.system_conhost_record(api)==admission,'helper_image_changed')
-    plan_value=plan(live.decode(plan_raw),device=config['device_sha256'],source=closure,actor=config['actor_sha256'],manifest=config['manifest_sha256'],execution_mode=live.execution_mode(config),selected_admission=admission,wrong_port_extension='wrong_port_extension' in config,wrong_peer_extension='wrong_peer_extension' in config,death_extension='death_extension' in config)
+    plan_value=plan(live.decode(plan_raw),device=config['device_sha256'],source=closure,actor=config['actor_sha256'],manifest=config['manifest_sha256'],execution_mode=live.execution_mode(config),selected_admission=admission,wrong_port_extension='wrong_port_extension' in config,wrong_peer_extension='wrong_peer_extension' in config,death_extension='death_extension' in config,dns_extension='dns_extension' in config)
     if 'wrong_port_extension' in config:require(config['wrong_port_extension']==plan_value['wrong_port_extension'],'worker_extension_plan')
     if 'wrong_peer_extension' in config:require(config['wrong_peer_extension']==plan_value['wrong_peer_extension'],'worker_peer_extension_plan')
     if 'death_extension' in config:require(config['death_extension']==plan_value['death_extension'],'worker_death_extension_plan')
+    if 'dns_extension' in config:require(config['dns_extension']==plan_value['dns_extension'],'worker_dns_extension_plan')
     live.verify_actor(root/'inputs'/live.ACTOR,root/'inputs'/live.MANIFEST,config['actor_sha256'],config['manifest_sha256'],root=root)
     probe.verify_artifacts(root/'bundle.zip',root/'runtime')
     controller=load('windows_identity_model2_controller')
@@ -207,12 +222,12 @@ def worker(config_path):
     launcher.write_private_bytes(root/'model2-controller-report.json',live.encode(report))
     ready=live.first_ready if live.execution_mode(config)=='strict' else live.diagnostic_ready
     return 0 if ready(report['public'],require_guard=False) else 1
-def run_local(actor,manifest,ah,mh,bundle,runtime,work_parent,plan_path,*,approved=False,api=None,root=ROOT,ids=secrets.token_hex,execution_mode='strict',allow_held_system_conhost=False,test_same_peer_wrong_port=False,test_wrong_peer=False,test_proxy_death=False):
-    value=blank('runtime',execution_mode,test_same_peer_wrong_port,test_wrong_peer,test_proxy_death);phase='platform';launched=False
+def run_local(actor,manifest,ah,mh,bundle,runtime,work_parent,plan_path,*,approved=False,api=None,root=ROOT,ids=secrets.token_hex,execution_mode='strict',allow_held_system_conhost=False,test_same_peer_wrong_port=False,test_wrong_peer=False,test_proxy_death=False,test_dns=False):
+    value=blank('runtime',execution_mode,test_same_peer_wrong_port,test_wrong_peer,test_proxy_death,test_dns);phase='platform';launched=False
     try:
         require(approved and os.name=='nt','explicit_opt_in_required');api=local.LocalNativeAPI() if api is None else api
         frequency,start=api.qpc_frequency(),api.qpc();budget=launcher.QpcBudget(api,start+120*frequency,frequency)
-        check=preflight(actor,manifest,ah,mh,bundle,runtime,work_parent,plan_path,api=api,root=root,execution_mode=execution_mode,allow_held_system_conhost=allow_held_system_conhost,test_same_peer_wrong_port=test_same_peer_wrong_port,test_wrong_peer=test_wrong_peer,test_proxy_death=test_proxy_death)
+        check=preflight(actor,manifest,ah,mh,bundle,runtime,work_parent,plan_path,api=api,root=root,execution_mode=execution_mode,allow_held_system_conhost=allow_held_system_conhost,test_same_peer_wrong_port=test_same_peer_wrong_port,test_wrong_peer=test_wrong_peer,test_proxy_death=test_proxy_death,test_dns=test_dns)
         for key in ('checks','source_sha256','actor_sha256','manifest_sha256','recovery_plan_sha256','device_bound'):value[key]=check[key]
         if check['status']!='ready':phase=check['failure'];raise ValueError('preflight')
         phase='inputs';files,hashes,closure,actor,manifest,bundle,runtime,parentpath=inputs(actor,manifest,ah,mh,bundle,runtime,work_parent,root)
@@ -225,10 +240,10 @@ def run_local(actor,manifest,ah,mh,bundle,runtime,work_parent,plan_path,*,approv
             recovery_plan_sha256=value['recovery_plan_sha256'])
         if execution_mode=='profiles-off-diagnostic':config['execution_mode']=execution_mode
         if allow_held_system_conhost:config['selected_admission']=live.system_conhost_record(api)
-        if test_same_peer_wrong_port or test_wrong_peer or test_proxy_death:
+        if test_same_peer_wrong_port or test_wrong_peer or test_proxy_death or test_dns:
             raw_extension_plan=local.bounded(plan_path,8192)
             require(live.sha(raw_extension_plan)==value['recovery_plan_sha256'],'extension_plan_changed')
-            key='wrong_port_extension' if test_same_peer_wrong_port else 'wrong_peer_extension' if test_wrong_peer else 'death_extension'
+            key='wrong_port_extension' if test_same_peer_wrong_port else 'wrong_peer_extension' if test_wrong_peer else 'death_extension' if test_proxy_death else 'dns_extension'
             config[key]=live.decode(raw_extension_plan)[key]
         validate_config(config)
         phase='deadline';budget.require_ms(budget.cutoff(45))
@@ -296,6 +311,7 @@ def main(argv=None):
     negative.add_argument('--test-same-peer-wrong-port',action='store_true',help='Explicit diagnostic-only healthy same-peer wrong-port extension.')
     negative.add_argument('--test-wrong-peer',action='store_true',help='Explicit diagnostic-only healthy wrong-peer extension, mutually exclusive with wrong-port.')
     negative.add_argument('--test-proxy-death',action='store_true',help='Explicit diagnostic-only held live relay death extension.')
+    negative.add_argument('--test-dns',action='store_true',help='Explicit diagnostic-only same-selected standard53 DNS extension; binds one exclusive loopback UDP53 receiver.')
     parser.add_argument('--owned-worker',action='store_true',help=argparse.SUPPRESS);parser.add_argument('--config',help=argparse.SUPPRESS)
     for name in ('actor','manifest','actor-sha256','manifest-sha256','bundle','runtime-directory','work-parent','recovery-plan'):parser.add_argument('--'+name)
     args=parser.parse_args(argv)
@@ -322,6 +338,7 @@ def main(argv=None):
     if args.test_same_peer_wrong_port:options['test_same_peer_wrong_port']=True
     if args.test_wrong_peer:options['test_wrong_peer']=True
     if args.test_proxy_death:options['test_proxy_death']=True
+    if args.test_dns:options['test_dns']=True
     value=run_local(*values,approved=args.approved_local_security_test,**options) if args.run_local_first_chain else preflight(*values,**options)
     sys.stdout.write(live.encode(value).decode('ascii'));return 0 if value['status'] in ('ready','observed','passed','diagnostic-observed') else 1
 if __name__=='__main__':raise SystemExit(main())

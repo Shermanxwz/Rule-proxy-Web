@@ -10,6 +10,7 @@ import importlib.util
 import os
 from pathlib import Path
 import stat
+import time
 from types import SimpleNamespace
 
 _spec = importlib.util.spec_from_file_location('first_c_live', Path(__file__).with_name('windows_identity_model2_live.py'))
@@ -82,6 +83,10 @@ def validate_config(value):
         live.require(mode == 'profiles-off-diagnostic' and 'selected_admission' in value
             and not any(k in value for k in ('wrong_port_extension', 'wrong_peer_extension')), 'death_diagnostic_only')
         live.validate_death_extension(value['death_extension']); keys.add('death_extension')
+    if type(value) is dict and 'dns_extension' in value:
+        live.require(mode=='profiles-off-diagnostic' and 'selected_admission' in value
+            and not any(k in value for k in ('wrong_port_extension','wrong_peer_extension','death_extension')), 'dns_diagnostic_only')
+        live.dns.extension(value['dns_extension']); keys.add('dns_extension')
     live.require(type(value) is dict and set(value) == keys and live.integer(value['schema_version'], 1, 1)
         and value['stage'] == 'model2-first-owned-input', 'config')
     live.clock_record(value['start_qpc'], value['frequency'], value['root_deadline_qpc'])
@@ -97,6 +102,8 @@ def validate_config(value):
         nonces += [v for k, v in value['wrong_peer_extension'].items() if k != 'profile']
     if 'death_extension' in value:
         nonces += [v for k, v in value['death_extension'].items() if k != 'profile']
+    if 'dns_extension' in value:
+        nonces += [v for k,v in value['dns_extension'].items() if k!='profile']
     live.require(len(nonces) == len(set(nonces)) and value['capability_profile'] == 'agentic-pncs', 'config_profile')
     live.require(value['guard_job_name'] == 'Local\\RuleProxy.LocalGuard.' + value['run'], 'config_job')
     for key in ('source_sha256', 'actor_sha256', 'manifest_sha256', 'device_sha256', 'recovery_plan_sha256'):
@@ -178,6 +185,7 @@ def client_phase(value, task, config, *, role, boot, admission, sequence, case, 
 
 
 def transport_payload(case, port, operation):
+    live.require(operation in ('proxy-get','direct-tcp','wrong-port','wrong-peer','proxy-after-death'),'http_operation')
     if operation == 'direct-tcp':
         return live.origin.payloads(case, port)
     return (('GET http://ruleproxy-identity-proof.invalid/' + case
@@ -469,7 +477,8 @@ class FirstController:
         self.cleanup_ok = False
         self.mode = live.execution_mode(config)
         self.value = live.blank(self.mode, wrong_port_extension='wrong_port_extension' in config,
-            wrong_peer_extension='wrong_peer_extension' in config, death_extension='death_extension' in config)
+            wrong_peer_extension='wrong_peer_extension' in config, death_extension='death_extension' in config,
+            dns_extension='dns_extension' in config)
         self.parent = None
         self.catalog = None
         self.phase = 'inputs'
@@ -482,6 +491,9 @@ class FirstController:
         self.death_after_deadline = None
         self.death_after_denied = False
         self.death_ledger = blank_death_ledger(config) if 'death_extension' in config else None
+        self.dns_ledger = live.dns.blank_ledger(config) if 'dns_extension' in config else None
+        self.dns_fixture = None
+        self.dns_inventory = None
         self.go_records = []
         self.selected_discovery = None
         self.q_selected_discovery = None
@@ -886,6 +898,12 @@ class FirstController:
             maintenance.validate_profiles_observation(self.maintenance.last_observation, 'profiles-status', self.mode,
                 self.config['start_qpc'], self.config['frequency'], self.config['deadline_qpc'], self.budget.read())
         issued_qpc = self.budget.read()
+        if opcode==6:
+            x=self.config['dns_extension']
+            label=next((key for key in ('before','selected','after') if case==x[key+'_case']),None)
+            live.require(label is not None and ((label=='selected' and role=='selected-client' and task is self.tasks['selected'])
+                or label!='selected' and role=='health-client' and task is self.tasks['health']),'dns_go_role')
+            self.dns_gate(label,now=issued_qpc)
         digest = live.publish_go(control, budget=self.budget, run=self.config['run'], case=case, sequence=sequence,
             opcode=opcode, frequency=self.config['frequency'], deadline=self.config['deadline_qpc'],
             fixed_ports=fixed_ports, admission=admission, phase_deadline=end)
@@ -899,13 +917,116 @@ class FirstController:
         task, end, sequence = ticket['task'], ticket['end'], ticket['sequence']
         # Collect a bounded late failure record without extending network work.
         collect_end = min(end + self.config['frequency'], self.budget.cutoff(20))
-        value, _ = read_when_closed(self.api, self.budget, ticket['reports'] / ('phase-%04d.json' % sequence), task['info'].hProcess, collect_end)
+        if ticket['opcode']==6:self.observe_dns_event()
+        try:
+            value, _ = read_when_closed(self.api, self.budget, ticket['reports'] / ('phase-%04d.json' % sequence), task['info'].hProcess, collect_end)
+        finally:
+            if ticket['opcode']==6:self.observe_dns_event()
+        if ticket['opcode']==6:
+            # The receiver event is sampled before parsing or trusting native output.
+            self.observe_dns_fixture()
+            return live.dns.phase(value,task,self.config,role=ticket['role'],boot=ticket['boot'],admission=ticket['admission'],
+                sequence=sequence,case=ticket['case'],phase_deadline=end,identity_check=native_identity)
         target = ticket['fixed_ports']['origin' if ticket['opcode'] == 2 else 'wrong_port' if ticket['opcode'] == 3 else 'proxy']
         return client_phase(value, task, self.config, role=ticket['role'], boot=ticket['boot'], admission=ticket['admission'],
             sequence=sequence, case=ticket['case'], operation=live.OPS[ticket['opcode']], target_port=target, phase_deadline=end)
 
     def native_phase(self, task, **fields):
         return self.collect_phase(self.publish_phase(task, **fields))
+
+    def observe_dns_event(self):
+        if self.dns_fixture is None:return None
+        public,ledger=self.value['dns_extension'],self.dns_ledger
+        # This independent sticky event does not depend on snapshot/JSON success.
+        hit=self.dns_fixture.query_observed.is_set()
+        public['selected_wire_query_observed'] |= hit
+        self.value['violations']['selected_dns_query_observed'] |= hit
+        ledger['selected_wire_query_observed'] |= hit
+        return hit
+
+    def observe_dns_fixture(self):
+        if self.dns_fixture is None:return None
+        self.observe_dns_event()
+        public,ledger=self.value['dns_extension'],self.dns_ledger
+        snapshot=self.dns_fixture.snapshot(deadline=time.monotonic()+self.budget.remaining_ms(self.budget.cutoff(20),500)/1000)
+        live.dns.receiver(snapshot)
+        hit=snapshot['selected_query_observed']
+        public['selected_wire_query_observed'] |= hit
+        self.value['violations']['selected_dns_query_observed'] |= hit
+        ledger['selected_wire_query_observed'] |= hit
+        live.require(len(ledger['fixture_snapshots'])<8,'dns_snapshot_bound')
+        ledger['fixture_snapshots'].append(dict(observed_qpc=self.budget.read(),value=snapshot))
+        return snapshot
+
+    def dns_gate(self,label,*,now=None):
+        c=self.config;row=self.tasks['dns-inventory'];now=self.budget.read() if now is None else now
+        live.dns.inventory(self.dns_inventory,run=c['dns_extension']['inventory_run'],pid=row['pid'],frequency=c['frequency'],
+            start=c['start_qpc'],deadline=c['deadline_qpc'],now=now)
+        live.require(len(self.dns_ledger['inventory_gates'])<4,'dns_inventory_gate_bound')
+        self.dns_ledger['inventory_gates'].append(dict(label=label,qpc=now))
+        return now
+
+    def dns_run(self,selected,health,fixed):
+        if 'dns_extension' not in self.config:return
+        self.phase='dns';c,root,budget=self.config,self.root,self.budget;x=c['dns_extension'];public=self.value['dns_extension']
+        live.require(self.value['checks']['positive'] and self.value['checks']['direct_deny']
+            and self.value['checks']['same_selected'],'dns_positive_first')
+        self.selected_family_alive();self.alive(health)
+        work=self.directory('tools/dns-inventory')
+        env=dict(v.split('=',1) for v in self.api.native.environment(work).rstrip('\0').split('\0'))
+        powershell=launcher.checked_path(Path(env['SystemRoot'])/'System32/WindowsPowerShell/v1.0/powershell.exe')
+        script=launcher.checked_path(root/live.dns.INVENTORY,inside=root)
+        live.require(live.sha(live.local.bounded(script,256*1024))==c['source_hashes'][live.dns.INVENTORY],'dns_inventory_source')
+        command=[str(powershell),'-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',str(script),'-Run',x['inventory_run'],
+            '-Frequency',str(c['frequency']),'-StartQpc',str(c['start_qpc']),'-DeadlineQpc',str(c['deadline_qpc'])]
+        row=self.task('dns-inventory',command,work,image_hash=live.sha(live.local.bounded(powershell,8*1024*1024)))
+        self.resume(row);self.wait(row,min(budget.read()+10*c['frequency'],budget.cutoff(35)))
+        record=read_dns_record(root,'tools/dns-inventory/stdout',32768)
+        live.require(not live.local.bounded(work/'stderr',32768),'dns_inventory_stderr')
+        self.dns_inventory=live.decode(record['text'].encode('ascii'));self.dns_ledger['inventory']=record
+        self.dns_gate('bind');public['inventory_verified']=True;public['inventory_before_bind']=True
+        cutoff=budget.cutoff(25);budget.require_ms(cutoff);self.dns_ledger.update(fixture_attempted=True,fixture_deadline_qpc=cutoff)
+        self.dns_fixture=live.dns.fixture.DnsCasesFixture(dict(before=x['before_case'],selected=x['selected_case'],after=x['after_case']),
+            deadline=time.monotonic()+budget.remaining_ms(cutoff)/1000)
+        live.require(self.dns_fixture.bind_address=='127.0.0.1' and self.dns_fixture.bind_port==53
+            and self.dns_fixture.allowed_peers==('127.0.0.1',),'dns_fixture_endpoint')
+        live.require(self.dns_fixture.start()==53,'dns_fixture_ready');public['fixture_ready']=True;self.dns_ledger['fixture_ready']=True
+        self.observe_dns_fixture()
+        for label,task,role,sequence,case in (('before',health,'health-client',3,x['before_case']),
+                ('selected',selected,'selected-client',3,x['selected_case']),('after',health,'health-client',4,x['after_case'])):
+            self.refresh_profiles();self.selected_family_alive();self.alive(task)
+            end=min(budget.read()+2*c['frequency'],cutoff);budget.require_ms(end)
+            directory='selected' if role=='selected-client' else 'health'
+            result=self.native_phase(task,role=role,boot=c['boot_case'] if directory=='selected' else c['admission_nonce'],
+                admission=c['admission_nonce'] if directory=='selected' else c['maintenance_nonce'],sequence=sequence,case=case,opcode=6,
+                control=root/(directory+'-control'),reports=root/directory,fixed_ports=fixed,end=end)
+            self.dns_ledger['phases'].append(dict(label=label,record=read_dns_record(root,directory+'/phase-%04d.json'%sequence)))
+            if label=='selected':
+                api=result['dns']['result'];public.update(selected_attempted=api['called'],selected_completed=api['completed'],
+                    selected_pending=api['pending'],selected_late=not api['within_deadline'] or result['phase_qpc'][2]>=end,
+                    selected_access_denial_observed=live.dns.access_denial(result))
+                live.require(live.dns.timely(result),'dns_selected_incomplete')
+            snapshot=self.observe_dns_fixture()
+            if label!='selected':
+                live.require(live.dns.positive(result) and live.dns.case_positive(snapshot,label),'dns_ordinary_control')
+                public['ordinary_'+label+'_verified']=True
+        public.update(inventory_before_each_query=True,same_selected=True,observation_complete=True)
+
+    def finish_dns_fixture(self):
+        if self.dns_fixture is None:return self.dns_ledger is None or not self.dns_ledger['fixture_attempted']
+        # Called only after workload cleanup; keep observing until held queries exit.
+        try:
+            self.observe_dns_fixture()
+        except BaseException:pass
+        try:
+            result=self.dns_fixture.finish(deadline=time.monotonic()+self.budget.remaining_ms(self.budget.cutoff(15))/1000)
+        finally:self.observe_dns_event()
+        live.dns.receiver(result,final=True)
+        launcher.write_private_bytes(self.root/'dns-fixture-final.json',live.encode(result))
+        self.dns_ledger['fixture_final']=result
+        public=self.value['dns_extension'];public['receiver_complete']=result['counts'] is not None and result['thread_stopped']
+        public['fixture_cleanup']=result['cleanup_confirmed']
+        return result['cleanup_confirmed']
 
     def death_run(self, selected, fixed, exe, environment):
         if 'death_extension' not in self.config: return
@@ -1244,10 +1365,11 @@ class FirstController:
         self.wrong_peer_setup(exe, fixed, front_environment)
         self.wrong_port_run(selected, fixed, peer=True)
         self.death_run(selected, fixed, exe, front_environment)
+        self.dns_run(selected,health_task,fixed)
         self.finish_client(selected, role='selected-client', boot=c['boot_case'], admission=c['admission_nonce'],
-            sequence=5 if 'death_extension' in c else 4 if 'wrong_port_extension' in c or 'wrong_peer_extension' in c else 3,
+            sequence=5 if 'death_extension' in c else 4 if any(k in c for k in ('wrong_port_extension','wrong_peer_extension','dns_extension')) else 3,
             profile='agentic-pncs', control=root / 'selected-control', reports=root / 'selected', fixed_ports=fixed,
-            count=4 if 'death_extension' in c else 3 if 'wrong_port_extension' in c or 'wrong_peer_extension' in c else 2)
+            count=4 if 'death_extension' in c else 3 if any(k in c for k in ('wrong_port_extension','wrong_peer_extension','dns_extension')) else 2)
         self.wait(g, budget.cutoff(30))
         self.finish_auxiliary('system-conhost')
         self.verify_actual_tier(g)
@@ -1255,11 +1377,12 @@ class FirstController:
         self.phase = 'health'
         self.alive(origin_task)
         after = self.native_phase(health_task, role='health-client', boot=health_boot, admission=health_admission,
-            sequence=3, case=c['health_cases'][2], opcode=2, control=root / 'health-control', reports=root / 'health',
+            sequence=5 if 'dns_extension' in c else 3, case=c['health_cases'][2], opcode=2, control=root / 'health-control', reports=root / 'health',
             fixed_ports=fixed, end=min(budget.read() + 3 * c['frequency'], budget.cutoff(30)))
         live.require(phase_passed(after, c['health_cases'][2]), 'origin_after_health')
         self.finish_client(health_task, role='health-client', boot=health_boot, admission=health_admission,
-            sequence=4, profile='ordinary', control=root / 'health-control', reports=root / 'health', fixed_ports=fixed, count=3)
+            sequence=6 if 'dns_extension' in c else 4, profile='ordinary', control=root / 'health-control', reports=root / 'health', fixed_ports=fixed,
+            count=5 if 'dns_extension' in c else 3)
         digest = live.publish_fixture_finish(root / 'origin-control', budget=budget, run=c['run'], boot_case=origin_boot)
         self.go_records.append(dict(role='health-origin', sequence=1, opcode=255, case=origin_boot,
             phase_deadline=c['deadline_qpc'], path='origin-control/finish.bin', sha256=digest))
@@ -1306,6 +1429,8 @@ class FirstController:
                 direct_denied_by_access=v['checks']['direct_deny'] and not v['violations']['forbidden_receiver_accepted'],
                 observation_complete=True)
         finish_peer_observation(v)
+        if 'dns_extension' in c and not v['dns_extension']['selected_access_denial_observed']:
+            v['failure']='dns'
 
     def refresh_profiles(self):
         if self.mode == 'strict': return
@@ -1318,6 +1443,7 @@ class FirstController:
     def harvest(self):
         """Independent receiver/client positives survive later parser/exit failures."""
         c, root, v = self.config, self.root, self.value
+        self.observe_dns_event()
         origin_task = self.tasks.get('origin')
         if origin_task is not None and origin_task['exited'] and self.fixed_ports is not None:
             if self.death_ledger is not None: self.death_ledger['origin_receipts'] = []
@@ -1427,6 +1553,9 @@ class FirstController:
         except BaseException:
             clean = False
         all_exited = all(not row['attempted'] or row['info'].hProcess and row['exited'] for row in self.children)
+        if self.dns_ledger is not None:
+            try: clean = self.finish_dns_fixture() and clean
+            except BaseException: clean = False
         self.harvest()
         rule_absent = self.rule_owner is None
         if self.rule_owner is not None and clean and empty and all_exited and self.maintenance is not None and self.maintenance.admitted:
@@ -1569,6 +1698,9 @@ class FirstController:
         if 'death_extension' in c:
             native_paths += ['front/death/ready.json', 'front/death/final.json', 'origin/death-held.json', 'origin/death-release.json',
                 'selected/phase-0003.json', 'selected/phase-0004.json', 'death-stop-intent.json']
+        if 'dns_extension' in c:
+            native_paths += ['tools/dns-inventory/stdout','tools/dns-inventory/stderr','dns-fixture-final.json',
+                'health/phase-0004.json','health/phase-0005.json','selected/phase-0003.json']
         reports = []
         for name in native_paths:
             path = self.root / name
@@ -1599,7 +1731,112 @@ class FirstController:
             value['b_selected_discovery'] = self.b_selected_discovery
             value['b_profile'] = dict(self.b_profile_ledger)
         if 'death_extension' in c: value['death'] = self.death_ledger
+        if 'dns_extension' in c: value['dns'] = self.dns_ledger
         return value
+
+
+def read_dns_record(root,relative,limit=live.MAX_NATIVE):
+    raw=live.local.bounded(launcher.checked_path(root/relative,inside=root),limit)
+    return dict(path=relative,bytes=len(raw),sha256=live.sha(raw),text=raw.decode('ascii','strict'))
+
+
+def validate_dns_ledger(value,c,tasks,go,reports,public):
+    template=live.dns.blank_ledger(c)
+    live.require(type(value) is dict and set(value)==set(template),'dns_journal_schema')
+    for key in ('schema_version','stage','run','profile'):
+        live.require(type(value[key]) is type(template[key]) and value[key]==template[key],'dns_journal_binding')
+    descriptors={row['path']:row for row in reports}
+    def record(row,path,limit=live.MAX_NATIVE):
+        live.require(type(row) is dict and set(row)=={'path','bytes','sha256','text'} and row['path']==path
+            and type(row['text']) is str,'dns_journal_record')
+        raw=row['text'].encode('ascii','strict')
+        live.require(live.integer(row['bytes'],1,limit) and len(raw)==row['bytes'] and live.sha(raw)==row['sha256']
+            and descriptors.get(path)==dict(path=path,state='read',bytes=len(raw),sha256=live.sha(raw)),'dns_journal_digest')
+        return live.decode(raw)
+    p=public['dns_extension'];x=c['dns_extension'];inventory=None
+    gates=value['inventory_gates'];live.require(type(gates) is list and len(gates)<=4,'dns_journal_gates')
+    live.require(all(type(value[k]) is bool for k in ('fixture_attempted','fixture_ready','selected_wire_query_observed')),'dns_journal_bool')
+    live.require(p['fixture_ready']==value['fixture_ready'],'dns_journal_ready')
+    if value['inventory'] is not None:
+        live.require('dns-inventory' in tasks,'dns_inventory_task')
+        task=tasks['dns-inventory']
+        live.require(task['resumed'] and task['image_verified'] and task['exited'] and task['exit_code']==0
+            and launcher.token_is_ordinary(task['identity']) and task['capabilities']==[],'dns_inventory_held')
+        command=task['command'];stage=Path(tasks['health']['command'][0]).parent.parent
+        live.require(len(command)==15 and Path(command[0]).name.casefold()=='powershell.exe'
+            and command[1:7]==['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',str(stage/live.dns.INVENTORY)]
+            and command[7:]==['-Run',x['inventory_run'],'-Frequency',str(c['frequency']),'-StartQpc',str(c['start_qpc']),'-DeadlineQpc',str(c['deadline_qpc'])]
+            and launcher.same_identity(task['identity'],tasks['health']['identity']),'dns_inventory_command')
+        inventory=record(value['inventory'],'tools/dns-inventory/stdout',32768)
+    else:live.require(not gates and not p['inventory_verified'] and not value['fixture_attempted'],'dns_inventory_missing')
+    last=c['start_qpc']
+    for row,label in zip(gates,('bind','before','selected','after')):
+        live.require(type(row) is dict and set(row)=={'label','qpc'} and row['label']==label
+            and live.integer(row['qpc'],last,c['deadline_qpc']-1),'dns_inventory_gate_clock')
+        live.dns.inventory(inventory,run=x['inventory_run'],pid=tasks['dns-inventory']['pid'],frequency=c['frequency'],
+            start=c['start_qpc'],deadline=c['deadline_qpc'],now=row['qpc']);last=row['qpc']
+    live.require(not p['inventory_verified'] or inventory is not None and bool(gates),'dns_inventory_public')
+    if gates:
+        live.require(descriptors.get('tools/dns-inventory/stderr')==dict(path='tools/dns-inventory/stderr',state='read',bytes=0,sha256=live.sha(b'')),'dns_inventory_stderr_digest')
+    live.require(not p['inventory_before_bind'] or inventory is not None and bool(gates),'dns_bind_public')
+    if value['fixture_attempted']:
+        live.require(inventory is not None and bool(gates) and value['fixture_deadline_qpc']==c['deadline_qpc']-25*c['frequency'],'dns_fixture_scope')
+    else:live.require(value['fixture_deadline_qpc'] is None and not value['fixture_ready'],'dns_fixture_unattempted')
+    snapshots=value['fixture_snapshots'];live.require(type(snapshots) is list and len(snapshots)<=8,'dns_snapshots')
+    hit=False;previous=None
+    for row in snapshots:
+        live.require(type(row) is dict and set(row)=={'observed_qpc','value'} and live.integer(row['observed_qpc'],c['start_qpc'],c['deadline_qpc']),'dns_snapshot_clock')
+        snapshot=live.dns.receiver(row['value']);hit |= snapshot['selected_query_observed']
+        if previous is not None and previous['counts'] is not None and snapshot['counts'] is not None:
+            live.require(all(snapshot['counts'][key]>=previous['counts'][key] for key in snapshot['counts']),'dns_snapshot_monotonic')
+        previous=snapshot
+    final=value['fixture_final']
+    if final is not None:
+        live.dns.receiver(final,final=True);hit |= final['selected_query_observed']
+        raw=live.encode(final)
+        live.require(descriptors.get('dns-fixture-final.json')==dict(path='dns-fixture-final.json',state='read',bytes=len(raw),sha256=live.sha(raw)),'dns_final_digest')
+        live.require(value['fixture_attempted'] and p['receiver_complete']==(final['counts'] is not None and final['thread_stopped'])
+            and p['fixture_cleanup']==final['cleanup_confirmed'],'dns_receiver_public')
+        if previous is not None and previous['counts'] is not None and final['counts'] is not None:
+            live.require(all(final['counts'][key]>=previous['counts'][key] for key in final['counts']),'dns_final_monotonic')
+    else:live.require(not p['receiver_complete'] and not p['fixture_cleanup'],'dns_receiver_missing')
+    live.require(p['selected_wire_query_observed']==value['selected_wire_query_observed']
+        and (not hit or value['selected_wire_query_observed']),'dns_wire_sticky')
+    phases=value['phases'];live.require(type(phases) is list and len(phases)<=3,'dns_phases')
+    parsed={}
+    for row,(label,role,sequence) in zip(phases,(('before','health-client',3),('selected','selected-client',3),('after','health-client',4))):
+        live.require(type(row) is dict and set(row)=={'label','record'} and row['label']==label,'dns_phase_order')
+        task=tasks['selected' if label=='selected' else 'health'];directory='selected' if label=='selected' else 'health'
+        matches=[g for g in go if g['role']==role and g['sequence']==sequence]
+        live.require(len(matches)==1 and matches[0]['opcode']==6 and matches[0]['case']==x[label+'_case'],'dns_phase_go')
+        live.require(len(gates)>=('before','selected','after').index(label)+2,'dns_phase_gate')
+        phase=live.dns.phase(record(row['record'],directory+'/phase-%04d.json'%sequence),task,c,role=role,
+            boot=c['boot_case'] if label=='selected' else c['admission_nonce'],admission=c['admission_nonce'] if label=='selected' else c['maintenance_nonce'],
+            sequence=sequence,case=x[label+'_case'],phase_deadline=matches[0]['phase_deadline'],identity_check=native_identity)
+        parsed[label]=phase
+        live.require(phase['phase_qpc'][0]>=gates[('before','selected','after').index(label)+1]['qpc'],'dns_phase_after_gate')
+        # Late/unknown native observations remain raw evidence, never completion.
+        if live.dns.timely(phase):
+            live.require(phase['phase_qpc'][0]-inventory['end_qpc']<=5*c['frequency'],'dns_query_freshness')
+    if 'selected' in parsed:
+        phase=parsed['selected'];r=phase['dns']['result']
+        live.require(p['selected_attempted']==r['called'] and p['selected_completed']==r['completed'] and p['selected_pending']==r['pending']
+            and p['selected_late']==(not r['within_deadline'] or phase['phase_qpc'][2]>=phase['phase_qpc'][1])
+            and p['selected_access_denial_observed']==live.dns.access_denial(phase),'dns_selected_public')
+    else:live.require(not any(p[k] for k in ('selected_attempted','selected_completed','selected_pending','selected_late','selected_access_denial_observed')),'dns_selected_missing')
+    for label in ('before','after'):
+        if p['ordinary_'+label+'_verified']:
+            live.require(label in parsed and live.dns.positive(parsed[label]) and any(live.dns.case_positive(row['value'],label) for row in snapshots),'dns_control_public')
+    live.require(not p['inventory_before_each_query'] or len(gates)==4,'dns_all_gates')
+    live.require(not p['same_selected'] or 'selected' in parsed and tasks['selected']['resumed'] and tasks['selected']['image_verified'],'dns_same_selected')
+    live.require(not p['observation_complete'] or len(phases)==3 and len(gates)==4
+        and p['ordinary_before_verified'] and p['ordinary_after_verified'] and p['same_selected'],'dns_observation_complete')
+    if live.dns.ready(p):
+        live.require(len(phases)==3 and final is not None and final['counts'] is not None and final['cleanup_confirmed']
+            and final['error']=='none' and final['counts']['rejected']==final['counts']['send_failed']==0
+            and final['cases']['selected']['matched_queries']==final['cases']['selected']['answers_sent']==0
+            and all(live.dns.case_positive(final,k) for k in ('before','after')),'dns_complete_receiver')
+    return value
 
 
 def validate_family_discovery(discovery, tasks, helper_contract):
@@ -1793,6 +2030,8 @@ def validate_ownership_journal(value, config, *, controller_pid):
     if peer: keys.update(('b_selected_discovery', 'b_profile'))
     death = 'death_extension' in config
     if death: keys.add('death')
+    dns_cell='dns_extension' in config
+    if dns_cell:keys.add('dns')
     live.require(type(value) is dict and set(value) == keys and live.integer(value['schema_version'], 1, 1)
         and value['stage'] == 'model2-first-ownership' and type(value['controller_pid']) is int
         and value['controller_pid'] == controller_pid, 'journal_schema')
@@ -1818,8 +2057,9 @@ def validate_ownership_journal(value, config, *, controller_pid):
     if peer: roles.update(('b-listener', 'b-health', 'b-g-probe', 'b-g-live', 'b-system-conhost',
         'b-acl-root', 'b-acl-inputs', 'b-acl-front', 'b-acl-remove'))
     if death: roles.update(('death-front', 'death-relay'))
+    if dns_cell:roles.add('dns-inventory')
     live.require(('wrong_port_extension' in public) == ('wrong_port_extension' in config)
-        and ('wrong_peer_extension' in public) == peer and ('death_extension' in public) == death, 'journal_extension_binding')
+        and ('wrong_peer_extension' in public) == peer and ('death_extension' in public) == death and ('dns_extension' in public)==dns_cell, 'journal_extension_binding')
     live.require(type(value['tasks']) is list and len(value['tasks']) <= len(roles), 'journal_tasks')
     tasks = {}
     for row in value['tasks']:
@@ -1909,6 +2149,12 @@ def validate_ownership_journal(value, config, *, controller_pid):
         x = config['death_extension']; expected_go[4] = ('selected-client', 5, 255, config['boot_case'])
         expected_go[4:4] = [('selected-client', 3, 5, x['death_case']), ('health-origin-release', 1, 254, x['death_case']),
             ('selected-client', 4, 2, x['after_direct_case'])]
+    if dns_cell:
+        x=config['dns_extension']
+        expected_go[4:]=[('health-client',3,6,x['before_case']),('selected-client',3,6,x['selected_case']),
+            ('health-client',4,6,x['after_case']),('selected-client',4,255,config['boot_case']),
+            ('health-client',5,2,config['health_cases'][2]),('health-client',6,255,config['admission_nonce']),
+            ('health-origin',1,255,config['health_cases'][0])]
     live.require(type(value['go']) is list and len(value['go']) <= len(expected_go), 'journal_go')
     for row, (role, sequence, opcode, case) in zip(value['go'], expected_go):
         live.require(type(row) is dict and set(row) == {'role', 'sequence', 'opcode', 'case', 'phase_deadline', 'path', 'sha256'}
@@ -1935,11 +2181,11 @@ def validate_ownership_journal(value, config, *, controller_pid):
             expected_path = ('selected-control' if role == 'selected-client' else 'q-health-control' if role == 'q-health' else 'b-health-control' if role == 'b-health' else 'health-control') + '/phase-%04d.bin' % sequence
         live.require(row['path'] == expected_path and row['sha256'] == live.sha(expected), 'journal_go_digest')
     paths = set()
-    live.require(type(value['native_reports']) is list and len(value['native_reports']) <= (34 if death else 46 if q_psec or peer else 41 if wrong_extension is not None else 26), 'journal_reports')
+    live.require(type(value['native_reports']) is list and len(value['native_reports']) <= (32 if dns_cell else 34 if death else 46 if q_psec or peer else 41 if wrong_extension is not None else 26), 'journal_reports')
     for row in value['native_reports']:
         live.require(type(row) is dict and set(row) == {'path', 'state', 'bytes', 'sha256'}
             and type(row['path']) is str and row['path'] not in paths
-            and re_report_path(row['path'], wrong_port='wrong_port_extension' in config, q_psec=q_psec, peer=peer, death=death)
+            and re_report_path(row['path'], wrong_port='wrong_port_extension' in config, q_psec=q_psec, peer=peer, death=death, dns=dns_cell)
             and row['state'] in ('read', 'unreadable'), 'journal_report')
         paths.add(row['path'])
         live.require(row['state'] != 'read' or live.integer(row['bytes'], 0, live.MAX_PRIVATE) and ac.digest(row['sha256']), 'journal_report_digest')
@@ -1973,6 +2219,8 @@ def validate_ownership_journal(value, config, *, controller_pid):
     live.require(public['execution_mode'] == live.execution_mode(config), 'journal_execution_mode')
     if death:
         validate_death_ledger(value['death'], config, tasks, value['go'], value['native_reports'], value['fixed_ports'], public)
+    if dns_cell:
+        validate_dns_ledger(value['dns'],config,tasks,value['go'],value['native_reports'],public)
     if live.first_ready(public, require_guard=False) or live.diagnostic_ready(public, require_guard=False):
         live.require(set(tasks) == roles and len(value['go']) == len(expected_go)
             and all(row['resumed'] and row['exited'] and (live.integer(row['exit_code']) if role in ('system-conhost', 'q-system-conhost', 'b-system-conhost')
@@ -2081,7 +2329,7 @@ def validate_death_front(value, task, config, proxy_port, origin_port, start, en
     return value
 
 
-def re_report_path(path, wrong_port=False, q_psec=False, peer=False, death=False):
+def re_report_path(path, wrong_port=False, q_psec=False, peer=False, death=False, dns=False):
     import re
     base = bool(re.fullmatch(r'(?:front/(?:ready|final)\.json|relay/final\.json|origin/(?:ready|final|receipt-000[1-8])\.json|'
         r'health/(?:ready|final|phase-000[1-3])\.json|selected/(?:ready|final|phase-000[12])\.json|g-(?:probe|live)/(?:stdout|stderr))', path))
@@ -2091,7 +2339,9 @@ def re_report_path(path, wrong_port=False, q_psec=False, peer=False, death=False
         or peer and bool(re.fullmatch(r'b-(?:front/(?:ready|final|receipt-000[1-8])\.json|'
             r'health/(?:ready|final|phase-000[12])\.json|g-(?:probe|live)/(?:stdout|stderr)|live-request\.json)|selected/phase-0003\.json', path))
         or death and bool(re.fullmatch(r'front/death/(?:ready|final)\.json|origin/death-(?:held|release)\.json|'
-            r'selected/phase-000[34]\.json|death-stop-intent\.json', path)))
+            r'selected/phase-000[34]\.json|death-stop-intent\.json', path))
+        or dns and bool(re.fullmatch(r'tools/dns-inventory/(?:stdout|stderr)|dns-fixture-final\.json|'
+            r'health/phase-000[45]\.json|selected/phase-0003\.json',path)))
 
 
 def run_controller(config, root=ROOT, *, api=None):
@@ -2106,7 +2356,7 @@ def run_controller(config, root=ROOT, *, api=None):
     except BaseException as exc:
         phase = controller.phase
         value['failure'] = phase if phase in ('inputs', 'identity', 'deadline', 'staging', 'probe', 'selected', 'firewall',
-            'health', 'positive', 'wrong-port', 'wrong-peer', 'death', 'cleanup', 'report') else 'worker'
+            'health', 'positive', 'wrong-port', 'wrong-peer', 'death', 'dns', 'cleanup', 'report') else 'worker'
         value['status'] = 'failed' if any(value['violations'].values()) else 'inconclusive'
         # Private only: retain native Win32/HRESULT and closed invariant details
         # for one evidence-driven repair, without exposing paths or raw stderr.

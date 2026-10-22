@@ -106,7 +106,7 @@ class GateAPI(Clock):
 
 class OwnershipTests(unittest.TestCase):
     def test_exact_native_operation_labels_and_payload_lengths(self):
-        self.assertEqual(l.OPS, {1: 'proxy-get', 2: 'direct-tcp', 3: 'wrong-port', 4: 'wrong-peer', 5: 'proxy-after-death', 255: 'finish'})
+        self.assertEqual(l.OPS, {1: 'proxy-get', 2: 'direct-tcp', 3: 'wrong-port', 4: 'wrong-peer', 5: 'proxy-after-death', 6: 'dns-query', 255: 'finish'})
         cpp = (ROOT / '.github/native/windows_identity_proxy_c_contract.hpp').read_text()
         for label in l.OPS.values():
             self.assertIn('return "' + label + '"', cpp)
