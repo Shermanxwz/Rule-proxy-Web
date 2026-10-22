@@ -1,6 +1,6 @@
 # Windows 本机应用级代理隔离：2026-10-23 检查点
 
-本页记录已经运行的本机证据与尚未验收的范围。当前已完成首次真实网络的 **profiles-off diagnostic** 及同身份错端口的独立诊断扩展；错误 peer 的第二次尝试已完成前后健康控制和清理，但 selected 连接超时，结论仍为 **inconclusive**。严格隔离和产品验收仍为 **false**。系统三个防火墙 profiles 原本关闭，本实验没有为得到成功而启用它们，也没有改全局代理、DNS 或路由。`effective_full_verified=false` 不能由精确规则存在、HTTP 正向成功或清理成功替代。
+本页记录已经运行的本机证据与尚未验收的范围。当前已完成首次真实网络的 **profiles-off diagnostic**、同身份错端口诊断，以及真实在途请求被精确 relay 死亡中断、同 held selected 事后 fresh direct 返回 `10013` 的 death01 诊断；错误 peer 的第二次尝试虽完成前后健康控制和清理，但 selected 连接超时，结论仍为 **inconclusive**。严格隔离和产品验收仍为 **false**。系统三个防火墙 profiles 原本关闭，本实验没有为得到成功而启用它们，也没有改全局代理、DNS 或路由。`effective_full_verified=false` 不能由精确规则存在、HTTP 正向成功或清理成功替代。
 
 ## 首次完整诊断：diagnostic09
 
@@ -51,6 +51,18 @@
 
 [证据索引](../../verification/windows-2026-10-22/model2-wrong-peer-02-evidence-index.json)绑定原 preflight、2687 字节原 public（SHA256 `c0ead40c489c36cf4d5f83f5d6d9d450a7a4e9ee0bc4d592d0ed5952d375266d`）、逐字节 runner、摘要与脱敏投影。独立只读归档核对23份 staged 源码与受测 git blob、15个唯一 nonce、13条 GO、36份实际报告描述符的 bytes/SHA、native/G artifacts 与历史闭合 validators；另读取50份 stdout/stderr 共6700字节，仅公开整体 SHA 承诺。私有树继续保留，归档没有再次执行任何 actor 或网络测试。
 
+## 在途 relay 死亡：death01 诊断完成
+
+受测源码为 `3d64b13c7563facf09a9758ba0854cb6c6b1704e`，源码闭包 SHA256 为 `4d7d5fdc29843737139739354d02e8e76383c13e4f97eadaf061b0ca289761f1`。[公开结果](../../verification/windows-2026-10-22/model2-death-01-public.json)、[版本摘要](../../verification/windows-2026-10-22/model2-death-01-summary.json)及[安全组件投影](../../verification/windows-2026-10-22/model2-death-01-component-projection.json)绑定独立 profile `same-selected-live-proxy-death-v1`。原 main 正向 HTTP、direct `10013` 和 ordinary origin 控制再次完成；main direct 发生在原 front/relay 退出之后，不能称为活代理期间的直连测试。
+
+同一 held selected、A 身份、固定 P/O 和原 QPC epoch 保持不变。新 death-front 与 death-relay 在原绝对预算内使用固定 10 秒 pair；selected 先向仍活着的 relay 发出真实 129 字节代理请求，原 ordinary origin 独立确认规范 95 字节请求与 EOF，保持 accepted socket 且发送 0 字节响应。所有者核对该 held origin 的 ACK、relay generation、精确 workload/outer Jobs 与连接元组；实际 relay TCP 状态为 `FIN_WAIT2`（已完成 `SD_SEND` 后的半关闭），并非声称仍为 ESTABLISHED。
+
+持久化并读回 stop intent 后，所有者仅终止该 held relay，持有观察退出 1。death-front 自然退出 5、`pipe_read` / Win32 `109`，response 0 字节；同 selected 的在途请求得到空响应 EOF、transport `failure=response`、无 Winsock 错误，socket、pipe 和 WSA 关闭均确认。这两个非零退出码是该 cell 预声明且证据绑定的例外，其他角色和维护进程均退出 0。被杀 relay 留下 0 字节 final 占位文件，未生成可用 JSON 报告；没有补造报告。
+
+随后所有者发布精确 release，确认同 held origin 的 release ACK，再由同 held selected 对同一仍健康 O 发起 fresh case direct：已尝试、未连接，Winsock `10013`，未收到 forbidden nonce。普通 origin 的第三次 after 正向控制通过；完整五份收据含一份 death 专用 0 响应收据，其余正常响应。该次证明的是“在途请求被 relay 死亡中断”和“同 held selected 事后 fresh direct 拒绝”，op5 的历史标签 `proxy-after-death` 不改变真实发起早于 kill 的顺序。
+
+所有 death required facts、`death_extension.completed` 与 `diagnostic_completed` 均为 true，整体 `diagnostic-observed`，全部 cleanup 为 true、无需恢复；私有树保留。严格 `checks.proxy_death`、Full、`first_chain_verified`、`direct_deny_verified`、`local_c_qualified`、`product_acceptance` 仍为 false，浏览器、WinHTTP、真实应用及 selected DNS 均未由该次验证。[证据索引](../../verification/windows-2026-10-22/model2-death-01-evidence-index.json)绑定2954字节原 public（SHA256 `c7074aa14e13f42c81ed659a0556666624041146a74051bd7e1cef7d3daa68c6`）、原 preflight、逐字节 runner、摘要与安全投影。归档只读核对23份 staged 源码与受测 git、11个唯一 nonce、11条 GO、30份实际报告描述符（契约上限34）及36份 stdout/stderr 共3346字节的整体承诺，没有再次运行 actor 或网络。
+
 ## ordinary DNS 同 API 机制已运行
 
 `dns-standard-local-02` 已在普通身份下完成真实 `DnsQueryEx` VERSION1 调用、专用 loopback UDP53 接收端的一次查询和答案匹配，API/query status 均为 0，记录内存、socket、线程和 held Job 清理均确认。运行前的受监督只读 DNS/有效 NRPT/53 端口占用门及两次新鲜度门均通过；运行后全局配置与原 baseline 完全相等。该结果只解决 ordinary 同 API 正控，selected DNS、默认 resolver 和系统 broker 隔离仍未验证。首次 staging 时钟范围失败历史及完整证据见[独立 DNS 检查点](2026-10-23-dns-standard-mechanism.md)。
@@ -64,7 +76,7 @@
 | 严格防火墙 Full 生效条件 | 未通过；本机 profiles 原本关闭，当前仅显式诊断 |
 | 同身份错端口 | wrong-port01 正控失败保留；wrong-port02 独立 PSEC 前后正控及同 held selected `10013` 已完成诊断，严格资格仍为 false |
 | 错误 peer | wrong-peer01 首次超时保留；wrong-peer02 前后健康与完整 finish/清理均完成，但主连接仍超时，隔离与泄漏均未定论 |
-| 代理进程死亡后的 fail-closed | 尚未完成实测与验收 |
+| 在途 relay 死亡与事后 fresh direct | death01 独立诊断已完成：精确 held relay 停止、前端/客户端空响应失败、同 O 释放恢复后 fresh direct `10013`；严格资格仍为 false |
 | DNS | ordinary standard53 同 API 机制已通过；selected、默认 resolver 与 broker 隔离仍未验证 |
 | UDP/IPv6、系统代办、真实浏览器、WinHTTP 与应用适配 | 本检查点未验证，不能由上述 HTTP、direct TCP 或 ordinary DNS 外推 |
 

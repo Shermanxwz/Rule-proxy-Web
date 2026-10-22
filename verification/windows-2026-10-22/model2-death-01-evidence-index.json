@@ -1,0 +1,32 @@
+{
+  "files": [
+    {
+      "bytes": 2906,
+      "path": "verification/windows-2026-10-22/model2-death-01-preflight.json",
+      "sha256": "a520fcbd5e91c41581ded69ee700ac44f4174776d70fe074d35dc9e9da20f4f0"
+    },
+    {
+      "bytes": 2954,
+      "path": "verification/windows-2026-10-22/model2-death-01-public.json",
+      "sha256": "c7074aa14e13f42c81ed659a0556666624041146a74051bd7e1cef7d3daa68c6"
+    },
+    {
+      "bytes": 1934,
+      "path": "verification/windows-2026-10-22/model2-death-01-runner.py",
+      "sha256": "0730e732d8a291d8ed0ab3a65c48a5a0640d9b852636e60643d299bc206552b4"
+    },
+    {
+      "bytes": 3939,
+      "path": "verification/windows-2026-10-22/model2-death-01-component-projection.json",
+      "sha256": "bf7f2c4e5c605ca602d01f570c11d1d2bea15411b08b9890b6e3296fa43fd5e9"
+    },
+    {
+      "bytes": 3515,
+      "path": "verification/windows-2026-10-22/model2-death-01-summary.json",
+      "sha256": "035f05e8323fb8466e5b6a03a941dffc1ebb68ddbf016ed99187dca7f43dbd97"
+    }
+  ],
+  "schema_version": 1,
+  "source_commit": "3d64b13c7563facf09a9758ba0854cb6c6b1704e",
+  "stage": "live-relay-death-evidence-index"
+}
