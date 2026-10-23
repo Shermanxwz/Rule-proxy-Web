@@ -1,0 +1,173 @@
+{
+  "DLL_loaded": false,
+  "LPAC_profile_created": false,
+  "cleanup_flags_include_not_created_resource_noops": true,
+  "curl_CreateProcessW_entered": false,
+  "failure": "ordinary_before",
+  "failure_detail": {
+    "operation": "ordinary_before",
+    "raw_message_not_republished": true,
+    "safe_invariant_code": "loader_constructor_inputs",
+    "type": "ValueError",
+    "unique_underlying_cause_proven": false
+  },
+  "fixed_false_claims": {
+    "DllMain_return_proven_by_event": false,
+    "Linux_equivalence": false,
+    "PSEC_qualified": false,
+    "curl_entry_proven_by_event": false,
+    "curl_network_adapter_qualified": false,
+    "dns_isolation_qualified": false,
+    "hostile_same_sid_boundary_verified": false,
+    "product_acceptance": false,
+    "proxy_qualified": false,
+    "restoration_fully_verified": false,
+    "restore_payload_absence_verified": false,
+    "winsock_absence_verified": false
+  },
+  "globals": {
+    "actual_counts": {
+      "after": {
+        "dns": 12,
+        "firewall_profiles": 3,
+        "routes": 52
+      },
+      "baseline": {
+        "dns": 12,
+        "firewall_profiles": 3,
+        "routes": 50
+      },
+      "before": {
+        "dns": 12,
+        "firewall_profiles": 3,
+        "routes": 52
+      }
+    },
+    "before_after_byte_equal": true,
+    "before_after_objects_equal": {
+      "dns": true,
+      "firewall_profiles": true,
+      "routes": true,
+      "user_proxy": true
+    },
+    "commitments": {
+      "after": {
+        "bytes": 7655,
+        "sha256": "e2628e54697b73876c68b6ad3a055f407b8518023f42f239e1668599eba9b1e0"
+      },
+      "baseline": {
+        "bytes": 7378,
+        "sha256": "f05d91ee76ee8a97ae5ab3bfa092167a8ee560c083255f142e6c453f2edf7ab3"
+      },
+      "before": {
+        "bytes": 7655,
+        "sha256": "e2628e54697b73876c68b6ad3a055f407b8518023f42f239e1668599eba9b1e0"
+      }
+    },
+    "configuration_or_route_cleanup_called": false,
+    "equality_assumed": false,
+    "original_after_byte_equal": false,
+    "original_after_objects_equal": {
+      "dns": true,
+      "firewall_profiles": true,
+      "routes": false,
+      "user_proxy": true
+    },
+    "original_before_byte_equal": false,
+    "original_before_objects_equal": {
+      "dns": true,
+      "firewall_profiles": true,
+      "routes": false,
+      "user_proxy": true
+    },
+    "route_writer_or_time_attribution_proven": false
+  },
+  "loader_context_created": false,
+  "marker_events_created": false,
+  "not_eleven_allocated_resources": true,
+  "observation_complete": false,
+  "old_route_unknown_and_atomic01_unknown_retained": true,
+  "ordinary_controls": {
+    "after": false,
+    "before": false
+  },
+  "ordinary_outer_guard_worker_and_private_parent_existed": true,
+  "original_checks": {
+    "artifacts": true,
+    "guard": true,
+    "mechanism": false,
+    "ordinary": true,
+    "outer_cleanup": true,
+    "plan": true,
+    "sources": true,
+    "worker_bound": true,
+    "worker_exit": true
+  },
+  "original_observation": {
+    "DllMain_return_proven_by_event": false,
+    "Linux_equivalence": false,
+    "PSEC_qualified": false,
+    "acl_removed": true,
+    "body_event_observed": false,
+    "cleanup_tools": true,
+    "coherent_marker_observed": false,
+    "curl_entry_proven_by_event": false,
+    "curl_network_adapter_qualified": false,
+    "dns_isolation_qualified": false,
+    "entered_event_observed": false,
+    "failure": "ordinary_before",
+    "hostile_same_sid_boundary_verified": false,
+    "labels_restored": true,
+    "loader_mechanism_observed": false,
+    "lpac_identity_verified": false,
+    "mapped_marker_correlated": false,
+    "marker_file_closed": true,
+    "observation_complete": false,
+    "observer_resources_cleanup_verified": true,
+    "ordinary_after_positive": false,
+    "ordinary_before_positive": false,
+    "parent_event_stdio_closed": true,
+    "payload_installed": false,
+    "product_acceptance": false,
+    "profile_deleted": true,
+    "proxy_qualified": false,
+    "query_resources_closed": true,
+    "restoration_fully_verified": false,
+    "restore_payload_absence_verified": false,
+    "selected_exit_code": null,
+    "selected_natural_exit": false,
+    "selected_resumed": false,
+    "selected_version_positive": false,
+    "sid_released": true,
+    "update_returned_true": false,
+    "version_behavior_observed": false,
+    "winsock_absence_verified": false,
+    "workload_cleanup": true,
+    "workload_job_empty": true
+  },
+  "profile": "zero-cap-system-curl-loader-events-with-version-controls-v1",
+  "profile_ACL_or_label_changed": false,
+  "recovery_required": false,
+  "schema_version": 1,
+  "scope": "one-local-held-zero-cap-lpac-system-curl-loader-events-v1",
+  "scoped_cleanup": {
+    "acl_removed": true,
+    "cleanup_tools": true,
+    "labels_restored": true,
+    "marker_file_closed": true,
+    "observer_resources_cleanup_verified": true,
+    "parent_event_stdio_closed": true,
+    "profile_deleted": true,
+    "query_resources_closed": true,
+    "sid_released": true,
+    "workload_cleanup": true,
+    "workload_job_empty": true
+  },
+  "selected_target_created": false,
+  "source_commit": "d7ec75b4b743311c7e9ffd3116aa9fd19cfed665",
+  "source_count": 62,
+  "source_sha256": "0c993f0f8507d27826cebc5abf66b70c99407ee43d4fdcabf14f7e98dd776642",
+  "stage": "lpac-curl-loader-actual01-safe-summary",
+  "status": "inconclusive",
+  "worker_schema_binding_projection_valid": true
+}

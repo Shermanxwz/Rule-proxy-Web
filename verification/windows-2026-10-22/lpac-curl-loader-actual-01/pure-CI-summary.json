@@ -1,0 +1,65 @@
+{
+  "CI_or_runtime_dispatched_by_publisher": false,
+  "CI_raw_log_republished": false,
+  "CI_root_API_receipt": {
+    "decoded_log": {
+      "bytes": 298056,
+      "name": "lpac-curl-loader-source-ci-01.log",
+      "sha256": "aadf17421726d14d8c39c3d53ab1c3c544a3649d55af84c4d793de0f3abd034b"
+    },
+    "head_sha": "d7ec75b4b743311c7e9ffd3116aa9fd19cfed665",
+    "job_basis": "Root fetched and read jobs API on 2026-10-24; successful job and steps observed.",
+    "job_conclusion": "success",
+    "job_id": 120620325288,
+    "job_status": "completed",
+    "local_actual_acceptance": false,
+    "raw_CI_log_published": false,
+    "run_conclusion": "success",
+    "run_id": 40013724752,
+    "run_status": "completed",
+    "runtime_step_basis": "Root read exact jobs API step conclusions; no commit marker enabling runtime stages.",
+    "runtime_steps_5_through_9": "skipped",
+    "schema_version": 1,
+    "source_commit": "d7ec75b4b743311c7e9ffd3116aa9fd19cfed665",
+    "stage": "root-A3-source-only-CI-receipt",
+    "tests": {
+      "count": 1260,
+      "seconds": 265.719,
+      "skipped": 0,
+      "summary": "Ran 1260 tests in 265.719s",
+      "terminal": "OK"
+    },
+    "url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/40013724752"
+  },
+  "CI_summary_independently_parsed": {
+    "passed": true,
+    "raw_log": {
+      "bytes": 298056,
+      "sha256": "aadf17421726d14d8c39c3d53ab1c3c544a3649d55af84c4d793de0f3abd034b"
+    },
+    "seconds": 265.719,
+    "skips": 0,
+    "tests": 1260
+  },
+  "decoded_log_format": "connector-decoded UTF8 BOM/CRLF; not raw ZIP/HTTP",
+  "full02": {
+    "passed": true,
+    "raw_log": {
+      "bytes": 240452,
+      "sha256": "c04d6f784017eafd975f4d16525d584165fda13b7af03d03a1b586729fbcccf6"
+    },
+    "receipt": {
+      "bytes": 1209,
+      "sha256": "d7b8d94138436410d9dd0adf76cc370d03f0b4668ea6042ad099af243635236a"
+    },
+    "seconds": 273.694,
+    "skips": 2,
+    "tests": 1260
+  },
+  "local_assay_result_separate": true,
+  "native_compiled_assertions_not_additional_test_methods": true,
+  "runtime_steps_5_to_9": "skipped",
+  "schema_version": 1,
+  "source_commit": "d7ec75b4b743311c7e9ffd3116aa9fd19cfed665",
+  "stage": "curl-loader-local-full-and-automatic-source-CI"
+}
