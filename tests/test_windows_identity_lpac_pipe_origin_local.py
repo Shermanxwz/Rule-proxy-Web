@@ -38,8 +38,8 @@ class GuardTests(unittest.TestCase):
             self.assertEqual(v['failure'],'inputs');self.assertFalse(v['recovery_required'])
     def test_hidden_worker_also_honors_false_ready_before_api(self):
         with tempfile.TemporaryDirectory() as td:
-            c=f.config();root=Path(td)/m.core.stage_name(c['run']);root.mkdir();p=root/'worker-config.json';p.write_bytes(m.encode(c))
-            with patch.object(m,'ROOT',root),patch.object(m,'snapshot',return_value=({},c['source_hashes'],c['source_sha256'])),patch.object(m.core,'ACTUAL_READY',False),patch.object(m.core,'API',side_effect=AssertionError('backend')),self.assertRaises(ValueError):m.worker(p)
+            c=f.config();root=Path(td).resolve()/m.core.stage_name(c['run']);root.mkdir();p=root/'worker-config.json';p.write_bytes(m.encode(c))
+            with patch.object(m,'ROOT',root),patch.object(m,'snapshot',return_value=({},c['source_hashes'],c['source_sha256'])),patch.object(m.core,'ACTUAL_READY',False),patch.object(m.core,'API',side_effect=AssertionError('backend')),self.assertRaisesRegex(ValueError,'^ipc_worker_source_ready$'):m.worker(p)
     def test_exact_worker_args_no_public_or_runtime_flags(self):
         for extra in (['--run-local-lpac-pipe-origin'],['--actor','x'],['--output','x']):
             with patch.object(m,'worker',side_effect=AssertionError('worker')),self.assertRaises(ValueError):m.main(['--worker','x',*extra])

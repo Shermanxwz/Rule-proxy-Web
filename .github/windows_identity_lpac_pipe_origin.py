@@ -63,7 +63,7 @@ def validate_plan(p,*,device,source,actor,manifest,origin_actor,origin_manifest)
     require(type(p['recovery_reference']) is str and 1<=len(p['recovery_reference'])<=512 and not any(x in p['recovery_reference'] for x in '\r\n\0'),'ipc_recovery_reference');return p
 def verify_actor(actor,manifest,ah,mh,*,root):
     actor=launcher.checked_path(actor);manifest=launcher.checked_path(manifest);require(actor.name==ACTOR and manifest.name==MANIFEST and actor.parent==manifest.parent,'ipc_artifact_name')
-    raw=local.bounded(manifest,8192);v=decode(raw);keys={'schemaVersion','compileOnly','runtimeAcceptance','interfaceVersion','executableSha256',*NATIVE_SOURCES}
+    raw=local.bounded(manifest,8192);v=decode(raw.removeprefix(b'\xef\xbb\xbf'));keys={'schemaVersion','compileOnly','runtimeAcceptance','interfaceVersion','executableSha256',*NATIVE_SOURCES}
     require(type(v) is dict and set(v)==keys and type(v['schemaVersion']) is int and v['schemaVersion']==1 and type(v['interfaceVersion']) is int and v['interfaceVersion']==1
         and v['compileOnly'] is True and v['runtimeAcceptance'] is False and v['executableSha256']==ah and sha(raw)==mh,'ipc_manifest')
     require(base.ac.digest(ah) and base.ac.digest(mh) and sha(local.bounded(actor,8*1024*1024))==ah,'ipc_actor_hash')

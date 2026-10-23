@@ -194,6 +194,20 @@ class Function:
     def __call__(self,*a):return self.fn(*a)
 
 class ConstructorTests(unittest.TestCase):
+    def test_verify_actor_single_bom_preserves_original_hash_and_strict_schema(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td).resolve();build=root/'build';build.mkdir();actor=build/m.ACTOR;actor.write_bytes(b'MZ'+b'x'*510);ah=m.sha(actor.read_bytes());manifest=build/m.MANIFEST
+            value=dict(schemaVersion=1,compileOnly=True,runtimeAcceptance=False,interfaceVersion=1,executableSha256=ah)
+            for i,(key,name) in enumerate(m.NATIVE_SOURCES.items()):
+                path=root/name;path.parent.mkdir(parents=True,exist_ok=True);raw=('native-source-%d\n'%i).encode();path.write_bytes(raw);value[key]=m.sha(raw)
+            body=m.encode(value);bom=b'\xef\xbb\xbf'
+            for raw in (body,bom+body):
+                manifest.write_bytes(raw);self.assertEqual(m.verify_actor(actor,manifest,ah,m.sha(raw),root=root),actor)
+            manifest.write_bytes(bom+body)
+            with self.assertRaises(ValueError):m.verify_actor(actor,manifest,ah,m.sha(body),root=root)
+            for raw in (bom+bom+body,m.encode(value|{'extra':True}),m.encode(value|{'actorSourceSha256':'f'*64}),body.replace(b'"schemaVersion":1',b'"schemaVersion":1,"schemaVersion":1'),body.replace(b'"schemaVersion":1',b'"schemaVersion":NaN')):
+                manifest.write_bytes(raw)
+                with self.subTest(raw_prefix=raw[:3]),self.assertRaises(ValueError):m.verify_actor(actor,manifest,ah,m.sha(raw),root=root)
     def setUp(self):
         state=[0];self.error=state
         for name,fn in (('get_last_error',lambda:state[0]),('set_last_error',lambda value:state.__setitem__(0,value))):
