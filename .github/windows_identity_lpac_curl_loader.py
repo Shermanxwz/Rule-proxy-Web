@@ -75,6 +75,14 @@ def curl_command_matches_system(command,system_path):
         and 'A'<=p.drive[0].upper()<='Z' and p.root=='\\' and '..' not in p.parts for p in (requested,expected))
     return dos_paths and requested==expected
 
+def private_process_thread_sddl(value,parent_sid):
+    # Process/thread generic-all can be serialized as the Vista+ mapped mask.
+    # Accept only the same protected two-allow-ACE layout and exact trustees;
+    # retain the original observed strings for subsequent held equality.
+    if type(value) is not str or type(parent_sid) is not str or launcher.SID_PATTERN.fullmatch(parent_sid) is None:return False
+    masks=('GA','0x1fffff')
+    return any(value=='D:P(A;;'+system+';;;SY)(A;;'+parent+';;;'+parent_sid+')' for system in masks for parent in masks)
+
 def validate_artifact_pins(value):
     require(type(value) is dict and set(value)==set(ARTIFACT_KEYS),'loader_artifact_set')
     for k,r in value.items():
@@ -590,9 +598,8 @@ class Owner(cell.CellOwner):
         require(sha(local.bounded(Path(self.c['curl_path']),8*1024*1024))==CURL_SHA256,'loader_held_disk')
         current=zero.capture_primary(self.api,row['token'],self.parent,self.profile['sid'],self.budget,end,row['lpac_expected'])
         require(current==row['expected_primary'],'loader_primary_changed')
-        expected='D:P(A;;GA;;;SY)(A;;GA;;;'+self.parent['sid']+')'
         security=dict(process=self.api.kernel_sddl(h),thread=self.api.kernel_sddl(row['info'].hThread))
-        require(all(x==expected for x in security.values()),'loader_process_thread_DACL')
+        require(all(private_process_thread_sddl(x,self.parent['sid']) for x in security.values()),'loader_process_thread_DACL')
         require(security==row['kernel_security'],'loader_kernel_SD_changed')
         row['held_checks'].append(dict(qpc=self.budget.read(),pid=row['pid'],created=row['created'],image_sha256=CURL_SHA256,
             primary=current,inner_job=True,outer_job=True,kernel_security=security));self.budget.require_ms(end)
@@ -632,8 +639,8 @@ class Owner(cell.CellOwner):
         self.api.verify_outer(self.c['guard_job_name'],info.hProcess);self.api.verify_image(info.hProcess,Path(self.c['curl_path']))
         row['token']=self.api.token_for_process(info.hProcess);self.owners.add(row['token']);row['identity']=self.api.identity(row['token'])
         row['capabilities']=[];row['expected_primary']=zero.capture_primary(self.api,row['token'],self.parent,self.profile['sid'],self.budget,end,selected)
-        expected='D:P(A;;GA;;;SY)(A;;GA;;;'+self.parent['sid']+')';row['kernel_security']=dict(process=self.api.kernel_sddl(info.hProcess),thread=self.api.kernel_sddl(info.hThread))
-        require(all(v==expected for v in row['kernel_security'].values()),'loader_process_thread_SD')
+        row['kernel_security']=dict(process=self.api.kernel_sddl(info.hProcess),thread=self.api.kernel_sddl(info.hThread))
+        require(all(private_process_thread_sddl(v,self.parent['sid']) for v in row['kernel_security'].values()),'loader_process_thread_SD')
         self.held(row,end);row['admission_qpc']=self.budget.read();self.budget.require_ms(end);row['admitted']=True;return row
     def resume_curl(self,row,end):
         self.held(row,end);require(row['admitted'] and not row['resumed'] and row['parent_copies_closed'],'loader_resume_once')
@@ -859,7 +866,8 @@ def task_validate(t,c,parent,root,*,curl):
         require(live.integer(ob['returned_qpc'],c['start_qpc'],ob['work_cutoff']-1) and ob['returned_qpc']<=t['constructor_return_qpc']<=t['admission_qpc']<ob['work_cutoff']<=work_cutoff(c),'loader_admission_clock')
         require(t['parent_copies_closed'] and len(t['inherited_handles'])==(5 if selected else 3)
             and len(set(t['inherited_handles']))==len(t['inherited_handles']) and all(live.integer(h,1,0xfffffffffffffffe) for h in t['inherited_handles']),'loader_handle_list')
-        expected='D:P(A;;GA;;;SY)(A;;GA;;;'+parent['sid']+')';require(t['kernel_security']==dict(process=expected,thread=expected),'loader_private_process_thread')
+        require(type(t['kernel_security']) is dict and set(t['kernel_security'])=={'process','thread'}
+                and all(private_process_thread_sddl(v,parent['sid']) for v in t['kernel_security'].values()),'loader_private_process_thread')
         p=t['expected_primary'];access.identity_shape(p)
         if selected:zero.identity(p,primary=True)
         else:require(not p['appcontainer'] and p['appcontainer_sid'] is None and p['capabilities']==[] and p['token_type']==1 and not p['elevated'] and not p['ui_access'],'loader_control_token')
