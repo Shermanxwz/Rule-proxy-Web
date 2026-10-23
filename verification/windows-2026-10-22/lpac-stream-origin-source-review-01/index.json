@@ -1,0 +1,131 @@
+{
+  "actual_source_commit": "3d538a89328072186f1db50f5fce7cc39611b44f",
+  "automatic_CI": "verification/windows-2026-10-22/lpac-stream-origin-source-review-01/automatic-CI.json",
+  "raw_originals_retained_in_WORK": true,
+  "schema_version": 1,
+  "source_count": 45,
+  "source_hashes_are_not_runtime_acceptance": true,
+  "source_history": "verification/windows-2026-10-22/lpac-stream-origin-source-review-01/source-history.json",
+  "source_sha256": "ccc4008de826faf35eb5c7ea8df47ecdfe54fe0fbf3c31c854d764bbd51899be",
+  "source_views": [
+    {
+      "copy_is_original_bytes": true,
+      "path": "verification/windows-2026-10-22/lpac-stream-origin-source-review-01/compile_lpac_stream_native_01.ps1",
+      "raw_commitment": {
+        "bytes": 5201,
+        "sha256": "2601c59c61db05349e00bff32128bfcfc2f5f75d5b6d1585d198a25e9b9d63ae"
+      },
+      "representation": "exact source",
+      "view_commitment": {
+        "bytes": 5201,
+        "sha256": "2601c59c61db05349e00bff32128bfcfc2f5f75d5b6d1585d198a25e9b9d63ae"
+      }
+    },
+    {
+      "copy_is_original_bytes": true,
+      "path": "verification/windows-2026-10-22/lpac-stream-origin-source-review-01/lpac_stream_origin_capture_01.ps1",
+      "raw_commitment": {
+        "bytes": 2713,
+        "sha256": "bae92ad9f9fca3d543f7c390ab7bc36cd49fdd7cc2a9b2585a371658aa485726"
+      },
+      "representation": "exact source",
+      "view_commitment": {
+        "bytes": 2713,
+        "sha256": "bae92ad9f9fca3d543f7c390ab7bc36cd49fdd7cc2a9b2585a371658aa485726"
+      }
+    },
+    {
+      "copy_is_original_bytes": true,
+      "path": "verification/windows-2026-10-22/lpac-stream-origin-source-review-01/run_lpac_stream_origin_01.py",
+      "raw_commitment": {
+        "bytes": 10859,
+        "sha256": "1aba08e10d157c113737cdd13c4515610b953761c6f5ef28c6375cf303b1aba6"
+      },
+      "representation": "exact source",
+      "view_commitment": {
+        "bytes": 10859,
+        "sha256": "1aba08e10d157c113737cdd13c4515610b953761c6f5ef28c6375cf303b1aba6"
+      }
+    },
+    {
+      "copy_is_original_bytes": true,
+      "path": "verification/windows-2026-10-22/lpac-stream-origin-source-review-01/verify_lpac_stream_origin_actual_01_candidate.py",
+      "raw_commitment": {
+        "bytes": 24046,
+        "sha256": "95f0a068e3d90bfefc73b433ac4870667b506585026b5ca3861c1db4eb4ef7e0"
+      },
+      "representation": "exact source",
+      "view_commitment": {
+        "bytes": 24046,
+        "sha256": "95f0a068e3d90bfefc73b433ac4870667b506585026b5ca3861c1db4eb4ef7e0"
+      }
+    },
+    {
+      "copy_is_original_bytes": true,
+      "path": "verification/windows-2026-10-22/lpac-stream-origin-source-review-01/runtime/.github/native/windows_identity_lpac_stream_contract.hpp",
+      "raw_commitment": {
+        "bytes": 26029,
+        "sha256": "8a616aaa95c717412215dfc18d8acfc9fd51fad8ef5983d9d017a502df0f2f7e"
+      },
+      "representation": "exact source",
+      "view_commitment": {
+        "bytes": 26029,
+        "sha256": "8a616aaa95c717412215dfc18d8acfc9fd51fad8ef5983d9d017a502df0f2f7e"
+      }
+    },
+    {
+      "copy_is_original_bytes": true,
+      "path": "verification/windows-2026-10-22/lpac-stream-origin-source-review-01/runtime/.github/native/windows_identity_lpac_stream_front_actor.cpp",
+      "raw_commitment": {
+        "bytes": 2889,
+        "sha256": "f5ded24762f577b0eeef1b99d2d6f683e901b690c964fe87a75ae7511cd09bc5"
+      },
+      "representation": "exact source",
+      "view_commitment": {
+        "bytes": 2889,
+        "sha256": "f5ded24762f577b0eeef1b99d2d6f683e901b690c964fe87a75ae7511cd09bc5"
+      }
+    },
+    {
+      "copy_is_original_bytes": true,
+      "path": "verification/windows-2026-10-22/lpac-stream-origin-source-review-01/runtime/.github/native/windows_identity_lpac_stream_network_actor.cpp",
+      "raw_commitment": {
+        "bytes": 17035,
+        "sha256": "b3b864e844d6cc77100f327ba617d4dc5ac5a78599c70cc61a71aa12a5c9d463"
+      },
+      "representation": "exact source",
+      "view_commitment": {
+        "bytes": 17035,
+        "sha256": "b3b864e844d6cc77100f327ba617d4dc5ac5a78599c70cc61a71aa12a5c9d463"
+      }
+    },
+    {
+      "copy_is_original_bytes": true,
+      "path": "verification/windows-2026-10-22/lpac-stream-origin-source-review-01/runtime/.github/windows_identity_lpac_stream_origin.py",
+      "raw_commitment": {
+        "bytes": 68350,
+        "sha256": "cc3bf2a65a1c698899ac241f981de74ea6a989e21644663701984c18b861849c"
+      },
+      "representation": "exact source",
+      "view_commitment": {
+        "bytes": 68350,
+        "sha256": "cc3bf2a65a1c698899ac241f981de74ea6a989e21644663701984c18b861849c"
+      }
+    },
+    {
+      "copy_is_original_bytes": true,
+      "path": "verification/windows-2026-10-22/lpac-stream-origin-source-review-01/runtime/.github/windows_identity_lpac_stream_origin_local.py",
+      "raw_commitment": {
+        "bytes": 18354,
+        "sha256": "a9f845c3e25736806f28f7b5e36738d5267a30ce035aa4baea6fb97de6db2f81"
+      },
+      "representation": "exact source",
+      "view_commitment": {
+        "bytes": 18354,
+        "sha256": "a9f845c3e25736806f28f7b5e36738d5267a30ce035aa4baea6fb97de6db2f81"
+      }
+    }
+  ],
+  "stage": "stream01-source-review-index",
+  "test_logs": "verification/windows-2026-10-22/lpac-stream-origin-source-review-01/testing-log-views.json"
+}

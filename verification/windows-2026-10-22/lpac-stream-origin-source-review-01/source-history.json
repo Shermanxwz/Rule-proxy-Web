@@ -1,0 +1,2943 @@
+{
+  "prior_false_versions_not_runtime_evidence": true,
+  "records": [
+    {
+      "content": {
+        "False_candidate_freeze": {
+          "bytes": 20581,
+          "sha256": "e03620c984c9a4de522a4dd72857cdab60e50bb36af698f3f5c5f8d016f4b908"
+        },
+        "actual_ready": false,
+        "artifacts": {
+          "front": {
+            "executable": {
+              "bytes": 195072,
+              "sha256": "b7327db1d30f4d81f7806b449d191cf7d49e22563c1da0c734f85cd478c9ae2a"
+            },
+            "manifest": {
+              "bytes": 481,
+              "sha256": "9a9df1de567bc4c6a9d0de334adeed4665fba2ade5ae5b62d26279d37134c4ba"
+            },
+            "production_verify_actor_passed": true,
+            "source_pins": {
+              "actorSourceSha256": ".github/native/windows_identity_lpac_stream_front_actor.cpp",
+              "identitySourceSha256": ".github/native/windows_identity_actor.cpp",
+              "streamContractSha256": ".github/native/windows_identity_lpac_stream_contract.hpp"
+            }
+          },
+          "network": {
+            "executable": {
+              "bytes": 218624,
+              "sha256": "074440e530ec26e149c90e1575261f930fadfdeaf156c4ceaf6b6f8f5fb9d1db"
+            },
+            "manifest": {
+              "bytes": 481,
+              "sha256": "e7b090b9b2b24189ba5c202919a1b9fc27b1d6ecdf32b36087379f55b9d505a2"
+            },
+            "production_verify_actor_passed": true,
+            "source_pins": {
+              "actorSourceSha256": ".github/native/windows_identity_lpac_stream_network_actor.cpp",
+              "identitySourceSha256": ".github/native/windows_identity_actor.cpp",
+              "streamContractSha256": ".github/native/windows_identity_lpac_stream_contract.hpp"
+            }
+          }
+        },
+        "core": {
+          "bytes": 68351,
+          "sha256": "7b654e5a57429bb7865cd6c6e5cbbde6f7cdda40c29992f91a3b41fd4c7ce77b"
+        },
+        "manifest_original_bytes_preserved": true,
+        "no_DLL_loaded": true,
+        "no_actor_or_native_resource_API_or_network_called": true,
+        "no_main_modified": true,
+        "prior_reader_harness_failure": {
+          "bytes": 568,
+          "sha256": "ace9477a721ef4a4973e1248d1ea783932e00e8f3fd1f66a3132325eeda393f7"
+        },
+        "schema_version": 1,
+        "source_root_is_frozen_absolute_candidate": true,
+        "stage": "work-stream-production-artifact-file-only-verify"
+      },
+      "name": "lpac-stream-artifacts-production-verify-01.json",
+      "original_retained_in_WORK": true,
+      "raw_commitment": {
+        "bytes": 2016,
+        "sha256": "619c8dc148fe976a1a9048442c66ebdcd07da72f5107c0bb25ece8661c9a881b"
+      },
+      "representation": "source preparation snapshot; historical false/pending fields remain historical",
+      "view_content_commitment": {
+        "bytes": 2016,
+        "sha256": "619c8dc148fe976a1a9048442c66ebdcd07da72f5107c0bb25ece8661c9a881b"
+      }
+    },
+    {
+      "content": {
+        "actor_or_resource_API_called": false,
+        "cause": "Reader passed a relative candidate source-root; production verifier requires absolute owned root.",
+        "correction": "Resolve the WORK root before invoking the unchanged production verifier.",
+        "exception_label": "path_outside_owned_root",
+        "exception_type": "GateFailure",
+        "original_manifest_or_executable_changed": false,
+        "raw_evidence": "Tool traceback only; no separate raw transcript was saved",
+        "schema_version": 1,
+        "source_changed": false,
+        "stage": "file-only-artifact-verify-harness-failure"
+      },
+      "name": "lpac-stream-artifacts-production-verify-harness-failure-01.json",
+      "original_retained_in_WORK": true,
+      "raw_commitment": {
+        "bytes": 568,
+        "sha256": "ace9477a721ef4a4973e1248d1ea783932e00e8f3fd1f66a3132325eeda393f7"
+      },
+      "representation": "source preparation snapshot; historical false/pending fields remain historical",
+      "view_content_commitment": {
+        "bytes": 568,
+        "sha256": "ace9477a721ef4a4973e1248d1ea783932e00e8f3fd1f66a3132325eeda393f7"
+      }
+    },
+    {
+      "content": {
+        "actor_compiled_or_run": false,
+        "actual_ready": false,
+        "close_sequence": "front writer first only after both FINs, data and credits drain; relay waits for that pipe EOF then closes writer; front observes resulting EOF. No symmetric EOF wait deadlock.",
+        "codec_failure_values": [
+          null,
+          "config",
+          "frame",
+          "order",
+          "bound",
+          "credit",
+          "eof",
+          "peer_reset",
+          "external"
+        ],
+        "exit_codes": {
+          "0": "Complete role success, including all declared data/EOF/close facts",
+          "2": "Argument rejection before handle adoption",
+          "3": "Report create/write/close failure",
+          "5": "Typed closed role failure report",
+          "6": "Top-level exception"
+        },
+        "failure_values": [
+          null,
+          "configuration",
+          "identity",
+          "qpc",
+          "deadline",
+          "pipe_type",
+          "inheritance",
+          "pipe_read",
+          "pipe_write",
+          "pipe_eof",
+          "file_open",
+          "file_read",
+          "file_write",
+          "file_flush",
+          "file_close",
+          "socket_setup",
+          "connect",
+          "send",
+          "receive",
+          "shutdown",
+          "peer",
+          "close",
+          "protocol",
+          "report"
+        ],
+        "file_record": "null for unused role slot; otherwise exact attempted/opened/bytes/flushed/close. Input source has flushed=false; output sink must flushed=true and close=confirmed on success. No native hash claims.",
+        "file_record_keys": [
+          "attempted",
+          "opened",
+          "bytes",
+          "flushed",
+          "close"
+        ],
+        "files_keys": [
+          "source",
+          "request_sink",
+          "response_sink"
+        ],
+        "fixed_false": [
+          "selected_socket_api_tested",
+          "proxy_tested",
+          "product_acceptance",
+          "browser_integration",
+          "linux_equivalence",
+          "psec_network_preservation_proven",
+          "dns_isolation",
+          "hostile_same_sid_authentication"
+        ],
+        "identity": "Unmodified native actor self-report, cap0; external held ordinary/LPAC primary and real matrix remain authoritative.",
+        "interface_version": 1,
+        "limits_keys": [
+          "payload_max",
+          "window",
+          "total_max",
+          "frames_max",
+          "request_bytes",
+          "response_bytes"
+        ],
+        "limits_values": {
+          "frames_max": 256,
+          "initial_request_bytes": 8193,
+          "initial_response_bytes": 12289,
+          "payload_max": 1024,
+          "total_max": 65536,
+          "window": 4096
+        },
+        "manifest_keys": [
+          "schemaVersion",
+          "compileOnly",
+          "runtimeAcceptance",
+          "interfaceVersion",
+          "executableSha256",
+          "actorSourceSha256",
+          "streamContractSha256",
+          "identitySourceSha256"
+        ],
+        "network": "null for selected. Ports nullable until actually observed, port binds owned origin. network_tested iff relay connect_attempted or origin accepted; it does not mean every network setup API was called.",
+        "network_actor": "windows_identity_lpac_stream_network_actor.exe",
+        "network_expected_direct_imports_pending_build": [
+          "KERNEL32.dll",
+          "ADVAPI32.dll",
+          "WS2_32.dll"
+        ],
+        "network_keys": [
+          "wsa_startup",
+          "wsa_cleanup",
+          "socket_created",
+          "connect_attempted",
+          "connect_completed",
+          "peer_loopback",
+          "port",
+          "local_port",
+          "peer_port",
+          "bytes_sent",
+          "bytes_received",
+          "send_shutdown",
+          "receive_eof",
+          "socket_close",
+          "listener_created",
+          "exclusive",
+          "bind_loopback",
+          "accepted",
+          "listener_close"
+        ],
+        "network_manifest": "identity-lpac-stream-network-manifest.json",
+        "network_source_pins": {
+          "actorSourceSha256": ".github/native/windows_identity_lpac_stream_network_actor.cpp",
+          "identitySourceSha256": ".github/native/windows_identity_actor.cpp",
+          "streamContractSha256": ".github/native/windows_identity_lpac_stream_contract.hpp"
+        },
+        "origin_argc": 12,
+        "origin_argv": [
+          "exe",
+          "stream-origin",
+          "run32",
+          "case32",
+          "report",
+          "ready",
+          "rootT0",
+          "F",
+          "workD",
+          "userSID",
+          "request_length",
+          "response_length"
+        ],
+        "pair_argc": 15,
+        "pair_argv": [
+          "exe",
+          "stream-front or stream-relay",
+          "run32",
+          "case32",
+          "report",
+          "readH",
+          "writeH",
+          "pairS",
+          "F",
+          "pairE",
+          "userSID",
+          "profileSID or none",
+          "request_length",
+          "response_length",
+          "origin_port"
+        ],
+        "path_derivation": "report must be the fixed actor.json in selected-report/relay-report/origin-report respectively; stageRoot is its parent parent; all payload paths above are fixed relative paths. No arbitrary payload path arguments.",
+        "paths": {
+          "origin_request": "origin-report/request.raw",
+          "origin_response_sent": "origin-report/response-sent.raw",
+          "relay_request_sent": "relay-report/request-sent.raw",
+          "relay_response_received": "relay-report/response-received.raw",
+          "request_input": "selected-inputs/request.bin",
+          "response_input": "ordinary-inputs/response.bin",
+          "selected_response": "selected-report/response.raw"
+        },
+        "pipe": "null for origin; close=not_attempted/confirmed/uncertain. AdmittedQpc sampled after exact self identity and both inheritance readbacks, before protocol I/O.",
+        "pipe_keys": [
+          "read_bytes",
+          "write_bytes",
+          "read_calls",
+          "write_calls",
+          "peek_calls",
+          "eof_observed",
+          "reader_close",
+          "writer_close",
+          "inheritance_cleared"
+        ],
+        "profile": "zero-cap-lpac-bounded-byte-stream-mechanism-v1",
+        "qpc": "[actualF, suppliedStart, suppliedEnd, lastObservedQpc]; pairE=pairS+10F, originworkD=rootT0+85F; monotonic original domain, no renewal",
+        "ready_keys": [
+          "schema_version",
+          "stage",
+          "run_id",
+          "case_id",
+          "pid",
+          "port",
+          "qpc_frequency",
+          "start_qpc",
+          "deadline_qpc",
+          "loopback_ipv4"
+        ],
+        "ready_stage": "lpac-stream-origin-ready",
+        "report_keys": [
+          "schema_version",
+          "stage",
+          "role",
+          "run_id",
+          "case_id",
+          "pid",
+          "identity",
+          "qpc",
+          "limits",
+          "files",
+          "stream",
+          "pipe",
+          "network",
+          "admitted_qpc",
+          "read_handle_inherit_cleared",
+          "write_handle_inherit_cleared",
+          "failure",
+          "win32_error",
+          "wsa_error",
+          "selected_socket_api_tested",
+          "network_tested",
+          "proxy_tested",
+          "product_acceptance"
+        ],
+        "report_stage": "lpac-stream-actor",
+        "roles": [
+          "stream-front",
+          "stream-relay",
+          "stream-origin"
+        ],
+        "schema_version": 1,
+        "scope": "one-local-semantic-lpac-inherited-stream-origin-v1",
+        "selected_actor": "windows_identity_lpac_stream_front_actor.exe",
+        "selected_expected_direct_imports_pending_build": [
+          "KERNEL32.dll",
+          "ADVAPI32.dll"
+        ],
+        "selected_forbidden_imports": [
+          "WS2_32.dll",
+          "DNSAPI.dll",
+          "WINHTTP.dll",
+          "WININET.dll",
+          "SHELL32.dll",
+          "USER32.dll"
+        ],
+        "selected_manifest": "identity-lpac-stream-front-manifest.json",
+        "selected_source_pins": {
+          "actorSourceSha256": ".github/native/windows_identity_lpac_stream_front_actor.cpp",
+          "identitySourceSha256": ".github/native/windows_identity_actor.cpp",
+          "streamContractSha256": ".github/native/windows_identity_lpac_stream_contract.hpp"
+        },
+        "source_lifetime": "Output/raw file handles, input handles, pipes and sockets are consumed once before close. Partial bytes/errors remain failure facts; synchronous calls retain external Job watchdog boundary.",
+        "stage": "work-lpac-stream-native-ABI",
+        "stream": "null for origin; production codec snapshot for pair roles, not HTTP/opcode regeneration",
+        "stream_keys": [
+          "opened",
+          "local_fin_sent",
+          "peer_fin_received",
+          "peer_fin_handled",
+          "peer_pipe_eof",
+          "writer_closed",
+          "protocol_complete",
+          "tx_frames",
+          "rx_frames",
+          "tx_payload_bytes",
+          "rx_payload_bytes",
+          "local_source_bytes",
+          "local_sink_bytes",
+          "tx_credit_received",
+          "rx_credit_sent",
+          "tx_outstanding",
+          "rx_outstanding",
+          "tx_window_available",
+          "local_buffered",
+          "peer_buffered",
+          "partial_frame_bytes",
+          "pending_frame_bytes",
+          "failure"
+        ],
+        "wire": "RPS1 fixed64-byte header,1024max DATA,stream1,credit4096; see immutable contract and amended writer-first closure. Source producer bytes and consumer sink bytes are actual data, never inferred from case or opcode."
+      },
+      "name": "lpac-stream-native-abi-01.json",
+      "original_retained_in_WORK": true,
+      "raw_commitment": {
+        "bytes": 6781,
+        "sha256": "b88e113a3e832b291e35756713f6ff1d550a8b06f781b87f7e875b655a3a0e12"
+      },
+      "representation": "source preparation snapshot; historical false/pending fields remain historical",
+      "view_content_commitment": {
+        "bytes": 8042,
+        "sha256": "157628ab90e297c6c94e0ab53f0595e1c062cb18fc783ccfe31ed1916c0060b1"
+      }
+    },
+    {
+      "content": {
+        "actor_compiled_or_run": false,
+        "actual_ordering": "Request source to TCP EOF first; owned origin then emits response to TCP EOF. This cell does not qualify concurrent bidirectional or general socket semantics.",
+        "actual_ready": false,
+        "close_sequence": "front writer first only after both FINs, data and credits drain; relay waits for that pipe EOF then closes writer; front observes resulting EOF. No symmetric EOF wait deadlock.",
+        "codec_failure_values": [
+          null,
+          "config",
+          "frame",
+          "order",
+          "bound",
+          "credit",
+          "eof",
+          "peer_reset",
+          "external"
+        ],
+        "credit_counters": "Actual CREDIT only; initial4096 excluded. At complete each equals the full corresponding payload; both outstanding0 and tx_window_available4096.",
+        "exit_codes": {
+          "0": "Complete role success, including all declared data/EOF/close facts",
+          "2": "Argument rejection before handle adoption",
+          "3": "Report create/write/close failure",
+          "5": "Typed closed role failure report",
+          "6": "Top-level exception"
+        },
+        "failure_values": [
+          null,
+          "configuration",
+          "identity",
+          "qpc",
+          "deadline",
+          "pipe_type",
+          "inheritance",
+          "pipe_read",
+          "pipe_write",
+          "pipe_eof",
+          "file_open",
+          "file_read",
+          "file_write",
+          "file_flush",
+          "file_close",
+          "socket_setup",
+          "connect",
+          "send",
+          "receive",
+          "shutdown",
+          "peer",
+          "close",
+          "protocol",
+          "report"
+        ],
+        "file_record": "null for unused role slot; otherwise exact attempted/opened/bytes/flushed/close. Input source has flushed=false; output sink must flushed=true and close=confirmed on success. No native hash claims.",
+        "file_record_keys": [
+          "attempted",
+          "opened",
+          "bytes",
+          "flushed",
+          "close"
+        ],
+        "files_keys": [
+          "source",
+          "request_sink",
+          "response_sink"
+        ],
+        "fixed_false": [
+          "selected_socket_api_tested",
+          "proxy_tested",
+          "product_acceptance",
+          "browser_integration",
+          "linux_equivalence",
+          "psec_network_preservation_proven",
+          "dns_isolation",
+          "hostile_same_sid_authentication"
+        ],
+        "identity": "Unmodified native actor self-report, cap0; external held ordinary/LPAC primary and real matrix remain authoritative.",
+        "immutable_identity_source": {
+          "bytes": 31002,
+          "sha256": "530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553"
+        },
+        "interface_version": 1,
+        "limits_keys": [
+          "payload_max",
+          "window",
+          "total_max",
+          "frames_max",
+          "request_bytes",
+          "response_bytes"
+        ],
+        "limits_values": {
+          "frames_max": 256,
+          "initial_request_bytes": 8193,
+          "initial_response_bytes": 12289,
+          "payload_max": 1024,
+          "total_max": 65536,
+          "window": 4096
+        },
+        "manifest_keys": [
+          "schemaVersion",
+          "compileOnly",
+          "runtimeAcceptance",
+          "interfaceVersion",
+          "executableSha256",
+          "actorSourceSha256",
+          "streamContractSha256",
+          "identitySourceSha256"
+        ],
+        "native_sources": {
+          ".github/native/windows_identity_actor.cpp": {
+            "bytes": 31002,
+            "sha256": "530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553"
+          },
+          ".github/native/windows_identity_lpac_stream_contract.hpp": {
+            "bytes": 26029,
+            "sha256": "8a616aaa95c717412215dfc18d8acfc9fd51fad8ef5983d9d017a502df0f2f7e"
+          },
+          ".github/native/windows_identity_lpac_stream_front_actor.cpp": {
+            "bytes": 2889,
+            "sha256": "f5ded24762f577b0eeef1b99d2d6f683e901b690c964fe87a75ae7511cd09bc5"
+          },
+          ".github/native/windows_identity_lpac_stream_network_actor.cpp": {
+            "bytes": 17035,
+            "sha256": "b3b864e844d6cc77100f327ba617d4dc5ac5a78599c70cc61a71aa12a5c9d463"
+          }
+        },
+        "network": "null for selected. Ports nullable until actually observed, port binds owned origin. network_tested iff relay connect_attempted or origin accepted; it does not mean every network setup API was called.",
+        "network_actor": "windows_identity_lpac_stream_network_actor.exe",
+        "network_boolean_keys": [
+          "wsa_startup",
+          "wsa_cleanup",
+          "socket_created",
+          "connect_attempted",
+          "connect_completed",
+          "peer_loopback",
+          "send_shutdown",
+          "receive_eof",
+          "listener_created",
+          "exclusive",
+          "bind_loopback",
+          "accepted"
+        ],
+        "network_expected_direct_imports_pending_build": [
+          "KERNEL32.dll",
+          "ADVAPI32.dll",
+          "WS2_32.dll"
+        ],
+        "network_keys": [
+          "wsa_startup",
+          "wsa_cleanup",
+          "socket_created",
+          "connect_attempted",
+          "connect_completed",
+          "peer_loopback",
+          "port",
+          "local_port",
+          "peer_port",
+          "bytes_sent",
+          "bytes_received",
+          "send_shutdown",
+          "receive_eof",
+          "socket_close",
+          "listener_created",
+          "exclusive",
+          "bind_loopback",
+          "accepted",
+          "listener_close"
+        ],
+        "network_manifest": "identity-lpac-stream-network-manifest.json",
+        "network_port_before_successful_bind": 0,
+        "network_source_pins": {
+          "actorSourceSha256": ".github/native/windows_identity_lpac_stream_network_actor.cpp",
+          "identitySourceSha256": ".github/native/windows_identity_actor.cpp",
+          "streamContractSha256": ".github/native/windows_identity_lpac_stream_contract.hpp"
+        },
+        "origin_argc": 12,
+        "origin_argv": [
+          "exe",
+          "stream-origin",
+          "run32",
+          "case32",
+          "report",
+          "ready",
+          "rootT0",
+          "F",
+          "workD",
+          "userSID",
+          "request_length",
+          "response_length"
+        ],
+        "origin_ready_loopback_ipv4": true,
+        "pair_argc": 15,
+        "pair_argv": [
+          "exe",
+          "stream-front or stream-relay",
+          "run32",
+          "case32",
+          "report",
+          "readH",
+          "writeH",
+          "pairS",
+          "F",
+          "pairE",
+          "userSID",
+          "profileSID or none",
+          "request_length",
+          "response_length",
+          "origin_port"
+        ],
+        "path_derivation": "report must be the fixed actor.json in selected-report/relay-report/origin-report respectively; stageRoot is its parent parent; all payload paths above are fixed relative paths. No arbitrary payload path arguments.",
+        "paths": {
+          "origin_request": "origin-report/request.raw",
+          "origin_response_sent": "origin-report/response-sent.raw",
+          "relay_request_sent": "relay-report/request-sent.raw",
+          "relay_response_received": "relay-report/response-received.raw",
+          "request_input": "selected-inputs/request.bin",
+          "response_input": "ordinary-inputs/response.bin",
+          "selected_response": "selected-report/response.raw"
+        },
+        "pipe": "null for origin; close=not_attempted/confirmed/uncertain. AdmittedQpc sampled after exact self identity and both inheritance readbacks, before protocol I/O.",
+        "pipe_keys": [
+          "read_bytes",
+          "write_bytes",
+          "read_calls",
+          "write_calls",
+          "peek_calls",
+          "eof_observed",
+          "reader_close",
+          "writer_close",
+          "inheritance_cleared"
+        ],
+        "profile": "zero-cap-lpac-bounded-byte-stream-mechanism-v1",
+        "qpc": "[actualF, suppliedStart, suppliedEnd, lastObservedQpc]; pairE=pairS+10F, originworkD=rootT0+85F; monotonic original domain, no renewal",
+        "ready_keys": [
+          "schema_version",
+          "stage",
+          "run_id",
+          "case_id",
+          "pid",
+          "port",
+          "qpc_frequency",
+          "start_qpc",
+          "deadline_qpc",
+          "loopback_ipv4"
+        ],
+        "ready_stage": "lpac-stream-origin-ready",
+        "report_keys": [
+          "schema_version",
+          "stage",
+          "role",
+          "run_id",
+          "case_id",
+          "pid",
+          "identity",
+          "qpc",
+          "limits",
+          "files",
+          "stream",
+          "pipe",
+          "network",
+          "admitted_qpc",
+          "read_handle_inherit_cleared",
+          "write_handle_inherit_cleared",
+          "failure",
+          "win32_error",
+          "wsa_error",
+          "selected_socket_api_tested",
+          "network_tested",
+          "proxy_tested",
+          "product_acceptance"
+        ],
+        "report_stage": "lpac-stream-actor",
+        "revision": 2,
+        "roles": [
+          "stream-front",
+          "stream-relay",
+          "stream-origin"
+        ],
+        "schema_version": 1,
+        "scope": "one-local-semantic-lpac-inherited-stream-origin-v1",
+        "selected_actor": "windows_identity_lpac_stream_front_actor.exe",
+        "selected_expected_direct_imports_pending_build": [
+          "KERNEL32.dll",
+          "ADVAPI32.dll"
+        ],
+        "selected_forbidden_imports": [
+          "WS2_32.dll",
+          "DNSAPI.dll",
+          "WINHTTP.dll",
+          "WININET.dll",
+          "SHELL32.dll",
+          "USER32.dll"
+        ],
+        "selected_manifest": "identity-lpac-stream-front-manifest.json",
+        "selected_source_pins": {
+          "actorSourceSha256": ".github/native/windows_identity_lpac_stream_front_actor.cpp",
+          "identitySourceSha256": ".github/native/windows_identity_actor.cpp",
+          "streamContractSha256": ".github/native/windows_identity_lpac_stream_contract.hpp"
+        },
+        "source_lifetime": "Output/raw file handles, input handles, pipes and sockets are consumed once before close. Partial bytes/errors remain failure facts; synchronous calls retain external Job watchdog boundary.",
+        "stage": "work-lpac-stream-native-ABI-final",
+        "stream": "null for origin; production codec snapshot for pair roles, not HTTP/opcode regeneration",
+        "stream_keys": [
+          "opened",
+          "local_fin_sent",
+          "peer_fin_received",
+          "peer_fin_handled",
+          "peer_pipe_eof",
+          "writer_closed",
+          "protocol_complete",
+          "tx_frames",
+          "rx_frames",
+          "tx_payload_bytes",
+          "rx_payload_bytes",
+          "local_source_bytes",
+          "local_sink_bytes",
+          "tx_credit_received",
+          "rx_credit_sent",
+          "tx_outstanding",
+          "rx_outstanding",
+          "tx_window_available",
+          "local_buffered",
+          "peer_buffered",
+          "partial_frame_bytes",
+          "pending_frame_bytes",
+          "failure"
+        ],
+        "synchronous_boundary": "Portable fake pipe writes can return idle on full buffers; real synchronous anonymous WriteFile can block. Fake completion does not prove arbitrary Windows full-duplex deadlock freedom; original external Job watchdog remains required.",
+        "wire": "RPS1 fixed64-byte header,1024max DATA,stream1,credit4096; see immutable contract and amended writer-first closure. Source producer bytes and consumer sink bytes are actual data, never inferred from case or opcode."
+      },
+      "name": "lpac-stream-native-abi-02.json",
+      "original_retained_in_WORK": true,
+      "raw_commitment": {
+        "bytes": 9913,
+        "sha256": "1bf1b4d3fe8b83b5ac097e330906a15594d5500320a22dbfbcf9c3c097738aab"
+      },
+      "representation": "source preparation snapshot; historical false/pending fields remain historical",
+      "view_content_commitment": {
+        "bytes": 9913,
+        "sha256": "72f169f6a47b6f90e3f6975ca1499d8ff0a8021ae63d2020c0a93c7df9e72a8e"
+      }
+    },
+    {
+      "content": {
+        "actor_or_native_network_API_called": false,
+        "artifacts": {
+          "front": {
+            "compile_log": {
+              "bytes": 46,
+              "sha256": "630718e22f43680864383356ffad85e1ef1ebf9127371017877b620c13343fa4"
+            },
+            "executable": {
+              "bytes": 195072,
+              "sha256": "b7327db1d30f4d81f7806b449d191cf7d49e22563c1da0c734f85cd478c9ae2a"
+            },
+            "manifest": {
+              "bytes": 481,
+              "sha256": "9a9df1de567bc4c6a9d0de334adeed4665fba2ade5ae5b62d26279d37134c4ba"
+            },
+            "native_source_count": 3,
+            "pe": {
+              "ASLR": true,
+              "NX": true,
+              "delay_imports": [],
+              "dll": false,
+              "entrypoint_in_executable_section": true,
+              "entrypoint_nonzero": true,
+              "guard_CF_flag": true,
+              "imported_symbols": {
+                "ADVAPI32.dll": [
+                  "GetTokenInformation",
+                  "IsValidSid",
+                  "ConvertSidToStringSidW",
+                  "OpenProcessToken"
+                ],
+                "KERNEL32.dll": [
+                  "GetCommandLineW",
+                  "CreateFileW",
+                  "FlushFileBuffers",
+                  "GetFileSizeEx",
+                  "GetFileType",
+                  "ReadFile",
+                  "WriteFile",
+                  "CloseHandle",
+                  "GetHandleInformation",
+                  "SetHandleInformation",
+                  "GetLastError",
+                  "SetLastError",
+                  "PeekNamedPipe",
+                  "QueryPerformanceCounter",
+                  "QueryPerformanceFrequency",
+                  "Sleep",
+                  "GetCurrentProcess",
+                  "GetCurrentProcessId",
+                  "IsProcessInJob",
+                  "LocalFree",
+                  "GetFileInformationByHandleEx",
+                  "RtlCaptureContext",
+                  "RtlLookupFunctionEntry",
+                  "RtlVirtualUnwind",
+                  "UnhandledExceptionFilter",
+                  "SetUnhandledExceptionFilter",
+                  "TerminateProcess",
+                  "IsProcessorFeaturePresent",
+                  "GetCurrentThreadId",
+                  "GetSystemTimeAsFileTime",
+                  "InitializeSListHead",
+                  "IsDebuggerPresent",
+                  "GetStartupInfoW",
+                  "GetModuleHandleW",
+                  "WriteConsoleW",
+                  "RtlPcToFileHeader",
+                  "RaiseException",
+                  "RtlUnwindEx",
+                  "EncodePointer",
+                  "EnterCriticalSection",
+                  "LeaveCriticalSection",
+                  "DeleteCriticalSection",
+                  "InitializeCriticalSectionAndSpinCount",
+                  "TlsAlloc",
+                  "TlsGetValue",
+                  "TlsSetValue",
+                  "TlsFree",
+                  "FreeLibrary",
+                  "GetProcAddress",
+                  "LoadLibraryExW",
+                  "GetStdHandle",
+                  "GetModuleFileNameW",
+                  "ExitProcess",
+                  "GetModuleHandleExW",
+                  "HeapAlloc",
+                  "HeapFree",
+                  "FindClose",
+                  "FindFirstFileExW",
+                  "FindNextFileW",
+                  "IsValidCodePage",
+                  "GetACP",
+                  "GetOEMCP",
+                  "GetCPInfo",
+                  "GetCommandLineA",
+                  "MultiByteToWideChar",
+                  "WideCharToMultiByte",
+                  "GetEnvironmentStringsW",
+                  "FreeEnvironmentStringsW",
+                  "SetStdHandle",
+                  "GetStringTypeW",
+                  "FlsAlloc",
+                  "FlsGetValue",
+                  "FlsSetValue",
+                  "FlsFree",
+                  "InitializeCriticalSectionEx",
+                  "VirtualProtect",
+                  "LCMapStringW",
+                  "GetProcessHeap",
+                  "HeapSize",
+                  "HeapReAlloc",
+                  "GetConsoleOutputCP",
+                  "GetConsoleMode",
+                  "SetFilePointerEx"
+                ]
+              },
+              "imports": [
+                "ADVAPI32.dll",
+                "KERNEL32.dll"
+              ],
+              "machine": "AMD64",
+              "no_Winsock_DNS_WinHTTP_WinINet_Shell32_User32_or_dynamic_CRT_direct_import": true,
+              "pe_magic": "PE32+",
+              "section_count": 6,
+              "subsystem": "WINDOWS_GUI"
+            }
+          },
+          "network": {
+            "compile_log": {
+              "bytes": 48,
+              "sha256": "eae7f8eb53bba6157720dae7082495217706beb4a686fbc162a7dd1c952dfdad"
+            },
+            "executable": {
+              "bytes": 218624,
+              "sha256": "074440e530ec26e149c90e1575261f930fadfdeaf156c4ceaf6b6f8f5fb9d1db"
+            },
+            "manifest": {
+              "bytes": 481,
+              "sha256": "e7b090b9b2b24189ba5c202919a1b9fc27b1d6ecdf32b36087379f55b9d505a2"
+            },
+            "native_source_count": 3,
+            "pe": {
+              "delay_imports": [],
+              "dll": false,
+              "entrypoint_nonzero": true,
+              "imports": [
+                "ADVAPI32.dll",
+                "WS2_32.dll",
+                "KERNEL32.dll"
+              ],
+              "machine": "AMD64",
+              "section_count": 6,
+              "subsystem": "WINDOWS_GUI"
+            }
+          }
+        },
+        "input_snapshot": {
+          "bytes": 693,
+          "sha256": "1819823e18df4a58c3cb6e304f40141ad2172abd4846e97b6f63fa9365cba317"
+        },
+        "linux_equivalence": false,
+        "native_freeze": {
+          "bytes": 4309,
+          "sha256": "04a400a90b3fcbbaa03f0fe065a4181812b3a0ec48d729ebb04b785e73126023"
+        },
+        "original_snapshots_byte_exact": true,
+        "passed": true,
+        "product_acceptance": false,
+        "schema_version": 1,
+        "stage": "root-stream-two-artifact-file-only-review",
+        "toolchain": {
+          "actor_executed": false,
+          "api_executed": false,
+          "compiler_file_version": "19.44.35229.0",
+          "dll_loaded": false,
+          "flags": "/std:c++17 /O2 /W4 /WX /EHsc /guard:cf /SUBSYSTEM:WINDOWS",
+          "runtime": "/MT",
+          "schema_version": 1,
+          "stage": "lpac-stream-native-compile-only",
+          "target": "x64",
+          "vc_tools_version": "14.44.35207",
+          "windows_sdk_version": "10.0.26100.0\\"
+        },
+        "toolchain_commitment": {
+          "bytes": 395,
+          "sha256": "741ce52b6e75a8306e9ac036a2d22278d3db4112ab309109059237a4c59f0d55"
+        },
+        "unique_native_source_count": 4
+      },
+      "name": "lpac-stream-native-compile-static-review-01.json",
+      "original_retained_in_WORK": true,
+      "raw_commitment": {
+        "bytes": 5719,
+        "sha256": "8388a661c10036a7676fc79b3b595a141905e2a87b734a777809878456cf5d35"
+      },
+      "representation": "source preparation snapshot; historical false/pending fields remain historical",
+      "view_content_commitment": {
+        "bytes": 5719,
+        "sha256": "8388a661c10036a7676fc79b3b595a141905e2a87b734a777809878456cf5d35"
+      }
+    },
+    {
+      "content": {
+        "abi": {
+          "bytes": 9913,
+          "sha256": "1bf1b4d3fe8b83b5ac097e330906a15594d5500320a22dbfbcf9c3c097738aab"
+        },
+        "actor_executed": false,
+        "actual_ready": false,
+        "all_new_source_LF": true,
+        "api_executed": false,
+        "baseline_source_commit": "42064e8cbfc3263cb1352f923ab8e269d490b078",
+        "contract": {
+          "bytes": 17155,
+          "sha256": "0e7e29b2081b91f3933b52d99550970f761b941775620d47e54a8a335f469848"
+        },
+        "files": {
+          ".github/native/windows_identity_lpac_stream_contract.hpp": {
+            "bytes": 26029,
+            "sha256": "8a616aaa95c717412215dfc18d8acfc9fd51fad8ef5983d9d017a502df0f2f7e"
+          },
+          ".github/native/windows_identity_lpac_stream_front_actor.cpp": {
+            "bytes": 2889,
+            "sha256": "f5ded24762f577b0eeef1b99d2d6f683e901b690c964fe87a75ae7511cd09bc5"
+          },
+          ".github/native/windows_identity_lpac_stream_network_actor.cpp": {
+            "bytes": 17035,
+            "sha256": "b3b864e844d6cc77100f327ba617d4dc5ac5a78599c70cc61a71aa12a5c9d463"
+          },
+          "tests/test_windows_identity_lpac_stream_native.py": {
+            "bytes": 8402,
+            "sha256": "8a49bbf7da154d49660830493e8648ae56e740c861df97d1986d8139de0a48d7"
+          }
+        },
+        "fixture_or_profile_created": false,
+        "identity_current_main_and_git_exact": true,
+        "implementation_qualification": false,
+        "limitations": [
+          "Only request-then-response owned TCP positive scope.",
+          "Portable I/O idle does not prove arbitrary Windows synchronous full-duplex deadlock freedom.",
+          "Root must independently review and compile both actors from this four-source immutable snapshot.",
+          "Physical input/sink hashes are calculated only by file-only owner/reader.",
+          "No proxy/application/Mihomo/DNS/PSEC/Linux/product qualification."
+        ],
+        "main_edited": false,
+        "native_sources": {
+          ".github/native/windows_identity_actor.cpp": {
+            "bytes": 31002,
+            "sha256": "530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553"
+          },
+          ".github/native/windows_identity_lpac_stream_contract.hpp": {
+            "bytes": 26029,
+            "sha256": "8a616aaa95c717412215dfc18d8acfc9fd51fad8ef5983d9d017a502df0f2f7e"
+          },
+          ".github/native/windows_identity_lpac_stream_front_actor.cpp": {
+            "bytes": 2889,
+            "sha256": "f5ded24762f577b0eeef1b99d2d6f683e901b690c964fe87a75ae7511cd09bc5"
+          },
+          ".github/native/windows_identity_lpac_stream_network_actor.cpp": {
+            "bytes": 17035,
+            "sha256": "b3b864e844d6cc77100f327ba617d4dc5ac5a78599c70cc61a71aa12a5c9d463"
+          }
+        },
+        "network_compile_source_count": 3,
+        "network_executed": false,
+        "old_sources_modified": false,
+        "patch": {
+          "bytes": 55932,
+          "sha256": "b71f87ee09647e7c94cdbd03fb8064c74e93ed77c9ba4359f98221e0c6c27212"
+        },
+        "profile": "zero-cap-lpac-bounded-byte-stream-mechanism-v1",
+        "root_amendments": {
+          "bytes": 1781,
+          "sha256": "ac55721a9b8fdb9932dd2c50c732dfda948dacffb5f40245bee2fbdbe967bbb3"
+        },
+        "schema_version": 1,
+        "scope": "one-local-semantic-lpac-inherited-stream-origin-v1",
+        "selected_compile_source_count": 3,
+        "sequential_amendment": {
+          "bytes": 754,
+          "sha256": "fdd0c11c47c8a70712523402cf0e31529a3fce298deb5792974d5c943395c0ce"
+        },
+        "stage": "work-lpac-stream-native-frozen",
+        "tests": {
+          "assertions": 54313,
+          "command": "python -I -S -B -m unittest discover -s work/lpac-stream-origin-candidate/tests -p test_windows_identity_lpac_stream_native.py -v",
+          "compiled": "Portable production Node and step only; Windows helper/actor region excluded.",
+          "covered": [
+            "1..1024-byte partial pipe operations",
+            "finite backpressure",
+            "different binary challenge sources and exact sink equality",
+            "credit aggregation and end-credit drain",
+            "front writer-first then relay EOF writer-close",
+            "512 single-bit OPEN mutations rejected immediately",
+            "post-open invalid/free/oversized credit",
+            "DATA-after-FIN and duplicateFIN",
+            "window/receive/total/frame bounds",
+            "RESET and replay sequence",
+            "partial EOF and external clock/write failure"
+          ],
+          "errors": 0,
+          "failures": 0,
+          "log": {
+            "bytes": 331,
+            "sha256": "1daf6ec3e129842eb90c93995a95c82613af4f545937af2c468c9f2e35b8b97d"
+          },
+          "methods": 1,
+          "seconds": 1.179,
+          "skipped": 0
+        },
+        "unique_compile_source_count": 4,
+        "windows_actor_compiled": false
+      },
+      "name": "lpac-stream-native-freeze-01.json",
+      "original_retained_in_WORK": true,
+      "raw_commitment": {
+        "bytes": 4309,
+        "sha256": "04a400a90b3fcbbaa03f0fe065a4181812b3a0ec48d729ebb04b785e73126023"
+      },
+      "representation": "source preparation snapshot; historical false/pending fields remain historical",
+      "view_content_commitment": {
+        "bytes": 4309,
+        "sha256": "62fb00ad9492c28743a05135a8f53219cd570ca5485b9a4051fcff421748d7ca"
+      }
+    },
+    {
+      "content": {
+        "actor_or_network_API_executed": false,
+        "actual_execution_authorized_by_this_receipt": false,
+        "actual_scope": "request-then-response-only",
+        "all_sources_independently_read": true,
+        "artifacts": 2,
+        "decision": "GO-compile-only-two-artifacts",
+        "helper_sha256": "2601c59c61db05349e00bff32128bfcfc2f5f75d5b6d1585d198a25e9b9d63ae",
+        "native_freeze_sha256": "04a400a90b3fcbbaa03f0fe065a4181812b3a0ec48d729ebb04b785e73126023",
+        "old_identity_source_unchanged": true,
+        "raw_pipe_partial_credit_FIN_states_reviewed": true,
+        "schema_version": 1,
+        "source_count": 4,
+        "stage": "root-native-source-build-input-review",
+        "synchronous_full_duplex_proven": false
+      },
+      "name": "lpac-stream-native-root-review-01.json",
+      "original_retained_in_WORK": true,
+      "raw_commitment": {
+        "bytes": 672,
+        "sha256": "da28500b3ee94d1661ce20e694f75ff18f868b91f69a7b32f30e186387e88e37"
+      },
+      "representation": "source preparation snapshot; historical false/pending fields remain historical",
+      "view_content_commitment": {
+        "bytes": 672,
+        "sha256": "da28500b3ee94d1661ce20e694f75ff18f868b91f69a7b32f30e186387e88e37"
+      }
+    },
+    {
+      "content": {
+        "actual_attempt_authorized": "one supervised request-then-response finite binary stream",
+        "automatic_CI_conclusion": "success",
+        "automatic_CI_run": 39921159655,
+        "before_sha256": "96ba4618bdcee58d28de676038b661681b955502799cdce7aae5fa24d61e8f95",
+        "driver_and_reader_independently_read": true,
+        "linux_equivalence": false,
+        "local_full_old_skips": 2,
+        "local_full_seconds": 172.701,
+        "local_full_tests": 1096,
+        "product_acceptance": false,
+        "reviewed_input_pins": {
+          "lpac-stream-origin-main-pure-01.log": "2edd34d458ef1f93ff7163d349db03c7a2050d9c1722535ec333681b0c09a328",
+          "lpac-stream-origin-ready-source-freeze-04.json": "7ca36374615e899dea05f24479950ed0c369d49e45b8c9e67e1a258c7aee9837",
+          "run_lpac_stream_origin_01.py": "1aba08e10d157c113737cdd13c4515610b953761c6f5ef28c6375cf303b1aba6",
+          "verify_lpac_stream_origin_actual_01_candidate.py": "95f0a068e3d90bfefc73b433ac4870667b506585026b5ca3861c1db4eb4ef7e0"
+        },
+        "schema_version": 1,
+        "source_commit": "3d538a89328072186f1db50f5fce7cc39611b44f",
+        "source_count": 45,
+        "source_sha256": "ccc4008de826faf35eb5c7ea8df47ecdfe54fe0fbf3c31c854d764bbd51899be",
+        "stage": "root-stream01-actual-input-review"
+      },
+      "name": "lpac-stream-origin-actual-input-review-01.json",
+      "original_retained_in_WORK": true,
+      "raw_commitment": {
+        "bytes": 1214,
+        "sha256": "e765eecaf1b70d22cdde0dd85e092530ae00f55bbf9943ab35f2b28d9d62fd3f"
+      },
+      "representation": "source preparation snapshot; historical false/pending fields remain historical",
+      "view_content_commitment": {
+        "bytes": 1191,
+        "sha256": "43306c6fcf6d909982ed1a5278afc2041b34a40bd6b34ea3792ce4b83263833c"
+      }
+    },
+    {
+      "content": {
+        "actor_executed": false,
+        "actual_ready": true,
+        "baseline_full_count": 1062,
+        "baseline_main_head": "432ca1342c8cc98d6e2421382a1754e59318735f",
+        "baseline_shared_source_commit": "42064e8cbfc3263cb1352f923ab8e269d490b078",
+        "expected_full_count": 1096,
+        "expected_full_count_is_prediction": true,
+        "false_candidate_freeze": {
+          "bytes": 20581,
+          "name": "lpac-stream-python-candidate-freeze-03.json",
+          "sha256": "e03620c984c9a4de522a4dd72857cdab60e50bb36af698f3f5c5f8d016f4b908"
+        },
+        "files": {
+          ".github/native/windows_identity_lpac_stream_contract.hpp": {
+            "bytes": 26029,
+            "sha256": "8a616aaa95c717412215dfc18d8acfc9fd51fad8ef5983d9d017a502df0f2f7e"
+          },
+          ".github/native/windows_identity_lpac_stream_front_actor.cpp": {
+            "bytes": 2889,
+            "sha256": "f5ded24762f577b0eeef1b99d2d6f683e901b690c964fe87a75ae7511cd09bc5"
+          },
+          ".github/native/windows_identity_lpac_stream_network_actor.cpp": {
+            "bytes": 17035,
+            "sha256": "b3b864e844d6cc77100f327ba617d4dc5ac5a78599c70cc61a71aa12a5c9d463"
+          },
+          ".github/windows_identity_lpac_stream_origin.py": {
+            "bytes": 68350,
+            "sha256": "cc3bf2a65a1c698899ac241f981de74ea6a989e21644663701984c18b861849c"
+          },
+          ".github/windows_identity_lpac_stream_origin_local.py": {
+            "bytes": 18354,
+            "sha256": "a9f845c3e25736806f28f7b5e36738d5267a30ce035aa4baea6fb97de6db2f81"
+          },
+          "tests/test_windows_identity_lpac_stream_native.py": {
+            "bytes": 8402,
+            "sha256": "8a49bbf7da154d49660830493e8648ae56e740c861df97d1986d8139de0a48d7"
+          },
+          "tests/test_windows_identity_lpac_stream_origin.py": {
+            "bytes": 22976,
+            "sha256": "72c246b0b9201f5da9fc3d26aa60a7843c59188d2306d99d5974678286f09609"
+          },
+          "tests/test_windows_identity_lpac_stream_origin_local.py": {
+            "bytes": 10786,
+            "sha256": "9a1059cf2ae850297bef26dc917c9791264dc145ac971902de768e119a80a37d"
+          }
+        },
+        "full_integrated_tests_pending": true,
+        "independent_python_review": {
+          "bytes": 4330,
+          "name": "lpac-stream-python-independent-review-03.json",
+          "sha256": "f18bb5c8e4bec68bd1407449bd693c991e2223f6a1a09dc4ed6e80f61155ffee"
+        },
+        "linux_equivalence": false,
+        "native_compile_review": {
+          "bytes": 5719,
+          "name": "lpac-stream-native-compile-static-review-01.json",
+          "sha256": "8388a661c10036a7676fc79b3b595a141905e2a87b734a777809878456cf5d35"
+        },
+        "native_freeze": {
+          "bytes": 4309,
+          "name": "lpac-stream-native-freeze-01.json",
+          "sha256": "04a400a90b3fcbbaa03f0fe065a4181812b3a0ec48d729ebb04b785e73126023"
+        },
+        "product_acceptance": false,
+        "production_artifact_file_only_review": {
+          "bytes": 2016,
+          "name": "lpac-stream-artifacts-production-verify-01.json",
+          "sha256": "619c8dc148fe976a1a9048442c66ebdcd07da72f5107c0bb25ece8661c9a881b"
+        },
+        "promotion": "Only new core ACTUAL_READY=False to True; other seven files byte-identical; False candidate/snapshots remain untouched",
+        "schema_version": 1,
+        "source_count": 45,
+        "source_hashes": {
+          ".github/native/windows_identity_actor.cpp": "530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553",
+          ".github/native/windows_identity_dns_raw_udp.hpp": "43b8cc7afce3acd91cdd4f23ae7d7075a996f98860447c3e9791e298d33a8a78",
+          ".github/native/windows_identity_dns_standard_probe.hpp": "bce69ff57a173525a9cff2731f4d05fe34b5144daeaa465b0d8bb5181432d28c",
+          ".github/native/windows_identity_lpac_loopback_actor.cpp": "c3744801ef26fd42a3f1b1712a7d0b7c8e49369ae7e4d655ab46d8eb3f188985",
+          ".github/native/windows_identity_lpac_loopback_contract.hpp": "a5e46a18c25211d34fd33c21a6e640dd7a6a3e3e02ec67fe03c30f010f9f9dce",
+          ".github/native/windows_identity_lpac_pipe_front_actor.cpp": "ecc4a793fa1afc33a5c9407486ee9f463bd68132b8090eb259270a89d19ca48d",
+          ".github/native/windows_identity_lpac_stream_contract.hpp": "8a616aaa95c717412215dfc18d8acfc9fd51fad8ef5983d9d017a502df0f2f7e",
+          ".github/native/windows_identity_lpac_stream_front_actor.cpp": "f5ded24762f577b0eeef1b99d2d6f683e901b690c964fe87a75ae7511cd09bc5",
+          ".github/native/windows_identity_lpac_stream_network_actor.cpp": "b3b864e844d6cc77100f327ba617d4dc5ac5a78599c70cc61a71aa12a5c9d463",
+          ".github/native/windows_identity_proxy_bridge_core.hpp": "f03e45166265f02a65abc12930efd73634a332596d22aa78cadc1267a80b6356",
+          ".github/native/windows_identity_proxy_c_actor.cpp": "17f8a816028f71667513586b2efd57fc1c46b369e1d7171e74a2cef6e9c543a3",
+          ".github/native/windows_identity_proxy_c_contract.hpp": "150efbbccdbcb9064eb6d43ddd25608a4a3655c5a408402779dae6216269ff1c",
+          ".github/native/windows_identity_proxy_origin_actor.cpp": "3d079e77e387ba77545c27f5b5c260f591657ef3a44384426cd2039fa8c04010",
+          ".github/native/windows_identity_proxy_origin_transport.hpp": "bed113e5e20064722cbb2c6d3e71b4d3ca6c4769ebd694c86997abec0af661c4",
+          ".github/native/windows_identity_proxy_pipe_actor.cpp": "26636a6b9979e91452cf6e7d2049d6fbbfa43639a35708ee18d4a71e67fb8dd0",
+          ".github/windows_dns_fixture.py": "5a330ae54ec887742ed14c0d2fd1135e486790b686fbc850c3681f04e674273a",
+          ".github/windows_identity_dns_cases_fixture.py": "28b3035e570ef57fbb3a12f9b8034c71be3d9280712a811fdb636fdb388c9d91",
+          ".github/windows_identity_dns_standard_inventory.ps1": "87d98b0463e031376b6c6d29f1a0db375f74639904d34023ee8bcffa8893dbf1",
+          ".github/windows_identity_lpac_accesscheck.py": "19c0d626e653147276cab9a97c5a0071f1c37b2eeb097c55fbacb39f262ade15",
+          ".github/windows_identity_lpac_dns_local.py": "aff8bd5d2a6b1dd688934f9f98fe66146d74a5365caf2ca2c53f6b934f10fd53",
+          ".github/windows_identity_lpac_identity_cell.py": "b7ffce514f00fbd44ce2e4bc77cd93dfe8285e90c608f5f1a82f30b025798105",
+          ".github/windows_identity_lpac_loopback.py": "3c65e68a9ab975126ece6042100a17897ac099d04efb6d7d8f52d8a1dc847a67",
+          ".github/windows_identity_lpac_loopback_local.py": "2830e42bee7cf0ebcfbb07eeea3c7c2aa33abf1f0112889759c1adcff26bdfc7",
+          ".github/windows_identity_lpac_pipe_origin.py": "452f00595a2d717443a978aa6c9012294598bef3d53fe5ddca212d36599dc1f0",
+          ".github/windows_identity_lpac_pipe_origin_local.py": "a69fec199a9c7252ed733f3f71e4408afabd0c6f9e7ac36612105ba431e71ce6",
+          ".github/windows_identity_lpac_stream_origin.py": "cc3bf2a65a1c698899ac241f981de74ea6a989e21644663701984c18b861849c",
+          ".github/windows_identity_lpac_stream_origin_local.py": "a9f845c3e25736806f28f7b5e36738d5267a30ce035aa4baea6fb97de6db2f81",
+          ".github/windows_identity_model2_controller.py": "9ecc846082f03fcbb206e5610e86d9f2af06250f2f1b165187229ea5582cc2c1",
+          ".github/windows_identity_model2_dns.py": "748b2e7e4adc7008e83d17e184659e7d428fa41a06958f738190b75133b02847",
+          ".github/windows_identity_model2_dns_raw.py": "e0d06ceed384433597a47dfa839043ff4572774a8425b842f38f5fa69fc405c0",
+          ".github/windows_identity_model2_firewall.ps1": "0c78f295fe0a5a6ec2d7a04d58dcfb888767a9231928121493853519f1613cdb",
+          ".github/windows_identity_model2_live.py": "c27260065808dd9f180918b49ba907897a963ff360da9ca72dd9a735c36029fd",
+          ".github/windows_identity_model2_local.py": "e8aa1c1072469bfbf48cafc29ee1d8f09de228aa37ca0734187c9b1af98c6d45",
+          ".github/windows_identity_model2_local_probe.py": "ec14c0d1b185da1deed651bb27726fdc114b4641181cfc29d998f2eac14e56bf",
+          ".github/windows_identity_model2_maintenance.py": "68b6ce894d0dd544a61e19faf4d52f8388af9973a4f86f4dad35868842e38788",
+          ".github/windows_identity_ordinary_launcher.py": "a890f4740bc2869586278158edad65dd8c649e09afed8c7aab355d842301d4a0",
+          ".github/windows_identity_pipe_probe.py": "4dc8567d8a64e544d7a4baa873ff08900720320e26c8d6a6fd43ae3e5744dc74",
+          ".github/windows_identity_proof.py": "aada68c3a0c309dffe422cd6271cf80a728e05a3c4a52a6a81293b47b74d2386",
+          ".github/windows_identity_proxy_origin_probe.py": "33cfddf58caa8877bbe3f6b97132dfa45e9803c88df7c34f17a8501b1b560095",
+          ".github/windows_identity_proxy_pipe_ac_guest.py": "78777d3a6b210a9e27494fc35f9dc53782adda0594b4f4705dee2c008d8d02e1",
+          ".github/windows_identity_proxy_pipe_ac_local.py": "f5ce0fbc20a727f1c78a513bdac816dc49ae43fb1b24e4f8d7eefcd0b252163b",
+          ".github/windows_identity_proxy_pipe_probe.py": "e6bb37aa6f2c5a98dde44d63d097f7921775fd0d7858b95053f33565602df15b",
+          ".github/windows_psec_compartment_smoke.py": "6602471c0cf08f977879caef5c34bab20db9b84208f5cdae0a00b7a1f802d019",
+          "ruleproxy/windows_app_process.py": "8e62820f98d9dbe352d988501d211565aceecce84657200c2793b69404cbee33",
+          "ruleproxy/windows_runtime_pins.py": "2854702df1f2f7bfefce2b772920394033aaefaadf7b45de7b7d4a3fd1d73e65"
+        },
+        "source_sha256": "ccc4008de826faf35eb5c7ea8df47ecdfe54fe0fbf3c31c854d764bbd51899be",
+        "stage": "root-promoted-lpac-stream-source-freeze",
+        "test_method_counts": {
+          "tests/test_windows_identity_lpac_stream_native.py": 1,
+          "tests/test_windows_identity_lpac_stream_origin.py": 21,
+          "tests/test_windows_identity_lpac_stream_origin_local.py": 12
+        }
+      },
+      "name": "lpac-stream-origin-ready-source-freeze-04.json",
+      "original_retained_in_WORK": true,
+      "raw_commitment": {
+        "bytes": 8883,
+        "sha256": "7ca36374615e899dea05f24479950ed0c369d49e45b8c9e67e1a258c7aee9837"
+      },
+      "representation": "source preparation snapshot; historical false/pending fields remain historical",
+      "view_content_commitment": {
+        "bytes": 8883,
+        "sha256": "7ca36374615e899dea05f24479950ed0c369d49e45b8c9e67e1a258c7aee9837"
+      }
+    },
+    {
+      "content": {
+        "ABI": {
+          "bytes": 5017,
+          "name": "lpac-stream-python-candidate-abi-01.json",
+          "sha256": "ffd3a85731c1b754b2cc1b236c6c517a52566cc940c0ebdccd034feab445f42d"
+        },
+        "actions": {
+          "Windows_actor_compiler_run": false,
+          "committed_or_pushed": false,
+          "imported_globals_patched": false,
+          "native_actor_or_resource_API_or_network_called": false,
+          "old_files_or_main_modified": false
+        },
+        "actual_ready": false,
+        "baseline_full_count": 1062,
+        "baseline_source_commit": "42064e8cbfc3263cb1352f923ab8e269d490b078",
+        "boundaries": [
+          "No imported globals are patched. Native stream reports are never fabricated as legacy RPB1 reports.",
+          "New raw CreateProcess hardening is the pair seam; legacy ordinary constructor policy is reused unchanged.",
+          "Independent before/after global capture belongs to the root driver; no-global-mutator calls do not prove equality.",
+          "Previous unexplained route changes, DNS leak and atomic CPSE unknown are not changed by this candidate.",
+          "Cooperative one-stream fixed-owned-origin mechanism; no arbitrary-app, browser, real Mihomo, DNS or product acceptance."
+        ],
+        "expected_full_count_is_prediction": true,
+        "expected_full_python_only_count": 1094,
+        "files": {
+          ".github/windows_identity_lpac_stream_origin.py": {
+            "bytes": 67810,
+            "sha256": "b044538da8dc2a66f21d83d586e6ea6be24b1792fd0c420b2203502be98c47d3"
+          },
+          ".github/windows_identity_lpac_stream_origin_local.py": {
+            "bytes": 18354,
+            "sha256": "a9f845c3e25736806f28f7b5e36738d5267a30ce035aa4baea6fb97de6db2f81"
+          },
+          "tests/test_windows_identity_lpac_stream_origin.py": {
+            "bytes": 22015,
+            "sha256": "f3bbbe9d211b5a8536b49ec2cc263e9f6dd256d6aa692d617a20ce8ee07c4166"
+          },
+          "tests/test_windows_identity_lpac_stream_origin_local.py": {
+            "bytes": 10786,
+            "sha256": "9a1059cf2ae850297bef26dc917c9791264dc145ac971902de768e119a80a37d"
+          }
+        },
+        "history": [
+          {
+            "bytes": 659,
+            "name": "lpac-stream-python-initial-inert-executions-01.json",
+            "sha256": "c4d7aa2f76a18c7e9917eb68d72940b09c59815c794a7c558c49ccf0cca09351"
+          },
+          {
+            "bytes": 6275,
+            "name": "lpac-stream-python-pure-01.log",
+            "sha256": "b15fdf7daa2ed5df24ab31faaa125202061ddec44f4f07a0e7a08d1208eda7ba"
+          }
+        ],
+        "native_abi": {
+          "bytes": 6781,
+          "name": "lpac-stream-native-abi-01.json",
+          "sha256": "b88e113a3e832b291e35756713f6ff1d550a8b06f781b87f7e875b655a3a0e12"
+        },
+        "new_test_method_count": 32,
+        "new_test_method_counts": {
+          "tests/test_windows_identity_lpac_stream_origin.py": 20,
+          "tests/test_windows_identity_lpac_stream_origin_local.py": 12
+        },
+        "original_contract": {
+          "bytes": 17155,
+          "name": "lpac-stream-transport-scope-contract-01.json",
+          "sha256": "0e7e29b2081b91f3933b52d99550970f761b941775620d47e54a8a335f469848"
+        },
+        "patch": {
+          "bytes": 121001,
+          "name": "lpac-stream-python-candidate-01.patch",
+          "sha256": "c9ef270f87efcd6af3f567875c178a4365325df5d0cc8eda107b1366d1df9baa"
+        },
+        "prediction_excludes_separately_owned_native_test_and_parallel_scopes": true,
+        "profile": "zero-cap-lpac-bounded-byte-stream-mechanism-v1",
+        "pure": {
+          "errors": 0,
+          "failures": 0,
+          "injected_API_and_fake_actor_reports_only": true,
+          "log": {
+            "bytes": 6275,
+            "name": "lpac-stream-python-pure-02.log",
+            "sha256": "ab7c629bc0424fd7a263cf4d6e759b189f89eea5a0163e2ebeb724be37cf0d4d"
+          },
+          "seconds": 10.257,
+          "skips": 0,
+          "source_hashes_same_before_after": true,
+          "test_method_counts": {
+            "tests/test_windows_identity_lpac_stream_origin.py": 20,
+            "tests/test_windows_identity_lpac_stream_origin_local.py": 12
+          },
+          "tests": 32
+        },
+        "repository_head_at_freeze": "432ca1342c8cc98d6e2421382a1754e59318735f",
+        "root_amendments": {
+          "bytes": 1781,
+          "name": "lpac-stream-root-amendments-01.json",
+          "sha256": "ac55721a9b8fdb9932dd2c50c732dfda948dacffb5f40245bee2fbdbe967bbb3"
+        },
+        "runtime_inputs": {
+          ".github/native/windows_identity_actor.cpp": {
+            "bytes": 31002,
+            "sha256": "530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553"
+          },
+          ".github/native/windows_identity_dns_raw_udp.hpp": {
+            "bytes": 8847,
+            "sha256": "43b8cc7afce3acd91cdd4f23ae7d7075a996f98860447c3e9791e298d33a8a78"
+          },
+          ".github/native/windows_identity_dns_standard_probe.hpp": {
+            "bytes": 6678,
+            "sha256": "bce69ff57a173525a9cff2731f4d05fe34b5144daeaa465b0d8bb5181432d28c"
+          },
+          ".github/native/windows_identity_lpac_loopback_actor.cpp": {
+            "bytes": 30053,
+            "sha256": "c3744801ef26fd42a3f1b1712a7d0b7c8e49369ae7e4d655ab46d8eb3f188985"
+          },
+          ".github/native/windows_identity_lpac_loopback_contract.hpp": {
+            "bytes": 4650,
+            "sha256": "a5e46a18c25211d34fd33c21a6e640dd7a6a3e3e02ec67fe03c30f010f9f9dce"
+          },
+          ".github/native/windows_identity_lpac_pipe_front_actor.cpp": {
+            "bytes": 6869,
+            "sha256": "ecc4a793fa1afc33a5c9407486ee9f463bd68132b8090eb259270a89d19ca48d"
+          },
+          ".github/native/windows_identity_lpac_stream_contract.hpp": {
+            "bytes": 26029,
+            "sha256": "8a616aaa95c717412215dfc18d8acfc9fd51fad8ef5983d9d017a502df0f2f7e"
+          },
+          ".github/native/windows_identity_lpac_stream_front_actor.cpp": {
+            "bytes": 2889,
+            "sha256": "f5ded24762f577b0eeef1b99d2d6f683e901b690c964fe87a75ae7511cd09bc5"
+          },
+          ".github/native/windows_identity_lpac_stream_network_actor.cpp": {
+            "bytes": 17035,
+            "sha256": "b3b864e844d6cc77100f327ba617d4dc5ac5a78599c70cc61a71aa12a5c9d463"
+          },
+          ".github/native/windows_identity_proxy_bridge_core.hpp": {
+            "bytes": 16902,
+            "sha256": "f03e45166265f02a65abc12930efd73634a332596d22aa78cadc1267a80b6356"
+          },
+          ".github/native/windows_identity_proxy_c_actor.cpp": {
+            "bytes": 49690,
+            "sha256": "17f8a816028f71667513586b2efd57fc1c46b369e1d7171e74a2cef6e9c543a3"
+          },
+          ".github/native/windows_identity_proxy_c_contract.hpp": {
+            "bytes": 4313,
+            "sha256": "150efbbccdbcb9064eb6d43ddd25608a4a3655c5a408402779dae6216269ff1c"
+          },
+          ".github/native/windows_identity_proxy_origin_actor.cpp": {
+            "bytes": 25762,
+            "sha256": "3d079e77e387ba77545c27f5b5c260f591657ef3a44384426cd2039fa8c04010"
+          },
+          ".github/native/windows_identity_proxy_origin_transport.hpp": {
+            "bytes": 6338,
+            "sha256": "bed113e5e20064722cbb2c6d3e71b4d3ca6c4769ebd694c86997abec0af661c4"
+          },
+          ".github/native/windows_identity_proxy_pipe_actor.cpp": {
+            "bytes": 16095,
+            "sha256": "26636a6b9979e91452cf6e7d2049d6fbbfa43639a35708ee18d4a71e67fb8dd0"
+          },
+          ".github/windows_dns_fixture.py": {
+            "bytes": 9913,
+            "sha256": "5a330ae54ec887742ed14c0d2fd1135e486790b686fbc850c3681f04e674273a"
+          },
+          ".github/windows_identity_dns_cases_fixture.py": {
+            "bytes": 11174,
+            "sha256": "28b3035e570ef57fbb3a12f9b8034c71be3d9280712a811fdb636fdb388c9d91"
+          },
+          ".github/windows_identity_dns_standard_inventory.ps1": {
+            "bytes": 3083,
+            "sha256": "87d98b0463e031376b6c6d29f1a0db375f74639904d34023ee8bcffa8893dbf1"
+          },
+          ".github/windows_identity_lpac_accesscheck.py": {
+            "bytes": 34465,
+            "sha256": "19c0d626e653147276cab9a97c5a0071f1c37b2eeb097c55fbacb39f262ade15"
+          },
+          ".github/windows_identity_lpac_dns_local.py": {
+            "bytes": 64394,
+            "sha256": "aff8bd5d2a6b1dd688934f9f98fe66146d74a5365caf2ca2c53f6b934f10fd53"
+          },
+          ".github/windows_identity_lpac_identity_cell.py": {
+            "bytes": 46637,
+            "sha256": "b7ffce514f00fbd44ce2e4bc77cd93dfe8285e90c608f5f1a82f30b025798105"
+          },
+          ".github/windows_identity_lpac_loopback.py": {
+            "bytes": 101306,
+            "sha256": "3c65e68a9ab975126ece6042100a17897ac099d04efb6d7d8f52d8a1dc847a67"
+          },
+          ".github/windows_identity_lpac_loopback_local.py": {
+            "bytes": 17938,
+            "sha256": "2830e42bee7cf0ebcfbb07eeea3c7c2aa33abf1f0112889759c1adcff26bdfc7"
+          },
+          ".github/windows_identity_lpac_pipe_origin.py": {
+            "bytes": 67005,
+            "sha256": "452f00595a2d717443a978aa6c9012294598bef3d53fe5ddca212d36599dc1f0"
+          },
+          ".github/windows_identity_lpac_pipe_origin_local.py": {
+            "bytes": 17255,
+            "sha256": "a69fec199a9c7252ed733f3f71e4408afabd0c6f9e7ac36612105ba431e71ce6"
+          },
+          ".github/windows_identity_lpac_stream_origin.py": {
+            "bytes": 67810,
+            "sha256": "b044538da8dc2a66f21d83d586e6ea6be24b1792fd0c420b2203502be98c47d3"
+          },
+          ".github/windows_identity_lpac_stream_origin_local.py": {
+            "bytes": 18354,
+            "sha256": "a9f845c3e25736806f28f7b5e36738d5267a30ce035aa4baea6fb97de6db2f81"
+          },
+          ".github/windows_identity_model2_controller.py": {
+            "bytes": 183555,
+            "sha256": "9ecc846082f03fcbb206e5610e86d9f2af06250f2f1b165187229ea5582cc2c1"
+          },
+          ".github/windows_identity_model2_dns.py": {
+            "bytes": 15307,
+            "sha256": "748b2e7e4adc7008e83d17e184659e7d428fa41a06958f738190b75133b02847"
+          },
+          ".github/windows_identity_model2_dns_raw.py": {
+            "bytes": 6974,
+            "sha256": "e0d06ceed384433597a47dfa839043ff4572774a8425b842f38f5fa69fc405c0"
+          },
+          ".github/windows_identity_model2_firewall.ps1": {
+            "bytes": 10870,
+            "sha256": "0c78f295fe0a5a6ec2d7a04d58dcfb888767a9231928121493853519f1613cdb"
+          },
+          ".github/windows_identity_model2_live.py": {
+            "bytes": 63254,
+            "sha256": "c27260065808dd9f180918b49ba907897a963ff360da9ca72dd9a735c36029fd"
+          },
+          ".github/windows_identity_model2_local.py": {
+            "bytes": 33250,
+            "sha256": "e8aa1c1072469bfbf48cafc29ee1d8f09de228aa37ca0734187c9b1af98c6d45"
+          },
+          ".github/windows_identity_model2_local_probe.py": {
+            "bytes": 21567,
+            "sha256": "ec14c0d1b185da1deed651bb27726fdc114b4641181cfc29d998f2eac14e56bf"
+          },
+          ".github/windows_identity_model2_maintenance.py": {
+            "bytes": 25117,
+            "sha256": "68b6ce894d0dd544a61e19faf4d52f8388af9973a4f86f4dad35868842e38788"
+          },
+          ".github/windows_identity_ordinary_launcher.py": {
+            "bytes": 67809,
+            "sha256": "a890f4740bc2869586278158edad65dd8c649e09afed8c7aab355d842301d4a0"
+          },
+          ".github/windows_identity_pipe_probe.py": {
+            "bytes": 40122,
+            "sha256": "4dc8567d8a64e544d7a4baa873ff08900720320e26c8d6a6fd43ae3e5744dc74"
+          },
+          ".github/windows_identity_proof.py": {
+            "bytes": 52976,
+            "sha256": "aada68c3a0c309dffe422cd6271cf80a728e05a3c4a52a6a81293b47b74d2386"
+          },
+          ".github/windows_identity_proxy_origin_probe.py": {
+            "bytes": 42871,
+            "sha256": "33cfddf58caa8877bbe3f6b97132dfa45e9803c88df7c34f17a8501b1b560095"
+          },
+          ".github/windows_identity_proxy_pipe_ac_guest.py": {
+            "bytes": 14243,
+            "sha256": "78777d3a6b210a9e27494fc35f9dc53782adda0594b4f4705dee2c008d8d02e1"
+          },
+          ".github/windows_identity_proxy_pipe_ac_local.py": {
+            "bytes": 35656,
+            "sha256": "f5ce0fbc20a727f1c78a513bdac816dc49ae43fb1b24e4f8d7eefcd0b252163b"
+          },
+          ".github/windows_identity_proxy_pipe_probe.py": {
+            "bytes": 75569,
+            "sha256": "e6bb37aa6f2c5a98dde44d63d097f7921775fd0d7858b95053f33565602df15b"
+          },
+          ".github/windows_psec_compartment_smoke.py": {
+            "bytes": 46167,
+            "sha256": "6602471c0cf08f977879caef5c34bab20db9b84208f5cdae0a00b7a1f802d019"
+          },
+          "ruleproxy/windows_app_process.py": {
+            "bytes": 20927,
+            "sha256": "8e62820f98d9dbe352d988501d211565aceecce84657200c2793b69404cbee33"
+          },
+          "ruleproxy/windows_runtime_pins.py": {
+            "bytes": 2080,
+            "sha256": "2854702df1f2f7bfefce2b772920394033aaefaadf7b45de7b7d4a3fd1d73e65"
+          }
+        },
+        "schema_version": 1,
+        "scope": "one-local-semantic-lpac-inherited-stream-origin-v1",
+        "shared_source_count": 40,
+        "shared_source_review": {
+          "bytes": 7624,
+          "name": "lpac-stream-shared-dependencies-verification-01.json",
+          "sha256": "b36f51674a0d37dc11fbbe32410bf0a849ce2709be786fb1455f99cd6fc76a46"
+        },
+        "shared_sources_exact_git420_and_main": true,
+        "snapshot_directory": "lpac-stream-python-candidate-snapshot-01",
+        "source_count": 45,
+        "source_hashes": {
+          ".github/native/windows_identity_actor.cpp": "530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553",
+          ".github/native/windows_identity_dns_raw_udp.hpp": "43b8cc7afce3acd91cdd4f23ae7d7075a996f98860447c3e9791e298d33a8a78",
+          ".github/native/windows_identity_dns_standard_probe.hpp": "bce69ff57a173525a9cff2731f4d05fe34b5144daeaa465b0d8bb5181432d28c",
+          ".github/native/windows_identity_lpac_loopback_actor.cpp": "c3744801ef26fd42a3f1b1712a7d0b7c8e49369ae7e4d655ab46d8eb3f188985",
+          ".github/native/windows_identity_lpac_loopback_contract.hpp": "a5e46a18c25211d34fd33c21a6e640dd7a6a3e3e02ec67fe03c30f010f9f9dce",
+          ".github/native/windows_identity_lpac_pipe_front_actor.cpp": "ecc4a793fa1afc33a5c9407486ee9f463bd68132b8090eb259270a89d19ca48d",
+          ".github/native/windows_identity_lpac_stream_contract.hpp": "8a616aaa95c717412215dfc18d8acfc9fd51fad8ef5983d9d017a502df0f2f7e",
+          ".github/native/windows_identity_lpac_stream_front_actor.cpp": "f5ded24762f577b0eeef1b99d2d6f683e901b690c964fe87a75ae7511cd09bc5",
+          ".github/native/windows_identity_lpac_stream_network_actor.cpp": "b3b864e844d6cc77100f327ba617d4dc5ac5a78599c70cc61a71aa12a5c9d463",
+          ".github/native/windows_identity_proxy_bridge_core.hpp": "f03e45166265f02a65abc12930efd73634a332596d22aa78cadc1267a80b6356",
+          ".github/native/windows_identity_proxy_c_actor.cpp": "17f8a816028f71667513586b2efd57fc1c46b369e1d7171e74a2cef6e9c543a3",
+          ".github/native/windows_identity_proxy_c_contract.hpp": "150efbbccdbcb9064eb6d43ddd25608a4a3655c5a408402779dae6216269ff1c",
+          ".github/native/windows_identity_proxy_origin_actor.cpp": "3d079e77e387ba77545c27f5b5c260f591657ef3a44384426cd2039fa8c04010",
+          ".github/native/windows_identity_proxy_origin_transport.hpp": "bed113e5e20064722cbb2c6d3e71b4d3ca6c4769ebd694c86997abec0af661c4",
+          ".github/native/windows_identity_proxy_pipe_actor.cpp": "26636a6b9979e91452cf6e7d2049d6fbbfa43639a35708ee18d4a71e67fb8dd0",
+          ".github/windows_dns_fixture.py": "5a330ae54ec887742ed14c0d2fd1135e486790b686fbc850c3681f04e674273a",
+          ".github/windows_identity_dns_cases_fixture.py": "28b3035e570ef57fbb3a12f9b8034c71be3d9280712a811fdb636fdb388c9d91",
+          ".github/windows_identity_dns_standard_inventory.ps1": "87d98b0463e031376b6c6d29f1a0db375f74639904d34023ee8bcffa8893dbf1",
+          ".github/windows_identity_lpac_accesscheck.py": "19c0d626e653147276cab9a97c5a0071f1c37b2eeb097c55fbacb39f262ade15",
+          ".github/windows_identity_lpac_dns_local.py": "aff8bd5d2a6b1dd688934f9f98fe66146d74a5365caf2ca2c53f6b934f10fd53",
+          ".github/windows_identity_lpac_identity_cell.py": "b7ffce514f00fbd44ce2e4bc77cd93dfe8285e90c608f5f1a82f30b025798105",
+          ".github/windows_identity_lpac_loopback.py": "3c65e68a9ab975126ece6042100a17897ac099d04efb6d7d8f52d8a1dc847a67",
+          ".github/windows_identity_lpac_loopback_local.py": "2830e42bee7cf0ebcfbb07eeea3c7c2aa33abf1f0112889759c1adcff26bdfc7",
+          ".github/windows_identity_lpac_pipe_origin.py": "452f00595a2d717443a978aa6c9012294598bef3d53fe5ddca212d36599dc1f0",
+          ".github/windows_identity_lpac_pipe_origin_local.py": "a69fec199a9c7252ed733f3f71e4408afabd0c6f9e7ac36612105ba431e71ce6",
+          ".github/windows_identity_lpac_stream_origin.py": "b044538da8dc2a66f21d83d586e6ea6be24b1792fd0c420b2203502be98c47d3",
+          ".github/windows_identity_lpac_stream_origin_local.py": "a9f845c3e25736806f28f7b5e36738d5267a30ce035aa4baea6fb97de6db2f81",
+          ".github/windows_identity_model2_controller.py": "9ecc846082f03fcbb206e5610e86d9f2af06250f2f1b165187229ea5582cc2c1",
+          ".github/windows_identity_model2_dns.py": "748b2e7e4adc7008e83d17e184659e7d428fa41a06958f738190b75133b02847",
+          ".github/windows_identity_model2_dns_raw.py": "e0d06ceed384433597a47dfa839043ff4572774a8425b842f38f5fa69fc405c0",
+          ".github/windows_identity_model2_firewall.ps1": "0c78f295fe0a5a6ec2d7a04d58dcfb888767a9231928121493853519f1613cdb",
+          ".github/windows_identity_model2_live.py": "c27260065808dd9f180918b49ba907897a963ff360da9ca72dd9a735c36029fd",
+          ".github/windows_identity_model2_local.py": "e8aa1c1072469bfbf48cafc29ee1d8f09de228aa37ca0734187c9b1af98c6d45",
+          ".github/windows_identity_model2_local_probe.py": "ec14c0d1b185da1deed651bb27726fdc114b4641181cfc29d998f2eac14e56bf",
+          ".github/windows_identity_model2_maintenance.py": "68b6ce894d0dd544a61e19faf4d52f8388af9973a4f86f4dad35868842e38788",
+          ".github/windows_identity_ordinary_launcher.py": "a890f4740bc2869586278158edad65dd8c649e09afed8c7aab355d842301d4a0",
+          ".github/windows_identity_pipe_probe.py": "4dc8567d8a64e544d7a4baa873ff08900720320e26c8d6a6fd43ae3e5744dc74",
+          ".github/windows_identity_proof.py": "aada68c3a0c309dffe422cd6271cf80a728e05a3c4a52a6a81293b47b74d2386",
+          ".github/windows_identity_proxy_origin_probe.py": "33cfddf58caa8877bbe3f6b97132dfa45e9803c88df7c34f17a8501b1b560095",
+          ".github/windows_identity_proxy_pipe_ac_guest.py": "78777d3a6b210a9e27494fc35f9dc53782adda0594b4f4705dee2c008d8d02e1",
+          ".github/windows_identity_proxy_pipe_ac_local.py": "f5ce0fbc20a727f1c78a513bdac816dc49ae43fb1b24e4f8d7eefcd0b252163b",
+          ".github/windows_identity_proxy_pipe_probe.py": "e6bb37aa6f2c5a98dde44d63d097f7921775fd0d7858b95053f33565602df15b",
+          ".github/windows_psec_compartment_smoke.py": "6602471c0cf08f977879caef5c34bab20db9b84208f5cdae0a00b7a1f802d019",
+          "ruleproxy/windows_app_process.py": "8e62820f98d9dbe352d988501d211565aceecce84657200c2793b69404cbee33",
+          "ruleproxy/windows_runtime_pins.py": "2854702df1f2f7bfefce2b772920394033aaefaadf7b45de7b7d4a3fd1d73e65"
+        },
+        "source_sha256": "3b5e2dfceea38226e0a1e604157dbdcaed3d1d8ef31b2e1fa2ee0d8c77c9896e",
+        "stage": "work-lpac-stream-python-false-candidate-freeze"
+      },
+      "name": "lpac-stream-python-candidate-freeze-01.json",
+      "original_retained_in_WORK": true,
+      "raw_commitment": {
+        "bytes": 17708,
+        "sha256": "1c4ae853266a20f6b8ac8ecd324bbbda46a7599f5f366f6888900bdd0b0f36aa"
+      },
+      "representation": "source preparation snapshot; historical false/pending fields remain historical",
+      "view_content_commitment": {
+        "bytes": 17708,
+        "sha256": "1c4ae853266a20f6b8ac8ecd324bbbda46a7599f5f366f6888900bdd0b0f36aa"
+      }
+    },
+    {
+      "content": {
+        "ABI": {
+          "bytes": 6195,
+          "name": "lpac-stream-python-candidate-abi-02.json",
+          "sha256": "72fe4f6d349d5153b7d81a9ba561be1d0cd1400e9bed0079c3f2cac702833e55"
+        },
+        "actions": {
+          "Windows_actor_compiler_run": false,
+          "committed_or_pushed": false,
+          "imported_globals_patched": false,
+          "native_actor_or_resource_API_or_network_called": false,
+          "old_files_or_main_modified": false
+        },
+        "actual_ready": false,
+        "baseline_full_count": 1062,
+        "baseline_source_commit": "42064e8cbfc3263cb1352f923ab8e269d490b078",
+        "boundaries": [
+          "No imported globals are patched. Native stream reports are never fabricated as legacy RPB1 reports.",
+          "New raw CreateProcess hardening is the pair seam; legacy ordinary constructor policy is reused unchanged.",
+          "Independent before/after global capture belongs to the root driver; no-global-mutator calls do not prove equality.",
+          "Previous unexplained route changes, DNS leak and atomic CPSE unknown are not changed by this candidate.",
+          "Cooperative one-stream fixed-owned-origin mechanism; no arbitrary-app, browser, real Mihomo, DNS or product acceptance.",
+          "Request to actual TCP EOF precedes origin response to actual TCP EOF. This does not prove concurrent full-duplex socket semantics or arbitrary synchronous pipe deadlock freedom.",
+          "Some native typed partials are deliberately committed as invalid raw: origin not bound has network.port=0 while owner.port is unavailable; failed native identity queries are not accepted as bound native facts. Original bytes/hash remain private and another valid peer retains its independent facts."
+        ],
+        "cross_ABI_closed_sets_verified": [
+          "report23",
+          "ready10",
+          "files3",
+          "file_record5",
+          "stream23",
+          "pipe9",
+          "network19",
+          "manifest8",
+          "native failures",
+          "codec failures",
+          "fixed paths",
+          "argv15/12"
+        ],
+        "expected_full_count_is_prediction": true,
+        "expected_full_count_with_native_test": 1095,
+        "expected_full_python_only_count": 1094,
+        "files": {
+          ".github/windows_identity_lpac_stream_origin.py": {
+            "bytes": 67810,
+            "sha256": "b044538da8dc2a66f21d83d586e6ea6be24b1792fd0c420b2203502be98c47d3"
+          },
+          ".github/windows_identity_lpac_stream_origin_local.py": {
+            "bytes": 18354,
+            "sha256": "a9f845c3e25736806f28f7b5e36738d5267a30ce035aa4baea6fb97de6db2f81"
+          },
+          "tests/test_windows_identity_lpac_stream_origin.py": {
+            "bytes": 22015,
+            "sha256": "f3bbbe9d211b5a8536b49ec2cc263e9f6dd256d6aa692d617a20ce8ee07c4166"
+          },
+          "tests/test_windows_identity_lpac_stream_origin_local.py": {
+            "bytes": 10786,
+            "sha256": "9a1059cf2ae850297bef26dc917c9791264dc145ac971902de768e119a80a37d"
+          }
+        },
+        "history": [
+          {
+            "bytes": 659,
+            "name": "lpac-stream-python-initial-inert-executions-01.json",
+            "sha256": "c4d7aa2f76a18c7e9917eb68d72940b09c59815c794a7c558c49ccf0cca09351"
+          },
+          {
+            "bytes": 6275,
+            "name": "lpac-stream-python-pure-01.log",
+            "sha256": "b15fdf7daa2ed5df24ab31faaa125202061ddec44f4f07a0e7a08d1208eda7ba"
+          }
+        ],
+        "native_abi": {
+          "bytes": 9913,
+          "name": "lpac-stream-native-abi-02.json",
+          "sha256": "1bf1b4d3fe8b83b5ac097e330906a15594d5500320a22dbfbcf9c3c097738aab"
+        },
+        "native_freeze": {
+          "bytes": 4309,
+          "name": "lpac-stream-native-freeze-01.json",
+          "sha256": "04a400a90b3fcbbaa03f0fe065a4181812b3a0ec48d729ebb04b785e73126023"
+        },
+        "native_portable": {
+          "compiled_assertions": 54313,
+          "errors": 0,
+          "executed_by": "native author; this Python finalization only reads the frozen receipt/log",
+          "failures": 0,
+          "log": {
+            "bytes": 331,
+            "name": "lpac-stream-native-pure-03.log",
+            "sha256": "1daf6ec3e129842eb90c93995a95c82613af4f545937af2c468c9f2e35b8b97d"
+          },
+          "seconds": 1.179,
+          "skips": 0,
+          "test_methods": 1
+        },
+        "new_test_method_count": 32,
+        "new_test_method_counts": {
+          "tests/test_windows_identity_lpac_stream_origin.py": 20,
+          "tests/test_windows_identity_lpac_stream_origin_local.py": 12
+        },
+        "original_contract": {
+          "bytes": 17155,
+          "name": "lpac-stream-transport-scope-contract-01.json",
+          "sha256": "0e7e29b2081b91f3933b52d99550970f761b941775620d47e54a8a335f469848"
+        },
+        "patch": {
+          "bytes": 121001,
+          "name": "lpac-stream-python-candidate-02.patch",
+          "sha256": "c9ef270f87efcd6af3f567875c178a4365325df5d0cc8eda107b1366d1df9baa"
+        },
+        "prediction_excludes_separately_owned_native_test_and_parallel_scopes": true,
+        "prior_freeze": {
+          "bytes": 17708,
+          "name": "lpac-stream-python-candidate-freeze-01.json",
+          "sha256": "1c4ae853266a20f6b8ac8ecd324bbbda46a7599f5f366f6888900bdd0b0f36aa"
+        },
+        "profile": "zero-cap-lpac-bounded-byte-stream-mechanism-v1",
+        "pure": {
+          "errors": 0,
+          "failures": 0,
+          "injected_API_and_fake_actor_reports_only": true,
+          "log": {
+            "bytes": 6275,
+            "name": "lpac-stream-python-pure-02.log",
+            "sha256": "ab7c629bc0424fd7a263cf4d6e759b189f89eea5a0163e2ebeb724be37cf0d4d"
+          },
+          "seconds": 10.257,
+          "skips": 0,
+          "source_hashes_same_before_after": true,
+          "test_method_counts": {
+            "tests/test_windows_identity_lpac_stream_origin.py": 20,
+            "tests/test_windows_identity_lpac_stream_origin_local.py": 12
+          },
+          "tests": 32
+        },
+        "repository_head_at_freeze": "432ca1342c8cc98d6e2421382a1754e59318735f",
+        "revision": 2,
+        "revision_scope": "Metadata-only final binding to native freeze01 and native ABI02; all four Python/test bytes, source45 and final32-test log unchanged",
+        "root_amendments": {
+          "bytes": 1781,
+          "name": "lpac-stream-root-amendments-01.json",
+          "sha256": "ac55721a9b8fdb9932dd2c50c732dfda948dacffb5f40245bee2fbdbe967bbb3"
+        },
+        "runtime_inputs": {
+          ".github/native/windows_identity_actor.cpp": {
+            "bytes": 31002,
+            "sha256": "530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553"
+          },
+          ".github/native/windows_identity_dns_raw_udp.hpp": {
+            "bytes": 8847,
+            "sha256": "43b8cc7afce3acd91cdd4f23ae7d7075a996f98860447c3e9791e298d33a8a78"
+          },
+          ".github/native/windows_identity_dns_standard_probe.hpp": {
+            "bytes": 6678,
+            "sha256": "bce69ff57a173525a9cff2731f4d05fe34b5144daeaa465b0d8bb5181432d28c"
+          },
+          ".github/native/windows_identity_lpac_loopback_actor.cpp": {
+            "bytes": 30053,
+            "sha256": "c3744801ef26fd42a3f1b1712a7d0b7c8e49369ae7e4d655ab46d8eb3f188985"
+          },
+          ".github/native/windows_identity_lpac_loopback_contract.hpp": {
+            "bytes": 4650,
+            "sha256": "a5e46a18c25211d34fd33c21a6e640dd7a6a3e3e02ec67fe03c30f010f9f9dce"
+          },
+          ".github/native/windows_identity_lpac_pipe_front_actor.cpp": {
+            "bytes": 6869,
+            "sha256": "ecc4a793fa1afc33a5c9407486ee9f463bd68132b8090eb259270a89d19ca48d"
+          },
+          ".github/native/windows_identity_lpac_stream_contract.hpp": {
+            "bytes": 26029,
+            "sha256": "8a616aaa95c717412215dfc18d8acfc9fd51fad8ef5983d9d017a502df0f2f7e"
+          },
+          ".github/native/windows_identity_lpac_stream_front_actor.cpp": {
+            "bytes": 2889,
+            "sha256": "f5ded24762f577b0eeef1b99d2d6f683e901b690c964fe87a75ae7511cd09bc5"
+          },
+          ".github/native/windows_identity_lpac_stream_network_actor.cpp": {
+            "bytes": 17035,
+            "sha256": "b3b864e844d6cc77100f327ba617d4dc5ac5a78599c70cc61a71aa12a5c9d463"
+          },
+          ".github/native/windows_identity_proxy_bridge_core.hpp": {
+            "bytes": 16902,
+            "sha256": "f03e45166265f02a65abc12930efd73634a332596d22aa78cadc1267a80b6356"
+          },
+          ".github/native/windows_identity_proxy_c_actor.cpp": {
+            "bytes": 49690,
+            "sha256": "17f8a816028f71667513586b2efd57fc1c46b369e1d7171e74a2cef6e9c543a3"
+          },
+          ".github/native/windows_identity_proxy_c_contract.hpp": {
+            "bytes": 4313,
+            "sha256": "150efbbccdbcb9064eb6d43ddd25608a4a3655c5a408402779dae6216269ff1c"
+          },
+          ".github/native/windows_identity_proxy_origin_actor.cpp": {
+            "bytes": 25762,
+            "sha256": "3d079e77e387ba77545c27f5b5c260f591657ef3a44384426cd2039fa8c04010"
+          },
+          ".github/native/windows_identity_proxy_origin_transport.hpp": {
+            "bytes": 6338,
+            "sha256": "bed113e5e20064722cbb2c6d3e71b4d3ca6c4769ebd694c86997abec0af661c4"
+          },
+          ".github/native/windows_identity_proxy_pipe_actor.cpp": {
+            "bytes": 16095,
+            "sha256": "26636a6b9979e91452cf6e7d2049d6fbbfa43639a35708ee18d4a71e67fb8dd0"
+          },
+          ".github/windows_dns_fixture.py": {
+            "bytes": 9913,
+            "sha256": "5a330ae54ec887742ed14c0d2fd1135e486790b686fbc850c3681f04e674273a"
+          },
+          ".github/windows_identity_dns_cases_fixture.py": {
+            "bytes": 11174,
+            "sha256": "28b3035e570ef57fbb3a12f9b8034c71be3d9280712a811fdb636fdb388c9d91"
+          },
+          ".github/windows_identity_dns_standard_inventory.ps1": {
+            "bytes": 3083,
+            "sha256": "87d98b0463e031376b6c6d29f1a0db375f74639904d34023ee8bcffa8893dbf1"
+          },
+          ".github/windows_identity_lpac_accesscheck.py": {
+            "bytes": 34465,
+            "sha256": "19c0d626e653147276cab9a97c5a0071f1c37b2eeb097c55fbacb39f262ade15"
+          },
+          ".github/windows_identity_lpac_dns_local.py": {
+            "bytes": 64394,
+            "sha256": "aff8bd5d2a6b1dd688934f9f98fe66146d74a5365caf2ca2c53f6b934f10fd53"
+          },
+          ".github/windows_identity_lpac_identity_cell.py": {
+            "bytes": 46637,
+            "sha256": "b7ffce514f00fbd44ce2e4bc77cd93dfe8285e90c608f5f1a82f30b025798105"
+          },
+          ".github/windows_identity_lpac_loopback.py": {
+            "bytes": 101306,
+            "sha256": "3c65e68a9ab975126ece6042100a17897ac099d04efb6d7d8f52d8a1dc847a67"
+          },
+          ".github/windows_identity_lpac_loopback_local.py": {
+            "bytes": 17938,
+            "sha256": "2830e42bee7cf0ebcfbb07eeea3c7c2aa33abf1f0112889759c1adcff26bdfc7"
+          },
+          ".github/windows_identity_lpac_pipe_origin.py": {
+            "bytes": 67005,
+            "sha256": "452f00595a2d717443a978aa6c9012294598bef3d53fe5ddca212d36599dc1f0"
+          },
+          ".github/windows_identity_lpac_pipe_origin_local.py": {
+            "bytes": 17255,
+            "sha256": "a69fec199a9c7252ed733f3f71e4408afabd0c6f9e7ac36612105ba431e71ce6"
+          },
+          ".github/windows_identity_lpac_stream_origin.py": {
+            "bytes": 67810,
+            "sha256": "b044538da8dc2a66f21d83d586e6ea6be24b1792fd0c420b2203502be98c47d3"
+          },
+          ".github/windows_identity_lpac_stream_origin_local.py": {
+            "bytes": 18354,
+            "sha256": "a9f845c3e25736806f28f7b5e36738d5267a30ce035aa4baea6fb97de6db2f81"
+          },
+          ".github/windows_identity_model2_controller.py": {
+            "bytes": 183555,
+            "sha256": "9ecc846082f03fcbb206e5610e86d9f2af06250f2f1b165187229ea5582cc2c1"
+          },
+          ".github/windows_identity_model2_dns.py": {
+            "bytes": 15307,
+            "sha256": "748b2e7e4adc7008e83d17e184659e7d428fa41a06958f738190b75133b02847"
+          },
+          ".github/windows_identity_model2_dns_raw.py": {
+            "bytes": 6974,
+            "sha256": "e0d06ceed384433597a47dfa839043ff4572774a8425b842f38f5fa69fc405c0"
+          },
+          ".github/windows_identity_model2_firewall.ps1": {
+            "bytes": 10870,
+            "sha256": "0c78f295fe0a5a6ec2d7a04d58dcfb888767a9231928121493853519f1613cdb"
+          },
+          ".github/windows_identity_model2_live.py": {
+            "bytes": 63254,
+            "sha256": "c27260065808dd9f180918b49ba907897a963ff360da9ca72dd9a735c36029fd"
+          },
+          ".github/windows_identity_model2_local.py": {
+            "bytes": 33250,
+            "sha256": "e8aa1c1072469bfbf48cafc29ee1d8f09de228aa37ca0734187c9b1af98c6d45"
+          },
+          ".github/windows_identity_model2_local_probe.py": {
+            "bytes": 21567,
+            "sha256": "ec14c0d1b185da1deed651bb27726fdc114b4641181cfc29d998f2eac14e56bf"
+          },
+          ".github/windows_identity_model2_maintenance.py": {
+            "bytes": 25117,
+            "sha256": "68b6ce894d0dd544a61e19faf4d52f8388af9973a4f86f4dad35868842e38788"
+          },
+          ".github/windows_identity_ordinary_launcher.py": {
+            "bytes": 67809,
+            "sha256": "a890f4740bc2869586278158edad65dd8c649e09afed8c7aab355d842301d4a0"
+          },
+          ".github/windows_identity_pipe_probe.py": {
+            "bytes": 40122,
+            "sha256": "4dc8567d8a64e544d7a4baa873ff08900720320e26c8d6a6fd43ae3e5744dc74"
+          },
+          ".github/windows_identity_proof.py": {
+            "bytes": 52976,
+            "sha256": "aada68c3a0c309dffe422cd6271cf80a728e05a3c4a52a6a81293b47b74d2386"
+          },
+          ".github/windows_identity_proxy_origin_probe.py": {
+            "bytes": 42871,
+            "sha256": "33cfddf58caa8877bbe3f6b97132dfa45e9803c88df7c34f17a8501b1b560095"
+          },
+          ".github/windows_identity_proxy_pipe_ac_guest.py": {
+            "bytes": 14243,
+            "sha256": "78777d3a6b210a9e27494fc35f9dc53782adda0594b4f4705dee2c008d8d02e1"
+          },
+          ".github/windows_identity_proxy_pipe_ac_local.py": {
+            "bytes": 35656,
+            "sha256": "f5ce0fbc20a727f1c78a513bdac816dc49ae43fb1b24e4f8d7eefcd0b252163b"
+          },
+          ".github/windows_identity_proxy_pipe_probe.py": {
+            "bytes": 75569,
+            "sha256": "e6bb37aa6f2c5a98dde44d63d097f7921775fd0d7858b95053f33565602df15b"
+          },
+          ".github/windows_psec_compartment_smoke.py": {
+            "bytes": 46167,
+            "sha256": "6602471c0cf08f977879caef5c34bab20db9b84208f5cdae0a00b7a1f802d019"
+          },
+          "ruleproxy/windows_app_process.py": {
+            "bytes": 20927,
+            "sha256": "8e62820f98d9dbe352d988501d211565aceecce84657200c2793b69404cbee33"
+          },
+          "ruleproxy/windows_runtime_pins.py": {
+            "bytes": 2080,
+            "sha256": "2854702df1f2f7bfefce2b772920394033aaefaadf7b45de7b7d4a3fd1d73e65"
+          }
+        },
+        "schema_version": 1,
+        "scope": "one-local-semantic-lpac-inherited-stream-origin-v1",
+        "sequential_amendment": {
+          "bytes": 754,
+          "name": "lpac-stream-sequential-boundary-amendment-01.json",
+          "sha256": "fdd0c11c47c8a70712523402cf0e31529a3fce298deb5792974d5c943395c0ce"
+        },
+        "shared_source_count": 40,
+        "shared_source_review": {
+          "bytes": 7624,
+          "name": "lpac-stream-shared-dependencies-verification-01.json",
+          "sha256": "b36f51674a0d37dc11fbbe32410bf0a849ce2709be786fb1455f99cd6fc76a46"
+        },
+        "shared_sources_exact_git420_and_main": true,
+        "snapshot_directory": "lpac-stream-python-candidate-snapshot-02",
+        "source_count": 45,
+        "source_hashes": {
+          ".github/native/windows_identity_actor.cpp": "530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553",
+          ".github/native/windows_identity_dns_raw_udp.hpp": "43b8cc7afce3acd91cdd4f23ae7d7075a996f98860447c3e9791e298d33a8a78",
+          ".github/native/windows_identity_dns_standard_probe.hpp": "bce69ff57a173525a9cff2731f4d05fe34b5144daeaa465b0d8bb5181432d28c",
+          ".github/native/windows_identity_lpac_loopback_actor.cpp": "c3744801ef26fd42a3f1b1712a7d0b7c8e49369ae7e4d655ab46d8eb3f188985",
+          ".github/native/windows_identity_lpac_loopback_contract.hpp": "a5e46a18c25211d34fd33c21a6e640dd7a6a3e3e02ec67fe03c30f010f9f9dce",
+          ".github/native/windows_identity_lpac_pipe_front_actor.cpp": "ecc4a793fa1afc33a5c9407486ee9f463bd68132b8090eb259270a89d19ca48d",
+          ".github/native/windows_identity_lpac_stream_contract.hpp": "8a616aaa95c717412215dfc18d8acfc9fd51fad8ef5983d9d017a502df0f2f7e",
+          ".github/native/windows_identity_lpac_stream_front_actor.cpp": "f5ded24762f577b0eeef1b99d2d6f683e901b690c964fe87a75ae7511cd09bc5",
+          ".github/native/windows_identity_lpac_stream_network_actor.cpp": "b3b864e844d6cc77100f327ba617d4dc5ac5a78599c70cc61a71aa12a5c9d463",
+          ".github/native/windows_identity_proxy_bridge_core.hpp": "f03e45166265f02a65abc12930efd73634a332596d22aa78cadc1267a80b6356",
+          ".github/native/windows_identity_proxy_c_actor.cpp": "17f8a816028f71667513586b2efd57fc1c46b369e1d7171e74a2cef6e9c543a3",
+          ".github/native/windows_identity_proxy_c_contract.hpp": "150efbbccdbcb9064eb6d43ddd25608a4a3655c5a408402779dae6216269ff1c",
+          ".github/native/windows_identity_proxy_origin_actor.cpp": "3d079e77e387ba77545c27f5b5c260f591657ef3a44384426cd2039fa8c04010",
+          ".github/native/windows_identity_proxy_origin_transport.hpp": "bed113e5e20064722cbb2c6d3e71b4d3ca6c4769ebd694c86997abec0af661c4",
+          ".github/native/windows_identity_proxy_pipe_actor.cpp": "26636a6b9979e91452cf6e7d2049d6fbbfa43639a35708ee18d4a71e67fb8dd0",
+          ".github/windows_dns_fixture.py": "5a330ae54ec887742ed14c0d2fd1135e486790b686fbc850c3681f04e674273a",
+          ".github/windows_identity_dns_cases_fixture.py": "28b3035e570ef57fbb3a12f9b8034c71be3d9280712a811fdb636fdb388c9d91",
+          ".github/windows_identity_dns_standard_inventory.ps1": "87d98b0463e031376b6c6d29f1a0db375f74639904d34023ee8bcffa8893dbf1",
+          ".github/windows_identity_lpac_accesscheck.py": "19c0d626e653147276cab9a97c5a0071f1c37b2eeb097c55fbacb39f262ade15",
+          ".github/windows_identity_lpac_dns_local.py": "aff8bd5d2a6b1dd688934f9f98fe66146d74a5365caf2ca2c53f6b934f10fd53",
+          ".github/windows_identity_lpac_identity_cell.py": "b7ffce514f00fbd44ce2e4bc77cd93dfe8285e90c608f5f1a82f30b025798105",
+          ".github/windows_identity_lpac_loopback.py": "3c65e68a9ab975126ece6042100a17897ac099d04efb6d7d8f52d8a1dc847a67",
+          ".github/windows_identity_lpac_loopback_local.py": "2830e42bee7cf0ebcfbb07eeea3c7c2aa33abf1f0112889759c1adcff26bdfc7",
+          ".github/windows_identity_lpac_pipe_origin.py": "452f00595a2d717443a978aa6c9012294598bef3d53fe5ddca212d36599dc1f0",
+          ".github/windows_identity_lpac_pipe_origin_local.py": "a69fec199a9c7252ed733f3f71e4408afabd0c6f9e7ac36612105ba431e71ce6",
+          ".github/windows_identity_lpac_stream_origin.py": "b044538da8dc2a66f21d83d586e6ea6be24b1792fd0c420b2203502be98c47d3",
+          ".github/windows_identity_lpac_stream_origin_local.py": "a9f845c3e25736806f28f7b5e36738d5267a30ce035aa4baea6fb97de6db2f81",
+          ".github/windows_identity_model2_controller.py": "9ecc846082f03fcbb206e5610e86d9f2af06250f2f1b165187229ea5582cc2c1",
+          ".github/windows_identity_model2_dns.py": "748b2e7e4adc7008e83d17e184659e7d428fa41a06958f738190b75133b02847",
+          ".github/windows_identity_model2_dns_raw.py": "e0d06ceed384433597a47dfa839043ff4572774a8425b842f38f5fa69fc405c0",
+          ".github/windows_identity_model2_firewall.ps1": "0c78f295fe0a5a6ec2d7a04d58dcfb888767a9231928121493853519f1613cdb",
+          ".github/windows_identity_model2_live.py": "c27260065808dd9f180918b49ba907897a963ff360da9ca72dd9a735c36029fd",
+          ".github/windows_identity_model2_local.py": "e8aa1c1072469bfbf48cafc29ee1d8f09de228aa37ca0734187c9b1af98c6d45",
+          ".github/windows_identity_model2_local_probe.py": "ec14c0d1b185da1deed651bb27726fdc114b4641181cfc29d998f2eac14e56bf",
+          ".github/windows_identity_model2_maintenance.py": "68b6ce894d0dd544a61e19faf4d52f8388af9973a4f86f4dad35868842e38788",
+          ".github/windows_identity_ordinary_launcher.py": "a890f4740bc2869586278158edad65dd8c649e09afed8c7aab355d842301d4a0",
+          ".github/windows_identity_pipe_probe.py": "4dc8567d8a64e544d7a4baa873ff08900720320e26c8d6a6fd43ae3e5744dc74",
+          ".github/windows_identity_proof.py": "aada68c3a0c309dffe422cd6271cf80a728e05a3c4a52a6a81293b47b74d2386",
+          ".github/windows_identity_proxy_origin_probe.py": "33cfddf58caa8877bbe3f6b97132dfa45e9803c88df7c34f17a8501b1b560095",
+          ".github/windows_identity_proxy_pipe_ac_guest.py": "78777d3a6b210a9e27494fc35f9dc53782adda0594b4f4705dee2c008d8d02e1",
+          ".github/windows_identity_proxy_pipe_ac_local.py": "f5ce0fbc20a727f1c78a513bdac816dc49ae43fb1b24e4f8d7eefcd0b252163b",
+          ".github/windows_identity_proxy_pipe_probe.py": "e6bb37aa6f2c5a98dde44d63d097f7921775fd0d7858b95053f33565602df15b",
+          ".github/windows_psec_compartment_smoke.py": "6602471c0cf08f977879caef5c34bab20db9b84208f5cdae0a00b7a1f802d019",
+          "ruleproxy/windows_app_process.py": "8e62820f98d9dbe352d988501d211565aceecce84657200c2793b69404cbee33",
+          "ruleproxy/windows_runtime_pins.py": "2854702df1f2f7bfefce2b772920394033aaefaadf7b45de7b7d4a3fd1d73e65"
+        },
+        "source_sha256": "3b5e2dfceea38226e0a1e604157dbdcaed3d1d8ef31b2e1fa2ee0d8c77c9896e",
+        "stage": "work-lpac-stream-python-false-candidate-freeze"
+      },
+      "name": "lpac-stream-python-candidate-freeze-02.json",
+      "original_retained_in_WORK": true,
+      "raw_commitment": {
+        "bytes": 19653,
+        "sha256": "dd3f627b2ea6b230c35381717b204d5b59613e6feea8bfb51b0e5d0791e96ea3"
+      },
+      "representation": "source preparation snapshot; historical false/pending fields remain historical",
+      "view_content_commitment": {
+        "bytes": 19653,
+        "sha256": "dd3f627b2ea6b230c35381717b204d5b59613e6feea8bfb51b0e5d0791e96ea3"
+      }
+    },
+    {
+      "content": {
+        "ABI": {
+          "bytes": 6669,
+          "name": "lpac-stream-python-candidate-abi-03.json",
+          "sha256": "bd5e9feec14eb4e545793518e8945c1134a476a1ea45822d6c5fb2a0ac881ea9"
+        },
+        "actions": {
+          "Windows_actor_compiler_run": false,
+          "committed_or_pushed": false,
+          "imported_globals_patched": false,
+          "native_actor_or_resource_API_or_network_called": false,
+          "old_files_or_main_modified": false
+        },
+        "actual_ready": false,
+        "baseline_full_count": 1062,
+        "baseline_source_commit": "42064e8cbfc3263cb1352f923ab8e269d490b078",
+        "boundaries": [
+          "No imported globals are patched. Native stream reports are never fabricated as legacy RPB1 reports.",
+          "New raw CreateProcess hardening is the pair seam; legacy ordinary constructor policy is reused unchanged.",
+          "Independent before/after global capture belongs to the root driver; no-global-mutator calls do not prove equality.",
+          "Previous unexplained route changes, DNS leak and atomic CPSE unknown are not changed by this candidate.",
+          "Cooperative one-stream fixed-owned-origin mechanism; no arbitrary-app, browser, real Mihomo, DNS or product acceptance.",
+          "Request to actual TCP EOF precedes origin response to actual TCP EOF. This does not prove concurrent full-duplex socket semantics or arbitrary synchronous pipe deadlock freedom.",
+          "Some native typed partials are deliberately committed as invalid raw: origin not bound has network.port=0 while owner.port is unavailable; failed native identity queries are not accepted as bound native facts. Original bytes/hash remain private and another valid peer retains its independent facts."
+        ],
+        "cross_ABI_closed_sets_verified": [
+          "report23",
+          "ready10",
+          "files3",
+          "file_record5",
+          "stream23",
+          "pipe9",
+          "network19",
+          "manifest8",
+          "native failures",
+          "codec failures",
+          "fixed paths",
+          "argv15/12"
+        ],
+        "expected_full_count_is_prediction": true,
+        "expected_full_count_with_native_test": 1096,
+        "expected_full_python_only_count": 1095,
+        "files": {
+          ".github/windows_identity_lpac_stream_origin.py": {
+            "bytes": 68351,
+            "sha256": "7b654e5a57429bb7865cd6c6e5cbbde6f7cdda40c29992f91a3b41fd4c7ce77b"
+          },
+          ".github/windows_identity_lpac_stream_origin_local.py": {
+            "bytes": 18354,
+            "sha256": "a9f845c3e25736806f28f7b5e36738d5267a30ce035aa4baea6fb97de6db2f81"
+          },
+          "tests/test_windows_identity_lpac_stream_origin.py": {
+            "bytes": 22976,
+            "sha256": "72c246b0b9201f5da9fc3d26aa60a7843c59188d2306d99d5974678286f09609"
+          },
+          "tests/test_windows_identity_lpac_stream_origin_local.py": {
+            "bytes": 10786,
+            "sha256": "9a1059cf2ae850297bef26dc917c9791264dc145ac971902de768e119a80a37d"
+          }
+        },
+        "history": [
+          {
+            "bytes": 659,
+            "name": "lpac-stream-python-initial-inert-executions-01.json",
+            "sha256": "c4d7aa2f76a18c7e9917eb68d72940b09c59815c794a7c558c49ccf0cca09351"
+          },
+          {
+            "bytes": 6275,
+            "name": "lpac-stream-python-pure-01.log",
+            "sha256": "b15fdf7daa2ed5df24ab31faaa125202061ddec44f4f07a0e7a08d1208eda7ba"
+          },
+          {
+            "bytes": 17708,
+            "name": "lpac-stream-python-candidate-freeze-01.json",
+            "sha256": "1c4ae853266a20f6b8ac8ecd324bbbda46a7599f5f366f6888900bdd0b0f36aa"
+          },
+          {
+            "bytes": 19653,
+            "name": "lpac-stream-python-candidate-freeze-02.json",
+            "sha256": "dd3f627b2ea6b230c35381717b204d5b59613e6feea8bfb51b0e5d0791e96ea3"
+          },
+          {
+            "bytes": 6275,
+            "name": "lpac-stream-python-pure-02.log",
+            "sha256": "ab7c629bc0424fd7a263cf4d6e759b189f89eea5a0163e2ebeb724be37cf0d4d"
+          },
+          {
+            "bytes": 1257,
+            "name": "lpac-stream-python-source-lifetime-fix-03.json",
+            "sha256": "61c9e8f4d7c83fae5710c306a44b74d91cbbfe3694a4933be3a24285814c4500"
+          }
+        ],
+        "native_abi": {
+          "bytes": 9913,
+          "name": "lpac-stream-native-abi-02.json",
+          "sha256": "1bf1b4d3fe8b83b5ac097e330906a15594d5500320a22dbfbcf9c3c097738aab"
+        },
+        "native_freeze": {
+          "bytes": 4309,
+          "name": "lpac-stream-native-freeze-01.json",
+          "sha256": "04a400a90b3fcbbaa03f0fe065a4181812b3a0ec48d729ebb04b785e73126023"
+        },
+        "native_portable": {
+          "compiled_assertions": 54313,
+          "errors": 0,
+          "executed_by": "native author; this Python finalization only reads the frozen receipt/log",
+          "failures": 0,
+          "log": {
+            "bytes": 331,
+            "name": "lpac-stream-native-pure-03.log",
+            "sha256": "1daf6ec3e129842eb90c93995a95c82613af4f545937af2c468c9f2e35b8b97d"
+          },
+          "seconds": 1.179,
+          "skips": 0,
+          "test_methods": 1
+        },
+        "new_test_method_count": 33,
+        "new_test_method_counts": {
+          "tests/test_windows_identity_lpac_stream_origin.py": 21,
+          "tests/test_windows_identity_lpac_stream_origin_local.py": 12
+        },
+        "original_contract": {
+          "bytes": 17155,
+          "name": "lpac-stream-transport-scope-contract-01.json",
+          "sha256": "0e7e29b2081b91f3933b52d99550970f761b941775620d47e54a8a335f469848"
+        },
+        "patch": {
+          "bytes": 122523,
+          "name": "lpac-stream-python-candidate-03.patch",
+          "sha256": "b2b7e782ea95a6d6d0ba39433801e2adf1f50ba59f9d18d3c3c5a1c9f92e50ec"
+        },
+        "prediction_excludes_separately_owned_native_test_and_parallel_scopes": true,
+        "prior_freeze": {
+          "bytes": 19653,
+          "name": "lpac-stream-python-candidate-freeze-02.json",
+          "sha256": "dd3f627b2ea6b230c35381717b204d5b59613e6feea8bfb51b0e5d0791e96ea3"
+        },
+        "profile": "zero-cap-lpac-bounded-byte-stream-mechanism-v1",
+        "pure": {
+          "errors": 0,
+          "failures": 0,
+          "injected_API_and_fake_actor_reports_only": true,
+          "log": {
+            "bytes": 6503,
+            "name": "lpac-stream-python-pure-03.log",
+            "sha256": "ad4bb1fd887432ff5321361245854931d57c868edecc664483f49f083a5dbf64"
+          },
+          "seconds": 11.711,
+          "skips": 0,
+          "test_method_counts": {
+            "tests/test_windows_identity_lpac_stream_origin.py": 21,
+            "tests/test_windows_identity_lpac_stream_origin_local.py": 12
+          },
+          "tests": 33
+        },
+        "repository_head_at_freeze": "432ca1342c8cc98d6e2421382a1754e59318735f",
+        "revision": 3,
+        "revision_scope": "Narrow source-lifetime fix only: no response reopen after origin READY; request-only original pin gate retained. One API-shaped share-zero coordinator regression. No new capability/native/API/deadline scope.",
+        "root_amendments": {
+          "bytes": 1781,
+          "name": "lpac-stream-root-amendments-01.json",
+          "sha256": "ac55721a9b8fdb9932dd2c50c732dfda948dacffb5f40245bee2fbdbe967bbb3"
+        },
+        "runtime_inputs": {
+          ".github/native/windows_identity_actor.cpp": {
+            "bytes": 31002,
+            "sha256": "530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553"
+          },
+          ".github/native/windows_identity_dns_raw_udp.hpp": {
+            "bytes": 8847,
+            "sha256": "43b8cc7afce3acd91cdd4f23ae7d7075a996f98860447c3e9791e298d33a8a78"
+          },
+          ".github/native/windows_identity_dns_standard_probe.hpp": {
+            "bytes": 6678,
+            "sha256": "bce69ff57a173525a9cff2731f4d05fe34b5144daeaa465b0d8bb5181432d28c"
+          },
+          ".github/native/windows_identity_lpac_loopback_actor.cpp": {
+            "bytes": 30053,
+            "sha256": "c3744801ef26fd42a3f1b1712a7d0b7c8e49369ae7e4d655ab46d8eb3f188985"
+          },
+          ".github/native/windows_identity_lpac_loopback_contract.hpp": {
+            "bytes": 4650,
+            "sha256": "a5e46a18c25211d34fd33c21a6e640dd7a6a3e3e02ec67fe03c30f010f9f9dce"
+          },
+          ".github/native/windows_identity_lpac_pipe_front_actor.cpp": {
+            "bytes": 6869,
+            "sha256": "ecc4a793fa1afc33a5c9407486ee9f463bd68132b8090eb259270a89d19ca48d"
+          },
+          ".github/native/windows_identity_lpac_stream_contract.hpp": {
+            "bytes": 26029,
+            "sha256": "8a616aaa95c717412215dfc18d8acfc9fd51fad8ef5983d9d017a502df0f2f7e"
+          },
+          ".github/native/windows_identity_lpac_stream_front_actor.cpp": {
+            "bytes": 2889,
+            "sha256": "f5ded24762f577b0eeef1b99d2d6f683e901b690c964fe87a75ae7511cd09bc5"
+          },
+          ".github/native/windows_identity_lpac_stream_network_actor.cpp": {
+            "bytes": 17035,
+            "sha256": "b3b864e844d6cc77100f327ba617d4dc5ac5a78599c70cc61a71aa12a5c9d463"
+          },
+          ".github/native/windows_identity_proxy_bridge_core.hpp": {
+            "bytes": 16902,
+            "sha256": "f03e45166265f02a65abc12930efd73634a332596d22aa78cadc1267a80b6356"
+          },
+          ".github/native/windows_identity_proxy_c_actor.cpp": {
+            "bytes": 49690,
+            "sha256": "17f8a816028f71667513586b2efd57fc1c46b369e1d7171e74a2cef6e9c543a3"
+          },
+          ".github/native/windows_identity_proxy_c_contract.hpp": {
+            "bytes": 4313,
+            "sha256": "150efbbccdbcb9064eb6d43ddd25608a4a3655c5a408402779dae6216269ff1c"
+          },
+          ".github/native/windows_identity_proxy_origin_actor.cpp": {
+            "bytes": 25762,
+            "sha256": "3d079e77e387ba77545c27f5b5c260f591657ef3a44384426cd2039fa8c04010"
+          },
+          ".github/native/windows_identity_proxy_origin_transport.hpp": {
+            "bytes": 6338,
+            "sha256": "bed113e5e20064722cbb2c6d3e71b4d3ca6c4769ebd694c86997abec0af661c4"
+          },
+          ".github/native/windows_identity_proxy_pipe_actor.cpp": {
+            "bytes": 16095,
+            "sha256": "26636a6b9979e91452cf6e7d2049d6fbbfa43639a35708ee18d4a71e67fb8dd0"
+          },
+          ".github/windows_dns_fixture.py": {
+            "bytes": 9913,
+            "sha256": "5a330ae54ec887742ed14c0d2fd1135e486790b686fbc850c3681f04e674273a"
+          },
+          ".github/windows_identity_dns_cases_fixture.py": {
+            "bytes": 11174,
+            "sha256": "28b3035e570ef57fbb3a12f9b8034c71be3d9280712a811fdb636fdb388c9d91"
+          },
+          ".github/windows_identity_dns_standard_inventory.ps1": {
+            "bytes": 3083,
+            "sha256": "87d98b0463e031376b6c6d29f1a0db375f74639904d34023ee8bcffa8893dbf1"
+          },
+          ".github/windows_identity_lpac_accesscheck.py": {
+            "bytes": 34465,
+            "sha256": "19c0d626e653147276cab9a97c5a0071f1c37b2eeb097c55fbacb39f262ade15"
+          },
+          ".github/windows_identity_lpac_dns_local.py": {
+            "bytes": 64394,
+            "sha256": "aff8bd5d2a6b1dd688934f9f98fe66146d74a5365caf2ca2c53f6b934f10fd53"
+          },
+          ".github/windows_identity_lpac_identity_cell.py": {
+            "bytes": 46637,
+            "sha256": "b7ffce514f00fbd44ce2e4bc77cd93dfe8285e90c608f5f1a82f30b025798105"
+          },
+          ".github/windows_identity_lpac_loopback.py": {
+            "bytes": 101306,
+            "sha256": "3c65e68a9ab975126ece6042100a17897ac099d04efb6d7d8f52d8a1dc847a67"
+          },
+          ".github/windows_identity_lpac_loopback_local.py": {
+            "bytes": 17938,
+            "sha256": "2830e42bee7cf0ebcfbb07eeea3c7c2aa33abf1f0112889759c1adcff26bdfc7"
+          },
+          ".github/windows_identity_lpac_pipe_origin.py": {
+            "bytes": 67005,
+            "sha256": "452f00595a2d717443a978aa6c9012294598bef3d53fe5ddca212d36599dc1f0"
+          },
+          ".github/windows_identity_lpac_pipe_origin_local.py": {
+            "bytes": 17255,
+            "sha256": "a69fec199a9c7252ed733f3f71e4408afabd0c6f9e7ac36612105ba431e71ce6"
+          },
+          ".github/windows_identity_lpac_stream_origin.py": {
+            "bytes": 68351,
+            "sha256": "7b654e5a57429bb7865cd6c6e5cbbde6f7cdda40c29992f91a3b41fd4c7ce77b"
+          },
+          ".github/windows_identity_lpac_stream_origin_local.py": {
+            "bytes": 18354,
+            "sha256": "a9f845c3e25736806f28f7b5e36738d5267a30ce035aa4baea6fb97de6db2f81"
+          },
+          ".github/windows_identity_model2_controller.py": {
+            "bytes": 183555,
+            "sha256": "9ecc846082f03fcbb206e5610e86d9f2af06250f2f1b165187229ea5582cc2c1"
+          },
+          ".github/windows_identity_model2_dns.py": {
+            "bytes": 15307,
+            "sha256": "748b2e7e4adc7008e83d17e184659e7d428fa41a06958f738190b75133b02847"
+          },
+          ".github/windows_identity_model2_dns_raw.py": {
+            "bytes": 6974,
+            "sha256": "e0d06ceed384433597a47dfa839043ff4572774a8425b842f38f5fa69fc405c0"
+          },
+          ".github/windows_identity_model2_firewall.ps1": {
+            "bytes": 10870,
+            "sha256": "0c78f295fe0a5a6ec2d7a04d58dcfb888767a9231928121493853519f1613cdb"
+          },
+          ".github/windows_identity_model2_live.py": {
+            "bytes": 63254,
+            "sha256": "c27260065808dd9f180918b49ba907897a963ff360da9ca72dd9a735c36029fd"
+          },
+          ".github/windows_identity_model2_local.py": {
+            "bytes": 33250,
+            "sha256": "e8aa1c1072469bfbf48cafc29ee1d8f09de228aa37ca0734187c9b1af98c6d45"
+          },
+          ".github/windows_identity_model2_local_probe.py": {
+            "bytes": 21567,
+            "sha256": "ec14c0d1b185da1deed651bb27726fdc114b4641181cfc29d998f2eac14e56bf"
+          },
+          ".github/windows_identity_model2_maintenance.py": {
+            "bytes": 25117,
+            "sha256": "68b6ce894d0dd544a61e19faf4d52f8388af9973a4f86f4dad35868842e38788"
+          },
+          ".github/windows_identity_ordinary_launcher.py": {
+            "bytes": 67809,
+            "sha256": "a890f4740bc2869586278158edad65dd8c649e09afed8c7aab355d842301d4a0"
+          },
+          ".github/windows_identity_pipe_probe.py": {
+            "bytes": 40122,
+            "sha256": "4dc8567d8a64e544d7a4baa873ff08900720320e26c8d6a6fd43ae3e5744dc74"
+          },
+          ".github/windows_identity_proof.py": {
+            "bytes": 52976,
+            "sha256": "aada68c3a0c309dffe422cd6271cf80a728e05a3c4a52a6a81293b47b74d2386"
+          },
+          ".github/windows_identity_proxy_origin_probe.py": {
+            "bytes": 42871,
+            "sha256": "33cfddf58caa8877bbe3f6b97132dfa45e9803c88df7c34f17a8501b1b560095"
+          },
+          ".github/windows_identity_proxy_pipe_ac_guest.py": {
+            "bytes": 14243,
+            "sha256": "78777d3a6b210a9e27494fc35f9dc53782adda0594b4f4705dee2c008d8d02e1"
+          },
+          ".github/windows_identity_proxy_pipe_ac_local.py": {
+            "bytes": 35656,
+            "sha256": "f5ce0fbc20a727f1c78a513bdac816dc49ae43fb1b24e4f8d7eefcd0b252163b"
+          },
+          ".github/windows_identity_proxy_pipe_probe.py": {
+            "bytes": 75569,
+            "sha256": "e6bb37aa6f2c5a98dde44d63d097f7921775fd0d7858b95053f33565602df15b"
+          },
+          ".github/windows_psec_compartment_smoke.py": {
+            "bytes": 46167,
+            "sha256": "6602471c0cf08f977879caef5c34bab20db9b84208f5cdae0a00b7a1f802d019"
+          },
+          "ruleproxy/windows_app_process.py": {
+            "bytes": 20927,
+            "sha256": "8e62820f98d9dbe352d988501d211565aceecce84657200c2793b69404cbee33"
+          },
+          "ruleproxy/windows_runtime_pins.py": {
+            "bytes": 2080,
+            "sha256": "2854702df1f2f7bfefce2b772920394033aaefaadf7b45de7b7d4a3fd1d73e65"
+          }
+        },
+        "schema_version": 1,
+        "scope": "one-local-semantic-lpac-inherited-stream-origin-v1",
+        "sequential_amendment": {
+          "bytes": 754,
+          "name": "lpac-stream-sequential-boundary-amendment-01.json",
+          "sha256": "fdd0c11c47c8a70712523402cf0e31529a3fce298deb5792974d5c943395c0ce"
+        },
+        "shared_source_count": 40,
+        "shared_source_review": {
+          "bytes": 7624,
+          "name": "lpac-stream-shared-dependencies-verification-01.json",
+          "sha256": "b36f51674a0d37dc11fbbe32410bf0a849ce2709be786fb1455f99cd6fc76a46"
+        },
+        "shared_sources_exact_git420_and_main": true,
+        "snapshot_directory": "lpac-stream-python-candidate-snapshot-03",
+        "source_count": 45,
+        "source_hashes": {
+          ".github/native/windows_identity_actor.cpp": "530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553",
+          ".github/native/windows_identity_dns_raw_udp.hpp": "43b8cc7afce3acd91cdd4f23ae7d7075a996f98860447c3e9791e298d33a8a78",
+          ".github/native/windows_identity_dns_standard_probe.hpp": "bce69ff57a173525a9cff2731f4d05fe34b5144daeaa465b0d8bb5181432d28c",
+          ".github/native/windows_identity_lpac_loopback_actor.cpp": "c3744801ef26fd42a3f1b1712a7d0b7c8e49369ae7e4d655ab46d8eb3f188985",
+          ".github/native/windows_identity_lpac_loopback_contract.hpp": "a5e46a18c25211d34fd33c21a6e640dd7a6a3e3e02ec67fe03c30f010f9f9dce",
+          ".github/native/windows_identity_lpac_pipe_front_actor.cpp": "ecc4a793fa1afc33a5c9407486ee9f463bd68132b8090eb259270a89d19ca48d",
+          ".github/native/windows_identity_lpac_stream_contract.hpp": "8a616aaa95c717412215dfc18d8acfc9fd51fad8ef5983d9d017a502df0f2f7e",
+          ".github/native/windows_identity_lpac_stream_front_actor.cpp": "f5ded24762f577b0eeef1b99d2d6f683e901b690c964fe87a75ae7511cd09bc5",
+          ".github/native/windows_identity_lpac_stream_network_actor.cpp": "b3b864e844d6cc77100f327ba617d4dc5ac5a78599c70cc61a71aa12a5c9d463",
+          ".github/native/windows_identity_proxy_bridge_core.hpp": "f03e45166265f02a65abc12930efd73634a332596d22aa78cadc1267a80b6356",
+          ".github/native/windows_identity_proxy_c_actor.cpp": "17f8a816028f71667513586b2efd57fc1c46b369e1d7171e74a2cef6e9c543a3",
+          ".github/native/windows_identity_proxy_c_contract.hpp": "150efbbccdbcb9064eb6d43ddd25608a4a3655c5a408402779dae6216269ff1c",
+          ".github/native/windows_identity_proxy_origin_actor.cpp": "3d079e77e387ba77545c27f5b5c260f591657ef3a44384426cd2039fa8c04010",
+          ".github/native/windows_identity_proxy_origin_transport.hpp": "bed113e5e20064722cbb2c6d3e71b4d3ca6c4769ebd694c86997abec0af661c4",
+          ".github/native/windows_identity_proxy_pipe_actor.cpp": "26636a6b9979e91452cf6e7d2049d6fbbfa43639a35708ee18d4a71e67fb8dd0",
+          ".github/windows_dns_fixture.py": "5a330ae54ec887742ed14c0d2fd1135e486790b686fbc850c3681f04e674273a",
+          ".github/windows_identity_dns_cases_fixture.py": "28b3035e570ef57fbb3a12f9b8034c71be3d9280712a811fdb636fdb388c9d91",
+          ".github/windows_identity_dns_standard_inventory.ps1": "87d98b0463e031376b6c6d29f1a0db375f74639904d34023ee8bcffa8893dbf1",
+          ".github/windows_identity_lpac_accesscheck.py": "19c0d626e653147276cab9a97c5a0071f1c37b2eeb097c55fbacb39f262ade15",
+          ".github/windows_identity_lpac_dns_local.py": "aff8bd5d2a6b1dd688934f9f98fe66146d74a5365caf2ca2c53f6b934f10fd53",
+          ".github/windows_identity_lpac_identity_cell.py": "b7ffce514f00fbd44ce2e4bc77cd93dfe8285e90c608f5f1a82f30b025798105",
+          ".github/windows_identity_lpac_loopback.py": "3c65e68a9ab975126ece6042100a17897ac099d04efb6d7d8f52d8a1dc847a67",
+          ".github/windows_identity_lpac_loopback_local.py": "2830e42bee7cf0ebcfbb07eeea3c7c2aa33abf1f0112889759c1adcff26bdfc7",
+          ".github/windows_identity_lpac_pipe_origin.py": "452f00595a2d717443a978aa6c9012294598bef3d53fe5ddca212d36599dc1f0",
+          ".github/windows_identity_lpac_pipe_origin_local.py": "a69fec199a9c7252ed733f3f71e4408afabd0c6f9e7ac36612105ba431e71ce6",
+          ".github/windows_identity_lpac_stream_origin.py": "7b654e5a57429bb7865cd6c6e5cbbde6f7cdda40c29992f91a3b41fd4c7ce77b",
+          ".github/windows_identity_lpac_stream_origin_local.py": "a9f845c3e25736806f28f7b5e36738d5267a30ce035aa4baea6fb97de6db2f81",
+          ".github/windows_identity_model2_controller.py": "9ecc846082f03fcbb206e5610e86d9f2af06250f2f1b165187229ea5582cc2c1",
+          ".github/windows_identity_model2_dns.py": "748b2e7e4adc7008e83d17e184659e7d428fa41a06958f738190b75133b02847",
+          ".github/windows_identity_model2_dns_raw.py": "e0d06ceed384433597a47dfa839043ff4572774a8425b842f38f5fa69fc405c0",
+          ".github/windows_identity_model2_firewall.ps1": "0c78f295fe0a5a6ec2d7a04d58dcfb888767a9231928121493853519f1613cdb",
+          ".github/windows_identity_model2_live.py": "c27260065808dd9f180918b49ba907897a963ff360da9ca72dd9a735c36029fd",
+          ".github/windows_identity_model2_local.py": "e8aa1c1072469bfbf48cafc29ee1d8f09de228aa37ca0734187c9b1af98c6d45",
+          ".github/windows_identity_model2_local_probe.py": "ec14c0d1b185da1deed651bb27726fdc114b4641181cfc29d998f2eac14e56bf",
+          ".github/windows_identity_model2_maintenance.py": "68b6ce894d0dd544a61e19faf4d52f8388af9973a4f86f4dad35868842e38788",
+          ".github/windows_identity_ordinary_launcher.py": "a890f4740bc2869586278158edad65dd8c649e09afed8c7aab355d842301d4a0",
+          ".github/windows_identity_pipe_probe.py": "4dc8567d8a64e544d7a4baa873ff08900720320e26c8d6a6fd43ae3e5744dc74",
+          ".github/windows_identity_proof.py": "aada68c3a0c309dffe422cd6271cf80a728e05a3c4a52a6a81293b47b74d2386",
+          ".github/windows_identity_proxy_origin_probe.py": "33cfddf58caa8877bbe3f6b97132dfa45e9803c88df7c34f17a8501b1b560095",
+          ".github/windows_identity_proxy_pipe_ac_guest.py": "78777d3a6b210a9e27494fc35f9dc53782adda0594b4f4705dee2c008d8d02e1",
+          ".github/windows_identity_proxy_pipe_ac_local.py": "f5ce0fbc20a727f1c78a513bdac816dc49ae43fb1b24e4f8d7eefcd0b252163b",
+          ".github/windows_identity_proxy_pipe_probe.py": "e6bb37aa6f2c5a98dde44d63d097f7921775fd0d7858b95053f33565602df15b",
+          ".github/windows_psec_compartment_smoke.py": "6602471c0cf08f977879caef5c34bab20db9b84208f5cdae0a00b7a1f802d019",
+          "ruleproxy/windows_app_process.py": "8e62820f98d9dbe352d988501d211565aceecce84657200c2793b69404cbee33",
+          "ruleproxy/windows_runtime_pins.py": "2854702df1f2f7bfefce2b772920394033aaefaadf7b45de7b7d4a3fd1d73e65"
+        },
+        "source_lifetime_fix": {
+          "bytes": 1257,
+          "name": "lpac-stream-python-source-lifetime-fix-03.json",
+          "sha256": "61c9e8f4d7c83fae5710c306a44b74d91cbbfe3694a4933be3a24285814c4500"
+        },
+        "source_sha256": "a235829a934dea7ee92665f53b2776a8e89218a204ebaf8763d35c5a0a4ad64f",
+        "stage": "work-lpac-stream-python-false-candidate-freeze"
+      },
+      "name": "lpac-stream-python-candidate-freeze-03.json",
+      "original_retained_in_WORK": true,
+      "raw_commitment": {
+        "bytes": 20581,
+        "sha256": "e03620c984c9a4de522a4dd72857cdab60e50bb36af698f3f5c5f8d016f4b908"
+      },
+      "representation": "source preparation snapshot; historical false/pending fields remain historical",
+      "view_content_commitment": {
+        "bytes": 20581,
+        "sha256": "e03620c984c9a4de522a4dd72857cdab60e50bb36af698f3f5c5f8d016f4b908"
+      }
+    },
+    {
+      "content": {
+        "actual_ready": false,
+        "decision": "GO",
+        "independent_tests": {
+          "count": 8,
+          "errors": 0,
+          "failures": 0,
+          "log": {
+            "bytes": 1542,
+            "sha256": "6e9276f42ac05407e3ec63f0c4939ed9a7fe9700f24d83350cd145bbaeb54bd2"
+          },
+          "names": [
+            "test_api_shaped_exact_attributes_raw_receipt_precedes_adoption",
+            "test_false_garbage_exception_partial_outputs_never_adopted",
+            "test_known_false_empty_is_nochild_but_success_late_retains_handles",
+            "test_receipt_failure_keeps_successful_cleanup_authority_no_admission",
+            "test_origin_live_share_zero_response_input_is_never_reopened_before_pair_resume",
+            "test_physical_sink_and_rehashed_different_bytes_cannot_claim_success",
+            "test_final_after_held_exit_or_completion_before_final_rejected",
+            "test_physical_outer_or_return_mismatch_rejected"
+          ],
+          "scope": "Only injected ctypes callables and finite temporary-file owner/guard fixtures; no production NativeAPI constructor, actor, endpoint, profile, ACL, or network operation.",
+          "skipped": 0
+        },
+        "limits": [
+          "Source-level and inert-fake review, not Windows OS compatibility or actual mechanism success.",
+          "Request-then-response finite challenge only; no arbitrary synchronous full-duplex deadlock proof.",
+          "No application/Mihomo/proxy/DNS/PSEC/Linux/product qualification.",
+          "Imports may initialize CPython libraries; no claim that all imports never initialize WSA."
+        ],
+        "native4_exact_frozen": true,
+        "native_author_is_not_native_independent_reviewer": true,
+        "no_actor_or_native_resource_API_executed": true,
+        "no_main_or_candidate_source_edited": true,
+        "previous_False02_decision": "BLOCKED: parent response read while ordinary origin holds share0; original freeze preserved.",
+        "reviewed_files": {
+          ".github/windows_identity_lpac_stream_origin.py": {
+            "bytes": 68351,
+            "sha256": "7b654e5a57429bb7865cd6c6e5cbbde6f7cdda40c29992f91a3b41fd4c7ce77b"
+          },
+          ".github/windows_identity_lpac_stream_origin_local.py": {
+            "bytes": 18354,
+            "sha256": "a9f845c3e25736806f28f7b5e36738d5267a30ce035aa4baea6fb97de6db2f81"
+          },
+          "tests/test_windows_identity_lpac_stream_origin.py": {
+            "bytes": 22976,
+            "sha256": "72c246b0b9201f5da9fc3d26aa60a7843c59188d2306d99d5974678286f09609"
+          },
+          "tests/test_windows_identity_lpac_stream_origin_local.py": {
+            "bytes": 10786,
+            "sha256": "9a1059cf2ae850297bef26dc917c9791264dc145ac971902de768e119a80a37d"
+          }
+        },
+        "reviewed_freeze": {
+          "bytes": 20581,
+          "sha256": "e03620c984c9a4de522a4dd72857cdab60e50bb36af698f3f5c5f8d016f4b908"
+        },
+        "reviews": [
+          "True ordinary versus zero-cap LPAC role admission uses independently captured primary token, image/generation and both held Jobs.",
+          "Selected CreateProcess uses SC capabilitycount0/AAP1/atomic JOB_LIST/HANDLE_LIST exact2, four live attribute values until return; ordinary pair has only two attributes.",
+          "Raw Create return/PI durable receipt precedes interpretation; known successful late children retain cleanup ownership; malformed/partial/exception remains unknown.",
+          "Ordinary response input and ordinary raw evidence have no LPAC SID ACE. Root RX does not inherit to them; only selected request subtree RX and selected sink subtree Modify.",
+          "Original120/115/85/10F domain and reserves, before-resume semantic proof, exact four parent closes, held generation/token/image/Jobs are retained.",
+          "New23/10/3/5/23/9/19/8 closed report/ready/files/file/stream/pipe/network/manifest schemas match nativeABI02. Actual physical sink hashes and original source pins are independently read after held exits.",
+          "False02 real share0 response reread blocker confirmed. False03 keeps dual pin before origin resume, reads only selected request before pair resume, and rechecks both inputs plus five physical sinks after all held exits.",
+          "Native flow/data/socket facts are ordinary relay/origin only; selected owns no SOCKET. Failure, timeout, partial/unknown and all fixedfalse qualifiers remain nonqualification."
+        ],
+        "revision": 3,
+        "schema_version": 1,
+        "shared40_candidate_main_git420_exact": true,
+        "source_count": 45,
+        "source_sha256": "a235829a934dea7ee92665f53b2776a8e89218a204ebaf8763d35c5a0a4ad64f",
+        "stage": "lpac-stream-python-independent-review"
+      },
+      "name": "lpac-stream-python-independent-review-03.json",
+      "original_retained_in_WORK": true,
+      "raw_commitment": {
+        "bytes": 4330,
+        "sha256": "f18bb5c8e4bec68bd1407449bd693c991e2223f6a1a09dc4ed6e80f61155ffee"
+      },
+      "representation": "source preparation snapshot; historical false/pending fields remain historical",
+      "view_content_commitment": {
+        "bytes": 4330,
+        "sha256": "f83acec0f490719b1fda697413c46985a1d31d56783a2c9e58d95565a7d8a3af"
+      }
+    },
+    {
+      "content": {
+        "actual": false,
+        "core": {
+          "errors": 0,
+          "failures": 0,
+          "raw_evidence": "tool transcript only; no separate raw log was saved",
+          "seconds": 6.001,
+          "skips": 0,
+          "tests": 18
+        },
+        "guard": {
+          "error": "FileNotFoundError for not-yet-written native front source in exact snapshot test",
+          "errors": 1,
+          "failures": 0,
+          "other_tests_passed": 11,
+          "raw_evidence": "tool transcript only; no separate raw log was saved",
+          "seconds": 3.254,
+          "skips": 0,
+          "tests": 12
+        },
+        "main_changed": false,
+        "native_resource_API_called": false,
+        "schema_version": 1,
+        "stage": "work-stream-python-initial-inert-executions"
+      },
+      "name": "lpac-stream-python-initial-inert-executions-01.json",
+      "original_retained_in_WORK": true,
+      "raw_commitment": {
+        "bytes": 659,
+        "sha256": "c4d7aa2f76a18c7e9917eb68d72940b09c59815c794a7c558c49ccf0cca09351"
+      },
+      "representation": "source preparation snapshot; historical false/pending fields remain historical",
+      "view_content_commitment": {
+        "bytes": 659,
+        "sha256": "c4d7aa2f76a18c7e9917eb68d72940b09c59815c794a7c558c49ccf0cca09351"
+      }
+    },
+    {
+      "content": {
+        "actor_API_or_network_called": false,
+        "blocker": "Origin opens ordinary-inputs/response.bin with share=0 before READY and retains it. Pair pre-resume whole-challenge reopen would conflict with that live owned file.",
+        "discovery": "Source inspection, confirmed by root and independent reviewer; not a Windows actual run",
+        "fix": "Keep both-input pin before origin resume. Pair pre-resume validates only selected request with all256/RPS1/8193/hash. Held-exit file-only verification still checks both original inputs and all five raw sinks.",
+        "no_share_mode_deadline_native_or_old_source_change": true,
+        "prior_false_freeze": {
+          "bytes": 19653,
+          "name": "lpac-stream-python-candidate-freeze-02.json",
+          "sha256": "dd3f627b2ea6b230c35381717b204d5b59613e6feea8bfb51b0e5d0791e96ea3"
+        },
+        "prior_pure": {
+          "bytes": 6275,
+          "name": "lpac-stream-python-pure-02.log",
+          "sha256": "ab7c629bc0424fd7a263cf4d6e759b189f89eea5a0163e2ebeb724be37cf0d4d"
+        },
+        "regression": "Actual new coordinator with injected Winerror32 on response reads while origin holds its source now succeeds; changed selected request after matrix still prevents pair resume.",
+        "schema_version": 1,
+        "stage": "work-stream-false02-source-lifetime-blocker-and-fix"
+      },
+      "name": "lpac-stream-python-source-lifetime-fix-03.json",
+      "original_retained_in_WORK": true,
+      "raw_commitment": {
+        "bytes": 1257,
+        "sha256": "61c9e8f4d7c83fae5710c306a44b74d91cbbfe3694a4933be3a24285814c4500"
+      },
+      "representation": "source preparation snapshot; historical false/pending fields remain historical",
+      "view_content_commitment": {
+        "bytes": 1257,
+        "sha256": "61c9e8f4d7c83fae5710c306a44b74d91cbbfe3694a4933be3a24285814c4500"
+      }
+    },
+    {
+      "content": {
+        "actual_public_or_preflight_unknown": true,
+        "compiled_artifact_source_pins_each": 3,
+        "component_errors": 0,
+        "component_failures": 0,
+        "component_log": {
+          "bytes": 889,
+          "name": "lpac-stream-reader-components-02.log",
+          "sha256": "7e4a57074ded8a72d0ef546ec5e6c057cfab7330d4ee6fb434af2def8b213ef7"
+        },
+        "component_seconds": 3.046,
+        "component_skipped": 0,
+        "component_test": {
+          "bytes": 5393,
+          "name": "test_lpac_stream_reader_components_01.py",
+          "sha256": "ec2c19e163f4b371a028795f8df2024a67a652db59cf0a86fbf59269e2797546"
+        },
+        "component_tests": 4,
+        "default_preview": {
+          "bytes": 237,
+          "name": "lpac-stream-reader-default-preview-01.json",
+          "sha256": "f12a98673ea08c5fe63f717483b016450eb7b4f8b296742c3657d62f484454d2"
+        },
+        "full_actual_audit_executed": false,
+        "globals": "Actually compare each of four objects original/before/after; preserve route difference unknown and never delete.",
+        "initial_failure_reason": "Reader correctly rejected fake outer cleanup lacking job_closed/job_empty/close_uncertain/errors; only inert fixture was corrected, reader gate unchanged.",
+        "late_required_pins": [
+          "source_commit",
+          "source_sha256",
+          "ready_freeze_name",
+          "ready_freeze_sha256",
+          "public_sha256",
+          "public_bytes",
+          "preflight_sha256",
+          "preflight_bytes",
+          "driver_name",
+          "driver_sha256",
+          "capture_name",
+          "capture_sha256",
+          "plan_name",
+          "before_snapshot_name",
+          "after_snapshot_name"
+        ],
+        "main_changed": false,
+        "native_or_owner_changed": false,
+        "partial": "Missing worker unknown/no forensic fallback; committed invalid native JSON never decoded; another valid peer retains positive observations. Worker validity, physical binding, public projection and optional safe projection remain distinct.",
+        "payloads": "Physical five sinks plus two input pins, actual bytes/hash only; dynamic RPS1 frame/credit counts.",
+        "preserved_initial_failure_log": {
+          "bytes": 2647,
+          "name": "lpac-stream-reader-components-01.log",
+          "sha256": "dde517288687b0f89a8562fad02ded897852bbd0fddd3231b2b1eff77b2e6a41"
+        },
+        "read_only_scope": "File/hash/Git and exact staged pure validators; no production NativeAPI or actor/resource/cleanup called.",
+        "reader": {
+          "bytes": 24046,
+          "name": "verify_lpac_stream_origin_actual_01_candidate.py",
+          "sha256": "95f0a068e3d90bfefc73b433ac4870667b506585026b5ca3861c1db4eb4ef7e0"
+        },
+        "revision": 1,
+        "schema_version": 1,
+        "source_commit_unknown": true,
+        "source_count_required": 45,
+        "stage": "work-lpac-stream-reader-candidate-frozen",
+        "unique_compile_snapshot_sources": 4
+      },
+      "name": "lpac-stream-reader-candidate-freeze-01.json",
+      "original_retained_in_WORK": true,
+      "raw_commitment": {
+        "bytes": 2628,
+        "sha256": "16ce8ce64d8dd4ad30c65a4b89e3e228d37a71889b4fb73c546e5d74e08ba131"
+      },
+      "representation": "source preparation snapshot; historical false/pending fields remain historical",
+      "view_content_commitment": {
+        "bytes": 2628,
+        "sha256": "5aacd6d675790e4b6b234bced417081c2c9bb6cf13986955d444818b1683229a"
+      }
+    },
+    {
+      "content": {
+        "A2_A3_status": "plan only; no manager/launcher or real Mihomo integration implementation in this work stage",
+        "amendments": [
+          "Every actual attempt independently captures and compares the four global configuration objects before/after. Absence of global-mutator calls never implies equality. Any route delta is preserved with unknown attribution; no opportunistic deletion or washing by transport success.",
+          "ordinary-inputs/response.bin and all ordinary raw evidence are outside every LPAC-granted inherited RX subtree. Grant only exact selected request/read and selected sink/Modify scopes; root traverse has no recursive read inheritance into ordinary directories.",
+          "A production portable single-stream pump must execute both credit/FIN state machines with partial I/O. LPAC closes its writer first after both FINs/data/credits drain; relay closes its writer after the resulting pipe EOF. Neither peer waits for the other's EOF before taking its own required first close. All waits keep the original absolute deadlines.",
+          "Only the file-only reader computes actual sink hashes. Short/partial/invalid/unknown input, sink, exit or close never upgrades to successful byte transport."
+        ],
+        "implementation_scope": "WORK sources plus inert/portable production-code tests only; ACTUAL_READY remains false",
+        "linux_equivalence": false,
+        "original_contract_sha256": "0e7e29b2081b91f3933b52d99550970f761b941775620d47e54a8a335f469848",
+        "product_acceptance": false,
+        "prohibited": [
+          "main edits or installation",
+          "full Windows actor compilation",
+          "actor/native-resource API execution",
+          "capability fallback",
+          "old ABI/source/artifact edits"
+        ],
+        "schema_version": 1,
+        "scope": "one-local-semantic-lpac-inherited-stream-origin-v1",
+        "stage": "root-approved-work-implementation-amendments"
+      },
+      "name": "lpac-stream-root-amendments-01.json",
+      "original_retained_in_WORK": true,
+      "raw_commitment": {
+        "bytes": 1781,
+        "sha256": "ac55721a9b8fdb9932dd2c50c732dfda948dacffb5f40245bee2fbdbe967bbb3"
+      },
+      "representation": "source preparation snapshot; historical false/pending fields remain historical",
+      "view_content_commitment": {
+        "bytes": 1838,
+        "sha256": "f68b428f4c9ca8ee3468898fcdda00f373bc55510c1600f26631840577b3aeea"
+      }
+    },
+    {
+      "content": {
+        "A2_or_A3_implemented": false,
+        "actual_executed": false,
+        "arbitrary_full_duplex_deadlock_freedom_proven": false,
+        "codec_fake_concurrent_scheduler_is_not_windows_mechanism_proof": true,
+        "external_original_job_watchdog_required": true,
+        "immutable_contract": {
+          "bytes": 17155,
+          "sha256": "0e7e29b2081b91f3933b52d99550970f761b941775620d47e54a8a335f469848"
+        },
+        "named_or_overlapped_pipe_added": false,
+        "no_timeout_renewal": true,
+        "real_synchronous_write_may_block": true,
+        "request_then_response_only": true,
+        "root_four_amendments": {
+          "bytes": 1781,
+          "sha256": "ac55721a9b8fdb9932dd2c50c732dfda948dacffb5f40245bee2fbdbe967bbb3"
+        },
+        "schema_version": 1,
+        "stage": "work-lpac-stream-sequential-IO-boundary-amendment"
+      },
+      "name": "lpac-stream-sequential-boundary-amendment-01.json",
+      "original_retained_in_WORK": true,
+      "raw_commitment": {
+        "bytes": 754,
+        "sha256": "fdd0c11c47c8a70712523402cf0e31529a3fce298deb5792974d5c943395c0ce"
+      },
+      "representation": "source preparation snapshot; historical false/pending fields remain historical",
+      "view_content_commitment": {
+        "bytes": 754,
+        "sha256": "f6fc57fa0b3810dc995d68a40be544fbff4362c1a6ac46d23b8655939fc47544"
+      }
+    },
+    {
+      "content": {
+        "actions": {
+          "actor_or_native_resource_API_called": false,
+          "compiler_or_tests_run": false,
+          "contract_only": true,
+          "old_source_or_main_changed": false,
+          "security_or_network_configuration_changed": false,
+          "source_implementation_created": false
+        },
+        "actual_ready": false,
+        "baseline": {
+          "preservation": "All prior source/ABIs/artifacts/actual evidence stay immutable. The prior successful RPB1 mapping is not relabeled byte streaming. Parallel lpac_pipe_dns names and contract are disjoint.",
+          "prior_ordinary_B_actor_sha256": "042562a096a9f488b7a52ee8eb894af0b26dc679a05dc8948a9ae159b71cf161",
+          "prior_runtime40_sha256": "d136e22b2dfbdb991cfbef06d5dd7a54d687135bedbff653ada5e4d01ab88a61",
+          "prior_selected_actor_sha256": "8d4f0628b9f254ba868753342e0b4d06a472de38912c12fe3b44d873823488e6",
+          "source_commit": "42064e8cbfc3263cb1352f923ab8e269d490b078"
+        },
+        "challenge_and_actual_bytes": {
+          "construction": "Root generates two different fresh binary files, each containing every byte value including NUL and framing-looking bytes plus independent unpredictable bytes. Raw payloads are not deterministically generated from run/case/opcode, and no payload seed is supplied to actors.",
+          "fragmentation": "Use different predeclared caps at client frame creation, pipe write/read and ordinary socket send/receive, with non-aligned1/31/257/1024-like splits and a body spanning multiple windows. These are API I/O fragment limits, not claims about TCP packet segmentation. Exact bytes must survive partial I/O and coalescing.",
+          "independent_physical_evidence": "After held exits, the reader hashes original request/response inputs and actual origin-request, relay-transmit, relay-receive and selected-response raw sink files. Every source-provided byte count must match its physical sink length. Request hashes must agree across input/relay/origin and response hashes across input/origin-send evidence/relay/selected. Hashes are computed by the file-only reader; native hashing/CNG resources need not be added merely for reporting.",
+          "initial_request_bytes": 8193,
+          "initial_response_bytes": 12289,
+          "ordinary_input": "The independent response.bin remains in an ordinary-only current-user/SYSTEM input directory; it is not copied into selected readable inputs. Source-bound origin reads that file only after the actual request/EOF. No actor may fabricate received data from an expected response fixture.",
+          "per_direction_total_limit": 65536,
+          "selected_input": "One exact fresh request.bin is read-only in the selected-owned input scope. The selected client reads these bytes, writes them through DATA frames and writes received response bytes to a fresh bounded private sink."
+        },
+        "clock_and_cleanup": {
+          "epoch": "One actual QPC frequency/domain and original T0. RootD=T0+120F, workerD=rootD-5F; all setup is inside rootD. Work reserve remains rootD-35F. PairS is sampled before pair allocation/creation; PairE=PairS+10F, must fit the work reserve. Creation, observer, parent closes, resume, stream, child exits and native reports fit that same pair, never now+10 renewal.",
+          "runtime_shape": "Default preflight is read-only. A separate explicit opt-in and source/device/two-artifact/challenge/recovery plan is required. No auto retry, capability fallback, namespace exemption, firewall/DNS/route/system-proxy mutation or OS reinstall.",
+          "scope_of_waits": "Origin uses the predeclared work deadline, but its normal exit must be explicitly observed before PairE on a positive result. All actor report final ticks precede that actor's own held exit observation; completion follows all relevant final/exit observations and precedes PairE.",
+          "stop_order": "Stop/confirm all held workloads and exact Jobs empty; close known pipes/process/thread/token/file/socket resources once; restore owned output labels; remove exact SID ACEs with readback; delete only owned profile; release SID. Unknown allocation/observer/creation/close/cleanup blocks profile deletion and retains recovery_required/private tree."
+        },
+        "identity_and_ownership": {
+          "construction": "Reuse only the qualified ownership semantics: CREATE_SUSPENDED, selected SECURITY_CAPABILITIES0+AAP1+atomicJOB_LIST+exactHANDLE_LIST2; relay atomicJOB_LIST+exactHANDLE_LIST2. No broad inheritance/breakaway/extra capability. Durable raw return/PI receipt precedes interpretation/adoption; failed/partial CreatePipe/CreateProcess outputs remain indeterminate unless the exact known-no-child predicate is satisfied.",
+          "files_and_labels": "Source/device/plan/artifact/challenge pins and fresh private root; exact request-read/output-write scope only for selected. Ordinary response and evidence remain ordinary-only. Low-MIC changes apply only to fresh selected output subtree, with pre-state absence and post-stop absence readback. Never modify ancestors, broad user data, global policies or imported old scopes.",
+          "ordinary_admission": "Exact held ordinary user/session/primary/non-AC/cap0/image/generation and exact Jobs for relay/origin. Ordinary tools keep their existing separate supervised identity and lifetime.",
+          "pipes": "Two protected anonymous pipes; exactly four parent endpoints, two role-specific child endpoints each. Read back pipe type, SD and inheritance. Parent closes all four once before either pair child resumes; each child clears/readbacks inheritance before protocol I/O. No named-pipe acquisition or caller authentication is asserted.",
+          "selected_admission": "Fresh standalone profile, exact expected SID, user/session, lowIL4096, primary/unelevated/UIAccessfalse, exactcap[], original held image/generation and exact inner+outer Jobs. Independently capture primary TokenStatistics and require real AccessCheck [2,0,0,2] with all observer resources closed before resume. No class46 fallback or native self-report authority.",
+          "synchronous_boundary": "Bounded frame size and credits do not make synchronous ReadFile/WriteFile/close internally cancellable. Keep the external atomic guard Job and hard absolute owner deadline. Any blocking/unknown API return or close remains unknown; no retry of consumed handles or fictional cancellation."
+        },
+        "implementation_allowed_by_this_file": false,
+        "out_of_scope_and_fixed_false": {
+          "all_protocol_isolation": false,
+          "browser_integration": false,
+          "direct_network_denial": false,
+          "dns_isolation": false,
+          "hostile_same_sid_authentication": false,
+          "linux_equivalence": false,
+          "named_pipe_acquisition_or_authentication": false,
+          "product_acceptance": false,
+          "psec_network_preservation_proven": false,
+          "raw_socket_or_protocolInfo_transfer": false,
+          "selected_proxy_qualification": false,
+          "service_broker_isolation": false,
+          "unmodified_arbitrary_application_adapter": false
+        },
+        "profile": "zero-cap-lpac-bounded-byte-stream-mechanism-v1",
+        "proposed_wire": {
+          "backpressure": "Only read/accept new DATA within available window and bounded local queue capacity. Relay grants request credit after actual socket send acceptance, selected grants response credit after actual sink consumption. Socket send acceptance alone is not remote receipt; the independent origin sink supplies that evidence. Never bypass a full window, grow an unbounded queue or fall back to a socket/direct path.",
+          "data_payload_max": 1024,
+          "endianness": "Little endian integers; IDs raw16-byte decoded lowerhex values",
+          "frame_rules": "Strict run/case/stream/kind/flags/reserved checks; monotonically increasing sequence without wrap. DATA length1..1024 with credit0. CREDIT has no payload and returns1..4096 bytes, never more than outstanding delivered bytes or enough to exceed the4096 window. Other kinds have zero payload/credit. Bound all frames, counters, pending buffers and total bytes; malformed/replayed/oversized/unknown frames fail closed.",
+          "frames_max_each_direction": 256,
+          "half_close": "FIN means no more DATA in that direction; CREDIT for the opposite direction remains legal. Relay defers SD_SEND until all preceding request bytes have been sent. Origin requires real request EOF. Relay sends its FIN only after real origin response EOF; selected flushes final credits and closes its writer after response FIN. Relay observes pipe EOF after outstanding credit/data drains, then closes its writer; selected observes final pipe EOF. Both directions, sink writes and handle closes must complete for success.",
+          "handshake": "LPAC sends OPEN; relay sends OPEN_OK only after the one owned-origin connect completes. No DATA before this handshake. OPEN/OPEN_OK have no payload, destination or extra authority.",
+          "header_bytes": 64,
+          "initial_credit_each_direction": 4096,
+          "kinds": {
+            "CREDIT": 6,
+            "DATA": 3,
+            "FIN": 4,
+            "OPEN": 1,
+            "OPEN_OK": 2,
+            "RESET": 5
+          },
+          "layout": [
+            "0 magic4=RPS1",
+            "4 version u8=1",
+            "5 kind u8",
+            "6 flags u16=0",
+            "8 run16",
+            "24 case16",
+            "40 per-direction sequence u32",
+            "44 payload length u32",
+            "48 stream u32=1",
+            "52 credit u32",
+            "56 reserved8=0"
+          ],
+          "maximum_in_flight_payload_each_direction": 4096,
+          "name": "RPS1 single-stream byte protocol; new interface1, separate from RPB1",
+          "relationship_to_file_bridge": "Reuse bounded OPEN/DATA/FIN/RESET, nonce/sequence validation and fixed-target/backpressure ideas from file_bridge.py. Do not copy its64-stream registry, shared writable rings, ordinary listener into LPAC, file-lock retries or per-operation renewed timeouts.",
+          "reset_and_partial": "RESET, EOF in a partial frame, DATA after directional FIN, invalid credit, incomplete physical sink or any unknown close prevents success. Preserve actual bytes/counts and typed stage/error. RESET never substitutes for a successful EOF handshake."
+        },
+        "schema_version": 1,
+        "scope": "one-local-semantic-lpac-inherited-stream-origin-v1",
+        "single_question": "Can one independently admitted genuine zero-cap LPAC cooperative client exchange actual application-provided binary bytes over its two inherited anonymous pipe endpoints, through one ordinary fixed-target socket, with end-to-end payload/EOF/ownership evidence?",
+        "smallest_new_build_and_code_boundary": {
+          "build_gate": "Root alone performs one full actor compile after frozen source/review. Immutable source snapshots precede compiler reads; separate manifests bind interface/wire/source/PE hashes. Portable production-code fake tests do not run actors. Static PE audit distinguishes selected no-network imports from ordinary networking imports.",
+          "ordinary_artifact": "windows_identity_lpac_stream_network_actor.exe / identity-lpac-stream-network-manifest.json; relay and single-origin roles, ordinary Winsock only. Do not mutate or relabel existing B actor/manifest.",
+          "proposed_sources": [
+            ".github/native/windows_identity_lpac_stream_contract.hpp",
+            ".github/native/windows_identity_lpac_stream_front_actor.cpp",
+            ".github/native/windows_identity_lpac_stream_network_actor.cpp",
+            ".github/windows_identity_lpac_stream_origin.py",
+            ".github/windows_identity_lpac_stream_origin_local.py"
+          ],
+          "reuse_limits": "Shared pure codec plus existing immutable native identity helper, exact ownership/ordinary tools/label cleanup and file-only validators where their API shapes match. No global monkeypatching, fabricated old schema fields, old RPB1 reducer regeneration or weakening of legacy validators. Final exact native include/import/runtime source counts are computed from implementation, not assumed here.",
+          "selected_artifact": "windows_identity_lpac_stream_front_actor.exe / identity-lpac-stream-front-manifest.json; GUI/staticCRT; no WS2_32/DNSAPI/WinHTTP import or dynamic SOCKET import. It is a new cooperative byte client, not the prior mapped frontend artifact."
+        },
+        "source_anchors": [
+          {
+            "file": "ruleproxy/file_bridge.py",
+            "line": 42,
+            "purpose": "16KiB framing bounds and OPEN/DATA/FIN/RESET semantics; parser321/373, ordinary fixed target588, guest TCP listener840 is not reusable as LPAC ingress."
+          },
+          {
+            "file": "ruleproxy/manager.py",
+            "line": 940,
+            "purpose": "Concrete real-application/core ownership and existing platform launch branches; separate opt-in adapter branch is needed."
+          },
+          {
+            "file": "ruleproxy/launcher.py",
+            "line": 881,
+            "purpose": "Current TCP proxy environment/Chromium/Firefox adapters; none consumes the new pipe transport."
+          },
+          {
+            "file": "ruleproxy/linux_runtime.py",
+            "line": 244,
+            "purpose": "Linux namespace/privateproc path is a distinct product boundary, not a result of this Windows stream cell."
+          },
+          {
+            "file": ".github/native/windows_identity_proxy_bridge_core.hpp",
+            "line": 77,
+            "purpose": "Prior48-byte RPB1 maps opcodes to generated bytes at90/98 and must not be passed off as this stream ABI."
+          }
+        ],
+        "stage": "proposed-lpac-inherited-byte-stream-scope-contract",
+        "status": "awaiting-root-contract-review",
+        "subsequent_application_and_real_core_plan": {
+          "A2_real_core_cell": "Run the actual configured Mihomo core through this ordinary fixed-port route, using a predeclared HTTP absolute-form request to an owned origin and an independently checked dynamic body. Bind core PID/generation/image/config/port and response. If current core routing cannot support this controlled request, stop; do not silently alter live rules/config, contact arbitrary external sites or claim a fake origin is the real core.",
+          "A2_transport_library": "After A-min passes, provide a small cooperative open-fixed-proxy-stream/write/read/half-close API backed by the same codec. The broker's connect target becomes one held, source-bound existing manager core/mixed_port lease. The client still receives no SOCKET or arbitrary broker-connect destination.",
+          "A3_application_integration": "Choose one source-modifiable or officially transport-extensible application. Add an explicit cooperative-pipe adapter identifier in launcher.prepare_app and a separate reviewed manager.launch branch only for that supported binary/version; pass the exact inherited endpoints via its supported adapter contract. Unknown applications, Chrome/Firefox TCP adapters and normal Windows launch stay unchanged. A source-bound repository diagnostic client is a first integration target, not browser/arbitrary-app support.",
+          "product_gate": "Only after that real app is exercised: app profile/start/stop/child lifecycle, sustained and concurrent connections/interactive tunnels as supported, proxy-core crash handling, hostile identity/object/IPC boundaries, DNS/service and broader negative matrices plus independent qualification. One stream through a fixed port is not an all-API enforcement mechanism."
+        },
+        "testing_and_acceptance_gates": [
+          "Production portable codec: every header field/reserved byte, bytewise/coalesced/partial payload parsing,1/1024/1025 boundaries, sequence/replay/wrongrun/case, credit underflow/overflow/free-credit, DATA-after-FIN/duplicateFIN, partial EOF, frame/byte bounds and stale clock reject. No mirrors of implementation-only happy paths.",
+          "API-shaped inert coordination: exact two HANDLE_LIST values, lifetime of all attribute buffers, raw Create/PI/pipe receipts, alias/unknown once handling, real4-byte emptycap extent, external primary/matrix before resume, every parent close attempted, original QPC and cleanup fault paths.",
+          "Actual single positive: end-to-end independent binary challenge files and physical sinks match; no request/response opcode synthesis; fragmented API calls, bounded in-flight counters, handshake/CREDIT/FIN/EOF, socket/pipe/file cleanup, native tuple relation and all three held normal exits are independently bound. Timeout or missing bytes stays inconclusive.",
+          "Safe evidence: hashes/lengths, bounded frame/data/credit counts, status/error, original causal comparisons and cleanup flags. Raw payload, SID/PID/handles/private paths/ports/QPC and full native records stay private. No independent kernel live TCP snapshot is claimed unless separately implemented and tested."
+        ],
+        "topology": {
+          "connections": 1,
+          "ordinary_before_after_controls": "Not part of this positive-only single-connection cell. A negative/denial cell would require separately declared healthy controls; no timeout or missing traffic here becomes denial.",
+          "origin": "Held ordinary zero-cap primary; exclusive127.0.0.1 ephemeral high-port listener, one accepted connection. Reads request to genuine TCP receive EOF, then sends independent response bytes and send-half-closes. Its accepted peer tuple is bound to relay native reports.",
+          "relay": "Held ordinary zero-cap primary, source-bound separate executable; one predeclared owned numeric-loopback origin only. The relay copies actual DATA bytes and never generates an HTTP request/response from run/case/opcode.",
+          "selected": "Fresh zero-cap LPAC primary, source-bound IPC-only executable, exactly the two declared inherited pipe endpoints; no SOCKET, WSAPROTOCOL_INFO, process/token/Job handle or DNS API is supplied.",
+          "streams": 1,
+          "target_authority": "Target IP127.0.0.1 and owned port derive only from held origin READY plus immutable owner argv/config. No target, URL, DNS name, credential, redirect or arbitrary connect command exists in the pipe protocol."
+        }
+      },
+      "name": "lpac-stream-transport-scope-contract-01.json",
+      "original_retained_in_WORK": true,
+      "raw_commitment": {
+        "bytes": 17155,
+        "sha256": "0e7e29b2081b91f3933b52d99550970f761b941775620d47e54a8a335f469848"
+      },
+      "representation": "source preparation snapshot; historical false/pending fields remain historical",
+      "view_content_commitment": {
+        "bytes": 17514,
+        "sha256": "a6296f43f6edec26f6a62f7f90b320d47f4120e2e18b1d07e49f7683e5b29e83"
+      }
+    }
+  ],
+  "schema_version": 1
+}

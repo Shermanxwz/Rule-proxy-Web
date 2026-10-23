@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "compileOnly": true,
+  "runtimeAcceptance": false,
+  "interfaceVersion": 1,
+  "executableSha256": "b7327db1d30f4d81f7806b449d191cf7d49e22563c1da0c734f85cd478c9ae2a",
+  "actorSourceSha256": "f5ded24762f577b0eeef1b99d2d6f683e901b690c964fe87a75ae7511cd09bc5",
+  "streamContractSha256": "8a616aaa95c717412215dfc18d8acfc9fd51fad8ef5983d9d017a502df0f2f7e",
+  "identitySourceSha256": "530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553"
+}

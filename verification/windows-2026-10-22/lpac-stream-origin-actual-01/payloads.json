@@ -1,0 +1,47 @@
+{
+  "content": {
+    "all_five_physical_sinks_exact": true,
+    "inputs": {
+      "request": {
+        "bytes": 8193,
+        "sha256": "60e6e9b274308189f10ac58b00fb75cf893b5a21f6495af527e5972aa31bbc10"
+      },
+      "response": {
+        "bytes": 12289,
+        "sha256": "19a222b09bb08bd36e058b231c81c703c012eb4565b8be369838df2127e48d16"
+      }
+    },
+    "native_hash_used": false,
+    "sinks": {
+      "origin_request": {
+        "bytes": 8193,
+        "full_declared_challenge_exact": true,
+        "sha256": "60e6e9b274308189f10ac58b00fb75cf893b5a21f6495af527e5972aa31bbc10"
+      },
+      "origin_response": {
+        "bytes": 12289,
+        "full_declared_challenge_exact": true,
+        "sha256": "19a222b09bb08bd36e058b231c81c703c012eb4565b8be369838df2127e48d16"
+      },
+      "relay_request": {
+        "bytes": 8193,
+        "full_declared_challenge_exact": true,
+        "sha256": "60e6e9b274308189f10ac58b00fb75cf893b5a21f6495af527e5972aa31bbc10"
+      },
+      "relay_response": {
+        "bytes": 12289,
+        "full_declared_challenge_exact": true,
+        "sha256": "19a222b09bb08bd36e058b231c81c703c012eb4565b8be369838df2127e48d16"
+      },
+      "selected_response": {
+        "bytes": 12289,
+        "full_declared_challenge_exact": true,
+        "sha256": "19a222b09bb08bd36e058b231c81c703c012eb4565b8be369838df2127e48d16"
+      }
+    }
+  },
+  "full_byte_comparison_not_native_hash": true,
+  "raw_payloads_not_published": true,
+  "schema_version": 1,
+  "stage": "stream01-physical-input-and-five-sinks"
+}
