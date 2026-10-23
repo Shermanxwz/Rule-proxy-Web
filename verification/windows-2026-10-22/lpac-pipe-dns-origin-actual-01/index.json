@@ -1,0 +1,96 @@
+{
+  "files": [
+    {
+      "bytes": 2404,
+      "path": "verification/windows-2026-10-22/lpac-pipe-dns-origin-actual-01/summary.json",
+      "sha256": "20d27bc3f4501a3f136116da75b704d188fd432e52e0f1650b084c56c2fb2990"
+    },
+    {
+      "bytes": 8152,
+      "path": "verification/windows-2026-10-22/lpac-pipe-dns-origin-actual-01/component-projection.json",
+      "sha256": "6fa0802a41c33e76b0c0051ba316d1a7c81c7f4007cd52c168b3e38e6cd7b322"
+    },
+    {
+      "bytes": 1279,
+      "path": "verification/windows-2026-10-22/lpac-pipe-dns-origin-actual-01/ci-summary.json",
+      "sha256": "3968e051afaa5d99857b4e69d9bda722b382fa08b5997f05619cacc25095557a"
+    },
+    {
+      "bytes": 19418,
+      "path": "verification/windows-2026-10-22/lpac-pipe-dns-origin-actual-01/source-build-index.json",
+      "sha256": "f6dc7c223540b22c0ba0eb0ae880881a3e389fdca2e960fa8e31ca41f3b849ae"
+    },
+    {
+      "bytes": 12519,
+      "path": "verification/windows-2026-10-22/lpac-pipe-dns-origin-actual-01/runner.py",
+      "sha256": "c39d99bfc624a79a9a43a07cdba590d03c7683bedd6c64cd68b65e07704f1b5e"
+    }
+  ],
+  "original_failure_and_prior_unknowns_not_rewritten": true,
+  "original_independent_review": {
+    "bytes": 18419,
+    "sha256": "0567e5680141be6c43a1109300a21f8addb95cbc8f2768cab3bb1788eace740f"
+  },
+  "original_preflight": {
+    "bytes": 2062,
+    "path": "verification/windows-2026-10-22/lpac-pipe-dns-origin-local-01-preflight.json",
+    "sha256": "22075e30cb06e26b1e969e0fde324856879fe8b7c5d51f952e639d0aaec5601d"
+  },
+  "original_public": {
+    "bytes": 3620,
+    "path": "verification/windows-2026-10-22/lpac-pipe-dns-origin-local-01-public.json",
+    "sha256": "031c151b5fc21d69e5fa2fa40d708bbb89b31bf5204682588156ed495a27b01a"
+  },
+  "privacy": "Public views contain safe booleans, counts/status, source paths, commit links and hashes. No raw SID/PID/handles/host paths/query nonce/NRPT entries or native executable is copied.",
+  "private_commitments": {
+    "config": {
+      "bytes": 6687,
+      "sha256": "336352449a96b666afd1809b67418f46217eb429c7ad83ce7ff76586d9461e14"
+    },
+    "driver": {
+      "bytes": 12519,
+      "sha256": "c39d99bfc624a79a9a43a07cdba590d03c7683bedd6c64cd68b65e07704f1b5e"
+    },
+    "forensic": {
+      "bytes": 28308,
+      "sha256": "95c22072b116312dfaa01edc122510e11f1482a6ceb17099f77eac9cf7b2f505"
+    },
+    "outer_report": {
+      "bytes": 620,
+      "sha256": "a85216d48d06c49a789140d98118a4f34374ec2fb3a1ad362413f7da8531fa43"
+    },
+    "plan": {
+      "bytes": 2023,
+      "sha256": "87fbde99531ed7fe023232f66f0b9d76ae9fe32618df63c91e5d0e8dbdbecd7c"
+    },
+    "stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "stdout": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "worker_report": {
+      "bytes": 28308,
+      "sha256": "95c22072b116312dfaa01edc122510e11f1482a6ceb17099f77eac9cf7b2f505"
+    }
+  },
+  "publisher": {
+    "bytes": 18128,
+    "sha256": "5545235ff1a3d990b27d8e188696385260681b77f242633c90d8ff33219cd74c"
+  },
+  "reader": {
+    "bytes": 20436,
+    "name": "verify_lpac_pipe_dns_origin_actual_01_candidate.py",
+    "sha256": "787aa85d0903d7fa491a33f7185dbcbdbcf7db6f5b6639f1d4ccaf0696d21285"
+  },
+  "reader_utility": {
+    "bytes": 21960,
+    "name": "verify_lpac_pipe_origin_actual_01.py",
+    "sha256": "faae99c4bebafd4a54d41ae607d9b895a4ee60cee3bcffbf0c2de32436c231bb"
+  },
+  "schema_version": 1,
+  "source_commit": "eb3d9d34023a11935e863f86c0888862de63109a",
+  "stage": "lpac-pipe-dns-origin-actual01-thin-index"
+}

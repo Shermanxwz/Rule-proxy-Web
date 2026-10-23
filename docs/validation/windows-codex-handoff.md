@@ -1,3 +1,6 @@
+最新 LPAC pipe+DNS01：inconclusive，库存发现两项有效 NRPT；fixture、selected pair、GO 和 DNS 调用均未进入。见[安全摘要](../../verification/windows-2026-10-22/lpac-pipe-dns-origin-actual-01/summary.json)。
+本轮十项作用域清理均已确认；origin 由自有 Job 停止（exit1），前后四对象相同。既有 DNS 泄漏、route 未知差异及 atomic01 unknown 保留；新 FQDN 修订尚未实测。
+
 最新 LPAC IPC 有限机制试次：observed；项目及 Linux 等效验收仍为 false。见 [专门记录](2026-10-23-lpac-pipe-origin-mechanism.md)。
 以下交接正文保留此前检查点原字节；既有 DNS 泄漏、atomic 未知状态和历史失败不因本轮覆盖。
 **registryRead LPAC同SID loopback01（2026-10-23）**：[独立实测](2026-10-23-registry-read-same-sid-loopback-01.md)仍inconclusive：WSAStartup成功，socket创建10013，未connect/send；前端零cap AC监听、两身份矩阵、普通前后控制与已知清理通过。不是peer/端口连接拒绝、matchedcaps或AAP-only比较；旧零cap32/10107、atomic unknown与DNS泄漏保留。
