@@ -27,7 +27,9 @@ jobs:
   identity-proof-compile:
     name: Native build and gated pipe proof
     runs-on: windows-2025
-    timeout-minutes: 8
+    # Compile and pure-fixture budget for slow hosted runners; local assay
+    # deadlines and the explicit runtime gates below are unchanged.
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v5
         with:
