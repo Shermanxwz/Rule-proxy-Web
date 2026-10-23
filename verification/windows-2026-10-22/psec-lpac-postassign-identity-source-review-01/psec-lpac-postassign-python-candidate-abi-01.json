@@ -1,0 +1,102 @@
+{
+  "actor_resume": false,
+  "actual_executed": false,
+  "actual_ready": false,
+  "cli_flag": "--run-local-cpse-lpac-postassign-identity",
+  "config_extra_keys": [
+    "constructor_policy"
+  ],
+  "constructor_policy": "outer-guarded-held-explicit-inner-assignment-v1",
+  "dll": "windows_psec_lpac_postassign_bridge.dll",
+  "library_abi_version": 2,
+  "manifest": "psec-lpac-postassign-bridge-manifest.json",
+  "manifest_keys": [
+    "abi_version",
+    "architecture",
+    "compile_only",
+    "constructor_policy",
+    "dependencies",
+    "dll_bytes",
+    "dll_sha256",
+    "exports",
+    "imports",
+    "runtime_acceptance",
+    "schema_version",
+    "sources",
+    "spec_variant",
+    "stage",
+    "toolchain"
+  ],
+  "network_authorized": false,
+  "old_variant_or_opaque_outcomes_changed": false,
+  "original_seconds": {
+    "root": 120,
+    "work_cutoff_before_root": 35,
+    "worker": 115
+  },
+  "payload_version": 1,
+  "physical_receipts_bound_in_guarded_worker_and_outer": true,
+  "plan_extra_keys": [
+    "constructor_policy",
+    "held_postassign_acknowledged",
+    "outer_guard_required_acknowledged"
+  ],
+  "posttransfer_required": {
+    "inner_api_success": true,
+    "inner_membership": true,
+    "outer_api_success": true,
+    "outer_membership": true
+  },
+  "pretransfer_required": {
+    "inner_api_success": true,
+    "inner_membership": false,
+    "outer_api_success": true,
+    "outer_membership": true,
+    "query_handles_once_closed": true
+  },
+  "public_fixed_claims": {
+    "atomic_inner_creation_proven": false,
+    "constructor_policy": "outer-guarded-held-explicit-inner-assignment-v1",
+    "continuous_outer_supervision_proven": false,
+    "creation_transfer_crash_gap_resolved": false
+  },
+  "raw_assignment_keys": [
+    "after_qpc",
+    "api_success",
+    "attempted",
+    "before_qpc",
+    "exception",
+    "return_value",
+    "returned",
+    "win32_error",
+    "within_deadline"
+  ],
+  "raw_receipts_before_interpretation": true,
+  "receipt_locations": [
+    "pretransfer/<role>-guard.json",
+    "transfers/<role>-assign-intent.json",
+    "transfers/<role>-assign-returned.json",
+    "job-admissions/<role>-<sequence>.json"
+  ],
+  "schema_version": 1,
+  "scope": "one-local-cpse-deny-all-outer-guarded-postassign-identity-v1",
+  "sizes": {
+    "child": 88,
+    "context": 512,
+    "pi": 24,
+    "plan": 48,
+    "result": 96
+  },
+  "source_count": 36,
+  "stage": "postassign-identity-python-contract",
+  "stage_prefix": "local-psec-lpac-postassign-identity-",
+  "task_transfer_keys": [
+    "decision_qpc",
+    "exception",
+    "guard",
+    "intent",
+    "raw",
+    "receipt"
+  ],
+  "variant": "identity-only-deny-all-v1"
+}

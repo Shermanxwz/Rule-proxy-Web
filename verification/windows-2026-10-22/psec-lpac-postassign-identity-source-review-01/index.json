@@ -1,0 +1,747 @@
+{
+  "actual_index": {
+    "bytes": 3922,
+    "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-local-01-evidence-index.json",
+    "sha256": "c3e6a187cb7549ea87c207682201c47a701651658ebb24712b97e47f571d9ea5"
+  },
+  "archiver_authoring_logs_include_initial_failure_and_corrected_pure": true,
+  "archiver_tests_not_added_to_identity922_count": true,
+  "atomic_inner_creation_proven": false,
+  "automatic_ci": {
+    "actual_result_remains_inconclusive_accesscheck": true,
+    "compile_only_actor_step_executed": true,
+    "conclusion": "success",
+    "cpse_experiment_executed": false,
+    "decoded_original": {
+      "bytes": 219702,
+      "encoding": "UTF-8 BOM",
+      "kept_in_work": true,
+      "line_endings": "CRLF",
+      "not_raw_zip": true,
+      "sha256": "550479f04800ce614650f78d477a407b8fa5cd1e86e6e935f0f556b33f2dcc22"
+    },
+    "errors": 0,
+    "event": "push",
+    "failures": 0,
+    "gated_runtime_steps_skipped": [
+      5,
+      6,
+      7,
+      8,
+      9
+    ],
+    "isolated_runtime_qualified": false,
+    "job_id": 120176045759,
+    "native_actor_executed": false,
+    "network_experiment_executed": false,
+    "public_log_view": {
+      "bytes": 218560,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/ci-39880370248-decoded-public-view.log",
+      "sha256": "f2a8befb6f17bb11561c26c887e0f51f8cd98a9cdc1540b9e051742ee60ab2a1"
+    },
+    "run_id": 39880370248,
+    "schema_version": 1,
+    "seconds": 53.368,
+    "skips": 0,
+    "source_commit": "953de0a2374aff89959957da4b5641ce5aaff8a1",
+    "stage": "read-only-postassign-source953-auto-ci-summary",
+    "status": "completed",
+    "step_skip_basis": "Root independently read GitHub job metadata; skipped step bodies are absent from decoded log.",
+    "tests_run": 922,
+    "url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39880370248",
+    "verified": true,
+    "workflow_dispatched": false,
+    "workflow_rerun": false
+  },
+  "bridge_dependency_count": 31,
+  "bridge_manifest_key_count": 15,
+  "bridge_native_source_count": 6,
+  "constructor_policy": "outer-guarded-held-explicit-inner-assignment-v1",
+  "continuous_outer_supervision_proven": false,
+  "creation_transfer_crash_gap_resolved": false,
+  "false_candidate_and_promotion_both_retained": true,
+  "files": [
+    {
+      "bytes": 9090,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/psec-lpac-postassign-native-freeze-01.json",
+      "sha256": "f7d62220f30d11ad245ab7de859bd4c93ca4bee13294c1c8b64e5db5aad4b981"
+    },
+    {
+      "bytes": 14841,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/psec-lpac-postassign-native-01.patch",
+      "sha256": "aead170fc2ef4f1dc6f6f42dc3111e43bebcd6efddbc4be24257d09cb0cf1dd6"
+    },
+    {
+      "bytes": 2927,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/psec-lpac-postassign-native-diff-01.txt",
+      "sha256": "4306c652f04ba6be0bd2384c3407938469b3044003b610612b7e0ab8b8cb6d3d"
+    },
+    {
+      "bytes": 14631,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/psec-lpac-postassign-compile-independent-review-01.json",
+      "sha256": "cd4250a587d24ec61751960e64450111a7cb5b57994091573a7421ba079ca882"
+    },
+    {
+      "bytes": 4635,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/compile_psec_lpac_postassign_bridge_01.ps1",
+      "sha256": "7f94684dc612b20c3cb034700cd6b9d157c27d2edb22a7496814ba957b15c58d"
+    },
+    {
+      "bytes": 7046,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/inspect_psec_lpac_postassign_bridge_compile_01.py",
+      "sha256": "64ac422501a5f2984f07ea641d887064c340f7b7e67782a6b040ac1e769137e5"
+    },
+    {
+      "bytes": 11560,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/review_psec_lpac_postassign_compile_01.py",
+      "sha256": "71d418c5e8a7cc12f281c6cf4b2af1ef9a2168cf216244a017d2f06a8937439e"
+    },
+    {
+      "bytes": 2031,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/compile01-static-pe-review.json",
+      "sha256": "8927e621edc51235f70670fb90ee294d525760bf684166afc3372a2162431a6d"
+    },
+    {
+      "bytes": 335,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/compile01-toolchain-public-view.json",
+      "sha256": "53edbffb450ebcc656e9453cb39abcedcd6e6b4ee40803c4ac49f88f24a48d4c"
+    },
+    {
+      "bytes": 174669,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/psec-lpac-postassign-python-candidate-01-public-view.patch",
+      "sha256": "96296d1c7bd24ac60a962ad7dfeb2ca5093e8009e0a1661dcf44a74761b7230b"
+    },
+    {
+      "bytes": 17024,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/psec-lpac-postassign-python-candidate-freeze-01.json",
+      "sha256": "73d0432dd1fc2437cb04981359af10c890dd5c12c99cc68e7198520f56506d0b"
+    },
+    {
+      "bytes": 2650,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/psec-lpac-postassign-python-candidate-abi-01.json",
+      "sha256": "7299214878dd7d9cadbf6681f138eb30360f11df0e4a357ac0a0f332bc5a88e6"
+    },
+    {
+      "bytes": 10872,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/psec-lpac-postassign-python-pure-01-public-view.log",
+      "sha256": "24399fa77c7cc5ce0ae116fc48ac7d0f5268b427597fa389b786f37ec29530e9"
+    },
+    {
+      "bytes": 174668,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/psec-lpac-postassign-python-candidate-02-public-view.patch",
+      "sha256": "25435da3488f948d1ba518846cdfb2cc077c747782629f3d2c8adc60901da142"
+    },
+    {
+      "bytes": 18818,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/psec-lpac-postassign-python-candidate-freeze-02.json",
+      "sha256": "5a7b92ab97c472333ed28f9888ffec99dd4f4ec1018a721bfd1858a0d896ab06"
+    },
+    {
+      "bytes": 2905,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/psec-lpac-postassign-python-candidate-abi-02.json",
+      "sha256": "f6259b645cbf92060f14b27916f66ce8789521613be231af92a094b5ae591799"
+    },
+    {
+      "bytes": 10872,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/psec-lpac-postassign-python-pure-02-public-view.log",
+      "sha256": "6f0daab4b97163ef62e520ca9ecb0ad0cf2c07831a4f04d14e25954c995f8771"
+    },
+    {
+      "bytes": 4578,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/psec-lpac-postassign-python-independent-review-02.json",
+      "sha256": "d1c8e0b59854b45f2ca03932b96882b727deebd003e02300e8ceb032ec23ce8a"
+    },
+    {
+      "bytes": 3172,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/psec-lpac-postassign-python-independent-pure-02.log",
+      "sha256": "c3f5256387dd18f544759f01260065e3ef457a5c9991b11006936b7a41148cde"
+    },
+    {
+      "bytes": 2783,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/psec-lpac-postassign-integrated-pure-01.json",
+      "sha256": "04ced4bc5881aff5ff82b26b80fa2783a5630825a9c6bf9ae994017779073100"
+    },
+    {
+      "bytes": 171317,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/psec-lpac-postassign-main-pure-01-public-view.log",
+      "sha256": "6d0b9aedcaf12acc4eb89de9b32c1460c12793c19148b839d97ba84f4aa2d26d"
+    },
+    {
+      "bytes": 868,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/test_psec_lpac_postassign_integrated_01.ps1",
+      "sha256": "93d2195a7b761c9db880df5ce16b1a86d147c6ad3ee19f674789c166e598ad4c"
+    },
+    {
+      "bytes": 15903,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/stage_psec_lpac_postassign_source_01.py",
+      "sha256": "1c648e521e480d9062e5acb57fb85eb24178f06458d14cfa4a7cff07aa588634"
+    },
+    {
+      "bytes": 54321,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/psec-lpac-postassign-identity-actual-01-independent-review.json",
+      "sha256": "8bb68ed9ba06f85e178939ca3e713c7b084d7d06dadeef440839b4f63f8f7d66"
+    },
+    {
+      "bytes": 15597,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/psec-lpac-postassign-identity-actual-01-proof-review.json",
+      "sha256": "52fd5a7a8ec4b1739ef4116df16616af3923755639c7b831c9bdce3707a106ad"
+    },
+    {
+      "bytes": 2799,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/archive_psec_lpac_postassign_identity_01_readiness.json",
+      "sha256": "6bb3efacec49dadb605cdcb7468969090298be331c26a32fa7a5e4e445a294c0"
+    },
+    {
+      "bytes": 1676,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/archive_psec_lpac_postassign_identity_01_pure_01-public-view.log",
+      "sha256": "f40b90902e7eb57e977bb779359a4a3d0bd75062f4c8077547ce38a12618ebc8"
+    },
+    {
+      "bytes": 836,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/archive_psec_lpac_postassign_identity_01_pure_03-public-view.log",
+      "sha256": "e5e817371303d561dc3624e2c84260d3669b3fc309e541b40398f45ae3cebdde"
+    },
+    {
+      "bytes": 4618,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/test_archive_psec_lpac_postassign_identity_01.py",
+      "sha256": "d2b2e06f28f462c70e3a88780ec559e472e3d396ddb2b708404b6c8dd2be9f0f"
+    },
+    {
+      "bytes": 218560,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/ci-39880370248-decoded-public-view.log",
+      "sha256": "f2a8befb6f17bb11561c26c887e0f51f8cd98a9cdc1540b9e051742ee60ab2a1"
+    },
+    {
+      "bytes": 1466,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/ci-39880370248-summary.json",
+      "sha256": "73f79446bab0dd5ff562dd57f9cef1cdb70e529797937081527dd2c1240950e4"
+    },
+    {
+      "bytes": 44834,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/publication.py",
+      "sha256": "9f1584c1abd9206177044887e30f17ca9e87461b6d7c35cb8d6201eaf2f58b2a"
+    }
+  ],
+  "index_self_hash_excluded": true,
+  "initial_false_candidate_not_installed_as_actual": true,
+  "library_abi_version": 2,
+  "lpac_partial_observation_not_completed": true,
+  "native37_old_inputs_preserved": true,
+  "new_native_cpp_count": 1,
+  "new_python_module_count": 2,
+  "new_test_file_count": 2,
+  "old_atomic01_unknown_not_repaired": true,
+  "old_runtime36_preserved": true,
+  "original_copy_provenance": [
+    {
+      "byte_exact_copy": true,
+      "evidence_phase": "compile-only",
+      "public_copy": {
+        "bytes": 9090,
+        "sha256": "f7d62220f30d11ad245ab7de859bd4c93ca4bee13294c1c8b64e5db5aad4b981"
+      },
+      "public_path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/psec-lpac-postassign-native-freeze-01.json",
+      "raw_original": {
+        "bytes": 9090,
+        "sha256": "f7d62220f30d11ad245ab7de859bd4c93ca4bee13294c1c8b64e5db5aad4b981"
+      },
+      "raw_private_runtime_log_published": false,
+      "source_work_path": "work/psec-lpac-postassign-native-freeze-01.json",
+      "view_changes": []
+    },
+    {
+      "byte_exact_copy": true,
+      "evidence_phase": "compile-only",
+      "public_copy": {
+        "bytes": 14841,
+        "sha256": "aead170fc2ef4f1dc6f6f42dc3111e43bebcd6efddbc4be24257d09cb0cf1dd6"
+      },
+      "public_path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/psec-lpac-postassign-native-01.patch",
+      "raw_original": {
+        "bytes": 14841,
+        "sha256": "aead170fc2ef4f1dc6f6f42dc3111e43bebcd6efddbc4be24257d09cb0cf1dd6"
+      },
+      "raw_private_runtime_log_published": false,
+      "source_work_path": "work/psec-lpac-postassign-native-01.patch",
+      "view_changes": []
+    },
+    {
+      "byte_exact_copy": true,
+      "evidence_phase": "compile-only",
+      "public_copy": {
+        "bytes": 2927,
+        "sha256": "4306c652f04ba6be0bd2384c3407938469b3044003b610612b7e0ab8b8cb6d3d"
+      },
+      "public_path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/psec-lpac-postassign-native-diff-01.txt",
+      "raw_original": {
+        "bytes": 2927,
+        "sha256": "4306c652f04ba6be0bd2384c3407938469b3044003b610612b7e0ab8b8cb6d3d"
+      },
+      "raw_private_runtime_log_published": false,
+      "source_work_path": "work/psec-lpac-postassign-native-diff-01.txt",
+      "view_changes": []
+    },
+    {
+      "byte_exact_copy": true,
+      "evidence_phase": "compile-only",
+      "public_copy": {
+        "bytes": 14631,
+        "sha256": "cd4250a587d24ec61751960e64450111a7cb5b57994091573a7421ba079ca882"
+      },
+      "public_path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/psec-lpac-postassign-compile-independent-review-01.json",
+      "raw_original": {
+        "bytes": 14631,
+        "sha256": "cd4250a587d24ec61751960e64450111a7cb5b57994091573a7421ba079ca882"
+      },
+      "raw_private_runtime_log_published": false,
+      "source_work_path": "work/psec-lpac-postassign-compile-independent-review-01.json",
+      "view_changes": []
+    },
+    {
+      "byte_exact_copy": true,
+      "evidence_phase": "compile-only",
+      "public_copy": {
+        "bytes": 4635,
+        "sha256": "7f94684dc612b20c3cb034700cd6b9d157c27d2edb22a7496814ba957b15c58d"
+      },
+      "public_path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/compile_psec_lpac_postassign_bridge_01.ps1",
+      "raw_original": {
+        "bytes": 4635,
+        "sha256": "7f94684dc612b20c3cb034700cd6b9d157c27d2edb22a7496814ba957b15c58d"
+      },
+      "raw_private_runtime_log_published": false,
+      "source_work_path": "work/compile_psec_lpac_postassign_bridge_01.ps1",
+      "view_changes": []
+    },
+    {
+      "byte_exact_copy": true,
+      "evidence_phase": "compile-only",
+      "public_copy": {
+        "bytes": 7046,
+        "sha256": "64ac422501a5f2984f07ea641d887064c340f7b7e67782a6b040ac1e769137e5"
+      },
+      "public_path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/inspect_psec_lpac_postassign_bridge_compile_01.py",
+      "raw_original": {
+        "bytes": 7046,
+        "sha256": "64ac422501a5f2984f07ea641d887064c340f7b7e67782a6b040ac1e769137e5"
+      },
+      "raw_private_runtime_log_published": false,
+      "source_work_path": "work/inspect_psec_lpac_postassign_bridge_compile_01.py",
+      "view_changes": []
+    },
+    {
+      "byte_exact_copy": true,
+      "evidence_phase": "compile-only",
+      "public_copy": {
+        "bytes": 11560,
+        "sha256": "71d418c5e8a7cc12f281c6cf4b2af1ef9a2168cf216244a017d2f06a8937439e"
+      },
+      "public_path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/review_psec_lpac_postassign_compile_01.py",
+      "raw_original": {
+        "bytes": 11560,
+        "sha256": "71d418c5e8a7cc12f281c6cf4b2af1ef9a2168cf216244a017d2f06a8937439e"
+      },
+      "raw_private_runtime_log_published": false,
+      "source_work_path": "work/review_psec_lpac_postassign_compile_01.py",
+      "view_changes": []
+    },
+    {
+      "byte_exact_copy": true,
+      "evidence_phase": "compile-only",
+      "public_copy": {
+        "bytes": 2031,
+        "sha256": "8927e621edc51235f70670fb90ee294d525760bf684166afc3372a2162431a6d"
+      },
+      "public_path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/compile01-static-pe-review.json",
+      "raw_original": {
+        "bytes": 2031,
+        "sha256": "8927e621edc51235f70670fb90ee294d525760bf684166afc3372a2162431a6d"
+      },
+      "raw_private_runtime_log_published": false,
+      "source_work_path": "work/psec-lpac-postassign-bridge-compile-01/static-pe-review.json",
+      "view_changes": []
+    },
+    {
+      "byte_exact_copy": false,
+      "evidence_phase": "compile-only",
+      "public_copy": {
+        "bytes": 335,
+        "sha256": "53edbffb450ebcc656e9453cb39abcedcd6e6b4ee40803c4ac49f88f24a48d4c"
+      },
+      "public_path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/compile01-toolchain-public-view.json",
+      "raw_original": {
+        "bytes": 344,
+        "sha256": "796cd755464544645ce142c58d8dbfc113ff301034803dd4705d17894f47bb07"
+      },
+      "raw_private_runtime_log_published": false,
+      "source_work_path": "work/psec-lpac-postassign-bridge-compile-01/toolchain.json",
+      "view_changes": [
+        "line-endings-normalized-to-lf"
+      ]
+    },
+    {
+      "byte_exact_copy": false,
+      "evidence_phase": "source-and-pure",
+      "public_copy": {
+        "bytes": 174669,
+        "sha256": "96296d1c7bd24ac60a962ad7dfeb2ca5093e8009e0a1661dcf44a74761b7230b"
+      },
+      "public_path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/psec-lpac-postassign-python-candidate-01-public-view.patch",
+      "raw_original": {
+        "bytes": 174674,
+        "sha256": "8d95e281f737d3ba87e893c6f76ddfd4a6d8590df966e1925ffd9e3d85c29b23"
+      },
+      "raw_private_runtime_log_published": false,
+      "source_work_path": "work/psec-lpac-postassign-python-candidate-01.patch",
+      "view_changes": [
+        "absolute-user-home-prefix-redacted"
+      ]
+    },
+    {
+      "byte_exact_copy": true,
+      "evidence_phase": "source-and-pure",
+      "public_copy": {
+        "bytes": 17024,
+        "sha256": "73d0432dd1fc2437cb04981359af10c890dd5c12c99cc68e7198520f56506d0b"
+      },
+      "public_path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/psec-lpac-postassign-python-candidate-freeze-01.json",
+      "raw_original": {
+        "bytes": 17024,
+        "sha256": "73d0432dd1fc2437cb04981359af10c890dd5c12c99cc68e7198520f56506d0b"
+      },
+      "raw_private_runtime_log_published": false,
+      "source_work_path": "work/psec-lpac-postassign-python-candidate-freeze-01.json",
+      "view_changes": []
+    },
+    {
+      "byte_exact_copy": true,
+      "evidence_phase": "source-and-pure",
+      "public_copy": {
+        "bytes": 2650,
+        "sha256": "7299214878dd7d9cadbf6681f138eb30360f11df0e4a357ac0a0f332bc5a88e6"
+      },
+      "public_path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/psec-lpac-postassign-python-candidate-abi-01.json",
+      "raw_original": {
+        "bytes": 2650,
+        "sha256": "7299214878dd7d9cadbf6681f138eb30360f11df0e4a357ac0a0f332bc5a88e6"
+      },
+      "raw_private_runtime_log_published": false,
+      "source_work_path": "work/psec-lpac-postassign-python-candidate-abi-01.json",
+      "view_changes": []
+    },
+    {
+      "byte_exact_copy": false,
+      "evidence_phase": "source-and-pure",
+      "public_copy": {
+        "bytes": 10872,
+        "sha256": "24399fa77c7cc5ce0ae116fc48ac7d0f5268b427597fa389b786f37ec29530e9"
+      },
+      "public_path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/psec-lpac-postassign-python-pure-01-public-view.log",
+      "raw_original": {
+        "bytes": 10927,
+        "sha256": "27e621e3e4376a02b3e8301fdc51e399cdff57eacefaa59f5d403a80a05c29c7"
+      },
+      "raw_private_runtime_log_published": false,
+      "source_work_path": "work/psec-lpac-postassign-python-pure-01.log",
+      "view_changes": [
+        "line-endings-normalized-to-lf"
+      ]
+    },
+    {
+      "byte_exact_copy": false,
+      "evidence_phase": "source-and-pure",
+      "public_copy": {
+        "bytes": 174668,
+        "sha256": "25435da3488f948d1ba518846cdfb2cc077c747782629f3d2c8adc60901da142"
+      },
+      "public_path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/psec-lpac-postassign-python-candidate-02-public-view.patch",
+      "raw_original": {
+        "bytes": 174673,
+        "sha256": "05e8973be1ed967880139d63cac287485d33f43ad1b60e906b5f0434d08c5b5b"
+      },
+      "raw_private_runtime_log_published": false,
+      "source_work_path": "work/psec-lpac-postassign-python-candidate-02.patch",
+      "view_changes": [
+        "absolute-user-home-prefix-redacted"
+      ]
+    },
+    {
+      "byte_exact_copy": true,
+      "evidence_phase": "source-and-pure",
+      "public_copy": {
+        "bytes": 18818,
+        "sha256": "5a7b92ab97c472333ed28f9888ffec99dd4f4ec1018a721bfd1858a0d896ab06"
+      },
+      "public_path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/psec-lpac-postassign-python-candidate-freeze-02.json",
+      "raw_original": {
+        "bytes": 18818,
+        "sha256": "5a7b92ab97c472333ed28f9888ffec99dd4f4ec1018a721bfd1858a0d896ab06"
+      },
+      "raw_private_runtime_log_published": false,
+      "source_work_path": "work/psec-lpac-postassign-python-candidate-freeze-02.json",
+      "view_changes": []
+    },
+    {
+      "byte_exact_copy": true,
+      "evidence_phase": "source-and-pure",
+      "public_copy": {
+        "bytes": 2905,
+        "sha256": "f6259b645cbf92060f14b27916f66ce8789521613be231af92a094b5ae591799"
+      },
+      "public_path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/psec-lpac-postassign-python-candidate-abi-02.json",
+      "raw_original": {
+        "bytes": 2905,
+        "sha256": "f6259b645cbf92060f14b27916f66ce8789521613be231af92a094b5ae591799"
+      },
+      "raw_private_runtime_log_published": false,
+      "source_work_path": "work/psec-lpac-postassign-python-candidate-abi-02.json",
+      "view_changes": []
+    },
+    {
+      "byte_exact_copy": false,
+      "evidence_phase": "source-and-pure",
+      "public_copy": {
+        "bytes": 10872,
+        "sha256": "6f0daab4b97163ef62e520ca9ecb0ad0cf2c07831a4f04d14e25954c995f8771"
+      },
+      "public_path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/psec-lpac-postassign-python-pure-02-public-view.log",
+      "raw_original": {
+        "bytes": 10927,
+        "sha256": "4d4122eea5c3c0c00bfbed7d801a88566caad57b916282c44c044068d8fa42cd"
+      },
+      "raw_private_runtime_log_published": false,
+      "source_work_path": "work/psec-lpac-postassign-python-pure-02.log",
+      "view_changes": [
+        "line-endings-normalized-to-lf"
+      ]
+    },
+    {
+      "byte_exact_copy": true,
+      "evidence_phase": "source-and-pure",
+      "public_copy": {
+        "bytes": 4578,
+        "sha256": "d1c8e0b59854b45f2ca03932b96882b727deebd003e02300e8ceb032ec23ce8a"
+      },
+      "public_path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/psec-lpac-postassign-python-independent-review-02.json",
+      "raw_original": {
+        "bytes": 4578,
+        "sha256": "d1c8e0b59854b45f2ca03932b96882b727deebd003e02300e8ceb032ec23ce8a"
+      },
+      "raw_private_runtime_log_published": false,
+      "source_work_path": "work/psec-lpac-postassign-python-independent-review-02.json",
+      "view_changes": []
+    },
+    {
+      "byte_exact_copy": true,
+      "evidence_phase": "source-and-pure",
+      "public_copy": {
+        "bytes": 3172,
+        "sha256": "c3f5256387dd18f544759f01260065e3ef457a5c9991b11006936b7a41148cde"
+      },
+      "public_path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/psec-lpac-postassign-python-independent-pure-02.log",
+      "raw_original": {
+        "bytes": 3172,
+        "sha256": "c3f5256387dd18f544759f01260065e3ef457a5c9991b11006936b7a41148cde"
+      },
+      "raw_private_runtime_log_published": false,
+      "source_work_path": "work/psec-lpac-postassign-python-independent-pure-02.log",
+      "view_changes": []
+    },
+    {
+      "byte_exact_copy": true,
+      "evidence_phase": "source-and-pure",
+      "public_copy": {
+        "bytes": 2783,
+        "sha256": "04ced4bc5881aff5ff82b26b80fa2783a5630825a9c6bf9ae994017779073100"
+      },
+      "public_path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/psec-lpac-postassign-integrated-pure-01.json",
+      "raw_original": {
+        "bytes": 2783,
+        "sha256": "04ced4bc5881aff5ff82b26b80fa2783a5630825a9c6bf9ae994017779073100"
+      },
+      "raw_private_runtime_log_published": false,
+      "source_work_path": "work/psec-lpac-postassign-integrated-pure-01.json",
+      "view_changes": []
+    },
+    {
+      "byte_exact_copy": false,
+      "evidence_phase": "source-and-pure",
+      "public_copy": {
+        "bytes": 171317,
+        "sha256": "6d0b9aedcaf12acc4eb89de9b32c1460c12793c19148b839d97ba84f4aa2d26d"
+      },
+      "public_path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/psec-lpac-postassign-main-pure-01-public-view.log",
+      "raw_original": {
+        "bytes": 172246,
+        "sha256": "aee3aae8e1da63c1366eae6e84f4ddd864e29d475a8f0eb5d6e1f836bf574d24"
+      },
+      "raw_private_runtime_log_published": false,
+      "source_work_path": "work/psec-lpac-postassign-main-pure-01.log",
+      "view_changes": [
+        "line-endings-normalized-to-lf"
+      ]
+    },
+    {
+      "byte_exact_copy": true,
+      "evidence_phase": "source-and-pure",
+      "public_copy": {
+        "bytes": 868,
+        "sha256": "93d2195a7b761c9db880df5ce16b1a86d147c6ad3ee19f674789c166e598ad4c"
+      },
+      "public_path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/test_psec_lpac_postassign_integrated_01.ps1",
+      "raw_original": {
+        "bytes": 868,
+        "sha256": "93d2195a7b761c9db880df5ce16b1a86d147c6ad3ee19f674789c166e598ad4c"
+      },
+      "raw_private_runtime_log_published": false,
+      "source_work_path": "work/test_psec_lpac_postassign_integrated_01.ps1",
+      "view_changes": []
+    },
+    {
+      "byte_exact_copy": true,
+      "evidence_phase": "source-and-pure",
+      "public_copy": {
+        "bytes": 15903,
+        "sha256": "1c648e521e480d9062e5acb57fb85eb24178f06458d14cfa4a7cff07aa588634"
+      },
+      "public_path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/stage_psec_lpac_postassign_source_01.py",
+      "raw_original": {
+        "bytes": 15903,
+        "sha256": "1c648e521e480d9062e5acb57fb85eb24178f06458d14cfa4a7cff07aa588634"
+      },
+      "raw_private_runtime_log_published": false,
+      "source_work_path": "work/stage_psec_lpac_postassign_source_01.py",
+      "view_changes": []
+    },
+    {
+      "byte_exact_copy": true,
+      "evidence_phase": "actual-file-only-review",
+      "public_copy": {
+        "bytes": 54321,
+        "sha256": "8bb68ed9ba06f85e178939ca3e713c7b084d7d06dadeef440839b4f63f8f7d66"
+      },
+      "public_path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/psec-lpac-postassign-identity-actual-01-independent-review.json",
+      "raw_original": {
+        "bytes": 54321,
+        "sha256": "8bb68ed9ba06f85e178939ca3e713c7b084d7d06dadeef440839b4f63f8f7d66"
+      },
+      "raw_private_runtime_log_published": false,
+      "source_work_path": "work/psec-lpac-postassign-identity-actual-01-independent-review.json",
+      "view_changes": []
+    },
+    {
+      "byte_exact_copy": true,
+      "evidence_phase": "actual-file-only-review",
+      "public_copy": {
+        "bytes": 15597,
+        "sha256": "52fd5a7a8ec4b1739ef4116df16616af3923755639c7b831c9bdce3707a106ad"
+      },
+      "public_path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/psec-lpac-postassign-identity-actual-01-proof-review.json",
+      "raw_original": {
+        "bytes": 15597,
+        "sha256": "52fd5a7a8ec4b1739ef4116df16616af3923755639c7b831c9bdce3707a106ad"
+      },
+      "raw_private_runtime_log_published": false,
+      "source_work_path": "work/psec-lpac-postassign-identity-actual-01-proof-review.json",
+      "view_changes": []
+    },
+    {
+      "byte_exact_copy": true,
+      "evidence_phase": "archiver-file-fake-authoring-only",
+      "public_copy": {
+        "bytes": 2799,
+        "sha256": "6bb3efacec49dadb605cdcb7468969090298be331c26a32fa7a5e4e445a294c0"
+      },
+      "public_path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/archive_psec_lpac_postassign_identity_01_readiness.json",
+      "raw_original": {
+        "bytes": 2799,
+        "sha256": "6bb3efacec49dadb605cdcb7468969090298be331c26a32fa7a5e4e445a294c0"
+      },
+      "raw_private_runtime_log_published": false,
+      "source_work_path": "work/archive_psec_lpac_postassign_identity_01_readiness.json",
+      "view_changes": []
+    },
+    {
+      "byte_exact_copy": false,
+      "evidence_phase": "archiver-file-fake-authoring-only",
+      "public_copy": {
+        "bytes": 1676,
+        "sha256": "f40b90902e7eb57e977bb779359a4a3d0bd75062f4c8077547ce38a12618ebc8"
+      },
+      "public_path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/archive_psec_lpac_postassign_identity_01_pure_01-public-view.log",
+      "raw_original": {
+        "bytes": 1767,
+        "sha256": "7977c03880a8792371db33cbd166e4c0cfc497b914daac1f6b8c01a80c9ecd6c"
+      },
+      "raw_private_runtime_log_published": false,
+      "source_work_path": "work/archive_psec_lpac_postassign_identity_01_pure_01.log",
+      "view_changes": [
+        "absolute-workspace-prefix-redacted",
+        "line-endings-normalized-to-lf"
+      ]
+    },
+    {
+      "byte_exact_copy": false,
+      "evidence_phase": "archiver-file-fake-authoring-only",
+      "public_copy": {
+        "bytes": 836,
+        "sha256": "e5e817371303d561dc3624e2c84260d3669b3fc309e541b40398f45ae3cebdde"
+      },
+      "public_path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/archive_psec_lpac_postassign_identity_01_pure_03-public-view.log",
+      "raw_original": {
+        "bytes": 846,
+        "sha256": "5abd0cfbb186ce0c3453f79bed964557f6b31b3deae6e9e11938f40913edab49"
+      },
+      "raw_private_runtime_log_published": false,
+      "source_work_path": "work/archive_psec_lpac_postassign_identity_01_pure_03.log",
+      "view_changes": [
+        "line-endings-normalized-to-lf"
+      ]
+    },
+    {
+      "byte_exact_copy": true,
+      "evidence_phase": "archiver-file-fake-authoring-only",
+      "public_copy": {
+        "bytes": 4618,
+        "sha256": "d2b2e06f28f462c70e3a88780ec559e472e3d396ddb2b708404b6c8dd2be9f0f"
+      },
+      "public_path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/test_archive_psec_lpac_postassign_identity_01.py",
+      "raw_original": {
+        "bytes": 4618,
+        "sha256": "d2b2e06f28f462c70e3a88780ec559e472e3d396ddb2b708404b6c8dd2be9f0f"
+      },
+      "raw_private_runtime_log_published": false,
+      "source_work_path": "work/test_archive_psec_lpac_postassign_identity_01.py",
+      "view_changes": []
+    },
+    {
+      "byte_exact_copy": false,
+      "evidence_phase": "automatic-compile-pure",
+      "public_copy": {
+        "bytes": 218560,
+        "sha256": "f2a8befb6f17bb11561c26c887e0f51f8cd98a9cdc1540b9e051742ee60ab2a1"
+      },
+      "public_path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/ci-39880370248-decoded-public-view.log",
+      "raw_original": {
+        "bytes": 219702,
+        "sha256": "550479f04800ce614650f78d477a407b8fa5cd1e86e6e935f0f556b33f2dcc22"
+      },
+      "raw_private_runtime_log_published": false,
+      "source_work_path": "work/ci-psec-postassign-identity-39880370248-full.txt",
+      "view_changes": [
+        "line-endings-normalized-to-lf",
+        "utf8-bom-removed-in-public-view"
+      ]
+    }
+  ],
+  "payload_version": 1,
+  "pure_source_ready_not_runtime_acceptance": true,
+  "runtime_or_native_or_recovery_called_by_publication": false,
+  "runtime_shared_count": 34,
+  "runtime_source_count": 36,
+  "runtime_source_sha256": "d625a45670dc4b544c73e7dfb0acb55f483064dca23495e5e12f9dcbf8705f9f",
+  "schema_version": 1,
+  "scope": "one-local-cpse-deny-all-outer-guarded-postassign-identity-v1",
+  "source_commit": "953de0a2374aff89959957da4b5641ce5aaff8a1",
+  "stage": "psec-lpac-postassign-source-review01-index"
+}

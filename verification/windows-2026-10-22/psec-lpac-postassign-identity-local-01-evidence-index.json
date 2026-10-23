@@ -1,0 +1,89 @@
+{
+  "archive_process_experiment_run": false,
+  "dll_binary_published": false,
+  "dll_loaded": false,
+  "files": [
+    {
+      "bytes": 2408,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-local-01-public.json",
+      "sha256": "3862644d9d75b0e44a52c4bf2e0be063314dd6418e9e2fff6d5acca1fdaf0bd0"
+    },
+    {
+      "bytes": 1841,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-local-01-preflight.json",
+      "sha256": "6ffd45ffa87e65179754ca801c5a383760c3b89a4361cf47f71078320110e525"
+    },
+    {
+      "bytes": 5499,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-local-01-runner.py",
+      "sha256": "4e7c347c7aec51e22c47369e3cbf4577366ce094219352f889a55fd2d488d15a"
+    },
+    {
+      "bytes": 5759,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-local-01-bridge-manifest.json",
+      "sha256": "1a29ce2ce18f75e13dc1546fc201558121e30563e475d2075d94951546aaef56"
+    },
+    {
+      "bytes": 1005,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-local-01-actor-manifest.json",
+      "sha256": "657c88ef59f8ba9d4c24f5e407696b27615f50c63d58adc5d8dd64f942104e92"
+    },
+    {
+      "bytes": 7548,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-local-01-compile-input-snapshot.json",
+      "sha256": "9303a0a9545c6302fd3bd115775775f77f1c3574ba8c1e5a525f7e9dfa4969b3"
+    },
+    {
+      "bytes": 68746,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-local-01-archive.py",
+      "sha256": "a6e40e248990abb6c5283eaee51a82509dfb4e9aa70d37d6ece0514ec1ee9028"
+    },
+    {
+      "bytes": 1632,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-local-01-after-global-capture.ps1",
+      "sha256": "847a325d0e57d9481dc0c81d35a89a13fe0d1e0da4481721df85fc8da4fd1084"
+    },
+    {
+      "bytes": 2026,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-local-01-after-global-expanded.ps1",
+      "sha256": "d2be0040e6cd50e9e8874032887ee6fc73d0c3584996c5ed8f2f5d063aa13fe0"
+    },
+    {
+      "bytes": 57953,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-local-01-component-projection.json",
+      "sha256": "a6de3f78871165fdb1ade38628c9b0c45df2aa5a98b4b4e586785db4d0a5626c"
+    },
+    {
+      "bytes": 470,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-local-01-global-projection.json",
+      "sha256": "f6b610c5005d9324f2c509401095f08fee8465b48e6cfcd57119b3de03cd372f"
+    },
+    {
+      "bytes": 43002,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-local-01-job-admissions-projection.json",
+      "sha256": "81f9abab4ee39ff36c167137315b4057490f8415711c79534691d8a4218a404a"
+    },
+    {
+      "bytes": 10693,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-local-01-inner-transfers-projection.json",
+      "sha256": "f4c250722b3828ef074348d30cb78562499efecc2827d1a0d4fb122f7ac2b42a"
+    },
+    {
+      "bytes": 3720,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-local-01-summary.json",
+      "sha256": "0b7634f375329a3e8f240961e649d125ed4f34200bf0fd41bf1df3500f547ef6"
+    }
+  ],
+  "index_self_hash_excluded": true,
+  "native_api_instantiated": false,
+  "network_operation_run": false,
+  "original_public_sha256": "3862644d9d75b0e44a52c4bf2e0be063314dd6418e9e2fff6d5acca1fdaf0bd0",
+  "policy_or_recovery_run": false,
+  "raw_compile_logs_published": false,
+  "raw_private_reports_published": false,
+  "schema_version": 1,
+  "scope": "one-local-cpse-deny-all-outer-guarded-postassign-identity-v1",
+  "source_commit": "953de0a2374aff89959957da4b5641ce5aaff8a1",
+  "source_sha256": "d625a45670dc4b544c73e7dfb0acb55f483064dca23495e5e12f9dcbf8705f9f",
+  "stage": "psec-postassign-deny-all-matched-identity-evidence-index"
+}

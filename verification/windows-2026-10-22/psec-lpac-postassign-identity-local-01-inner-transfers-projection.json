@@ -1,0 +1,318 @@
+{
+  "api_or_experiment_run_by_reader": false,
+  "assign_attempted_count": 2,
+  "atomic_inner_creation_proven": false,
+  "constructor_policy": "outer-guarded-held-explicit-inner-assignment-v1",
+  "continuous_outer_supervision_proven": false,
+  "creation_transfer_crash_gap_resolved": false,
+  "held_bound_physical_receipt_count": 6,
+  "held_worker_result_available": true,
+  "missing_assignment_or_membership_synthesized": false,
+  "physical_receipt_count": 6,
+  "physical_receipts": [
+    {
+      "bound_to_validated_held_worker_result": true,
+      "bytes": 2376,
+      "directory": "pretransfer",
+      "kind": "guard",
+      "raw_private_text_published": false,
+      "role": "ac",
+      "sha256": "291ba7733211a715a65abf8180fc939d9a964526d70dc9d0b84d18e34784e9dc",
+      "unvalidated_or_incomplete_forensic_only": false,
+      "used_for_independent_qualification": false
+    },
+    {
+      "bound_to_validated_held_worker_result": true,
+      "bytes": 2393,
+      "directory": "pretransfer",
+      "kind": "guard",
+      "raw_private_text_published": false,
+      "role": "lpac",
+      "sha256": "7079396dbe7d3903dfa31e942849075a28674c83983122d36bda5907fa5ea97b",
+      "unvalidated_or_incomplete_forensic_only": false,
+      "used_for_independent_qualification": false
+    },
+    {
+      "bound_to_validated_held_worker_result": true,
+      "bytes": 968,
+      "directory": "transfers",
+      "kind": "intent",
+      "raw_private_text_published": false,
+      "role": "ac",
+      "sha256": "29c95d0ad76ca3ff06644a4d41e8d0e9f0d94c3ca9caa269767b20607a90e55c",
+      "unvalidated_or_incomplete_forensic_only": false,
+      "used_for_independent_qualification": false
+    },
+    {
+      "bound_to_validated_held_worker_result": true,
+      "bytes": 1254,
+      "directory": "transfers",
+      "kind": "receipt",
+      "raw_private_text_published": false,
+      "role": "ac",
+      "sha256": "88289fa27486c6dbcea2bb007a9ff1bd81f0aa274d5613bb477370e8e3942db6",
+      "unvalidated_or_incomplete_forensic_only": false,
+      "used_for_independent_qualification": false
+    },
+    {
+      "bound_to_validated_held_worker_result": true,
+      "bytes": 970,
+      "directory": "transfers",
+      "kind": "intent",
+      "raw_private_text_published": false,
+      "role": "lpac",
+      "sha256": "0598ca84198d79847c34a06045fa769d1ce60119f9e209a22e68a564a41f517f",
+      "unvalidated_or_incomplete_forensic_only": false,
+      "used_for_independent_qualification": false
+    },
+    {
+      "bound_to_validated_held_worker_result": true,
+      "bytes": 1256,
+      "directory": "transfers",
+      "kind": "receipt",
+      "raw_private_text_published": false,
+      "role": "lpac",
+      "sha256": "16d670377247d95d51f0868237daac6700030ce2bbad3aa191e66b6f71fe660d",
+      "unvalidated_or_incomplete_forensic_only": false,
+      "used_for_independent_qualification": false
+    }
+  ],
+  "pretransfer_record_count": 2,
+  "raw_handles_pid_sid_job_name_creation_or_qpc_published": false,
+  "records": [
+    {
+      "all_recorded_post_assignment_exact_jobs_verified": true,
+      "constructor_policy": "outer-guarded-held-explicit-inner-assignment-v1",
+      "decision_within_original_work_deadline": true,
+      "exception": {
+        "message_published": false,
+        "private_sha256": null,
+        "recorded": false
+      },
+      "never_resumed": true,
+      "original_assignment_intent": {
+        "bytes": 968,
+        "sha256": "29c95d0ad76ca3ff06644a4d41e8d0e9f0d94c3ca9caa269767b20607a90e55c"
+      },
+      "original_assignment_returned_receipt": {
+        "bytes": 1254,
+        "sha256": "88289fa27486c6dbcea2bb007a9ff1bd81f0aa274d5613bb477370e8e3942db6"
+      },
+      "post_assignment_job_observation_count": 7,
+      "pretransfer_guard": {
+        "exact_outer_true_inner_false_verified": true,
+        "exception": {
+          "message_published": false,
+          "private_sha256": null,
+          "recorded": false
+        },
+        "generation_after": {
+          "alive": true,
+          "exception": {
+            "message_published": false,
+            "private_sha256": null,
+            "recorded": false
+          },
+          "held_generation_verified": true,
+          "image_verified": true,
+          "within_original_work_deadline": true
+        },
+        "generation_before": {
+          "alive": true,
+          "exception": {
+            "message_published": false,
+            "private_sha256": null,
+            "recorded": false
+          },
+          "held_generation_verified": true,
+          "image_verified": true,
+          "within_original_work_deadline": true
+        },
+        "inner_query": {
+          "api_success": true,
+          "attempted": true,
+          "exception": {
+            "message_published": false,
+            "private_sha256": null,
+            "recorded": false
+          },
+          "immediate_win32_error": 0,
+          "membership": false,
+          "returned": true,
+          "within_original_work_deadline": true
+        },
+        "original_disk_receipt": {
+          "bytes": 2376,
+          "sha256": "291ba7733211a715a65abf8180fc939d9a964526d70dc9d0b84d18e34784e9dc"
+        },
+        "outer_query": {
+          "api_success": true,
+          "attempted": true,
+          "exception": {
+            "message_published": false,
+            "private_sha256": null,
+            "recorded": false
+          },
+          "immediate_win32_error": 0,
+          "membership": true,
+          "returned": true,
+          "within_original_work_deadline": true
+        },
+        "purpose": "pretransfer",
+        "query_resources": {
+          "cleanup_verified": true,
+          "close_api_success": true,
+          "close_attempted": true,
+          "close_returned": true,
+          "close_uncertain": false,
+          "close_within_original_work_deadline": true,
+          "immediate_close_win32_error": 0,
+          "immediate_open_win32_error": 0,
+          "one_shot_close_source_bound": true,
+          "open_attempted": true,
+          "open_returned": true,
+          "protected_handle_alias": false
+        },
+        "sequence": 1
+      },
+      "primary_identity_admitted": true,
+      "raw_assign_observation": {
+        "api_success": true,
+        "attempted": true,
+        "call_once_source_bound": true,
+        "exception": {
+          "message_published": false,
+          "private_sha256": null,
+          "recorded": false
+        },
+        "immediate_win32_error": 0,
+        "return_value": 1,
+        "returned": true,
+        "within_original_work_deadline": true
+      },
+      "role": "ac",
+      "transfer_verified": true
+    },
+    {
+      "all_recorded_post_assignment_exact_jobs_verified": true,
+      "constructor_policy": "outer-guarded-held-explicit-inner-assignment-v1",
+      "decision_within_original_work_deadline": true,
+      "exception": {
+        "message_published": false,
+        "private_sha256": null,
+        "recorded": false
+      },
+      "never_resumed": true,
+      "original_assignment_intent": {
+        "bytes": 970,
+        "sha256": "0598ca84198d79847c34a06045fa769d1ce60119f9e209a22e68a564a41f517f"
+      },
+      "original_assignment_returned_receipt": {
+        "bytes": 1256,
+        "sha256": "16d670377247d95d51f0868237daac6700030ce2bbad3aa191e66b6f71fe660d"
+      },
+      "post_assignment_job_observation_count": 6,
+      "pretransfer_guard": {
+        "exact_outer_true_inner_false_verified": true,
+        "exception": {
+          "message_published": false,
+          "private_sha256": null,
+          "recorded": false
+        },
+        "generation_after": {
+          "alive": true,
+          "exception": {
+            "message_published": false,
+            "private_sha256": null,
+            "recorded": false
+          },
+          "held_generation_verified": true,
+          "image_verified": true,
+          "within_original_work_deadline": true
+        },
+        "generation_before": {
+          "alive": true,
+          "exception": {
+            "message_published": false,
+            "private_sha256": null,
+            "recorded": false
+          },
+          "held_generation_verified": true,
+          "image_verified": true,
+          "within_original_work_deadline": true
+        },
+        "inner_query": {
+          "api_success": true,
+          "attempted": true,
+          "exception": {
+            "message_published": false,
+            "private_sha256": null,
+            "recorded": false
+          },
+          "immediate_win32_error": 0,
+          "membership": false,
+          "returned": true,
+          "within_original_work_deadline": true
+        },
+        "original_disk_receipt": {
+          "bytes": 2393,
+          "sha256": "7079396dbe7d3903dfa31e942849075a28674c83983122d36bda5907fa5ea97b"
+        },
+        "outer_query": {
+          "api_success": true,
+          "attempted": true,
+          "exception": {
+            "message_published": false,
+            "private_sha256": null,
+            "recorded": false
+          },
+          "immediate_win32_error": 0,
+          "membership": true,
+          "returned": true,
+          "within_original_work_deadline": true
+        },
+        "purpose": "pretransfer",
+        "query_resources": {
+          "cleanup_verified": true,
+          "close_api_success": true,
+          "close_attempted": true,
+          "close_returned": true,
+          "close_uncertain": false,
+          "close_within_original_work_deadline": true,
+          "immediate_close_win32_error": 0,
+          "immediate_open_win32_error": 0,
+          "one_shot_close_source_bound": true,
+          "open_attempted": true,
+          "open_returned": true,
+          "protected_handle_alias": false
+        },
+        "sequence": 1
+      },
+      "primary_identity_admitted": true,
+      "raw_assign_observation": {
+        "api_success": true,
+        "attempted": true,
+        "call_once_source_bound": true,
+        "exception": {
+          "message_published": false,
+          "private_sha256": null,
+          "recorded": false
+        },
+        "immediate_win32_error": 0,
+        "return_value": 1,
+        "returned": true,
+        "within_original_work_deadline": true
+      },
+      "role": "lpac",
+      "transfer_verified": true
+    }
+  ],
+  "schema_version": 1,
+  "scope": "one-local-cpse-deny-all-outer-guarded-postassign-identity-v1",
+  "source_commit": "953de0a2374aff89959957da4b5641ce5aaff8a1",
+  "source_sha256": "d625a45670dc4b544c73e7dfb0acb55f483064dca23495e5e12f9dcbf8705f9f",
+  "stage": "psec-postassign-inner-transfers-private-safe-projection",
+  "unbound_files_used_for_qualification": false,
+  "verified_transfer_count": 2,
+  "worker_result_validated": true
+}

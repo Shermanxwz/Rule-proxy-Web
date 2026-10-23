@@ -1,3 +1,5 @@
+**PSEC postassign01（2026-10-23，新scope）**：[真实转移及部分身份proof](2026-10-23-psec-lpac-postassign-identity-01.md)记录两臂一次assignment、13次后置双Job通过；AC四项通过，LPAC仅combined grant3（预期2）即停，后三项未执行，仍为inconclusive/accesscheck。未恢复actor/测试网络；正常已知清理不证明连续监督或崩溃等价，旧01 unknown及原DNS泄漏保留。
+
 # Windows Codex 交接：先验证身份绑定 IPC，再完成应用级代理隔离
 
 **PSEC+LPAC identity03（2026-10-23）**：[独立 Job 准入观察](2026-10-23-psec-lpac-identity-03.md)明确记录 inner API成功/member=false、outer API成功/member=true。准入停止于 primary/LPAC/proof/resume 前，本轮已知资源清理闭合；外部 absence 与崩溃等价清理未证明。01未知、02未分离查询历史及原 G/PSEC DNS 泄漏均保留，产品资格仍为false。
