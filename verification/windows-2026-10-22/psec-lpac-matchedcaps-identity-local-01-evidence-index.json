@@ -1,0 +1,94 @@
+{
+  "archive_process_experiment_run": false,
+  "dll_binary_published": false,
+  "dll_loaded": false,
+  "files": [
+    {
+      "bytes": 2658,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-local-01-public.json",
+      "sha256": "6acc10b614f5c35c56ed2adf4e648a7b0f4ea3a74ddbdf3f3e7fb595c9a103b4"
+    },
+    {
+      "bytes": 1938,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-local-01-preflight.json",
+      "sha256": "05679302bd82c47e831d4a2e24b3dfb34444f923bf2b7bd898c0d321178924a6"
+    },
+    {
+      "bytes": 5733,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-local-01-runner.py",
+      "sha256": "925ee06bf2f0e0e525e14c31a901166b471349158808315b42cba64b1b60579b"
+    },
+    {
+      "bytes": 5812,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-local-01-bridge-manifest.json",
+      "sha256": "fbbb268bde396dbe7bbdf7247f062bd2e1892f537f5e553a5ee105d1b52566d7"
+    },
+    {
+      "bytes": 1005,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-local-01-actor-manifest.json",
+      "sha256": "657c88ef59f8ba9d4c24f5e407696b27615f50c63d58adc5d8dd64f942104e92"
+    },
+    {
+      "bytes": 7683,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-local-01-compile-input-snapshot.json",
+      "sha256": "4c5d13605371f354a944f64ada5d62a6c2b10ab27176ac69fb88c95e246fb728"
+    },
+    {
+      "bytes": 77798,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-local-01-archive.py",
+      "sha256": "44dcdbf95cf2c9d3896a8b6c58bc66bcdb4a07461fe6db159fe12a9673fe464f"
+    },
+    {
+      "bytes": 1640,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-local-01-after-global-capture.ps1",
+      "sha256": "5f40e082036e3daf6ffc5b0fac31f72819cb4a772639ae9ea3cb37ac3cc13d8e"
+    },
+    {
+      "bytes": 2028,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-local-01-after-global-expanded.ps1",
+      "sha256": "bd561f9afac46198f0f4cf77c435f3d2a30cdd8109d77a4c1aa9a5917d9a88c8"
+    },
+    {
+      "bytes": 68540,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-local-01-component-projection.json",
+      "sha256": "86065a87980d1776360e8786b9f8b663b263ad9041d0fc6cc386220778b4d7fc"
+    },
+    {
+      "bytes": 470,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-local-01-global-projection.json",
+      "sha256": "f6b610c5005d9324f2c509401095f08fee8465b48e6cfcd57119b3de03cd372f"
+    },
+    {
+      "bytes": 78583,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-local-01-job-admissions-projection.json",
+      "sha256": "22eb1115d999487ebf5880f7fee86ac5e5ae55f50deed290c4eddcf0159edf8e"
+    },
+    {
+      "bytes": 15616,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-local-01-inner-transfers-projection.json",
+      "sha256": "f41b9619c5939a98cb73a876924cc10b81aea27783bc29241e495b9b60747f27"
+    },
+    {
+      "bytes": 4093,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-local-01-security-capabilities-projection.json",
+      "sha256": "aeb674d97c31792725de4a2d9805632df933b4efb5a35867bced08f8e01d0dc9"
+    },
+    {
+      "bytes": 4315,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-local-01-summary.json",
+      "sha256": "5b5e4190d913e2b22bf3bae6a3dcaff7056bf84dbb0c2634aa2da51e56441cbb"
+    }
+  ],
+  "index_self_hash_excluded": true,
+  "native_api_instantiated": false,
+  "network_operation_run": false,
+  "original_public_sha256": "6acc10b614f5c35c56ed2adf4e648a7b0f4ea3a74ddbdf3f3e7fb595c9a103b4",
+  "policy_or_recovery_run": false,
+  "raw_compile_logs_published": false,
+  "raw_private_reports_published": false,
+  "schema_version": 1,
+  "scope": "one-local-cpse-deny-all-outer-guarded-matched-secaps-identity-v1",
+  "source_commit": "ec45dffb66cc88bb48578101afb93ce7044a6521",
+  "source_sha256": "f77fdff1de75ba53d6dca04d65659deb43fd6bdc91c2feaf1c6a03ade7c008db",
+  "stage": "psec-matchedcaps-deny-all-matched-identity-evidence-index"
+}

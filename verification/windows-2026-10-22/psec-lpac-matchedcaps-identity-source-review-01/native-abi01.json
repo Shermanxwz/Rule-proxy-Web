@@ -1,0 +1,193 @@
+{
+  "actual_ready": false,
+  "attributes": {
+    "AAP_POLICY": "0x2000f",
+    "JOB_LIST": false,
+    "SECURITY_CAPABILITIES": "SDK macro, measured roles only",
+    "SE_ENV": "0x20023"
+  },
+  "constructor_policy": "bootstrap-held-primary-matched-security-capabilities-aap-only-v1",
+  "context_size_compile_verified": false,
+  "context_size_gate": "Production sizeof/alignof static_assert must pass in root compile before any promotion; enlarge ABI3 context explicitly if needed.",
+  "create_signature": "uint32 pb_create_matched_child(PB_CONTEXT_V1*, const PB_CHILD_V1*, uint32 role, const PB_SC_INPUT_V3*, PB_PI_V1*, PB_RESULT_V1*) noexcept",
+  "dll": "windows_psec_lpac_matchedcaps_bridge.dll",
+  "exports": [
+    "pb_abi_version",
+    "pb_bind",
+    "pb_build_spec",
+    "pb_close_environment",
+    "pb_create_environment",
+    "pb_create_matched_child",
+    "pb_unbind",
+    "pb_verify_spec"
+  ],
+  "fixed_capability_catalog": {
+    "AgenticAppContainer": "S-1-15-3-1024-530591407-3118584226-222893001-1659895842-537460181-133087082-1363364250-4100990745",
+    "privateNetworkClientServer": "S-1-15-3-3"
+  },
+  "fixed_capability_origin": "Historical independent OS fixed-name DeriveCapabilitySidsFromName catalog readback, cross-checked by two authors; not a new Microsoft numeric-SID contract. Current Python outer must rederive independently and reject mismatch.",
+  "internal_size_estimate": 496,
+  "library_version": 3,
+  "manifest": "psec-lpac-matchedcaps-bridge-manifest.json",
+  "manifest_abi_version": 3,
+  "manifest_keys": [
+    "abi_version",
+    "architecture",
+    "compile_only",
+    "constructor_policy",
+    "dependencies",
+    "dll_bytes",
+    "dll_sha256",
+    "exports",
+    "imports",
+    "runtime_acceptance",
+    "schema_version",
+    "sources",
+    "spec_variant",
+    "stage",
+    "toolchain"
+  ],
+  "manifest_stage": "psec-lpac-matchedcaps-bridge-compile-only",
+  "memory_contract": "Caller buffers must contain the declared valid readable bytes. Native validates bounded SID headers before copy and after copy; it does not make arbitrary bad pointers safe. Native context owns normalized SID copies until after Create returns.",
+  "opaque": "S_OK+nonnull only; failure+nonnull unknown; VOID close consumed once, normal return not environment absence/cancellation.",
+  "operations": {
+    "bind": 1,
+    "close_environment": 4,
+    "create_environment": 2,
+    "create_matched_child": 3,
+    "unbind": 5
+  },
+  "package_origin": "External held bootstrap primary token only, with predeclared catalog/image/generation/user/session/low IL/two Jobs proved before measured calls.",
+  "payload_version": 1,
+  "precreate_failure": {
+    "PI": "all zero required",
+    "after_qpc": "sampled",
+    "api_entered": 0,
+    "api_returned": 0,
+    "clock_or_late": "status10 retained, within_deadline0; cannot pass owner timely-known-no-child gate",
+    "errors": "Immediate Win32 value preserved; zero is not a fabricated cause.",
+    "exception": "status9, not a known-no-child fallback",
+    "only_sites": [
+      "attribute list init known false",
+      "UpdateProcThreadAttribute known false"
+    ]
+  },
+  "roles": [
+    {
+      "attribute_count": 2,
+      "name": "bootstrap",
+      "policy": 0,
+      "role": 0,
+      "sc": "null"
+    },
+    {
+      "attribute_count": 3,
+      "name": "measured_ac",
+      "policy": 0,
+      "role": 1,
+      "sc": "required"
+    },
+    {
+      "attribute_count": 3,
+      "name": "measured_lpac",
+      "policy": 1,
+      "role": 2,
+      "sc": "required and canonical bytes equal role1"
+    }
+  ],
+  "sc_fields": [
+    {
+      "name": "size",
+      "offset": 0,
+      "type": "u32=64"
+    },
+    {
+      "name": "version",
+      "offset": 4,
+      "type": "u32=3"
+    },
+    {
+      "name": "capability_count",
+      "offset": 8,
+      "type": "u32=2"
+    },
+    {
+      "name": "reserved",
+      "offset": 12,
+      "type": "u32=0"
+    },
+    {
+      "name": "package_sid",
+      "offset": 16,
+      "type": "borrowed byte pointer"
+    },
+    {
+      "name": "package_bytes",
+      "offset": 24,
+      "type": "u32 20..68"
+    },
+    {
+      "name": "reserved2",
+      "offset": 28,
+      "type": "u32=0"
+    },
+    {
+      "name": "agentic_sid",
+      "offset": 32,
+      "type": "borrowed byte pointer"
+    },
+    {
+      "name": "agentic_bytes",
+      "offset": 40,
+      "type": "u32=48"
+    },
+    {
+      "name": "agentic_attributes",
+      "offset": 44,
+      "type": "u32=4"
+    },
+    {
+      "name": "pncs_sid",
+      "offset": 48,
+      "type": "borrowed byte pointer"
+    },
+    {
+      "name": "pncs_bytes",
+      "offset": 56,
+      "type": "u32=16"
+    },
+    {
+      "name": "pncs_attributes",
+      "offset": 60,
+      "type": "u32=4"
+    }
+  ],
+  "schema_version": 1,
+  "scope": "one-local-cpse-deny-all-outer-guarded-matched-secaps-identity-v1",
+  "sizes": {
+    "child": 88,
+    "context": 512,
+    "context_alignment": 16,
+    "pi": 24,
+    "plan": 48,
+    "result": 96,
+    "security_input": 64,
+    "security_input_alignment": 8
+  },
+  "spec_variant": "identity-only-deny-all-v1",
+  "stage": "psec-lpac-matchedcaps-bridge-abi",
+  "statuses": {
+    "api_failed": 6,
+    "bad_argument": 1,
+    "bad_state": 2,
+    "cleanup_unknown": 8,
+    "clock": 4,
+    "deadline": 5,
+    "exception": 9,
+    "ok": 0,
+    "precreate_failed": 10,
+    "readback_failed": 7,
+    "unsupported": 3
+  },
+  "supervision": "No resume/GO/network/Assign/JOB_LIST. Owner verifies inherited outer membership, performs exactly one held inner assignment, then verifies both Jobs."
+}

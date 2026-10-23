@@ -1,0 +1,154 @@
+{
+  "actor_or_network_or_security_mutation_executed": false,
+  "actual_ready": false,
+  "author_full_pure": {
+    "command": [
+      "python.exe",
+      "-I",
+      "-S",
+      "-B",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "candidate/tests",
+      "-p",
+      "test_windows_identity_psec_lpac_matchedcaps_bridge*.py",
+      "-v"
+    ],
+    "exit_code": 0,
+    "log": {
+      "bytes": 6829,
+      "name": "psec-lpac-matchedcaps-python-pure-02.log",
+      "sha256": "f07dc8979d255359a9521867ee836a6e6f3b2a6b748ce313f6535e1395e3b7ff"
+    },
+    "seconds": "11.789",
+    "skip_count": 0,
+    "test_method_counts": {
+      "tests/test_windows_identity_psec_lpac_matchedcaps_bridge.py": 13,
+      "tests/test_windows_identity_psec_lpac_matchedcaps_bridge_local.py": 17
+    },
+    "tests": 30
+  },
+  "author_full_pure_not_rerun": true,
+  "decision": "GO-for-root-review-and-separate-promotion-only",
+  "files": {
+    ".github/windows_identity_psec_lpac_matchedcaps_bridge.py": {
+      "bytes": 102222,
+      "sha256": "b920a458bd489051284cad5deb8cbaf78341b9656602fab070ff99f0f9afbf11"
+    },
+    ".github/windows_identity_psec_lpac_matchedcaps_bridge_local.py": {
+      "bytes": 20805,
+      "sha256": "d4fcb5172f21496e28d65843f0f045be9786eecb220b8ddcb7d0d0696dd68c98"
+    },
+    "tests/test_windows_identity_psec_lpac_matchedcaps_bridge.py": {
+      "bytes": 18370,
+      "sha256": "40b2a37d5cdfbc0c1c8a974d4a9688f3937ebfff5b25da178b8e196616e5babb"
+    },
+    "tests/test_windows_identity_psec_lpac_matchedcaps_bridge_local.py": {
+      "bytes": 24258,
+      "sha256": "6258f8b17e8b3f44b7b7c9354badafcd68947b269ec0d74b506c61a3b37aae18"
+    }
+  },
+  "freeze": {
+    "bytes": 9463,
+    "path": "psec-lpac-matchedcaps-python-candidate-freeze-02.json",
+    "sha256": "3d5ac7715ee8effdc7a9e816defba096892ce33a3e5027aea8ed6654580268b8"
+  },
+  "independent_checks": [
+    {
+      "check": "complete_three_actor_inert_fixture",
+      "passed": true
+    },
+    {
+      "check": "bootstrap_capabilities_disabled",
+      "gate": "capabilities",
+      "rejected": true
+    },
+    {
+      "check": "bootstrap_generation_rewritten",
+      "gate": "postassign_guard_receipt_binding",
+      "rejected": true
+    },
+    {
+      "check": "security_input_attributes_disabled",
+      "gate": "secaps_schema",
+      "rejected": true
+    },
+    {
+      "check": "second_measured_raw_input_not_same",
+      "gate": "secaps_task_input_binding",
+      "rejected": true
+    },
+    {
+      "check": "bootstrap_cached_before_create",
+      "gate": "secaps_live_bootstrap_before_measured_create",
+      "rejected": true
+    },
+    {
+      "check": "bootstrap_cached_before_token",
+      "gate": "secaps_live_bootstrap_before_measured_token",
+      "rejected": true
+    },
+    {
+      "check": "sc_qualification_uncommitted",
+      "gate": "secaps_bootstrap_before_measured",
+      "rejected": true
+    },
+    {
+      "check": "network_preservation_claim_forbidden",
+      "gate": "cpse_scope",
+      "rejected": true
+    },
+    {
+      "check": "typed10_cannot_claim_api_entry",
+      "gate": "bridge_precreate_status_kind",
+      "rejected": true
+    },
+    {
+      "check": "outer_bind_rechecks_physical_sc_receipt",
+      "gate": "postassign_physical_receipt_bytes",
+      "rejected": true
+    },
+    {
+      "check": "opaque_unknown_must_be_sticky",
+      "gate": "cpse_opaque_unknown_sticky",
+      "rejected": true
+    },
+    {
+      "check": "test_typed_precreate_status10_api_never_entered_cleans_without_inventing_create_failure",
+      "passed": true
+    },
+    {
+      "check": "test_partial_or_late_precreate_return_is_unknown_and_never_qualifies",
+      "passed": true
+    },
+    {
+      "check": "test_real_abi3_adapter_uses_role0_null_then_identical_sc64_for_role1_role2",
+      "passed": true
+    }
+  ],
+  "independent_seconds": 2.953,
+  "known_limits": [
+    "This receipt covers final False02 Python files and source-level ABI adapter, not a runtime mechanism.",
+    "Native final source freeze and root independent compile/manifest validation are separate prerequisites.",
+    "No conclusion that SE_ENV plus SECURITY_CAPABILITIES and AAP is accepted by this OS before a separate root-supervised run."
+  ],
+  "main_source_or_outputs_modified": false,
+  "native_api_called": false,
+  "native_loaded": false,
+  "runtime_source_count": 36,
+  "runtime_source_sha256": "3d4cf8cd364a62d103706f8bdd67465b85cbbd41787aab7cb38accdf07a74a63",
+  "schema_version": 1,
+  "stage": "matchedcaps-python-final-false02-independent-review",
+  "static_review": [
+    "External held bootstrap primary requires fixed OS catalog exact2 enabled attrs4, exact low IL, same user/session and one first AppContainer SID.",
+    "SC64 reconstruction commits all canonical SID bytes/attributes in a physical held-bootstrap receipt before either measured Create.",
+    "Both measured arms consume the same raw input digest; bootstrap remains externally held/rechecked before Create and primary observation.",
+    "All three roles preserve suspended generation/image/exact outer then once-inner assignment and later exact two-Job admissions.",
+    "Guard binding passes root to the strict core projector; physical SC/native/pretransfer/transfer/job receipts are read back.",
+    "API/status10 precreate failures preserve no API-entry facts; partial, late and unknown failures never qualify or infer child exits.",
+    "Opaque API outcome unknown is sticky; one normal VOID return closes only known caller obligation, not external absence or cancellation.",
+    "No actor resume/network/DNS/proxy/product or PSEC-network-preservation claim; old scope implementations remain untouched."
+  ]
+}

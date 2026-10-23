@@ -1,0 +1,10 @@
+test_direct_historical_schema_uses_only_its_recorded_field (test_matchedcaps_file_reader02.ReaderSchemaTests.test_direct_historical_schema_uses_only_its_recorded_field) ... ok
+test_missing_field_is_never_filled_with_false (test_matchedcaps_file_reader02.ReaderSchemaTests.test_missing_field_is_never_filled_with_false) ... ok
+test_nested_result_is_explicit_and_absent_top_remains_null (test_matchedcaps_file_reader02.ReaderSchemaTests.test_nested_result_is_explicit_and_absent_top_remains_null) ... ok
+test_recorded_true_and_conflicting_top_are_preserved_not_qualified (test_matchedcaps_file_reader02.ReaderSchemaTests.test_recorded_true_and_conflicting_top_are_preserved_not_qualified) ... ok
+test_wrong_nested_shape_and_nonboolean_value_are_rejected (test_matchedcaps_file_reader02.ReaderSchemaTests.test_wrong_nested_shape_and_nonboolean_value_are_rejected) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.001s
+
+OK

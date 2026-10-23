@@ -1,0 +1,80 @@
+{
+  "actual_ready": false,
+  "additional_plan_acknowledgements": [
+    "bootstrap_security_capabilities_acknowledged",
+    "same_security_capabilities_acknowledged"
+  ],
+  "api_version": 3,
+  "canonical_sc_commitment": "SCI3 + little-endian u32 package-length,agentic-length,4,pncs-length,4 + package,agentic,pncs SID bytes",
+  "claims": {
+    "atomic_inner_creation_proven": false,
+    "continuous_outer_supervision_proven": false,
+    "creation_transfer_crash_gap_resolved": false,
+    "linux_equivalence_proven": false,
+    "network_tested": false,
+    "product_acceptance": false,
+    "psec_network_preservation_proven": false
+  },
+  "cli_flag": "--run-local-cpse-lpac-matchedcaps-identity",
+  "constructor_policy": "bootstrap-held-primary-matched-security-capabilities-aap-only-v1",
+  "dll": "windows_psec_lpac_matchedcaps_bridge.dll",
+  "dll_manifest": "psec-lpac-matchedcaps-bridge-manifest.json",
+  "maximum_private_report_bytes": 786432,
+  "native_export": "pb_create_matched_child(context, child, role, security_capabilities, pi, result)",
+  "nonces": [
+    "run",
+    "bootstrap_nonce",
+    "ac_nonce",
+    "lpac_nonce"
+  ],
+  "original_root_seconds": 120,
+  "payload_sizes": {
+    "child": 88,
+    "context": 512,
+    "plan": 48,
+    "process_information": 24,
+    "result": 96,
+    "security_capabilities_input": 64
+  },
+  "payload_versions": {
+    "child": 1,
+    "plan": 1,
+    "process_information": 1,
+    "result": 1,
+    "security_capabilities_input": 3
+  },
+  "physical_receipt_validation": true,
+  "precreate_failed_status": {
+    "api_entered": false,
+    "api_returned": false,
+    "known_no_child_requires": "timely typed returned status10, env2/noopaque and complete zero PI; no fake Create return",
+    "value": 10
+  },
+  "roles": [
+    {
+      "aap": 0,
+      "name": "bootstrap",
+      "role": 0,
+      "security_capabilities": null
+    },
+    {
+      "aap": 0,
+      "name": "ac",
+      "role": 1,
+      "security_capabilities": "same-externally-committed-input"
+    },
+    {
+      "aap": 1,
+      "name": "lpac",
+      "role": 2,
+      "security_capabilities": "same-externally-committed-input"
+    }
+  ],
+  "schema_version": 1,
+  "scope": "one-local-cpse-deny-all-outer-guarded-matched-secaps-identity-v1",
+  "security_capabilities_receipt": "security-capabilities/held-bootstrap.json",
+  "stage": "work-only-three-held-matched-security-capabilities-python-candidate",
+  "variant": "identity-only-deny-all-v1",
+  "work_cutoff_seconds_before_root": 35,
+  "worker_seconds": 115
+}

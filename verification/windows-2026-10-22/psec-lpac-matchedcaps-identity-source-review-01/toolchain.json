@@ -1,0 +1,9 @@
+{
+  "CompilerPath": "C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools\\VC\\Tools\\MSVC\\14.44.35207\\bin\\HostX64\\x64\\cl.exe",
+  "CompilerFileVersion": "19.44.35229.0",
+  "WindowsSDKVersion": "10.0.26100.0\\",
+  "VCToolsVersion": "14.44.35207",
+  "Runtime": "MT",
+  "Architecture": "amd64",
+  "CompileOnly": true
+}

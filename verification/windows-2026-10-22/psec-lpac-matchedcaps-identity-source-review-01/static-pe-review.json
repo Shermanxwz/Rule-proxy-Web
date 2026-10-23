@@ -1,0 +1,72 @@
+{
+  "abi_export_machine_code_hex": "b803000000c3",
+  "abi_version": 3,
+  "actor_executed": false,
+  "compile_log_sha256": "cd46210e5fe56d5ebc7fc3dd1d84ecac38b351e14b21b0aa140876ce7fea8d73",
+  "compile_only": true,
+  "compiler_script_sha256": "196ab8c0d7ac2eecce845cf533146d6978dc43387ddb83439da46547b147f0a5",
+  "constructor_policy": "bootstrap-held-primary-matched-security-capabilities-aap-only-v1",
+  "cpse_called": false,
+  "dependency_input_count": 31,
+  "dll_bytes": 217088,
+  "dll_loaded": false,
+  "dll_sha256": "91e9fdc092943ac3a3b47c9f5ad394f4aacb522d105aa802c47b74d5c4f702b1",
+  "export_details": [
+    {
+      "name": "pb_abi_version",
+      "ordinal": 1,
+      "rva": 26704
+    },
+    {
+      "name": "pb_bind",
+      "ordinal": 2,
+      "rva": 26720
+    },
+    {
+      "name": "pb_build_spec",
+      "ordinal": 3,
+      "rva": 28848
+    },
+    {
+      "name": "pb_close_environment",
+      "ordinal": 4,
+      "rva": 29440
+    },
+    {
+      "name": "pb_create_environment",
+      "ordinal": 5,
+      "rva": 29904
+    },
+    {
+      "name": "pb_create_matched_child",
+      "ordinal": 6,
+      "rva": 31056
+    },
+    {
+      "name": "pb_unbind",
+      "ordinal": 7,
+      "rva": 36688
+    },
+    {
+      "name": "pb_verify_spec",
+      "ordinal": 8,
+      "rva": 37216
+    }
+  ],
+  "immutable_snapshot_verified": true,
+  "imports": [
+    "KERNEL32.dll"
+  ],
+  "input_snapshot_sha256": "4c5d13605371f354a944f64ada5d62a6c2b10ab27176ac69fb88c95e246fb728",
+  "limits": "Static PE/compile evidence only. No environment, process, token, Job or network acceptance.",
+  "manifest_sha256": "fbbb268bde396dbe7bbdf7247f062bd2e1892f537f5e553a5ee105d1b52566d7",
+  "native_freeze_sha256": "7e702eac67a463682878c9d40ee1d8665d30a2f596a9ebf1edf1b2801de3fc1f",
+  "native_source_input_count": 6,
+  "payload_version": 1,
+  "processmodel_loaded": false,
+  "reader_sha256": "c6b0de07555906d5d4c802c0dace04257ae8c9f2d99f0097135f9403adb3d043",
+  "runtime_acceptance": false,
+  "schema_version": 1,
+  "stage": "psec-lpac-matchedcaps-bridge-compile01-static-audit",
+  "toolchain_record_sha256": "796cd755464544645ce142c58d8dbfc113ff301034803dd4705d17894f47bb07"
+}

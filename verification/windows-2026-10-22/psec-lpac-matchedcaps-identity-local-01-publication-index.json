@@ -1,0 +1,1414 @@
+{
+  "files": [
+    {
+      "bytes": 13151,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-source-review-01/native-freeze01.json",
+      "sha256": "7e702eac67a463682878c9d40ee1d8665d30a2f596a9ebf1edf1b2801de3fc1f"
+    },
+    {
+      "bytes": 41278,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-source-review-01/native01.patch",
+      "sha256": "2a6d13cfb1f99b4e100ac41d4586ae5ccc18adf1e6261e42314855b381d12b44"
+    },
+    {
+      "bytes": 17409,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-source-review-01/native01-diff.txt",
+      "sha256": "c3d154907ceba1e302358569a18fa964a1068c5b1467018caadd794bcaa296b9"
+    },
+    {
+      "bytes": 5533,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-source-review-01/native-abi01.json",
+      "sha256": "27a6206495831269c207242f07a589591ee23a3594335e0edf18d9efff62ecce"
+    },
+    {
+      "bytes": 5557,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-source-review-01/native-independent-review.json",
+      "sha256": "fc1a72f40e98a4dd70ba99832e2f3a131c89da5b1262403e91c967a521e4e878"
+    },
+    {
+      "bytes": 5004,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-source-review-01/compile01.ps1",
+      "sha256": "196ab8c0d7ac2eecce845cf533146d6978dc43387ddb83439da46547b147f0a5"
+    },
+    {
+      "bytes": 7983,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-source-review-01/compile-static-inspect.py",
+      "sha256": "c6b0de07555906d5d4c802c0dace04257ae8c9f2d99f0097135f9403adb3d043"
+    },
+    {
+      "bytes": 13261,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-source-review-01/compile-independent-reader.py",
+      "sha256": "03bee4608dbe83b0d51506af555aa0a332f60ed6c119c5898dae5dfda4c13a76"
+    },
+    {
+      "bytes": 20599,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-source-review-01/compile-independent-review.json",
+      "sha256": "e611aff79dc2fb26992e8fa78862509612cb704f4f2cec48c1a08bfe8b6068c7"
+    },
+    {
+      "bytes": 2153,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-source-review-01/static-pe-review.json",
+      "sha256": "2b8c3d42d89fa6305357b3af638abe47349c76b6445f6321ad7368a3c7ad76e5"
+    },
+    {
+      "bytes": 335,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-source-review-01/toolchain.json",
+      "sha256": "53edbffb450ebcc656e9453cb39abcedcd6e6b4ee40803c4ac49f88f24a48d4c"
+    },
+    {
+      "bytes": 2603,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-source-review-01/native-pure-driver.ps1",
+      "sha256": "6ea019386463abefc54e5fc5f1a9ace3aec41830da6b48810e5d717d7304f6df"
+    },
+    {
+      "bytes": 168517,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-source-review-01/python-false01.patch",
+      "sha256": "ed31150d96a1d9938bba1f17355975065dc025a51e683c9c6b93b3c4b38006f9"
+    },
+    {
+      "bytes": 9463,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-source-review-01/python-false-freeze01.json",
+      "sha256": "51ec283dd66cfa762dcf1b7e2eeffc204e18280b4005dd0b0af3ca4a4423825d"
+    },
+    {
+      "bytes": 2509,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-source-review-01/python-false-abi01.json",
+      "sha256": "7a9d2c54bae6b1f006d4c0e18ec8c7c44a0e2ebca1479899c1b5ad7024a5322e"
+    },
+    {
+      "bytes": 6794,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-source-review-01/python-false01-pure.log",
+      "sha256": "881a9e873cf1be6a446471a2125f7fe7ef1f3ddc7b159d47ab03100ba2773be0"
+    },
+    {
+      "bytes": 168653,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-source-review-01/python-false02.patch",
+      "sha256": "286b18f7f64442127f296c900c1c320855dbd951a09edb1907f4ba26ef3f3315"
+    },
+    {
+      "bytes": 9463,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-source-review-01/python-false-freeze02.json",
+      "sha256": "3d5ac7715ee8effdc7a9e816defba096892ce33a3e5027aea8ed6654580268b8"
+    },
+    {
+      "bytes": 2509,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-source-review-01/python-false-abi02.json",
+      "sha256": "7a9d2c54bae6b1f006d4c0e18ec8c7c44a0e2ebca1479899c1b5ad7024a5322e"
+    },
+    {
+      "bytes": 6794,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-source-review-01/python-false02-pure.log",
+      "sha256": "a83230f749716d91da757067e81e2831143bfb5a4c39224cb9f5562a32c5a77f"
+    },
+    {
+      "bytes": 168016,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-source-review-01/python-true03.patch",
+      "sha256": "c8f035b29d19de1a22eb1c87dc7ac6ae33003fd0471f9a538bf56621cb7a1685"
+    },
+    {
+      "bytes": 15023,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-source-review-01/python-true-freeze03.json",
+      "sha256": "dfdfcf9a9afd67fc9f15e0a252fdfcd672f3bcfd07417ba3a23e259a4537e762"
+    },
+    {
+      "bytes": 5788,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-source-review-01/promotion03.py",
+      "sha256": "d70a78604ca3b6c49d3d4b62b0c91ce4f781bb6a5b7b29b81909819572377d4e"
+    },
+    {
+      "bytes": 5667,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-source-review-01/python-independent-review02.json",
+      "sha256": "edd3c3a63b406e7bdbd45ef906b5e97d0bf776a057e4f6e562546c47807d8d79"
+    },
+    {
+      "bytes": 3896,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-source-review-01/python-abi-independent-review02.json",
+      "sha256": "d7d383044da861825aef7677d9801d52b0f09e44253f57be5d90a6dd0e3bd6a8"
+    },
+    {
+      "bytes": 484,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-source-review-01/python-abi-independent-pure02.log",
+      "sha256": "a1731af7d729d84256fb26c5d454375a9e5895544e9ad2b663cc8a334e65d003"
+    },
+    {
+      "bytes": 25987,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-source-review-01/source-closure-independent-review02.json",
+      "sha256": "2a428287c002adf43f2f45331e09ab1fa0f6f421f752d7bd19d6071e6088292a"
+    },
+    {
+      "bytes": 3379,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-source-review-01/integrated-pure01.json",
+      "sha256": "e778f2fe7883fbd57349fb65c948b88b3481b0064d7537769b996caca315f15c"
+    },
+    {
+      "bytes": 178770,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-source-review-01/integrated-pure01.log",
+      "sha256": "8259fc7dae7a8a7657d94da7c9f8da122f5701dd916ed181dbfd64890838479f"
+    },
+    {
+      "bytes": 884,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-source-review-01/integrated-pure-driver01.ps1",
+      "sha256": "92fa6684498e66dac617877871a831580535833f932ff35245bfa77731931031"
+    },
+    {
+      "bytes": 4610,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-source-review-01/source-stager03.py",
+      "sha256": "a54159c83212667e28e962d97cdb6bff22dfc07e08a3c26d754860da01b1cede"
+    },
+    {
+      "bytes": 6273,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-source-review-01/actual-driver-reviewer.py",
+      "sha256": "ed6824a2ecef41f5a95237154ec747c7c39622a6bc9bffd578f8543f16b5d65e"
+    },
+    {
+      "bytes": 2300,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-source-review-01/actual-driver-independent-review.json",
+      "sha256": "740ca19e31e0232e07d00a74534ac0b12023352615396416333f389aab034a1c"
+    },
+    {
+      "bytes": 38801,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-source-review-01/actual-reader01.py",
+      "sha256": "0621557f94e4fcae0e59bf320f7be63a810917a7afb88965afb7688be995c515"
+    },
+    {
+      "bytes": 38801,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-source-review-01/actual-reader01-failed-copy.py",
+      "sha256": "0621557f94e4fcae0e59bf320f7be63a810917a7afb88965afb7688be995c515"
+    },
+    {
+      "bytes": 39820,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-source-review-01/actual-reader02.py",
+      "sha256": "5d8fc85cf1a0dff4ece5b6f2bea66fcde712f5fd5b604c496368f964231b06b4"
+    },
+    {
+      "bytes": 2421,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-source-review-01/actual-reader02.diff",
+      "sha256": "7eab2b2541821124680737cf2ebae57e62aaa8f8d8503ff9073eba1a8df2c5f1"
+    },
+    {
+      "bytes": 2348,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-source-review-01/actual-reader-freeze02.json",
+      "sha256": "bf3a7c5f7e88c98802d8306881d34f45fa0ce4c16bc1fb1d6d2a7cdc8e37293c"
+    },
+    {
+      "bytes": 966,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-source-review-01/actual-reader02-pure.log",
+      "sha256": "86ac458b46deadfcb69c1b8bdc112123d68c742ae541c78b191d0866fe7d3afe"
+    },
+    {
+      "bytes": 2665,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-source-review-01/actual-reader02-pure.py",
+      "sha256": "0dde17ca098d1fdb2ea5dd7755bb41db38740663725685632da443fd613ea6c9"
+    },
+    {
+      "bytes": 83295,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-source-review-01/actual-independent-review.json",
+      "sha256": "cbb62758368cb3e3e67ba6bd96619f2774c9c179e0d11ca2d771cc6032a45f52"
+    },
+    {
+      "bytes": 23616,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-source-review-01/actual-extra-raw-review.json",
+      "sha256": "5eb82868d9f6d58a3fd591dd4dd6e601635f83b645287dcab3c268d802206dbb"
+    },
+    {
+      "bytes": 6200,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-source-review-01/archive-readiness.json",
+      "sha256": "5371dd848b53386970f20e00bc3734f786a627d81f48f730c7f193afdc42f784"
+    },
+    {
+      "bytes": 77703,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-source-review-01/archive-preactual.py",
+      "sha256": "e706d82ce56dacd8361edc65158a476694d10f1ae64d50b58879cc26823fe65a"
+    },
+    {
+      "bytes": 2100,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-source-review-01/archive-preactual-receipt.json",
+      "sha256": "e76e24f59f5e22b6641ec499e2d8bc51e97ae3e19d98d8195c37b4cfd3145d07"
+    },
+    {
+      "bytes": 6562,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-source-review-01/archive-pure.py",
+      "sha256": "b4ff1a6ebc76c3c7f58f6a8042e13282dc8af33a2f4fc4b318c9eead54f07a58"
+    },
+    {
+      "bytes": 227028,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-source-review-01/automatic-ci-decoded.log",
+      "sha256": "3e67b4b7d5df26217c690b53c0151bb68f1b0993ddd1dbd88fee1401718d2e6b"
+    },
+    {
+      "bytes": 792,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-source-review-01/automatic-ci-summary.json",
+      "sha256": "57617033f19e6b5a2cd22bde4b4df662676cdd62c77435482e7a7904343581ba"
+    },
+    {
+      "bytes": 53862,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-source-review-01/publication.py",
+      "sha256": "ff5da0776aa3784907f5c8d97fb51ba48765fcb0d60455d322c63c3e75392f72"
+    },
+    {
+      "bytes": 52915,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-source-review-01/index.json",
+      "sha256": "671b12df40cb5c26cbd42406a5b4f993c20dcbdef83e9d73645f9337a826a3be"
+    },
+    {
+      "bytes": 8942,
+      "path": "docs/validation/2026-10-23-psec-lpac-matchedcaps-identity-01.md",
+      "sha256": "fff4cfc5268ee81a74e2e97ce361bd56cc20ce99fd9266c802abe3b032f36d14"
+    },
+    {
+      "bytes": 6769,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-local-01-checkpoint.json",
+      "sha256": "730503741d84cd5d797c1bb8a8a9c2ad3b8b5e7e0313759f75c676dce90c172c"
+    },
+    {
+      "bytes": 45542,
+      "path": "docs/validation/windows-codex-handoff.md",
+      "sha256": "5c9533a1f0b55c44c9fa55b86b8b8bc1a8f89cc1e312425de1243ab9900b5a98"
+    }
+  ],
+  "handoff_update": {
+    "added_lines": 2,
+    "after": {
+      "bytes": 45542,
+      "sha256": "5c9533a1f0b55c44c9fa55b86b8b8bc1a8f89cc1e312425de1243ab9900b5a98"
+    },
+    "all_original_bytes_preserved": true,
+    "before": {
+      "bytes": 45107,
+      "sha256": "4fa9393bc34a2577a153c193156d7bce5399bfb25838980be4cae51367e2b508"
+    },
+    "path": "docs/validation/windows-codex-handoff.md",
+    "prefix": {
+      "bytes": 435,
+      "sha256": "6ffec70798c4a8712627b9c594af811bac907038ae0bb217b2e2960e55b27b8c"
+    }
+  },
+  "historical_handoff_references_preserved": [
+    {
+      "current_bytes_verified_before_prefix": true,
+      "index": "verification/windows-2026-10-22/psec-lpac-postassign-identity-local-01-publication-index.json",
+      "original_reference": {
+        "bytes": 45107,
+        "path": "docs/validation/windows-codex-handoff.md",
+        "sha256": "4fa9393bc34a2577a153c193156d7bce5399bfb25838980be4cae51367e2b508"
+      }
+    }
+  ],
+  "immutable_older_and_actual_files": [
+    {
+      "bytes": 3291,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-local-01-evidence-index.json",
+      "sha256": "8c3d27d35e2082a8506ebb096635ebb4fd1b74df7c80b528e97f32fa475417e2"
+    },
+    {
+      "bytes": 1660,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-local-01-public.json",
+      "sha256": "cc562d1b045fea336c4257051faa52e63aa415d91556a4ea84f18aa363652f9c"
+    },
+    {
+      "bytes": 1595,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-local-01-preflight.json",
+      "sha256": "b9268b76fe00df3a061e272775412efdd57fb83242f7961e1e44d8dea9f4c022"
+    },
+    {
+      "bytes": 5236,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-local-01-runner.py",
+      "sha256": "398d2d2d14cc66e2cc4b273d65912822fb732b053a1a93973e428bdc6f46a116"
+    },
+    {
+      "bytes": 5671,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-local-01-bridge-manifest.json",
+      "sha256": "9b9ab93826c99bbde32c18cca3a32389d75086c3b1f7abbc453a2dda98d09209"
+    },
+    {
+      "bytes": 1005,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-local-01-actor-manifest.json",
+      "sha256": "657c88ef59f8ba9d4c24f5e407696b27615f50c63d58adc5d8dd64f942104e92"
+    },
+    {
+      "bytes": 7411,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-local-01-compile-input-snapshot.json",
+      "sha256": "08fcfc4c1bf651983dea3080924f0ab1e7694df2ed171e4dfae11c84baa2cde1"
+    },
+    {
+      "bytes": 42549,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-local-01-archive.py",
+      "sha256": "f089d635ac47a5f49c7ff9352f1f99cb942da921ee3642df724ea01267b3bb1f"
+    },
+    {
+      "bytes": 1544,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-local-01-after-global-capture.ps1",
+      "sha256": "6c50726dd283a235200780a9b7aae019ddaf42e9919ce48e6881f31d94599c52"
+    },
+    {
+      "bytes": 2004,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-local-01-after-global-expanded.ps1",
+      "sha256": "d4c1d1851d6ff3df4f5543110a2e2b9d898ae88ad9b61a25ad0257d55603e69d"
+    },
+    {
+      "bytes": 24238,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-local-01-component-projection.json",
+      "sha256": "582a42571ab8ef65595c3036970a2dbace62fd33fc3bf309c20a79778b2b7d13"
+    },
+    {
+      "bytes": 470,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-local-01-global-projection.json",
+      "sha256": "f6b610c5005d9324f2c509401095f08fee8465b48e6cfcd57119b3de03cd372f"
+    },
+    {
+      "bytes": 1728,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-local-01-summary.json",
+      "sha256": "8939d300f585ea61360d4c4e6f9bf4e5c5cda52635de3314d73950b4b88f2077"
+    },
+    {
+      "bytes": 11443,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-local-01-publication-index.json",
+      "sha256": "580054ceecacfa047c22e284230ef76e7a39c24056012f00c7bdf4ed7fea6c7d"
+    },
+    {
+      "bytes": 104603,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-01/psec-lpac-python-candidate-01-public-view.patch",
+      "sha256": "92c514541cf17fa36c5cee4678608c89415c37e2ca785262eae3bec9f9c3428f"
+    },
+    {
+      "bytes": 2722,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-01/psec-lpac-python-candidate-freeze-01.json",
+      "sha256": "03d8de46610ef1e699b69f260a465caff6197a8b8f341a1193c73da754540047"
+    },
+    {
+      "bytes": 4117,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-01/psec-lpac-python-source-closure-01.json",
+      "sha256": "7dd12aaf5c8727c325e184f69393072e13e0b1772aa1be03318adf7e1d77951a"
+    },
+    {
+      "bytes": 572913,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-01/psec-lpac-native-candidate-03.patch",
+      "sha256": "eb392776f656c556adf2b504771ddeba0f45a0fb864cdee4dbf2ca8bf4d81683"
+    },
+    {
+      "bytes": 2362,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-01/psec-lpac-native-candidate-freeze-03.json",
+      "sha256": "8e2e5e3d97137bd9de9d6950e225d0bed11fe3aeb4e232bb2edabfed457974e1"
+    },
+    {
+      "bytes": 4693,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-01/psec-lpac-native-input-closure-03.json",
+      "sha256": "eeb5cbd9f4b313cea3c07ae9080b2e492a206106e759ebd26bf8d3b5ba5e4029"
+    },
+    {
+      "bytes": 10224,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-01/psec-lpac-identity-bridge-abi-01.json",
+      "sha256": "2b06f2815d36d5a3488903612985103771dc7e668efc250e0ebe91d79d22e70e"
+    },
+    {
+      "bytes": 4626,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-01/lpac-tests-portability-01.patch",
+      "sha256": "e4b8c71eceb10c07e14c9ea8ebfd094ed447281e15a718ef4d9be22ecd4eadd7"
+    },
+    {
+      "bytes": 2980,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-01/lpac-tests-portability-freeze-01.json",
+      "sha256": "0d5e332858679aa49dbfca3a20bb87582a102682ec890769e3853bfd5a335752"
+    },
+    {
+      "bytes": 6328,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-01/psec-lpac-native-independent-review-01.json",
+      "sha256": "7a1939a2742f9af7737ab8bef80d199a1d3a1e220200d05b7f91bddb3a3ee02b"
+    },
+    {
+      "bytes": 10215,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-01/psec-lpac-final-independent-review-01.json",
+      "sha256": "9221cb9292e2e474fb67bcef5dfaa2106e872b179d7a5b9acd319dfa6471db42"
+    },
+    {
+      "bytes": 8844,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-01/psec-lpac-dependency-independent-review-01.json",
+      "sha256": "2e5284b4e440830dfaa65a537729eb68681798f5f2d7feb53e2c2acdbc82c07a"
+    },
+    {
+      "bytes": 5709,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-01/psec-lpac-dependency-primary-01.json",
+      "sha256": "f521ba46c00f8a3cc49e2a57bacabb281b922462c3421e847491bcc1c7164414"
+    },
+    {
+      "bytes": 29404,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-01/actual01-independent-review.json",
+      "sha256": "94836bd02cb67e2082ac1f00c1b600fc933c2dc464a125bc19cf9c79b99f6165"
+    },
+    {
+      "bytes": 6732,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-01/psec-lpac-integrated-pure-01.json",
+      "sha256": "b4544c9e76bd712676421dec4b1ce06cb72a6ea18ae8a6ffacc29988e2a1796b"
+    },
+    {
+      "bytes": 5483,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-01/psec-lpac-python-pure-02-public-view.log",
+      "sha256": "510830539f4e756a73dc461da15641a66eb11b15b569db8ad24b2e19c179bde3"
+    },
+    {
+      "bytes": 1130,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-01/psec-lpac-bridge-native-pure-03-public-view.log",
+      "sha256": "fb0f86600f8d5cf9584ea40e70679ec1974174f3e6b8b4d2852ace74a439f0bd"
+    },
+    {
+      "bytes": 157470,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-01/psec-lpac-main-pure-01-public-view.log",
+      "sha256": "b1c3f535ca4fcb7757fc643aac3c04fc9b1a764472af8bf9ec906996094b800b"
+    },
+    {
+      "bytes": 14194,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-01/lpac-tests-portability-missing-helpers-02-public-view.log",
+      "sha256": "60ad266b3bd0866818269543208e6111b5c5679f9b3bcc0205aa2bec10b5d0e3"
+    },
+    {
+      "bytes": 22735,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-01/lpac-tests-portability-native-host-02-public-view.log",
+      "sha256": "f7a276189fdb3c5df608bd90898e81f1062b840ce0b8ca7feb4c6bae88c57bd2"
+    },
+    {
+      "bytes": 1852,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-01/static-pe-review.json",
+      "sha256": "094c27816a154362ea85b57f51e91b4c5a490ba37eec03b3167f349e673906bd"
+    },
+    {
+      "bytes": 3623,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-01/compile_psec_lpac_bridge_02.ps1",
+      "sha256": "a0270b76044fe41052e72770ad7aafa3973ea91cd9af60a7e79e19e0b27cac5d"
+    },
+    {
+      "bytes": 6087,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-01/inspect_psec_lpac_bridge_compile_02.py",
+      "sha256": "3da23ed058e42de8ca67f6715fb14e8d6684662c0f510a2d7c4ec5d119f6230f"
+    },
+    {
+      "bytes": 6527,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-01/read_processmodel_pe_metadata_01.py",
+      "sha256": "0528bd9e78df783275e4571a8b2f0bf06209f617526facf9f75bde0f4976c32d"
+    },
+    {
+      "bytes": 2114,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-01/processmodel-pe-static-metadata-01.json",
+      "sha256": "60dba7f42c3b87c35bd39dd6bde7007530b7dfcb37c935dac5d770e2044f1e6b"
+    },
+    {
+      "bytes": 2926,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-01/check_psec_python_spec_with_flatc_01.py",
+      "sha256": "b0c54208e378b7afd8b284a72c4e01b3571c2e129eb0d349bd4a650ddb0e0d70"
+    },
+    {
+      "bytes": 1898,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-01/download_psec_lpac_flatbuffers_deps.ps1",
+      "sha256": "728cf660edd7b8e988e22ef7cd55ac997a59342deca04a949b73b1703f808b01"
+    },
+    {
+      "bytes": 2993,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-01/verify_extract_psec_lpac_flatbuffers_deps.py",
+      "sha256": "6ba2d6634040a8078491eeb808dba3f5ea17c89a2e25be88c9b5aedb2af870cc"
+    },
+    {
+      "bytes": 7920,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-01/dependency-extraction-verification.json",
+      "sha256": "071ecb595b8e0fb0f2bde4537943c8d7daa0e71b96b0b8b88cd265a4f64dde83"
+    },
+    {
+      "bytes": 7849,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-01/review_psec_lpac_native_01.py",
+      "sha256": "5875164afbf661bed65f47826172164e0bcdd95b49e176dea86f1985640f4c84"
+    },
+    {
+      "bytes": 9220,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-01/review_psec_lpac_final_01.py",
+      "sha256": "9a3589e6a2a44efce71a0737caf864fdd5acfda85eb1881e743fed8f9ef3a270"
+    },
+    {
+      "bytes": 14461,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-01/verify_psec_lpac_actual_01.py",
+      "sha256": "29aaffd28c01e3c7cfed1a705d1f0df819492291dacac6d0c792b101703514d2"
+    },
+    {
+      "bytes": 857,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-01/test_psec_lpac_integrated_01.ps1",
+      "sha256": "9952babe712bb03497feb6e2fb8cd7ba0143135a8d6d89e2d8e7d1ff15db736c"
+    },
+    {
+      "bytes": 558,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-01/test_psec_lpac_bridge_native_01.ps1",
+      "sha256": "68c93d41da173c438ae05bf4987a7e32a3fe8cf4752dfaa2f1bfa40983c4e722"
+    },
+    {
+      "bytes": 697,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-01/run_psec_python_pure_02.py",
+      "sha256": "a284390eb0a1a9f999d475ef4cdaa16fc645e689c5d9c22a5a106e877aafd32d"
+    },
+    {
+      "bytes": 202831,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-01/ci-39872306319-decoded-public-view.log",
+      "sha256": "cebd65bbfc71027a6dded4dda8f33f51c000b81f07e3867d6d7836123954f5e6"
+    },
+    {
+      "bytes": 1245,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-01/historical-failure-metadata.json",
+      "sha256": "8ae3e5d50783620e911db5eb2acd79d8f52a7c99338933706a04303a04ada159"
+    },
+    {
+      "bytes": 1159,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-01/ci-39872306319-summary.json",
+      "sha256": "4094e0a2ea1a259b9fc02bad27cf1e0a27c322d6d3a6680e5bdf5824e9c06c54"
+    },
+    {
+      "bytes": 26823,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-01/publication.py",
+      "sha256": "5c31a3d1e1312094793f9eff31cfd4027778ccba04ee1af61cc0aa4ef31fe663"
+    },
+    {
+      "bytes": 35175,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-01/index.json",
+      "sha256": "a101736f5fc640981608502a73abe85fdda7975893deafb027326343fbbcb551"
+    },
+    {
+      "bytes": 5880,
+      "path": "docs/validation/2026-10-23-psec-lpac-identity-01.md",
+      "sha256": "a62b3c983355a309cee02e33b2bbdb37d3baa04962099ffd668c6c78cb97eece"
+    },
+    {
+      "bytes": 3970,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-local-01-checkpoint.json",
+      "sha256": "aa9ad56e4701ba4f09e27e48e8ca9b4a06d3b81268811e2aee84ee7d9709881f"
+    },
+    {
+      "bytes": 3291,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-local-02-evidence-index.json",
+      "sha256": "4a860cca17b251e6ca5a48c68eff5142ab1ae4c7d832c64fa254efffa26b35db"
+    },
+    {
+      "bytes": 2083,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-local-02-public.json",
+      "sha256": "100dc78f9af83445829a9f8ddf03ebe1f6bb5fc3af8f1a694e43bb78229daba2"
+    },
+    {
+      "bytes": 1595,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-local-02-preflight.json",
+      "sha256": "d0f9247f3be2169309f12cc63a59d1fe716eb7c6d5beb7be08d66ebb2b508845"
+    },
+    {
+      "bytes": 5324,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-local-02-runner.py",
+      "sha256": "a3f5a1a5da18cdf84480cdcbff6460f25a3648df0bdbc9e25fbbddf893c814ad"
+    },
+    {
+      "bytes": 5671,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-local-02-bridge-manifest.json",
+      "sha256": "9b9ab93826c99bbde32c18cca3a32389d75086c3b1f7abbc453a2dda98d09209"
+    },
+    {
+      "bytes": 1005,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-local-02-actor-manifest.json",
+      "sha256": "657c88ef59f8ba9d4c24f5e407696b27615f50c63d58adc5d8dd64f942104e92"
+    },
+    {
+      "bytes": 7411,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-local-02-compile-input-snapshot.json",
+      "sha256": "08fcfc4c1bf651983dea3080924f0ab1e7694df2ed171e4dfae11c84baa2cde1"
+    },
+    {
+      "bytes": 48167,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-local-02-archive.py",
+      "sha256": "cb0d9b5db67094b57462535df2a13a17b973769b21c0d024887ef394bf5f1119"
+    },
+    {
+      "bytes": 1544,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-local-02-after-global-capture.ps1",
+      "sha256": "80eba36473ea048c0d6e1cb4c152c3ff8f1cb9a1a4f63af1bc8cad9afbd9ad0f"
+    },
+    {
+      "bytes": 2004,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-local-02-after-global-expanded.ps1",
+      "sha256": "a26c91b0bb85389694211a33f8011e70d75fa90b92073b23d7f29d123e90ea3a"
+    },
+    {
+      "bytes": 32568,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-local-02-component-projection.json",
+      "sha256": "079d0553a04556236708e6cda4b322a480de93785fa0b0388ebe4fa9cd77c961"
+    },
+    {
+      "bytes": 470,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-local-02-global-projection.json",
+      "sha256": "f6b610c5005d9324f2c509401095f08fee8465b48e6cfcd57119b3de03cd372f"
+    },
+    {
+      "bytes": 2398,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-local-02-summary.json",
+      "sha256": "37179a471311881fe213e8f50d73bf59dc2facc592ea7d4acc6c529ef79f158a"
+    },
+    {
+      "bytes": 22376,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-local-02-publication-index.json",
+      "sha256": "b528c281a81a150e9b28348ac4d2b71995bca5ee8730102be02059c1c215ee97"
+    },
+    {
+      "bytes": 29965,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-02/psec-lpac-python-candidate-02-public-view.patch",
+      "sha256": "1e578d45173ea1e7d01988e60dac53e7d50864d8fe099e3e6eea5cc2137cb22f"
+    },
+    {
+      "bytes": 2246,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-02/psec-lpac-python-candidate-freeze-02.json",
+      "sha256": "41b431c5001fe393a395c18024f2fc15dd89458b07e9d1c038d62d763e9fe96e"
+    },
+    {
+      "bytes": 4117,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-02/psec-lpac-python-source-closure-02.json",
+      "sha256": "7de9968d0984cc7304951ba220d806fea74e998c0a623beddd870a0eb1e0f0ba"
+    },
+    {
+      "bytes": 6750,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-02/psec-lpac-python-pure-03-public-view.log",
+      "sha256": "ca13b27b0f7a6919e3f9d61566af020ca7f0b93a3a23417a5e6af3fe25f582ac"
+    },
+    {
+      "bytes": 5316,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-02/psec-lpac-source02-independent-review-01.json",
+      "sha256": "6ae7e211e2d5c694c237b01dfdf4afa64ed598a50a3706f54866bb3e680bebcc"
+    },
+    {
+      "bytes": 27938,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-02/actual02-independent-review.json",
+      "sha256": "dff1ffa8c745683ddc14dd68c3e8fb509a6d558fee73814a330c3e5c3e6f8672"
+    },
+    {
+      "bytes": 9160,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-02/psec_lpac_joblist_constraints_02.json",
+      "sha256": "bf4cdb39c309eb67a243aeffe9f508d7e71c96e4087ed135d82933c7b932b8cf"
+    },
+    {
+      "bytes": 3114,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-02/psec_lpac_job_query_contract_03.json",
+      "sha256": "08916f690e3dcb76c80faac935280f1a5774b272e8c2f161b4773f836132bcdc"
+    },
+    {
+      "bytes": 3244,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-02/psec-lpac-integrated-pure-02.json",
+      "sha256": "c344aee51ab13d93700d08f6b615e15012ffd2933e5f2d653fbfc145523d42e8"
+    },
+    {
+      "bytes": 700,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-02/run_psec_python_pure_03.py",
+      "sha256": "9eba23ee923db9480364d6496ca60c28fca1cd51b5e98109f30ab406aefd8113"
+    },
+    {
+      "bytes": 6744,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-02/review_psec_lpac_source02_01.py",
+      "sha256": "c889ed4dd45070c346f4398894d96d2ea1b6bb2d94748578c4974928cd26e7ab"
+    },
+    {
+      "bytes": 158737,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-02/psec-lpac-main-pure-02-public-view.log",
+      "sha256": "4aea1eb5ee25109466289684d133103b22624659343f852b30e7201fcd83c20c"
+    },
+    {
+      "bytes": 857,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-02/test_psec_lpac_integrated_02.ps1",
+      "sha256": "08bac3a1177440e6921790872139538318b80a5f44ba24fa5ae071db6c06fca9"
+    },
+    {
+      "bytes": 13148,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-02/verify_psec_lpac_actual_02.py",
+      "sha256": "c6f8ee0616e7fc14869a5e90be4e4a6e5a9c6545f753203f55833a6424fd13b5"
+    },
+    {
+      "bytes": 1010,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-02/psec-lpac-identity-02-archiver-reader-check.json",
+      "sha256": "58ee3600bec52dbe936bc7d04cfcc3a462af18c6ae62d6b60eea8878f25f9ec3"
+    },
+    {
+      "bytes": 3362,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-02/stage_psec_lpac_source_02.py",
+      "sha256": "5de86a9bdabba289e8a7ce5bdbb279235de3857df9bccf4c7b57415e8e45e092"
+    },
+    {
+      "bytes": 204270,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-02/ci-39873635408-decoded-public-view.log",
+      "sha256": "522977aa02d4013495cf22a8c241b7c02742aa2d0b8813e5a0329e7343571547"
+    },
+    {
+      "bytes": 1167,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-02/ci-39873635408-summary.json",
+      "sha256": "5dd250bfe1e1cd82022a456775c757c676610bb15130b546cdb0035211eeda01"
+    },
+    {
+      "bytes": 31450,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-02/publication.py",
+      "sha256": "cf00c71f938d41a06af98092a02b026160be5e37437ca24b71c37388161802d8"
+    },
+    {
+      "bytes": 16934,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-02/index.json",
+      "sha256": "fe00e3254f3c67ff4fe3cd1f488ded63bdcb4b711b9bf76681cf269b31a665fb"
+    },
+    {
+      "bytes": 7263,
+      "path": "docs/validation/2026-10-23-psec-lpac-identity-02.md",
+      "sha256": "43cda053d2505759056f3487a036be25962f691a49907c1aea14d6432641907b"
+    },
+    {
+      "bytes": 5104,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-local-02-checkpoint.json",
+      "sha256": "e1466af8c0c1542ea43b03238ddccba119885f9b8f2a312eb968b53f50ba6133"
+    },
+    {
+      "bytes": 3516,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-local-03-evidence-index.json",
+      "sha256": "6c8c9d986e0f51e609883420a7aa1c556930ffa7bbba807c269b4957b153d90e"
+    },
+    {
+      "bytes": 2083,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-local-03-public.json",
+      "sha256": "75f3198b40afc5b9919fd862b66ab14b023b4b30e4ab979b742cf3e315e734f6"
+    },
+    {
+      "bytes": 1595,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-local-03-preflight.json",
+      "sha256": "a32fd0dcefc68c3c59edeb2fb177103a0903a8e3df37d87bfa9cf7f8b376df12"
+    },
+    {
+      "bytes": 5258,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-local-03-runner.py",
+      "sha256": "3409232b3a427963b1c00df133ac529d5587be2d789ef62831c24aa932021c2b"
+    },
+    {
+      "bytes": 5671,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-local-03-bridge-manifest.json",
+      "sha256": "9b9ab93826c99bbde32c18cca3a32389d75086c3b1f7abbc453a2dda98d09209"
+    },
+    {
+      "bytes": 1005,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-local-03-actor-manifest.json",
+      "sha256": "657c88ef59f8ba9d4c24f5e407696b27615f50c63d58adc5d8dd64f942104e92"
+    },
+    {
+      "bytes": 7411,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-local-03-compile-input-snapshot.json",
+      "sha256": "08fcfc4c1bf651983dea3080924f0ab1e7694df2ed171e4dfae11c84baa2cde1"
+    },
+    {
+      "bytes": 55918,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-local-03-archive.py",
+      "sha256": "99bb2b206cb4bc7dce799b267b84740d19f5e2e8fd5c088c3acfae80f5786c29"
+    },
+    {
+      "bytes": 1544,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-local-03-after-global-capture.ps1",
+      "sha256": "b9d56590a5d10b9699b3dfd74f94bae7aa6cb22e6afefece3520d2fba03ffe9d"
+    },
+    {
+      "bytes": 2004,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-local-03-after-global-expanded.ps1",
+      "sha256": "5467b3f5d8c4fe156a4509fab523d3397817c0885481a31f21d82b4b30a59784"
+    },
+    {
+      "bytes": 32695,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-local-03-component-projection.json",
+      "sha256": "13bac0880a14b42c6a147b2bb66d04c1a26cacb65eefd3b6461e2729e576ec0c"
+    },
+    {
+      "bytes": 470,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-local-03-global-projection.json",
+      "sha256": "f6b610c5005d9324f2c509401095f08fee8465b48e6cfcd57119b3de03cd372f"
+    },
+    {
+      "bytes": 4260,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-local-03-job-admissions-projection.json",
+      "sha256": "c23eee832d66dd561509a25b5982b66b7e76cbb131000a45fae4e179b78c42ed"
+    },
+    {
+      "bytes": 2526,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-local-03-summary.json",
+      "sha256": "6eab454ad30f36c0cc26ad549dbea0a80617cdebaa09adc919703f5d886a1292"
+    },
+    {
+      "bytes": 36407,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-local-03-publication-index.json",
+      "sha256": "2a181eba1be20abebbca979d82fb32a10747f4e429071ccaa8f5de6cbe125aa9"
+    },
+    {
+      "bytes": 854,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-03/archive_psec_lpac_identity_03_pure_01-public-view.log",
+      "sha256": "48500a20e13d35bd87c53890e3cfc9403775e7abe8fa87d93de781f29a6e5f68"
+    },
+    {
+      "bytes": 2541,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-03/archive_psec_lpac_identity_03_readiness_02.json",
+      "sha256": "f245efbedba3a680abef8b634c445e512c47954feb411b3993b30bf97adc2717"
+    },
+    {
+      "bytes": 29704,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-03/actual03-independent-review-public-view.json",
+      "sha256": "bb11e69efd47e8afbaf2ee292182389258b79eba298dab180a97c68f812aa75a"
+    },
+    {
+      "bytes": 2255,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-03/psec-lpac-integrated-pure-03.json",
+      "sha256": "719fee52ac2cec526a7078207b43552b02f106c60fa1fa01088f35c727859793"
+    },
+    {
+      "bytes": 160545,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-03/psec-lpac-main-pure-03-public-view.log",
+      "sha256": "727b22fe0c17a41902ff610dfd515ef7d0d8513d3ba05492139dca0f3739b45d"
+    },
+    {
+      "bytes": 50091,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-03/psec-lpac-python-diagnostic-03.patch",
+      "sha256": "45caf7cad081c384b0317236b12839302af1a2c5df292e57015ad50924a936f8"
+    },
+    {
+      "bytes": 2259,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-03/psec-lpac-python-diagnostic-abi-03.json",
+      "sha256": "718aa67c16c07ded40ab0596c4eb0a844233873313b34651146f3464fac58f21"
+    },
+    {
+      "bytes": 15196,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-03/psec-lpac-python-diagnostic-freeze-03.json",
+      "sha256": "0fafbd55ebe54ea9ed13ac7705dec0b7baa8e0cc26f7971290219f8f6683c00d"
+    },
+    {
+      "bytes": 8558,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-03/psec-lpac-python-diagnostic-pure-03.log",
+      "sha256": "aebb3470ce3854ff581adf9bda3452c66cee429b392bd67a44a550f40c8f9447"
+    },
+    {
+      "bytes": 5943,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-03/psec-lpac-source03-independent-review-01.json",
+      "sha256": "268eea37104b0580fb8f1abf31866e8ab03d6b2761ed689b126c02a1146239ea"
+    },
+    {
+      "bytes": 7981,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-03/review_psec_lpac_source03_01.py",
+      "sha256": "e290c7f72aef7e4f9bc823482951eb77730bc52e6129a240ef8ff43a92034293"
+    },
+    {
+      "bytes": 14299,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-03/stage_psec_lpac_source_03.py",
+      "sha256": "5129144f079a0bb432588d4dcbac2dc32b953976cff80e732efc5059a59931cd"
+    },
+    {
+      "bytes": 4456,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-03/test_archive_psec_lpac_identity_03.py",
+      "sha256": "afc57e6680896b059111bccaa0df4a448e8b31acec61641c1635b441848664e6"
+    },
+    {
+      "bytes": 857,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-03/test_psec_lpac_integrated_03.ps1",
+      "sha256": "4f5854d594124fc439803ecdd731781238572b29a6579c2bb7600c4cc49cbe3e"
+    },
+    {
+      "bytes": 25076,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-03/verify_psec_lpac_actual_03.py",
+      "sha256": "c8294c4b385ed79fb77aa3c709f6a32234eb68d8871085418304c952b20c9d6e"
+    },
+    {
+      "bytes": 206344,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-03/ci-39876964598-decoded-public-view.log",
+      "sha256": "ceb1bb01ae44a37deab40bd38d58068017f59ad31e1897b3ada6c8dda4086cfc"
+    },
+    {
+      "bytes": 1568,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-03/ci-39876964598-summary.json",
+      "sha256": "95cbcd0123780a993508c157fb1513abc5242b4aaecbdd20b39d7b8660ad9fc6"
+    },
+    {
+      "bytes": 237,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-03/timing-metadata-discrepancy.json",
+      "sha256": "667a20249568c70278c8a532c503e44e7702d5def9eef5ce1041e99a35f26948"
+    },
+    {
+      "bytes": 39050,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-03/publication.py",
+      "sha256": "69c9bc52a54683525f7072bdf44ded4676126cef5d21200adc9c6aac9b2a4aad"
+    },
+    {
+      "bytes": 18482,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-03/index.json",
+      "sha256": "44fad0f07963732e1a05025cc4ac5a7dc90bd233f1dd660da9135bb312286f1f"
+    },
+    {
+      "bytes": 7150,
+      "path": "docs/validation/2026-10-23-psec-lpac-identity-03.md",
+      "sha256": "0de8bab4e246ecbac55b86456009824dbb6b343821a3b04b32428f1a1cd344b2"
+    },
+    {
+      "bytes": 7104,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-local-03-checkpoint.json",
+      "sha256": "b476892a1009f0752e872a1e28fd61c985cc570889b4d3a39b5d5c64c99c56f5"
+    },
+    {
+      "bytes": 3922,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-local-01-evidence-index.json",
+      "sha256": "c3e6a187cb7549ea87c207682201c47a701651658ebb24712b97e47f571d9ea5"
+    },
+    {
+      "bytes": 2408,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-local-01-public.json",
+      "sha256": "3862644d9d75b0e44a52c4bf2e0be063314dd6418e9e2fff6d5acca1fdaf0bd0"
+    },
+    {
+      "bytes": 1841,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-local-01-preflight.json",
+      "sha256": "6ffd45ffa87e65179754ca801c5a383760c3b89a4361cf47f71078320110e525"
+    },
+    {
+      "bytes": 5499,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-local-01-runner.py",
+      "sha256": "4e7c347c7aec51e22c47369e3cbf4577366ce094219352f889a55fd2d488d15a"
+    },
+    {
+      "bytes": 5759,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-local-01-bridge-manifest.json",
+      "sha256": "1a29ce2ce18f75e13dc1546fc201558121e30563e475d2075d94951546aaef56"
+    },
+    {
+      "bytes": 1005,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-local-01-actor-manifest.json",
+      "sha256": "657c88ef59f8ba9d4c24f5e407696b27615f50c63d58adc5d8dd64f942104e92"
+    },
+    {
+      "bytes": 7548,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-local-01-compile-input-snapshot.json",
+      "sha256": "9303a0a9545c6302fd3bd115775775f77f1c3574ba8c1e5a525f7e9dfa4969b3"
+    },
+    {
+      "bytes": 68746,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-local-01-archive.py",
+      "sha256": "a6e40e248990abb6c5283eaee51a82509dfb4e9aa70d37d6ece0514ec1ee9028"
+    },
+    {
+      "bytes": 1632,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-local-01-after-global-capture.ps1",
+      "sha256": "847a325d0e57d9481dc0c81d35a89a13fe0d1e0da4481721df85fc8da4fd1084"
+    },
+    {
+      "bytes": 2026,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-local-01-after-global-expanded.ps1",
+      "sha256": "d2be0040e6cd50e9e8874032887ee6fc73d0c3584996c5ed8f2f5d063aa13fe0"
+    },
+    {
+      "bytes": 57953,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-local-01-component-projection.json",
+      "sha256": "a6de3f78871165fdb1ade38628c9b0c45df2aa5a98b4b4e586785db4d0a5626c"
+    },
+    {
+      "bytes": 470,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-local-01-global-projection.json",
+      "sha256": "f6b610c5005d9324f2c509401095f08fee8465b48e6cfcd57119b3de03cd372f"
+    },
+    {
+      "bytes": 43002,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-local-01-job-admissions-projection.json",
+      "sha256": "81f9abab4ee39ff36c167137315b4057490f8415711c79534691d8a4218a404a"
+    },
+    {
+      "bytes": 10693,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-local-01-inner-transfers-projection.json",
+      "sha256": "f4c250722b3828ef074348d30cb78562499efecc2827d1a0d4fb122f7ac2b42a"
+    },
+    {
+      "bytes": 3720,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-local-01-summary.json",
+      "sha256": "0b7634f375329a3e8f240961e649d125ed4f34200bf0fd41bf1df3500f547ef6"
+    },
+    {
+      "bytes": 49956,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-local-01-publication-index.json",
+      "sha256": "6ec1dc29e942de1e3b53e373b076eb770496d04562487d81f9d37631cf54bfb1"
+    },
+    {
+      "bytes": 9090,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/psec-lpac-postassign-native-freeze-01.json",
+      "sha256": "f7d62220f30d11ad245ab7de859bd4c93ca4bee13294c1c8b64e5db5aad4b981"
+    },
+    {
+      "bytes": 14841,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/psec-lpac-postassign-native-01.patch",
+      "sha256": "aead170fc2ef4f1dc6f6f42dc3111e43bebcd6efddbc4be24257d09cb0cf1dd6"
+    },
+    {
+      "bytes": 2927,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/psec-lpac-postassign-native-diff-01.txt",
+      "sha256": "4306c652f04ba6be0bd2384c3407938469b3044003b610612b7e0ab8b8cb6d3d"
+    },
+    {
+      "bytes": 14631,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/psec-lpac-postassign-compile-independent-review-01.json",
+      "sha256": "cd4250a587d24ec61751960e64450111a7cb5b57994091573a7421ba079ca882"
+    },
+    {
+      "bytes": 4635,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/compile_psec_lpac_postassign_bridge_01.ps1",
+      "sha256": "7f94684dc612b20c3cb034700cd6b9d157c27d2edb22a7496814ba957b15c58d"
+    },
+    {
+      "bytes": 7046,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/inspect_psec_lpac_postassign_bridge_compile_01.py",
+      "sha256": "64ac422501a5f2984f07ea641d887064c340f7b7e67782a6b040ac1e769137e5"
+    },
+    {
+      "bytes": 11560,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/review_psec_lpac_postassign_compile_01.py",
+      "sha256": "71d418c5e8a7cc12f281c6cf4b2af1ef9a2168cf216244a017d2f06a8937439e"
+    },
+    {
+      "bytes": 2031,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/compile01-static-pe-review.json",
+      "sha256": "8927e621edc51235f70670fb90ee294d525760bf684166afc3372a2162431a6d"
+    },
+    {
+      "bytes": 335,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/compile01-toolchain-public-view.json",
+      "sha256": "53edbffb450ebcc656e9453cb39abcedcd6e6b4ee40803c4ac49f88f24a48d4c"
+    },
+    {
+      "bytes": 174669,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/psec-lpac-postassign-python-candidate-01-public-view.patch",
+      "sha256": "96296d1c7bd24ac60a962ad7dfeb2ca5093e8009e0a1661dcf44a74761b7230b"
+    },
+    {
+      "bytes": 17024,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/psec-lpac-postassign-python-candidate-freeze-01.json",
+      "sha256": "73d0432dd1fc2437cb04981359af10c890dd5c12c99cc68e7198520f56506d0b"
+    },
+    {
+      "bytes": 2650,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/psec-lpac-postassign-python-candidate-abi-01.json",
+      "sha256": "7299214878dd7d9cadbf6681f138eb30360f11df0e4a357ac0a0f332bc5a88e6"
+    },
+    {
+      "bytes": 10872,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/psec-lpac-postassign-python-pure-01-public-view.log",
+      "sha256": "24399fa77c7cc5ce0ae116fc48ac7d0f5268b427597fa389b786f37ec29530e9"
+    },
+    {
+      "bytes": 174668,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/psec-lpac-postassign-python-candidate-02-public-view.patch",
+      "sha256": "25435da3488f948d1ba518846cdfb2cc077c747782629f3d2c8adc60901da142"
+    },
+    {
+      "bytes": 18818,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/psec-lpac-postassign-python-candidate-freeze-02.json",
+      "sha256": "5a7b92ab97c472333ed28f9888ffec99dd4f4ec1018a721bfd1858a0d896ab06"
+    },
+    {
+      "bytes": 2905,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/psec-lpac-postassign-python-candidate-abi-02.json",
+      "sha256": "f6259b645cbf92060f14b27916f66ce8789521613be231af92a094b5ae591799"
+    },
+    {
+      "bytes": 10872,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/psec-lpac-postassign-python-pure-02-public-view.log",
+      "sha256": "6f0daab4b97163ef62e520ca9ecb0ad0cf2c07831a4f04d14e25954c995f8771"
+    },
+    {
+      "bytes": 4578,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/psec-lpac-postassign-python-independent-review-02.json",
+      "sha256": "d1c8e0b59854b45f2ca03932b96882b727deebd003e02300e8ceb032ec23ce8a"
+    },
+    {
+      "bytes": 3172,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/psec-lpac-postassign-python-independent-pure-02.log",
+      "sha256": "c3f5256387dd18f544759f01260065e3ef457a5c9991b11006936b7a41148cde"
+    },
+    {
+      "bytes": 2783,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/psec-lpac-postassign-integrated-pure-01.json",
+      "sha256": "04ced4bc5881aff5ff82b26b80fa2783a5630825a9c6bf9ae994017779073100"
+    },
+    {
+      "bytes": 171317,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/psec-lpac-postassign-main-pure-01-public-view.log",
+      "sha256": "6d0b9aedcaf12acc4eb89de9b32c1460c12793c19148b839d97ba84f4aa2d26d"
+    },
+    {
+      "bytes": 868,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/test_psec_lpac_postassign_integrated_01.ps1",
+      "sha256": "93d2195a7b761c9db880df5ce16b1a86d147c6ad3ee19f674789c166e598ad4c"
+    },
+    {
+      "bytes": 15903,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/stage_psec_lpac_postassign_source_01.py",
+      "sha256": "1c648e521e480d9062e5acb57fb85eb24178f06458d14cfa4a7cff07aa588634"
+    },
+    {
+      "bytes": 54321,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/psec-lpac-postassign-identity-actual-01-independent-review.json",
+      "sha256": "8bb68ed9ba06f85e178939ca3e713c7b084d7d06dadeef440839b4f63f8f7d66"
+    },
+    {
+      "bytes": 15597,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/psec-lpac-postassign-identity-actual-01-proof-review.json",
+      "sha256": "52fd5a7a8ec4b1739ef4116df16616af3923755639c7b831c9bdce3707a106ad"
+    },
+    {
+      "bytes": 2799,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/archive_psec_lpac_postassign_identity_01_readiness.json",
+      "sha256": "6bb3efacec49dadb605cdcb7468969090298be331c26a32fa7a5e4e445a294c0"
+    },
+    {
+      "bytes": 1676,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/archive_psec_lpac_postassign_identity_01_pure_01-public-view.log",
+      "sha256": "f40b90902e7eb57e977bb779359a4a3d0bd75062f4c8077547ce38a12618ebc8"
+    },
+    {
+      "bytes": 836,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/archive_psec_lpac_postassign_identity_01_pure_03-public-view.log",
+      "sha256": "e5e817371303d561dc3624e2c84260d3669b3fc309e541b40398f45ae3cebdde"
+    },
+    {
+      "bytes": 4618,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/test_archive_psec_lpac_postassign_identity_01.py",
+      "sha256": "d2b2e06f28f462c70e3a88780ec559e472e3d396ddb2b708404b6c8dd2be9f0f"
+    },
+    {
+      "bytes": 218560,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/ci-39880370248-decoded-public-view.log",
+      "sha256": "f2a8befb6f17bb11561c26c887e0f51f8cd98a9cdc1540b9e051742ee60ab2a1"
+    },
+    {
+      "bytes": 1466,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/ci-39880370248-summary.json",
+      "sha256": "73f79446bab0dd5ff562dd57f9cef1cdb70e529797937081527dd2c1240950e4"
+    },
+    {
+      "bytes": 44834,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/publication.py",
+      "sha256": "9f1584c1abd9206177044887e30f17ca9e87461b6d7c35cb8d6201eaf2f58b2a"
+    },
+    {
+      "bytes": 32610,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/index.json",
+      "sha256": "0534177cd473e0b410e130ef5800ea110e0eab50b16b69c0002135b3bcba1bc1"
+    },
+    {
+      "bytes": 7668,
+      "path": "docs/validation/2026-10-23-psec-lpac-postassign-identity-01.md",
+      "sha256": "66204f0b35a2967a1e6a22f1d7fdda628e8c5ae30cec80feed7c63061e4a1246"
+    },
+    {
+      "bytes": 6192,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-local-01-checkpoint.json",
+      "sha256": "a4d30c0d4a203245555ed89f911e8d604b17ef37ab466c8a04141e00413e688b"
+    },
+    {
+      "bytes": 2554,
+      "path": "verification/windows-2026-10-22/lpac-semantic-dns-local-02-evidence-index.json",
+      "sha256": "cf0c0fee30c280bb34077559efa83226f74b7681c7205d3cdaa1229d7d3b8270"
+    },
+    {
+      "bytes": 1805,
+      "path": "verification/windows-2026-10-22/lpac-semantic-dns-local-02-public.json",
+      "sha256": "757ad3b8c48f7f4d6e4d6aab9feaef4915dc54b39cf1977484eed6119fcc744f"
+    },
+    {
+      "bytes": 1571,
+      "path": "verification/windows-2026-10-22/lpac-semantic-dns-local-02-preflight.json",
+      "sha256": "e21f32d23e360bf3a8bde46415d16be2bf5f2813d015067a9163957a04f83a65"
+    },
+    {
+      "bytes": 3139,
+      "path": "verification/windows-2026-10-22/lpac-semantic-dns-local-02-runner.py",
+      "sha256": "deb226cf334c518f926f7157f67e470f9fb53167f6920a2e690225981e4e056f"
+    },
+    {
+      "bytes": 1023,
+      "path": "verification/windows-2026-10-22/lpac-semantic-dns-local-02-after-global-capture.ps1",
+      "sha256": "74ad5421c2e71ecec63cac3f40b79e532a0880844d986d2bd6eec1d793dc9491"
+    },
+    {
+      "bytes": 2003,
+      "path": "verification/windows-2026-10-22/lpac-semantic-dns-local-02-after-global-expanded.ps1",
+      "sha256": "0a85c7c8c833a948a92c47c973ade23814996a89a5532d5f47c2fbffb5e4d296"
+    },
+    {
+      "bytes": 43244,
+      "path": "verification/windows-2026-10-22/lpac-semantic-dns-local-02-archive.py",
+      "sha256": "0e556d9a2639d2938ecb5bc6e920270f2649df4292d8472475dfd3ec0e4683a4"
+    },
+    {
+      "bytes": 108898,
+      "path": "verification/windows-2026-10-22/lpac-semantic-dns-local-02-component-projection.json",
+      "sha256": "fea25638ac64c6606ed4cd149a2201b396e7c3bfb8e1eb5963379886c413598c"
+    },
+    {
+      "bytes": 474,
+      "path": "verification/windows-2026-10-22/lpac-semantic-dns-local-02-global-projection.json",
+      "sha256": "991861a63d712838e6a83c8c42b6c5e2ee4c28db1790988b129183ed3b9aaf3f"
+    },
+    {
+      "bytes": 4469,
+      "path": "verification/windows-2026-10-22/lpac-semantic-dns-local-02-summary.json",
+      "sha256": "33b9efdbc65dc25f004ecb5f5a038a520176e7b5bc51e767193258459fb635ae"
+    },
+    {
+      "bytes": 3682,
+      "path": "verification/windows-2026-10-22/lpac-semantic-dns-local-02-checkpoint.json",
+      "sha256": "ba34a8f7a9e811d0769710e605524b6373f6acdb26e321d4282e0dafe14d7ff7"
+    },
+    {
+      "bytes": 5207,
+      "path": "docs/validation/2026-10-23-lpac-semantic-dns-02.md",
+      "sha256": "a4c4ca167fab7bf2e5071f0b676d45b2eaf68380146d5ce22ccce26c9306b759"
+    },
+    {
+      "bytes": 4185,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-local-01-evidence-index.json",
+      "sha256": "b262ea7588476c818ae568d6bd7964cceabe4d45332ca09c50ee0d3c6f8b4f9c"
+    },
+    {
+      "bytes": 2658,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-local-01-public.json",
+      "sha256": "6acc10b614f5c35c56ed2adf4e648a7b0f4ea3a74ddbdf3f3e7fb595c9a103b4"
+    },
+    {
+      "bytes": 1938,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-local-01-preflight.json",
+      "sha256": "05679302bd82c47e831d4a2e24b3dfb34444f923bf2b7bd898c0d321178924a6"
+    },
+    {
+      "bytes": 5733,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-local-01-runner.py",
+      "sha256": "925ee06bf2f0e0e525e14c31a901166b471349158808315b42cba64b1b60579b"
+    },
+    {
+      "bytes": 5812,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-local-01-bridge-manifest.json",
+      "sha256": "fbbb268bde396dbe7bbdf7247f062bd2e1892f537f5e553a5ee105d1b52566d7"
+    },
+    {
+      "bytes": 1005,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-local-01-actor-manifest.json",
+      "sha256": "657c88ef59f8ba9d4c24f5e407696b27615f50c63d58adc5d8dd64f942104e92"
+    },
+    {
+      "bytes": 7683,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-local-01-compile-input-snapshot.json",
+      "sha256": "4c5d13605371f354a944f64ada5d62a6c2b10ab27176ac69fb88c95e246fb728"
+    },
+    {
+      "bytes": 77798,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-local-01-archive.py",
+      "sha256": "44dcdbf95cf2c9d3896a8b6c58bc66bcdb4a07461fe6db159fe12a9673fe464f"
+    },
+    {
+      "bytes": 1640,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-local-01-after-global-capture.ps1",
+      "sha256": "5f40e082036e3daf6ffc5b0fac31f72819cb4a772639ae9ea3cb37ac3cc13d8e"
+    },
+    {
+      "bytes": 2028,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-local-01-after-global-expanded.ps1",
+      "sha256": "bd561f9afac46198f0f4cf77c435f3d2a30cdd8109d77a4c1aa9a5917d9a88c8"
+    },
+    {
+      "bytes": 68540,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-local-01-component-projection.json",
+      "sha256": "86065a87980d1776360e8786b9f8b663b263ad9041d0fc6cc386220778b4d7fc"
+    },
+    {
+      "bytes": 470,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-local-01-global-projection.json",
+      "sha256": "f6b610c5005d9324f2c509401095f08fee8465b48e6cfcd57119b3de03cd372f"
+    },
+    {
+      "bytes": 78583,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-local-01-job-admissions-projection.json",
+      "sha256": "22eb1115d999487ebf5880f7fee86ac5e5ae55f50deed290c4eddcf0159edf8e"
+    },
+    {
+      "bytes": 15616,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-local-01-inner-transfers-projection.json",
+      "sha256": "f41b9619c5939a98cb73a876924cc10b81aea27783bc29241e495b9b60747f27"
+    },
+    {
+      "bytes": 4093,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-local-01-security-capabilities-projection.json",
+      "sha256": "aeb674d97c31792725de4a2d9805632df933b4efb5a35867bced08f8e01d0dc9"
+    },
+    {
+      "bytes": 4315,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-local-01-summary.json",
+      "sha256": "5b5e4190d913e2b22bf3bae6a3dcaff7056bf84dbb0c2634aa2da51e56441cbb"
+    }
+  ],
+  "index_self_hash_excluded": true,
+  "old_unknowns_not_reinterpreted": true,
+  "original_actual_index": {
+    "bytes": 4185,
+    "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-local-01-evidence-index.json",
+    "sha256": "b262ea7588476c818ae568d6bd7964cceabe4d45332ca09c50ee0d3c6f8b4f9c"
+  },
+  "original_partial_lpac_not_completed": true,
+  "outputs_progress": {
+    "after": {
+      "bytes": 90974,
+      "sha256": "d8de7cf1deb64e011d52d0c465b685483805b7966d66ac263562bd0cc096dc04"
+    },
+    "all_other_field_values_byte_equivalent": true,
+    "allowed_changed_fields": [
+      "PSEC_LPAC_MATCHEDCAPS最新实测",
+      "当前阻断",
+      "日期",
+      "最新尝试",
+      "最新尝试归档索引",
+      "此前PSEC_LPAC_POSTASSIGN01实测",
+      "源码提交",
+      "状态"
+    ],
+    "before": {
+      "bytes": 76475,
+      "sha256": "d92f7c85481e9f182c097c3a34f317f9835f64c92f98c8517d0111374e0b9544"
+    },
+    "original_atomic_and_postassign_latest_keys_unchanged": true,
+    "path": "outputs/windows-isolation-progress.json",
+    "untouched_field_sha256": {
+      "DNS原始UDP最新实测": "e38fade75e26e46db3b50d9b6365a2e3de114d4b545e0adf58a4f599ecd7f701",
+      "DNS最新实测": "ba34a8f7a9e811d0769710e605524b6373f6acdb26e321d4282e0dafe14d7ff7",
+      "DNS机制检查点": "dca6d45ea6fc9a06b646c00249ae93eed256b89ee2a58eaa39543b6d3afe5c9e",
+      "LPAC_DNS最新实测": "ba34a8f7a9e811d0769710e605524b6373f6acdb26e321d4282e0dafe14d7ff7",
+      "LPAC最新尝试": "ba34a8f7a9e811d0769710e605524b6373f6acdb26e321d4282e0dafe14d7ff7",
+      "LPAC身份对照最新实测": "87f5e4f50dd25c3ad5016c218d34f10f8b8dc82f247fa40c4207a48e9e21b98d",
+      "PSEC_LPAC_POSTASSIGN最新实测": "1744fdecbc35138700f1f5777990b31664886a3e1e89dd2f3ecfc4e47d523bb1",
+      "PSEC_LPAC最新实测": "10ddf5e18a71f1d5f956a1263a8360ac21f9d33c5a73e342a35e0d2eaa33e547",
+      "schema_version": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "严格隔离合格": "2ed27c1421e6928dbe13dbfdb5c59e1045b30341fe7ebe05700006bc5ac572c0",
+      "产品验收": "2ed27c1421e6928dbe13dbfdb5c59e1045b30341fe7ebe05700006bc5ac572c0",
+      "公开证据_SHA256": "c673ecf01e969817cc496f602715daf4d8bde300be5804aaf8db9f8adea742e8",
+      "尚未验证": "e8ff263776e4b2ca7a0838b57a1c17c4decb28701f2e15136f6d9f5be7917dbc",
+      "已完成诊断检查点": "4070406f307716e6084c9cc6f8b4d40d2e8bec4b0bd6a19169302cd33efb4ee1",
+      "已验证": "6a68ca74b3ede3317cd2e43247bf15e70c5c0b730d71b916c2ede6e6b8e7833a",
+      "当前验收阻断": "58d274e92bf72be9b58dcf632f9f2b99165616f5ba26443daedac72314dc4c94",
+      "待实现机制候选": "6e56b5a3201d82d0064219b04e8d49a3e249c3953794898680427a5d0420c1b3",
+      "最新尝试归档核验": "c624b95dc3fb9a7c63306d2fee1a8a89aa43812323856b1fdad2fba247cda74b",
+      "此前DNS_API尝试": "9661317b03a504d4306283188bb03ca626c701d31a1b1f369c8486bd8d5962c9",
+      "此前G_PSEC_DNS泄漏实测": "63e1b01f272c2f30e312280cc0298b8dc669c4f5eefd8cd8bcf8f2287b9f5dbb",
+      "此前LPAC02尝试": "2dc3c8413d1058744160dc68c149260ef75812097c7e1d6f7b076ad6e70c8e40",
+      "此前LPAC04尝试": "688b2875d88ce8a8c1361a19a94ba3b52035e809e64305fdd4377fa98fcfa2d9",
+      "此前LPAC04归档核验": "475415d895e77ee56a4de5fbd51de4ee81464b4465596ddaea7a1715f5f5a91d",
+      "此前PSEC_LPAC01实测": "69ce9425f913c0f55083480a26faf7b3aebbea3baf916079b673b4c59a83ab55",
+      "此前PSEC_LPAC02实测": "4d347b0857205a21d92b0c2be9f43f399b328fdc568b31c801e2cdd92d250c3d",
+      "此前PSEC_LPAC03实测": "10ddf5e18a71f1d5f956a1263a8360ac21f9d33c5a73e342a35e0d2eaa33e547",
+      "此前SemanticDNS01尝试": "684a51643c02f28a6ccad48244938851ac74d41b17b2dacae700175c1c31529b",
+      "此前SemanticDNS01归档核验": "76d1ef794992d230d5f96cd4cc907fa81ad67ac6075179248dd28b0c141e491b",
+      "此前death尝试": "003ba607075842a4db79a5d653c2120aeaf5ca02774931aca4a0ff82ec58c96c",
+      "此前rawDNS02尝试": "cc99da51e9df810d368e63b19b365cd1393242fa0ec366b05cbb2e6ad26a3c5c",
+      "此前rawDNS02归档核验": "6e869643ad86a63bd285c9b7fca4cec6d5b557b9e4940b603f6166c9fd7ea328",
+      "此前wrong_peer尝试": "eeace17c25d6498f58f31fb5bc521e6947146476eb44c1c9d29da4e3a7e802a4",
+      "此前身份对照归档核验": "1491f7d1377915e2c573f7d8ceb7a9a0b6c8fea9041405560a92679fc92db197",
+      "死亡测试命题限制": "60422ac3cb167e4a5b335d57b3e5d3292fe078924125e3495209e300b4c66c6e",
+      "私有身份路径端口和机器标识已公开": "2ed27c1421e6928dbe13dbfdb5c59e1045b30341fe7ebe05700006bc5ac572c0",
+      "诊断完成": "2ed27c1421e6928dbe13dbfdb5c59e1045b30341fe7ebe05700006bc5ac572c0",
+      "首次完整诊断检查点": "a98cba13eb964233d251082a0c97231643c779527a941f038dc7ae217ab60999"
+    }
+  },
+  "schema_version": 1,
+  "scope": "one-local-cpse-deny-all-outer-guarded-matched-secaps-identity-v1",
+  "source_commit": "ec45dffb66cc88bb48578101afb93ce7044a6521",
+  "source_or_runtime_or_recovery_run": false,
+  "stage": "matchedcaps01-publication-index"
+}

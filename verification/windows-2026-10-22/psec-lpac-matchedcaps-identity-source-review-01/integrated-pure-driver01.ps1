@@ -1,0 +1,16 @@
+$ErrorActionPreference='Stop'
+$repo=Join-Path $PSScriptRoot 'Rule-proxy-Web'
+$log=Join-Path $PSScriptRoot 'psec-lpac-matchedcaps-main-pure-01.log'
+if(Test-Path -LiteralPath $log){throw 'Fresh full pure log required'}
+$vswhere="${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+$vs=& $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+if(-not $vs){throw 'Installed MSVC required'}
+Import-Module "$vs\Common7\Tools\Microsoft.VisualStudio.DevShell.dll"
+Enter-VsDevShell -VsInstallPath $vs -SkipAutomaticLocation -DevCmdArguments '-arch=x64 -host_arch=x64'
+Push-Location -LiteralPath $repo
+try{
+    & python -S -B -m unittest discover -s tests -p 'test_windows_identity*.py' -v *> $log
+    $testExit=$LASTEXITCODE
+    Get-Content -LiteralPath $log -Tail 15
+    exit $testExit
+}finally{Pop-Location}

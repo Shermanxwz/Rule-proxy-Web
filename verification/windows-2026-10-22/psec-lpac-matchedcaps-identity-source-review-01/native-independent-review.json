@@ -1,0 +1,90 @@
+{
+  "actual_executed": false,
+  "actual_ready": false,
+  "baseline_commit": "953de0a2374aff89959957da4b5641ce5aaff8a1",
+  "blockers": [],
+  "checks": {
+    "abi3_layout_declarations_read": true,
+    "exact37_candidate_pins": true,
+    "exact_frozen_bytes": true,
+    "fixed_catalog_and_attributes": true,
+    "known_precreate_status10_only_two_sites": true,
+    "late_or_clock_never_sets_within_true": true,
+    "macro_except_push_undef_pop_preserves_generated_bytes": true,
+    "no_failure_retry_or_opaque_absence_claim": true,
+    "no_native_job_assignment_or_joblist": true,
+    "old37_unchanged": true,
+    "opaque_close_consume_once_job_held_empty": true,
+    "original_create_pi_and_immediate_error_preserved": true,
+    "precreate_no_api_entry_or_fake_pi": true,
+    "role2_compares_all_owned_sid_bytes_and_lengths": true,
+    "sc_header_length_before_copy": true,
+    "sc_owned_copy_rechecked": true,
+    "semantic_spec_shared_bytes_unchanged": true,
+    "suspended_noninherit_no_resume": true,
+    "three_once_role_order": true
+  },
+  "compile_input_count": 37,
+  "compile_input_sha256": "2dd7768417ab73e6cfde1ee69e95050f25fca0a8b50fa5bebe23a38318ae0ecf",
+  "compiled": false,
+  "dependency_count": 31,
+  "files": {
+    ".github/native/windows_psec_lpac_matchedcaps_bridge.cpp": {
+      "bytes": 16460,
+      "sha256": "5e3e83c19788136404c5d412315aa08502a2ffc0c0cb41235ba4b20159deb497"
+    },
+    ".github/native/windows_psec_lpac_matchedcaps_bridge.hpp": {
+      "bytes": 4483,
+      "sha256": "b088676f846d3690f58b01afaf06df41e2cedbae10f140cd404cce8a0d814cd1"
+    },
+    ".github/native/windows_psec_lpac_matchedcaps_bridge_core.hpp": {
+      "bytes": 8144,
+      "sha256": "8d06377a923bede038d2ff19e206da695b7a5d918c610a12a9c1a5dacde2820d"
+    },
+    "tests/test_windows_identity_psec_lpac_matchedcaps_native.py": {
+      "bytes": 10464,
+      "sha256": "118bcae9cd00ed200b3dab843cf98b633cf893a895524b86f068502917c0c1fa"
+    }
+  },
+  "freeze": {
+    "bytes": 13151,
+    "name": "psec-lpac-matchedcaps-native-freeze-01.json",
+    "sha256": "7e702eac67a463682878c9d40ee1d8665d30a2f596a9ebf1edf1b2801de3fc1f"
+  },
+  "main_modified": false,
+  "native_api_executed": false,
+  "native_loaded": false,
+  "native_sources_modified": false,
+  "not_verified": [
+    "No compiler, DLL load, CPSE or other native API, actor, networking or cleanup was run by this review.",
+    "Context sizeof/alignof static_assert declarations are present but actual compiler acceptance, imports/exports and binary pin need root immutable compile/PE review.",
+    "C ABI cannot validate arbitrary pointer readability; current caller must own and retain actual readable buffers through the call. Invalid malicious pointers can crash the worker and must remain unknown.",
+    "Windows acceptance of SE_ENV+SEC_CAPS+AAP, resultant semantic LPAC behavior and policy association are unknown; no network-preservation or product qualification claim."
+  ],
+  "old_37_inputs_git_bytes_unchanged": true,
+  "review_details": [
+    "SC64 rejects wrong size/version/count/reserved/attributes, null buffers, package lengths outside20..68, and cap lengths not48/16 before bounded copies.",
+    "sid_shape reads a valid declared header only after n>=12, checks revision/count/authority/subauthority and n==8+4*count; caller readable-buffer contract remains required.",
+    "Copied SecuritySnapshot is zero initialized, checked again, and compared against fixed Agentic/PNCS bytes. Role2 compares all arrays and lengths; attrs4 are independently revalidated each call.",
+    "role0 requires policy0/nullSC; role1 requires policy0/SC; role2 requires policy1/sameSC. Machine consumes three ordered attempts, requires prior returned attempt, and blocks later roles after known failure or unreturned create.",
+    "precreate_failed10 only follows attribute init/Update false, consumes the arm return without manufacturing CreateProcess entry/return; raw Win32 value can be0 and is not a cause assertion.",
+    "precreate failure samples afterQPC but keeps typed10 if clock fails or late, with within_deadline0. Python timely-known-no-child gate remains independently required.",
+    "Create returns raw PI and immediate LastError before tick or destructors. Partial outputs remain caller cleanup responsibility. Catch path9 cannot become known-no-child.",
+    "Bootstrap uses two attributes SE_ENV+AAP0. Measured roles use three SE_ENV+SEC_CAPS+AAP0/1. Both use CREATE_SUSPENDED/noinherit/noWindow and no Resume, Assign, network or token-mutation export.",
+    "Borrowed inner Job remains held by Python. Native validates exact KOC/noUI/noninherit Job and requires empty before consuming VOID opaque handle. Unreturned child attempt prevents native close.",
+    "S_OK+nonnull is the only owned environment result; failed+nonnull and nonnegative mismatches remain unknown. VOID normal return does not prove external environment absence or broker cancellation.",
+    "Shared spec/schema/generated/dependency bytes remain old pins; windows.h except macro is locally push/undef/include/pop, not a generated source edit."
+  ],
+  "schema_version": 1,
+  "source_count": 6,
+  "stage": "independent-static-review-psec-lpac-matchedcaps-native",
+  "tests": {
+    "author_static_result": "passed without original log; read as author assertion, not independently rerun",
+    "executed_by_this_review": 0,
+    "new_methods": 3,
+    "portable_compilation_and_execution_pending_root": true,
+    "portable_compile_tests": 2,
+    "static_python_tests": 1
+  },
+  "verdict": "go-for-root-compile-and-next-review"
+}

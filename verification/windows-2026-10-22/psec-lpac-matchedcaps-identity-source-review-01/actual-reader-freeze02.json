@@ -1,0 +1,60 @@
+{
+  "absent_fields_are_null": true,
+  "actual_auditor_executed": false,
+  "actual_experiment_repeated": false,
+  "actual_review_output_written": false,
+  "actual_source_or_private_evidence_modified": false,
+  "ast_valid": true,
+  "change_scope": "Only historical prior-evidence product_acceptance schema selection and explicit recorded-field presence/value projection.",
+  "diff": {
+    "bytes": 2421,
+    "name": "psec-lpac-matchedcaps-file-reader02.diff",
+    "sha256": "7eab2b2541821124680737cf2ebae57e62aaa8f8d8503ff9073eba1a8df2c5f1"
+  },
+  "dll_loaded": false,
+  "failed_reader": {
+    "bytes": 38801,
+    "name": "verify_psec_lpac_matchedcaps_actual_01.py",
+    "sha256": "0621557f94e4fcae0e59bf320f7be63a810917a7afb88965afb7688be995c515"
+  },
+  "main_modified": false,
+  "native_api_executed": false,
+  "no_synthetic_prior_qualification": true,
+  "original_failure_label": "audit_prior_evidence_not_product_acceptance",
+  "preserved_failed_reader": {
+    "bytes": 38801,
+    "name": "verify_psec_lpac_matchedcaps_actual_01_failed-reader-01.py",
+    "sha256": "0621557f94e4fcae0e59bf320f7be63a810917a7afb88965afb7688be995c515"
+  },
+  "pure": {
+    "exit_code": 0,
+    "log": {
+      "bytes": 976,
+      "name": "psec-lpac-matchedcaps-file-reader02-pure.log",
+      "sha256": "293b2374e45b6633b0c7503a4c1a385ba1f447511583541dd5219e667bffa7b9"
+    },
+    "seconds": "0.001",
+    "skip_count": 0,
+    "source": {
+      "bytes": 2665,
+      "name": "test_matchedcaps_file_reader02.py",
+      "sha256": "0dde17ca098d1fdb2ea5dd7755bb41db38740663725685632da443fd613ea6c9"
+    },
+    "tests": 5
+  },
+  "reader02": {
+    "bytes": 39820,
+    "name": "verify_psec_lpac_matchedcaps_actual_01_reader02.py",
+    "sha256": "5d8fc85cf1a0dff4ece5b6f2bea66fcde712f5fd5b604c496368f964231b06b4"
+  },
+  "root_next_step": "Review the narrow diff, then run reader02 with the same committed actual source/public SHA/bytes. No runtime rerun.",
+  "schema_mapping": {
+    "lpac-semantic-dns-local-02-public.json": "product_acceptance",
+    "model2-dns-01-public.json": "result.product_acceptance",
+    "model2-raw-dns-02-public.json": "result.product_acceptance",
+    "psec-lpac-postassign-identity-local-01-public.json": "product_acceptance"
+  },
+  "schema_version": 1,
+  "stage": "file-only-historical-public-schema-reader-repair",
+  "top_absence_preserved": true
+}

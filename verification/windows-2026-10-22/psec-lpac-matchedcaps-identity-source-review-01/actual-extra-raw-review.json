@@ -1,0 +1,774 @@
+{
+  "actor_resumed": false,
+  "archive_written": false,
+  "atomic_inner_creation_proven": false,
+  "broker_cancellation_proven": false,
+  "caller_intent_count": 10,
+  "cleanup": {
+    "api_obligations_closed": true,
+    "child_resources_cleanup": true,
+    "job_query_resources_cleanup_verified": true,
+    "module_unbound": true,
+    "observer_resources_cleanup_verified": true,
+    "opaque_outcome_unknown": false,
+    "workload_cleanup": true,
+    "workload_job_empty": true
+  },
+  "continuous_outer_supervision_proven": false,
+  "creation_transfer_crash_gap_resolved": false,
+  "dns_tested": false,
+  "external_environment_absence_verified": false,
+  "forensic": {
+    "bytes": 161466,
+    "sha256": "52c224590f5ebf6afd014307180e2c465f7867f99883ac502f534aa99086a3d0"
+  },
+  "forensic_equals_original_valid_result": true,
+  "identity_observation": {
+    "ac_accesscheck_verified": true,
+    "ac_granted_access": [
+      3,
+      0,
+      1,
+      2
+    ],
+    "ac_held_verified": true,
+    "ac_inner_assignment_verified": true,
+    "api_obligations_closed": true,
+    "bootstrap_held_verified": true,
+    "bootstrap_inner_assignment_verified": true,
+    "common_inputs_verified": true,
+    "failure": "accesscheck",
+    "inner_complete": false,
+    "lpac_accesscheck_verified": false,
+    "lpac_granted_access": null,
+    "lpac_held_verified": true,
+    "lpac_inner_assignment_verified": true,
+    "module_unbound": true,
+    "observer_resources_cleanup_verified": true,
+    "opaque_outcome_unknown": false,
+    "psec_network_preservation_proven": false,
+    "security_capabilities_verified": true,
+    "workload_cleanup": true,
+    "workload_job_empty": true
+  },
+  "job_admission_record_count": 24,
+  "linux_equivalence_proven": false,
+  "native_or_actor_or_trace_or_network_or_policy_or_recovery_run": false,
+  "native_pin_count": 37,
+  "native_return_count": 7,
+  "network_tested": false,
+  "observation_complete": false,
+  "old_unknown_or_dns_evidence_reinterpreted": false,
+  "original_broker_outcome_unknown": false,
+  "original_failure": "accesscheck",
+  "original_recovery_required": false,
+  "original_status": "inconclusive",
+  "outer_launch": {
+    "bytes": 620,
+    "sha256": "a75d7eff5d451c3a7239492df7b478e20c8981fa716b6622c04ecf2f785aee95"
+  },
+  "partial_calls_not_completed": true,
+  "pretransfer_and_assignment_receipt_count": 9,
+  "proof_observations": [
+    {
+      "attempted_call_count": 4,
+      "calls": [
+        {
+          "access_status": true,
+          "api_success": true,
+          "attempted": true,
+          "descriptor": {
+            "aces": [
+              {
+                "flags": 0,
+                "mask": 3,
+                "principal": "World",
+                "type": 0
+              },
+              {
+                "flags": 0,
+                "mask": 1,
+                "principal": "AllApplicationPackages",
+                "type": 0
+              },
+              {
+                "flags": 0,
+                "mask": 2,
+                "principal": "AllRestrictedApplicationPackages",
+                "type": 0
+              }
+            ],
+            "bytes": 120,
+            "group": "LocalSystem",
+            "owner": "LocalSystem",
+            "sha256": "ee3c86d1f6cfc1dc651629670b2789f4da64b1b138ad964ad7ac5844c94c8129"
+          },
+          "descriptor_verified": true,
+          "granted_access": 3,
+          "label": "combined",
+          "privilege_count": 0,
+          "win32_error": null,
+          "within_deadline": true
+        },
+        {
+          "access_status": false,
+          "api_success": true,
+          "attempted": true,
+          "descriptor": {
+            "aces": [
+              {
+                "flags": 0,
+                "mask": 3,
+                "principal": "World",
+                "type": 0
+              }
+            ],
+            "bytes": 72,
+            "group": "LocalSystem",
+            "owner": "LocalSystem",
+            "sha256": "9be942e409861151bb93da9abaf0d8033c2e3a7df4577f8d6d3b929bd44e0bea"
+          },
+          "descriptor_verified": true,
+          "granted_access": 0,
+          "label": "world",
+          "privilege_count": 0,
+          "win32_error": null,
+          "within_deadline": true
+        },
+        {
+          "access_status": true,
+          "api_success": true,
+          "attempted": true,
+          "descriptor": {
+            "aces": [
+              {
+                "flags": 0,
+                "mask": 3,
+                "principal": "World",
+                "type": 0
+              },
+              {
+                "flags": 0,
+                "mask": 1,
+                "principal": "AllApplicationPackages",
+                "type": 0
+              }
+            ],
+            "bytes": 96,
+            "group": "LocalSystem",
+            "owner": "LocalSystem",
+            "sha256": "39e5fce56dc10aa4c1e55cbb35d1207042d6617608db16da8ac308a9861c2314"
+          },
+          "descriptor_verified": true,
+          "granted_access": 1,
+          "label": "aap",
+          "privilege_count": 0,
+          "win32_error": null,
+          "within_deadline": true
+        },
+        {
+          "access_status": true,
+          "api_success": true,
+          "attempted": true,
+          "descriptor": {
+            "aces": [
+              {
+                "flags": 0,
+                "mask": 3,
+                "principal": "World",
+                "type": 0
+              },
+              {
+                "flags": 0,
+                "mask": 2,
+                "principal": "AllRestrictedApplicationPackages",
+                "type": 0
+              }
+            ],
+            "bytes": 96,
+            "group": "LocalSystem",
+            "owner": "LocalSystem",
+            "sha256": "15166e6015903b018e6c5d49ee7f2527f3d1f3768309fd473be49d1e3814e21a"
+          },
+          "descriptor_verified": true,
+          "granted_access": 2,
+          "label": "arap",
+          "privilege_count": 0,
+          "win32_error": null,
+          "within_deadline": true
+        }
+      ],
+      "canonical_private_proof_sha256": "620d9f81e47bccbf1880b3337fbd5adc3ca8a4d4fe9961dfbc9be2abe5d0c13f",
+      "classification": "ac-semantic-match",
+      "complete_four_call_observation": true,
+      "dns_tested": false,
+      "duplicate_identification_bound": true,
+      "error_present": false,
+      "expected_matrix": [
+        3,
+        0,
+        1,
+        2
+      ],
+      "failure": null,
+      "generation_after": true,
+      "generation_before": true,
+      "network_tested": false,
+      "observation_complete": true,
+      "observed_calls": [
+        {
+          "access_status": true,
+          "api_success": true,
+          "attempted": true,
+          "descriptor": {
+            "aces": [
+              {
+                "flags": 0,
+                "mask": 3,
+                "principal": "World",
+                "type": 0
+              },
+              {
+                "flags": 0,
+                "mask": 1,
+                "principal": "AllApplicationPackages",
+                "type": 0
+              },
+              {
+                "flags": 0,
+                "mask": 2,
+                "principal": "AllRestrictedApplicationPackages",
+                "type": 0
+              }
+            ],
+            "bytes": 120,
+            "group": "LocalSystem",
+            "owner": "LocalSystem",
+            "sha256": "ee3c86d1f6cfc1dc651629670b2789f4da64b1b138ad964ad7ac5844c94c8129"
+          },
+          "descriptor_verified": true,
+          "granted_access": 3,
+          "label": "combined",
+          "privilege_count": 0,
+          "win32_error": null,
+          "within_deadline": true
+        },
+        {
+          "access_status": false,
+          "api_success": true,
+          "attempted": true,
+          "descriptor": {
+            "aces": [
+              {
+                "flags": 0,
+                "mask": 3,
+                "principal": "World",
+                "type": 0
+              }
+            ],
+            "bytes": 72,
+            "group": "LocalSystem",
+            "owner": "LocalSystem",
+            "sha256": "9be942e409861151bb93da9abaf0d8033c2e3a7df4577f8d6d3b929bd44e0bea"
+          },
+          "descriptor_verified": true,
+          "granted_access": 0,
+          "label": "world",
+          "privilege_count": 0,
+          "win32_error": null,
+          "within_deadline": true
+        },
+        {
+          "access_status": true,
+          "api_success": true,
+          "attempted": true,
+          "descriptor": {
+            "aces": [
+              {
+                "flags": 0,
+                "mask": 3,
+                "principal": "World",
+                "type": 0
+              },
+              {
+                "flags": 0,
+                "mask": 1,
+                "principal": "AllApplicationPackages",
+                "type": 0
+              }
+            ],
+            "bytes": 96,
+            "group": "LocalSystem",
+            "owner": "LocalSystem",
+            "sha256": "39e5fce56dc10aa4c1e55cbb35d1207042d6617608db16da8ac308a9861c2314"
+          },
+          "descriptor_verified": true,
+          "granted_access": 1,
+          "label": "aap",
+          "privilege_count": 0,
+          "win32_error": null,
+          "within_deadline": true
+        },
+        {
+          "access_status": true,
+          "api_success": true,
+          "attempted": true,
+          "descriptor": {
+            "aces": [
+              {
+                "flags": 0,
+                "mask": 3,
+                "principal": "World",
+                "type": 0
+              },
+              {
+                "flags": 0,
+                "mask": 2,
+                "principal": "AllRestrictedApplicationPackages",
+                "type": 0
+              }
+            ],
+            "bytes": 96,
+            "group": "LocalSystem",
+            "owner": "LocalSystem",
+            "sha256": "15166e6015903b018e6c5d49ee7f2527f3d1f3768309fd473be49d1e3814e21a"
+          },
+          "descriptor_verified": true,
+          "granted_access": 2,
+          "label": "arap",
+          "privilege_count": 0,
+          "win32_error": null,
+          "within_deadline": true
+        }
+      ],
+      "observed_matrix": [
+        3,
+        0,
+        1,
+        2
+      ],
+      "partial_observation_preserved": false,
+      "process_or_thread_impersonation_applied": false,
+      "product_acceptance": false,
+      "qualified": true,
+      "resource_cleanup_verified": true,
+      "resources": [
+        {
+          "alias": false,
+          "attempted": true,
+          "close_attempted": true,
+          "close_confirmed": true,
+          "close_uncertain": false,
+          "creation_returned": true,
+          "kind": "token",
+          "name": "source-primary",
+          "returned": true
+        },
+        {
+          "alias": false,
+          "attempted": true,
+          "close_attempted": true,
+          "close_confirmed": true,
+          "close_uncertain": false,
+          "creation_returned": true,
+          "kind": "token",
+          "name": "duplicate-identification",
+          "returned": true
+        },
+        {
+          "alias": false,
+          "attempted": true,
+          "close_attempted": true,
+          "close_confirmed": true,
+          "close_uncertain": false,
+          "creation_returned": true,
+          "kind": "descriptor",
+          "name": "descriptor-combined",
+          "returned": true
+        },
+        {
+          "alias": false,
+          "attempted": true,
+          "close_attempted": true,
+          "close_confirmed": true,
+          "close_uncertain": false,
+          "creation_returned": true,
+          "kind": "descriptor",
+          "name": "descriptor-world",
+          "returned": true
+        },
+        {
+          "alias": false,
+          "attempted": true,
+          "close_attempted": true,
+          "close_confirmed": true,
+          "close_uncertain": false,
+          "creation_returned": true,
+          "kind": "descriptor",
+          "name": "descriptor-aap",
+          "returned": true
+        },
+        {
+          "alias": false,
+          "attempted": true,
+          "close_attempted": true,
+          "close_confirmed": true,
+          "close_uncertain": false,
+          "creation_returned": true,
+          "kind": "descriptor",
+          "name": "descriptor-arap",
+          "returned": true
+        }
+      ],
+      "role": "ac",
+      "source_primary_bound": true,
+      "token_class46_queried": false,
+      "unattempted_call_labels": [],
+      "unattempted_calls_not_filled": true,
+      "win32_error": null
+    },
+    {
+      "attempted_call_count": 1,
+      "calls": [
+        {
+          "access_status": true,
+          "api_success": true,
+          "attempted": true,
+          "descriptor": {
+            "aces": [
+              {
+                "flags": 0,
+                "mask": 3,
+                "principal": "World",
+                "type": 0
+              },
+              {
+                "flags": 0,
+                "mask": 1,
+                "principal": "AllApplicationPackages",
+                "type": 0
+              },
+              {
+                "flags": 0,
+                "mask": 2,
+                "principal": "AllRestrictedApplicationPackages",
+                "type": 0
+              }
+            ],
+            "bytes": 120,
+            "group": "LocalSystem",
+            "owner": "LocalSystem",
+            "sha256": "ee3c86d1f6cfc1dc651629670b2789f4da64b1b138ad964ad7ac5844c94c8129"
+          },
+          "descriptor_verified": true,
+          "granted_access": 3,
+          "label": "combined",
+          "privilege_count": 0,
+          "win32_error": null,
+          "within_deadline": true
+        }
+      ],
+      "canonical_private_proof_sha256": "ad24c2ffa04d8c3c77602a0a8a588154d9a965a092901ca54a17d7379a2b0dc7",
+      "classification": "unknown",
+      "complete_four_call_observation": false,
+      "dns_tested": false,
+      "duplicate_identification_bound": true,
+      "error_present": false,
+      "expected_matrix": [
+        2,
+        0,
+        0,
+        2
+      ],
+      "failure": "mask",
+      "generation_after": false,
+      "generation_before": true,
+      "network_tested": false,
+      "observation_complete": false,
+      "observed_calls": [
+        {
+          "access_status": true,
+          "api_success": true,
+          "attempted": true,
+          "descriptor": {
+            "aces": [
+              {
+                "flags": 0,
+                "mask": 3,
+                "principal": "World",
+                "type": 0
+              },
+              {
+                "flags": 0,
+                "mask": 1,
+                "principal": "AllApplicationPackages",
+                "type": 0
+              },
+              {
+                "flags": 0,
+                "mask": 2,
+                "principal": "AllRestrictedApplicationPackages",
+                "type": 0
+              }
+            ],
+            "bytes": 120,
+            "group": "LocalSystem",
+            "owner": "LocalSystem",
+            "sha256": "ee3c86d1f6cfc1dc651629670b2789f4da64b1b138ad964ad7ac5844c94c8129"
+          },
+          "descriptor_verified": true,
+          "granted_access": 3,
+          "label": "combined",
+          "privilege_count": 0,
+          "win32_error": null,
+          "within_deadline": true
+        }
+      ],
+      "observed_matrix": null,
+      "partial_observation_preserved": true,
+      "process_or_thread_impersonation_applied": false,
+      "product_acceptance": false,
+      "qualified": false,
+      "resource_cleanup_verified": true,
+      "resources": [
+        {
+          "alias": false,
+          "attempted": true,
+          "close_attempted": true,
+          "close_confirmed": true,
+          "close_uncertain": false,
+          "creation_returned": true,
+          "kind": "token",
+          "name": "source-primary",
+          "returned": true
+        },
+        {
+          "alias": false,
+          "attempted": true,
+          "close_attempted": true,
+          "close_confirmed": true,
+          "close_uncertain": false,
+          "creation_returned": true,
+          "kind": "token",
+          "name": "duplicate-identification",
+          "returned": true
+        },
+        {
+          "alias": false,
+          "attempted": true,
+          "close_attempted": true,
+          "close_confirmed": true,
+          "close_uncertain": false,
+          "creation_returned": true,
+          "kind": "descriptor",
+          "name": "descriptor-combined",
+          "returned": true
+        }
+      ],
+      "role": "lpac",
+      "source_primary_bound": true,
+      "token_class46_queried": false,
+      "unattempted_call_labels": [
+        "world",
+        "aap",
+        "arap"
+      ],
+      "unattempted_calls_not_filled": true,
+      "win32_error": null
+    }
+  ],
+  "psec_network_preservation_proven": false,
+  "public": {
+    "bytes": 2658,
+    "sha256": "6acc10b614f5c35c56ed2adf4e648a7b0f4ea3a74ddbdf3f3e7fb595c9a103b4"
+  },
+  "public_checks": {
+    "artifact": true,
+    "dll": true,
+    "guard": true,
+    "inner_complete": false,
+    "ordinary": true,
+    "outer_cleanup": true,
+    "plan": true,
+    "processmodel": true,
+    "sources": true,
+    "spec": true,
+    "worker_bound": true,
+    "worker_exit": true
+  },
+  "runtime_source_count": 36,
+  "schema_version": 1,
+  "security_capabilities": {
+    "abi_library_version": 3,
+    "abi_security_input_bytes": 64,
+    "abi_security_input_version": 3,
+    "actor_never_resume_source_invariant": true,
+    "api_or_experiment_run_by_reader": false,
+    "atomic_inner_creation_proven": false,
+    "attempt": 1,
+    "bootstrap_held_admitted": true,
+    "bootstrap_primary_available": true,
+    "bootstrap_record_available": true,
+    "bootstrap_self_report_or_actor_execution_used": false,
+    "canonical_pointer_free_input_sha256": "1de97d32949b133d7140149186a869664ae4e6c830a496f64b8444b5bab1473d",
+    "capability_profile": "AgenticAppContainer+privateNetworkClientServer",
+    "complete_two_measured_inputs_recorded": true,
+    "constructor_policy": "bootstrap-held-primary-matched-security-capabilities-aap-only-v1",
+    "continuous_outer_supervision_proven": false,
+    "creation_transfer_crash_gap_resolved": false,
+    "dns_tested": false,
+    "exact_os_catalog_count": 2,
+    "exception_message_published": false,
+    "exception_recorded": false,
+    "external_held_primary_source_bound": true,
+    "freeze_decision_tick_recorded": true,
+    "freeze_decision_within_original_work_deadline": true,
+    "held_worker_result_available": true,
+    "input_sid_byte_metadata": [
+      {
+        "attributes": null,
+        "bytes": 40,
+        "principal": "held-bootstrap-AppContainer",
+        "raw_bytes_or_sid_published": false,
+        "sha256": "c6f839a2e1328254c9a08d7a667ac600dfa02a13f412ba81319ae228cd4bcb63"
+      },
+      {
+        "attributes": 4,
+        "bytes": 48,
+        "principal": "AgenticAppContainer",
+        "raw_bytes_or_sid_published": false,
+        "sha256": "5ae541dee4da85dd70321b5de0c4d0dd46fa48b1411ddcfd9ac2b8b20939db52"
+      },
+      {
+        "attributes": 4,
+        "bytes": 16,
+        "principal": "privateNetworkClientServer",
+        "raw_bytes_or_sid_published": false,
+        "sha256": "5718f9be416bb50b85c46d9107f01d7594032cc2d04c4464ca05ff372c15df2f"
+      }
+    ],
+    "linux_equivalence_proven": false,
+    "measured_arms": [
+      {
+        "bootstrap_rechecked_before_create": true,
+        "bootstrap_rechecked_before_primary": true,
+        "constructor_attempted": true,
+        "held_admitted": true,
+        "input_sha256": "1de97d32949b133d7140149186a869664ae4e6c830a496f64b8444b5bab1473d",
+        "never_resumed": true,
+        "primary_snapshot_available": true,
+        "raw_generation_or_qpc_published": false,
+        "role": "ac",
+        "same_frozen_sc_input": true
+      },
+      {
+        "bootstrap_rechecked_before_create": true,
+        "bootstrap_rechecked_before_primary": true,
+        "constructor_attempted": true,
+        "held_admitted": true,
+        "input_sha256": "1de97d32949b133d7140149186a869664ae4e6c830a496f64b8444b5bab1473d",
+        "never_resumed": true,
+        "primary_snapshot_available": true,
+        "raw_generation_or_qpc_published": false,
+        "role": "lpac",
+        "same_frozen_sc_input": true
+      }
+    ],
+    "network_tested": false,
+    "physical_held_bound_receipt_count": 1,
+    "physical_receipt_count": 1,
+    "physical_receipts": [
+      {
+        "bound_to_validated_held_worker_result": true,
+        "bytes": 2163,
+        "raw_private_text_published": false,
+        "sha256": "e25fd757ced1dac447782a2c52fe920824f5716cf6c8d94337b0009ee82a9db5",
+        "unvalidated_forensic_only": false,
+        "used_for_independent_qualification": false
+      }
+    ],
+    "private_exception_sha256": null,
+    "product_acceptance": false,
+    "proxy_tested": false,
+    "psec_network_preservation_proven": false,
+    "raw_sid_capability_bytes_pid_handle_path_or_qpc_published": false,
+    "required_capability_attributes": 4,
+    "same_input_for_all_recorded_measured_arms": true,
+    "schema_version": 1,
+    "scope": "one-local-cpse-deny-all-outer-guarded-matched-secaps-identity-v1",
+    "security_capabilities_input_does_not_prove_psec_policy_preservation": true,
+    "security_capabilities_verified": true,
+    "source_commit": "ec45dffb66cc88bb48578101afb93ce7044a6521",
+    "source_sha256": "f77fdff1de75ba53d6dca04d65659deb43fd6bdc91c2feaf1c6a03ade7c008db",
+    "stage": "psec-matchedcaps-held-bootstrap-security-capabilities-safe-projection",
+    "unbound_files_used_for_qualification": false,
+    "worker_result_validated": true
+  },
+  "source_commit": "ec45dffb66cc88bb48578101afb93ce7044a6521",
+  "source_imports_pure_only": true,
+  "source_sha256": "f77fdff1de75ba53d6dca04d65659deb43fd6bdc91c2feaf1c6a03ade7c008db",
+  "stage": "matchedcaps-actual01-extra-sourcebound-raw-call-safe-review",
+  "tasks": [
+    {
+      "admitted": true,
+      "all_post_assignment_jobs_passed": true,
+      "assigned": true,
+      "exact_two_enabled_capabilities": true,
+      "exit_code": 1,
+      "exited": true,
+      "low_il": true,
+      "never_resumed": true,
+      "post_assignment_jobs": 11,
+      "primary_available": true,
+      "role": "bootstrap",
+      "same_session": true,
+      "same_user": true,
+      "transfer_error": 0,
+      "transfer_return": 1,
+      "transfer_timely": true
+    },
+    {
+      "admitted": true,
+      "all_post_assignment_jobs_passed": true,
+      "assigned": true,
+      "exact_two_enabled_capabilities": true,
+      "exit_code": 1,
+      "exited": true,
+      "low_il": true,
+      "never_resumed": true,
+      "post_assignment_jobs": 7,
+      "primary_available": true,
+      "role": "ac",
+      "same_session": true,
+      "same_user": true,
+      "transfer_error": 0,
+      "transfer_return": 1,
+      "transfer_timely": true
+    },
+    {
+      "admitted": true,
+      "all_post_assignment_jobs_passed": true,
+      "assigned": true,
+      "exact_two_enabled_capabilities": true,
+      "exit_code": 1,
+      "exited": true,
+      "low_il": true,
+      "never_resumed": true,
+      "post_assignment_jobs": 6,
+      "primary_available": true,
+      "role": "lpac",
+      "same_session": true,
+      "same_user": true,
+      "transfer_error": 0,
+      "transfer_return": 1,
+      "transfer_timely": true
+    }
+  ],
+  "token_class46_queried": false,
+  "worker_exit_code": 0,
+  "worker_held_bound": true,
+  "worker_report": {
+    "bytes": 167549,
+    "sha256": "61de352361d509b56062375c63ff743ba01f549f432f86144e1a402ff6e6ac95"
+  }
+}

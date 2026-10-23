@@ -1,0 +1,65 @@
+{
+  "actual_fact_or_outcome_inferred": false,
+  "actual_file_count_computed_from_prepare": true,
+  "actual_independent_review_byte_and_sha_pins_pending": true,
+  "actual_private_report_or_stage_read": false,
+  "actual_public_byte_and_sha_pins_pending": true,
+  "actual_source_commit_pending": true,
+  "archive_or_publication_executed": false,
+  "expected_bindings": {
+    "actor_manifest_keys": 13,
+    "actor_native_pins": 9,
+    "bridge_library_abi_version": 3,
+    "bridge_manifest_keys": 15,
+    "bridge_payload_version": 1,
+    "native_dependencies": 31,
+    "native_sources": 6,
+    "private_commitment_keys": [
+      "config",
+      "driver",
+      "forensic",
+      "outer_launch",
+      "plan",
+      "security_capabilities",
+      "spec",
+      "stderr",
+      "stdout",
+      "worker_report"
+    ],
+    "roles": [
+      "bootstrap",
+      "ac",
+      "lpac"
+    ],
+    "runtime_sources": 36,
+    "security_input_bytes": 64
+  },
+  "linux_equivalence_proven": false,
+  "main_source_or_outputs_modified": false,
+  "missing_report_not_filled_from_forensic": true,
+  "native_api_or_actor_or_network_executed": false,
+  "partial_proof_vector_not_synthesized": true,
+  "pending_pin_guard_precedes_any_actual_evidence_read": true,
+  "provisional_file_count_with_runner_and_capture_pair": 16,
+  "psec_network_preservation_proven": false,
+  "pure_tests": {
+    "bytes": 6562,
+    "errors": 0,
+    "failures": 0,
+    "observation_source": "Completed exec tool output, not a fabricated raw-log file.",
+    "path": "test_archive_psec_lpac_matchedcaps_identity_01.py",
+    "seconds": 0.805,
+    "separate_raw_log_available": false,
+    "sha256": "b4ff1a6ebc76c3c7f58f6a8042e13282dc8af33a2f4fc4b318c9eead54f07a58",
+    "skips": 0,
+    "tests": 6
+  },
+  "raw_sid_pid_handle_qpc_nonce_or_private_path_published": false,
+  "reader": {
+    "bytes": 77703,
+    "path": "archive_psec_lpac_matchedcaps_identity_01_preactual.py",
+    "sha256": "e706d82ce56dacd8361edc65158a476694d10f1ae64d50b58879cc26823fe65a"
+  },
+  "schema_version": 1,
+  "stage": "work-only-matchedcaps-safe-archiver-preactual-preparation"
+}

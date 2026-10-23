@@ -1,0 +1,7 @@
+test_real_abi3_adapter_uses_role0_null_then_identical_sc64_for_role1_role2 (matchedcaps_abi_review.MatchedCapsTests.test_real_abi3_adapter_uses_role0_null_then_identical_sc64_for_role1_role2) ... ok
+test_partial_or_late_precreate_return_is_unknown_and_never_qualifies (matchedcaps_abi_review.MatchedCapsTests.test_partial_or_late_precreate_return_is_unknown_and_never_qualifies) ... ok
+
+----------------------------------------------------------------------
+Ran 2 tests in 1.135s
+
+OK
