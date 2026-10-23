@@ -1,0 +1,109 @@
+{
+  "CI_or_runtime_dispatched_by_publisher": false,
+  "automatic_CI": {
+    "conclusion": "success",
+    "failed_summary": null,
+    "job_conclusion": "success",
+    "job_id": 120379299352,
+    "jobs": {
+      "bytes": 3058,
+      "sha256": "1486913cdd97eb1a7f2f2613258822ec031b1e4deb8b43d807d39f4f572b48a4"
+    },
+    "log_format": "connector decoded UTF8 log; not a raw ZIP or raw HTTP",
+    "passed": true,
+    "raw_log": {
+      "bytes": 277820,
+      "sha256": "76d7c43a8363bbeaea4f7e0c3d25e77e30430c2c0984bd917082d3a8a652e5be"
+    },
+    "run": {
+      "bytes": 14041,
+      "sha256": "f7deaf93da5d8b1994692f68c75b25dbb4530db0f06c1dd7862672c076687cbe"
+    },
+    "run_id": 39943168574,
+    "runtime_steps5_to9": "skipped",
+    "seconds": 250.809,
+    "skips": 0,
+    "status": "completed",
+    "tests": 1172,
+    "url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39943168574"
+  },
+  "cancelled_earlier_CI": {
+    "KeyboardInterrupt_observed": true,
+    "complete_suite_count": null,
+    "complete_unittest_summary_present": false,
+    "conclusion": "cancelled",
+    "exact_decoded_files": {
+      "jobs": {
+        "bytes": 3062,
+        "name": "ci-lpac-pipe-dns-nrpt-2b4247d-39941906069-timeout-jobs.json",
+        "sha256": "33025dc4b13c7d81cddd6bb0d460a7944b7c8f32fdaa212c692af88aa637ed10"
+      },
+      "log": {
+        "bytes": 251004,
+        "name": "ci-lpac-pipe-dns-nrpt-2b4247d-39941906069-timeout-job.log",
+        "sha256": "5e4218be2e2ef4940a2ad5705421acf5ccc9ca146bc66005ea6ffb6f14f5b2c2"
+      },
+      "run": {
+        "bytes": 14047,
+        "name": "ci-lpac-pipe-dns-nrpt-2b4247d-39941906069-timeout-run.json",
+        "sha256": "59c8c5bfde7ee4f7bcc6c2edffbe4a3eae9f96299ea82c57c5e43f28e488292a"
+      }
+    },
+    "interpretation": "The eight-minute CI job was cancelled before a complete suite summary. No completed test count, full-suite pass, DNS API failure or local assay verdict is inferred.",
+    "job_budget_minutes": 8,
+    "job_id": 120375120241,
+    "later_workflow_only_change": {
+      "CI_job_budget_minutes": 12,
+      "commit": "c9633b2cbb82f9a3c47ac5b8624d3cc1a1b39ce0",
+      "local_root_worker_work_pair_and_inventory_deadlines_unchanged": true,
+      "path": ".github/workflows/windows-identity-proof.yml"
+    },
+    "log_format": "connector decoded UTF8; not raw ZIP or HTTP",
+    "run_id": 39941906069,
+    "source47_exact_same_hashes_verified": true,
+    "source_commit": "2b4247d77b7529552bb8f4f276c2439f6f7fe5f7",
+    "status": "completed",
+    "unittest_FAIL_ERROR_headers_observed": false,
+    "url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39941906069"
+  },
+  "local": {
+    "first_full": {
+      "failed_summary": "failures=22, skipped=2",
+      "passed": false,
+      "raw_log": {
+        "bytes": 247557,
+        "sha256": "bb70fc5db59bc094e7cff2e95fbc512d0edad3d81fa6c2c290ff6fda4ce66058"
+      },
+      "reason": "22 compiled portable tests failed because cl.exe was unavailable in that shell; original log/receipt retained; no production change",
+      "receipt": {
+        "bytes": 1081,
+        "sha256": "9113dfc9def173dec931668eb6876fd2eee43218b36b3fc6ca30e134c2e6b3e4"
+      },
+      "root_receipt_errors": null,
+      "root_receipt_failures": null,
+      "seconds": 208.363,
+      "skips": null,
+      "tests": 1172
+    },
+    "second_full": {
+      "failed_summary": null,
+      "passed": true,
+      "raw_log": {
+        "bytes": 222884,
+        "sha256": "fc7862fdf5765379dc39b506a877f3e25a0c5e5da8510bad4b455338fe43db4d"
+      },
+      "receipt": {
+        "bytes": 1074,
+        "sha256": "c5a8993e4ea73cae622e3401470634abe7024f888e5407e0546e8cf91382fb2d"
+      },
+      "seconds": 239.433,
+      "skips": 2,
+      "tests": 1172
+    },
+    "source_changed_between_full_runs": false
+  },
+  "raw_logs_republished": false,
+  "schema_version": 1,
+  "source_commit": "c9633b2cbb82f9a3c47ac5b8624d3cc1a1b39ce0",
+  "stage": "lpac-pipe-dns-nrpt-pure-CI-summary"
+}

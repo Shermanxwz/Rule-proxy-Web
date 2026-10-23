@@ -1,0 +1,390 @@
+{
+  "Ready": {
+    "bytes": 19514,
+    "sha256": "1b5666c7174ec2e9f1a0fd16011fbb43526d3dd02c50681e2aade6d98596525a"
+  },
+  "compiled_artifacts": {
+    "artifacts": {
+      "control": {
+        "actor": {
+          "bytes": 151040,
+          "sha256": "5e7cbcaaa0a7bfdfa9026898493cbf74dafaa7b875bb4749680cc5be98261299"
+        },
+        "manifest": {
+          "bytes": 450,
+          "sha256": "49f4b44a06cd6bdbc6cfb0b4b2dd2c7a5c3443e0f2b79d61040e97479a2aa648"
+        },
+        "native_pin_count": 3,
+        "original_precompile_source_snapshot_verified": false
+      },
+      "origin": {
+        "actor": {
+          "bytes": 217088,
+          "sha256": "042562a096a9f488b7a52ee8eb894af0b26dc679a05dc8948a9ae159b71cf161"
+        },
+        "manifest": {
+          "bytes": 633,
+          "sha256": "5b3660539e70bc53d004b2ee3b7b13bfa7fe6418042e57bbd0263b03cef4a456"
+        },
+        "native_pin_count": 5,
+        "original_precompile_source_snapshot_verified": false
+      },
+      "selected": {
+        "actor": {
+          "bytes": 206848,
+          "sha256": "e29371fadc445f44408ee0b719914f484ff5995e0215f32046d2169144488ca6"
+        },
+        "manifest": {
+          "bytes": 745,
+          "sha256": "177439d092b3e6f113802aa277995bde00eb26c551efdbda5fbe876601744531"
+        },
+        "native_pin_count": 6,
+        "original_precompile_source_snapshot_verified": true
+      }
+    },
+    "old_compile_failure_preserved": true,
+    "old_reused_B_and_control_precompile_snapshots_not_reconstructed": true,
+    "selected_input_snapshot": {
+      "bytes": 1709,
+      "sha256": "3bd612bb2d0072358767ba7ef0dee19f6b83550aafc31adf9a2b1df2ab1a272b"
+    },
+    "selected_original_compile_freeze": {
+      "bytes": 25655,
+      "sha256": "8735ffe879858a9541113f733add63972e5fa19f208f4d3e144487f057f62faa"
+    },
+    "selected_static_PE_review": {
+      "bytes": 6360,
+      "sha256": "375571479008bc5cb3d39bcce00e91d602f025a89d8750e02fbf08c41434741b"
+    }
+  },
+  "five_second_sample_freshness_is_not_policy_lock": true,
+  "new_PS_inventory_CIM_raw_fields": 16,
+  "old_control_B_original_snapshot_not_reconstructed": true,
+  "old_native_artifacts_unchanged": true,
+  "schema_version": 1,
+  "source_commit": "c9633b2cbb82f9a3c47ac5b8624d3cc1a1b39ce0",
+  "source_count": 47,
+  "source_preparation": [
+    {
+      "bytes": 15102,
+      "name": "lpac-pipe-dns-nrpt-policy-scope-contract-01.json",
+      "sha256": "33d5a375215980dcfc6eacb0e606d5c0bb6f5ed7907613aa04e0f660cab32dd0"
+    },
+    {
+      "bytes": 1928,
+      "name": "lpac-pipe-dns-exact-nrpt-pure-freeze-01.json",
+      "sha256": "2398581e7924e7f5d7ebba576a2877125282705da8008bae3ccfe2422f3810e6"
+    },
+    {
+      "bytes": 25214,
+      "name": "lpac-pipe-dns-nrpt-owner-candidate-freeze-01.json",
+      "sha256": "5a345929567a0cdc89cd566bf864dc318362b838bc65cb7a85846de38c4c850f"
+    },
+    {
+      "bytes": 4588,
+      "name": "lpac-pipe-dns-nrpt-owner-root-independent-review-01.json",
+      "sha256": "9fd78f191f683708e9dd6a8821133fa6b5e8c38c608bd7c083bec49a0f338e92"
+    },
+    {
+      "bytes": 1569,
+      "name": "lpac-pipe-dns-nrpt-promotion-helper-freeze-01.json",
+      "sha256": "8bbd91df51bea93e62f8525c1dcbc5fdd863404bc84f7f03b33457aa33d896f5"
+    },
+    {
+      "bytes": 2725,
+      "name": "lpac-pipe-dns-nrpt-driver-candidate-freeze-01.json",
+      "sha256": "94ae31fceb24884fde8f6a1ff98cc16b47a0ac2cf868917eec5f07e735598a97"
+    },
+    {
+      "bytes": 3543,
+      "name": "lpac-pipe-dns-nrpt-driver-capture-independent-review-01.json",
+      "sha256": "c98d026b06db95925da38bec7135413cd5d724587463fc3f17fc8020da79455f"
+    }
+  ],
+  "source_sha256": "b9043b7ec45fd50bb72ba95e300c8dcb7f97a4afa3599899a87d83a57207a1fe",
+  "sources": [
+    {
+      "bytes": 31002,
+      "path": ".github/native/windows_identity_actor.cpp",
+      "sha256": "530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/c9633b2cbb82f9a3c47ac5b8624d3cc1a1b39ce0/.github/native/windows_identity_actor.cpp"
+    },
+    {
+      "bytes": 8847,
+      "path": ".github/native/windows_identity_dns_raw_udp.hpp",
+      "sha256": "43b8cc7afce3acd91cdd4f23ae7d7075a996f98860447c3e9791e298d33a8a78",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/c9633b2cbb82f9a3c47ac5b8624d3cc1a1b39ce0/.github/native/windows_identity_dns_raw_udp.hpp"
+    },
+    {
+      "bytes": 3187,
+      "path": ".github/native/windows_identity_dns_standard_actor.cpp",
+      "sha256": "ebbc29bc1e06ef4a355a8af6e4e4dfda3c7baadb608f45be913c6ed102d26219",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/c9633b2cbb82f9a3c47ac5b8624d3cc1a1b39ce0/.github/native/windows_identity_dns_standard_actor.cpp"
+    },
+    {
+      "bytes": 6678,
+      "path": ".github/native/windows_identity_dns_standard_probe.hpp",
+      "sha256": "bce69ff57a173525a9cff2731f4d05fe34b5144daeaa465b0d8bb5181432d28c",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/c9633b2cbb82f9a3c47ac5b8624d3cc1a1b39ce0/.github/native/windows_identity_dns_standard_probe.hpp"
+    },
+    {
+      "bytes": 30053,
+      "path": ".github/native/windows_identity_lpac_loopback_actor.cpp",
+      "sha256": "c3744801ef26fd42a3f1b1712a7d0b7c8e49369ae7e4d655ab46d8eb3f188985",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/c9633b2cbb82f9a3c47ac5b8624d3cc1a1b39ce0/.github/native/windows_identity_lpac_loopback_actor.cpp"
+    },
+    {
+      "bytes": 4650,
+      "path": ".github/native/windows_identity_lpac_loopback_contract.hpp",
+      "sha256": "a5e46a18c25211d34fd33c21a6e640dd7a6a3e3e02ec67fe03c30f010f9f9dce",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/c9633b2cbb82f9a3c47ac5b8624d3cc1a1b39ce0/.github/native/windows_identity_lpac_loopback_contract.hpp"
+    },
+    {
+      "bytes": 6864,
+      "path": ".github/native/windows_identity_lpac_pipe_dns_contract.hpp",
+      "sha256": "47d76fb5b6a08499d3421dee90bc71ea95b72d2b36aa64dfed9156a89cb1d930",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/c9633b2cbb82f9a3c47ac5b8624d3cc1a1b39ce0/.github/native/windows_identity_lpac_pipe_dns_contract.hpp"
+    },
+    {
+      "bytes": 8463,
+      "path": ".github/native/windows_identity_lpac_pipe_dns_front_actor.cpp",
+      "sha256": "867e7a462c35a05e7372aa7d1005a309be07a4dba0e89729585b98bdec0a86ee",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/c9633b2cbb82f9a3c47ac5b8624d3cc1a1b39ce0/.github/native/windows_identity_lpac_pipe_dns_front_actor.cpp"
+    },
+    {
+      "bytes": 6869,
+      "path": ".github/native/windows_identity_lpac_pipe_front_actor.cpp",
+      "sha256": "ecc4a793fa1afc33a5c9407486ee9f463bd68132b8090eb259270a89d19ca48d",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/c9633b2cbb82f9a3c47ac5b8624d3cc1a1b39ce0/.github/native/windows_identity_lpac_pipe_front_actor.cpp"
+    },
+    {
+      "bytes": 16902,
+      "path": ".github/native/windows_identity_proxy_bridge_core.hpp",
+      "sha256": "f03e45166265f02a65abc12930efd73634a332596d22aa78cadc1267a80b6356",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/c9633b2cbb82f9a3c47ac5b8624d3cc1a1b39ce0/.github/native/windows_identity_proxy_bridge_core.hpp"
+    },
+    {
+      "bytes": 49690,
+      "path": ".github/native/windows_identity_proxy_c_actor.cpp",
+      "sha256": "17f8a816028f71667513586b2efd57fc1c46b369e1d7171e74a2cef6e9c543a3",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/c9633b2cbb82f9a3c47ac5b8624d3cc1a1b39ce0/.github/native/windows_identity_proxy_c_actor.cpp"
+    },
+    {
+      "bytes": 4313,
+      "path": ".github/native/windows_identity_proxy_c_contract.hpp",
+      "sha256": "150efbbccdbcb9064eb6d43ddd25608a4a3655c5a408402779dae6216269ff1c",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/c9633b2cbb82f9a3c47ac5b8624d3cc1a1b39ce0/.github/native/windows_identity_proxy_c_contract.hpp"
+    },
+    {
+      "bytes": 25762,
+      "path": ".github/native/windows_identity_proxy_origin_actor.cpp",
+      "sha256": "3d079e77e387ba77545c27f5b5c260f591657ef3a44384426cd2039fa8c04010",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/c9633b2cbb82f9a3c47ac5b8624d3cc1a1b39ce0/.github/native/windows_identity_proxy_origin_actor.cpp"
+    },
+    {
+      "bytes": 6338,
+      "path": ".github/native/windows_identity_proxy_origin_transport.hpp",
+      "sha256": "bed113e5e20064722cbb2c6d3e71b4d3ca6c4769ebd694c86997abec0af661c4",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/c9633b2cbb82f9a3c47ac5b8624d3cc1a1b39ce0/.github/native/windows_identity_proxy_origin_transport.hpp"
+    },
+    {
+      "bytes": 16095,
+      "path": ".github/native/windows_identity_proxy_pipe_actor.cpp",
+      "sha256": "26636a6b9979e91452cf6e7d2049d6fbbfa43639a35708ee18d4a71e67fb8dd0",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/c9633b2cbb82f9a3c47ac5b8624d3cc1a1b39ce0/.github/native/windows_identity_proxy_pipe_actor.cpp"
+    },
+    {
+      "bytes": 9913,
+      "path": ".github/windows_dns_fixture.py",
+      "sha256": "5a330ae54ec887742ed14c0d2fd1135e486790b686fbc850c3681f04e674273a",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/c9633b2cbb82f9a3c47ac5b8624d3cc1a1b39ce0/.github/windows_dns_fixture.py"
+    },
+    {
+      "bytes": 11174,
+      "path": ".github/windows_identity_dns_cases_fixture.py",
+      "sha256": "28b3035e570ef57fbb3a12f9b8034c71be3d9280712a811fdb636fdb388c9d91",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/c9633b2cbb82f9a3c47ac5b8624d3cc1a1b39ce0/.github/windows_identity_dns_cases_fixture.py"
+    },
+    {
+      "bytes": 5690,
+      "path": ".github/windows_identity_dns_exact_nrpt_inventory.ps1",
+      "sha256": "306c8a0a4eda8d219e53b7ad93a5fe9386a8269fed9bf62ccea3a9e829840f24",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/c9633b2cbb82f9a3c47ac5b8624d3cc1a1b39ce0/.github/windows_identity_dns_exact_nrpt_inventory.ps1"
+    },
+    {
+      "bytes": 11025,
+      "path": ".github/windows_identity_dns_exact_nrpt_inventory.py",
+      "sha256": "46d75185eec46aec14fd852ce0789ce8fcd048700c0afec0c5423ff80e9f5b04",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/c9633b2cbb82f9a3c47ac5b8624d3cc1a1b39ce0/.github/windows_identity_dns_exact_nrpt_inventory.py"
+    },
+    {
+      "bytes": 3083,
+      "path": ".github/windows_identity_dns_standard_inventory.ps1",
+      "sha256": "87d98b0463e031376b6c6d29f1a0db375f74639904d34023ee8bcffa8893dbf1",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/c9633b2cbb82f9a3c47ac5b8624d3cc1a1b39ce0/.github/windows_identity_dns_standard_inventory.ps1"
+    },
+    {
+      "bytes": 34465,
+      "path": ".github/windows_identity_lpac_accesscheck.py",
+      "sha256": "19c0d626e653147276cab9a97c5a0071f1c37b2eeb097c55fbacb39f262ade15",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/c9633b2cbb82f9a3c47ac5b8624d3cc1a1b39ce0/.github/windows_identity_lpac_accesscheck.py"
+    },
+    {
+      "bytes": 64394,
+      "path": ".github/windows_identity_lpac_dns_local.py",
+      "sha256": "aff8bd5d2a6b1dd688934f9f98fe66146d74a5365caf2ca2c53f6b934f10fd53",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/c9633b2cbb82f9a3c47ac5b8624d3cc1a1b39ce0/.github/windows_identity_lpac_dns_local.py"
+    },
+    {
+      "bytes": 46637,
+      "path": ".github/windows_identity_lpac_identity_cell.py",
+      "sha256": "b7ffce514f00fbd44ce2e4bc77cd93dfe8285e90c608f5f1a82f30b025798105",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/c9633b2cbb82f9a3c47ac5b8624d3cc1a1b39ce0/.github/windows_identity_lpac_identity_cell.py"
+    },
+    {
+      "bytes": 101306,
+      "path": ".github/windows_identity_lpac_loopback.py",
+      "sha256": "3c65e68a9ab975126ece6042100a17897ac099d04efb6d7d8f52d8a1dc847a67",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/c9633b2cbb82f9a3c47ac5b8624d3cc1a1b39ce0/.github/windows_identity_lpac_loopback.py"
+    },
+    {
+      "bytes": 17938,
+      "path": ".github/windows_identity_lpac_loopback_local.py",
+      "sha256": "2830e42bee7cf0ebcfbb07eeea3c7c2aa33abf1f0112889759c1adcff26bdfc7",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/c9633b2cbb82f9a3c47ac5b8624d3cc1a1b39ce0/.github/windows_identity_lpac_loopback_local.py"
+    },
+    {
+      "bytes": 89313,
+      "path": ".github/windows_identity_lpac_pipe_dns_nrpt_origin.py",
+      "sha256": "633be02cb3a474d14cf7cd95e9f16d3c80203e7688368ac52e1873da50d240e0",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/c9633b2cbb82f9a3c47ac5b8624d3cc1a1b39ce0/.github/windows_identity_lpac_pipe_dns_nrpt_origin.py"
+    },
+    {
+      "bytes": 18712,
+      "path": ".github/windows_identity_lpac_pipe_dns_nrpt_origin_local.py",
+      "sha256": "de7cd5b2d096b51d8bf467b0710da913864d031425c92b231396a9587ffb7ac3",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/c9633b2cbb82f9a3c47ac5b8624d3cc1a1b39ce0/.github/windows_identity_lpac_pipe_dns_nrpt_origin_local.py"
+    },
+    {
+      "bytes": 67005,
+      "path": ".github/windows_identity_lpac_pipe_origin.py",
+      "sha256": "452f00595a2d717443a978aa6c9012294598bef3d53fe5ddca212d36599dc1f0",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/c9633b2cbb82f9a3c47ac5b8624d3cc1a1b39ce0/.github/windows_identity_lpac_pipe_origin.py"
+    },
+    {
+      "bytes": 17255,
+      "path": ".github/windows_identity_lpac_pipe_origin_local.py",
+      "sha256": "a69fec199a9c7252ed733f3f71e4408afabd0c6f9e7ac36612105ba431e71ce6",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/c9633b2cbb82f9a3c47ac5b8624d3cc1a1b39ce0/.github/windows_identity_lpac_pipe_origin_local.py"
+    },
+    {
+      "bytes": 183555,
+      "path": ".github/windows_identity_model2_controller.py",
+      "sha256": "9ecc846082f03fcbb206e5610e86d9f2af06250f2f1b165187229ea5582cc2c1",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/c9633b2cbb82f9a3c47ac5b8624d3cc1a1b39ce0/.github/windows_identity_model2_controller.py"
+    },
+    {
+      "bytes": 15307,
+      "path": ".github/windows_identity_model2_dns.py",
+      "sha256": "748b2e7e4adc7008e83d17e184659e7d428fa41a06958f738190b75133b02847",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/c9633b2cbb82f9a3c47ac5b8624d3cc1a1b39ce0/.github/windows_identity_model2_dns.py"
+    },
+    {
+      "bytes": 6974,
+      "path": ".github/windows_identity_model2_dns_raw.py",
+      "sha256": "e0d06ceed384433597a47dfa839043ff4572774a8425b842f38f5fa69fc405c0",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/c9633b2cbb82f9a3c47ac5b8624d3cc1a1b39ce0/.github/windows_identity_model2_dns_raw.py"
+    },
+    {
+      "bytes": 10870,
+      "path": ".github/windows_identity_model2_firewall.ps1",
+      "sha256": "0c78f295fe0a5a6ec2d7a04d58dcfb888767a9231928121493853519f1613cdb",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/c9633b2cbb82f9a3c47ac5b8624d3cc1a1b39ce0/.github/windows_identity_model2_firewall.ps1"
+    },
+    {
+      "bytes": 63254,
+      "path": ".github/windows_identity_model2_live.py",
+      "sha256": "c27260065808dd9f180918b49ba907897a963ff360da9ca72dd9a735c36029fd",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/c9633b2cbb82f9a3c47ac5b8624d3cc1a1b39ce0/.github/windows_identity_model2_live.py"
+    },
+    {
+      "bytes": 33250,
+      "path": ".github/windows_identity_model2_local.py",
+      "sha256": "e8aa1c1072469bfbf48cafc29ee1d8f09de228aa37ca0734187c9b1af98c6d45",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/c9633b2cbb82f9a3c47ac5b8624d3cc1a1b39ce0/.github/windows_identity_model2_local.py"
+    },
+    {
+      "bytes": 21567,
+      "path": ".github/windows_identity_model2_local_probe.py",
+      "sha256": "ec14c0d1b185da1deed651bb27726fdc114b4641181cfc29d998f2eac14e56bf",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/c9633b2cbb82f9a3c47ac5b8624d3cc1a1b39ce0/.github/windows_identity_model2_local_probe.py"
+    },
+    {
+      "bytes": 25117,
+      "path": ".github/windows_identity_model2_maintenance.py",
+      "sha256": "68b6ce894d0dd544a61e19faf4d52f8388af9973a4f86f4dad35868842e38788",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/c9633b2cbb82f9a3c47ac5b8624d3cc1a1b39ce0/.github/windows_identity_model2_maintenance.py"
+    },
+    {
+      "bytes": 67809,
+      "path": ".github/windows_identity_ordinary_launcher.py",
+      "sha256": "a890f4740bc2869586278158edad65dd8c649e09afed8c7aab355d842301d4a0",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/c9633b2cbb82f9a3c47ac5b8624d3cc1a1b39ce0/.github/windows_identity_ordinary_launcher.py"
+    },
+    {
+      "bytes": 40122,
+      "path": ".github/windows_identity_pipe_probe.py",
+      "sha256": "4dc8567d8a64e544d7a4baa873ff08900720320e26c8d6a6fd43ae3e5744dc74",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/c9633b2cbb82f9a3c47ac5b8624d3cc1a1b39ce0/.github/windows_identity_pipe_probe.py"
+    },
+    {
+      "bytes": 52976,
+      "path": ".github/windows_identity_proof.py",
+      "sha256": "aada68c3a0c309dffe422cd6271cf80a728e05a3c4a52a6a81293b47b74d2386",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/c9633b2cbb82f9a3c47ac5b8624d3cc1a1b39ce0/.github/windows_identity_proof.py"
+    },
+    {
+      "bytes": 42871,
+      "path": ".github/windows_identity_proxy_origin_probe.py",
+      "sha256": "33cfddf58caa8877bbe3f6b97132dfa45e9803c88df7c34f17a8501b1b560095",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/c9633b2cbb82f9a3c47ac5b8624d3cc1a1b39ce0/.github/windows_identity_proxy_origin_probe.py"
+    },
+    {
+      "bytes": 14243,
+      "path": ".github/windows_identity_proxy_pipe_ac_guest.py",
+      "sha256": "78777d3a6b210a9e27494fc35f9dc53782adda0594b4f4705dee2c008d8d02e1",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/c9633b2cbb82f9a3c47ac5b8624d3cc1a1b39ce0/.github/windows_identity_proxy_pipe_ac_guest.py"
+    },
+    {
+      "bytes": 35656,
+      "path": ".github/windows_identity_proxy_pipe_ac_local.py",
+      "sha256": "f5ce0fbc20a727f1c78a513bdac816dc49ae43fb1b24e4f8d7eefcd0b252163b",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/c9633b2cbb82f9a3c47ac5b8624d3cc1a1b39ce0/.github/windows_identity_proxy_pipe_ac_local.py"
+    },
+    {
+      "bytes": 75569,
+      "path": ".github/windows_identity_proxy_pipe_probe.py",
+      "sha256": "e6bb37aa6f2c5a98dde44d63d097f7921775fd0d7858b95053f33565602df15b",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/c9633b2cbb82f9a3c47ac5b8624d3cc1a1b39ce0/.github/windows_identity_proxy_pipe_probe.py"
+    },
+    {
+      "bytes": 46167,
+      "path": ".github/windows_psec_compartment_smoke.py",
+      "sha256": "6602471c0cf08f977879caef5c34bab20db9b84208f5cdae0a00b7a1f802d019",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/c9633b2cbb82f9a3c47ac5b8624d3cc1a1b39ce0/.github/windows_psec_compartment_smoke.py"
+    },
+    {
+      "bytes": 20927,
+      "path": "ruleproxy/windows_app_process.py",
+      "sha256": "8e62820f98d9dbe352d988501d211565aceecce84657200c2793b69404cbee33",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/c9633b2cbb82f9a3c47ac5b8624d3cc1a1b39ce0/ruleproxy/windows_app_process.py"
+    },
+    {
+      "bytes": 2080,
+      "path": "ruleproxy/windows_runtime_pins.py",
+      "sha256": "2854702df1f2f7bfefce2b772920394033aaefaadf7b45de7b7d4a3fd1d73e65",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/c9633b2cbb82f9a3c47ac5b8624d3cc1a1b39ce0/ruleproxy/windows_runtime_pins.py"
+    }
+  ],
+  "stage": "lpac-pipe-dns-nrpt-source-build-index"
+}
