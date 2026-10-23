@@ -1,0 +1,37 @@
+{
+  "actions": {
+    "WinDLL_or_native_API_or_target_or_cleanup": false,
+    "file_only": true,
+    "project_import": false
+  },
+  "controlled_stop_exit1_not_natural": true,
+  "curl_admitted_or_resumed": false,
+  "curl_created_suspended": true,
+  "independent_reader": {
+    "bytes": 14525,
+    "name": "lpac-curl-loader-actual-02-independent-review.json",
+    "sha256": "b07199bc1ae9840e2b4e6aed7954f86f3741bb9ff2797d4232ce219011a2166e"
+  },
+  "masks_for_each_object": [
+    "0x1fffff",
+    "0x1fffff"
+  ],
+  "no_selected_LPAC_profile_DLL_or_loader_window": true,
+  "numeric_SD_text_differs_from_requested_GA_text": true,
+  "original_raw_SD_preserved": true,
+  "original_worker_report": {
+    "bytes": 14512,
+    "sha256": "b055d23f2de2c57bc61415c112edf4eb55abbb65c665bf85684b9c3657f6d1e7"
+  },
+  "process_and_thread_descriptor_exact_protected_two_allow_ACEs": true,
+  "raw_SID_SD_PID_handles_or_private_path_published": false,
+  "recovery_required": false,
+  "safe_failure_code": "loader_process_thread_SD",
+  "schema_version": 1,
+  "scoped_cleanup_true": true,
+  "semantic_ALL_ACCESS_equivalence_not_established_by_this_file_read": true,
+  "source_commit": "8d949542795540d45440afc563d80ae51dd146d4",
+  "source_sha256": "2fef7a151e8bf6693e54e98b08b39901a71705f666745db1d16d0202bbdfe062",
+  "stage": "root-actual02-original-physical-SD-safe-observation",
+  "trustees_exact_SYSTEM_and_recorded_ordinary_parent": true
+}
