@@ -1,0 +1,348 @@
+{
+  "LPAC_proofs": {
+    "granted_access": [
+      2,
+      0,
+      0,
+      2
+    ],
+    "label": "before-update",
+    "original_public_lpac_identity_verified": false,
+    "qualified_proof_count": 1,
+    "resource_cleanup_verified": true,
+    "second_proof_observed": false
+  },
+  "cleanup": {
+    "acl_removed": true,
+    "cleanup_tools": true,
+    "labels_restored": true,
+    "marker_file_closed": true,
+    "native_resources_closed": true,
+    "observer_resources_cleanup_verified": true,
+    "outer_query_closed": true,
+    "parent_event_stdio_closed": true,
+    "profile_deleted": true,
+    "query_resources_closed": true,
+    "sid_released": true,
+    "target_file_closed": true,
+    "workload_cleanup": true,
+    "workload_job_empty": true
+  },
+  "cleanup_scoped_fact_count": 14,
+  "context_forgotten": true,
+  "failure": "payload",
+  "fixed_false_claims": {
+    "DllMain_return_proven_by_event": false,
+    "Linux_equivalence": false,
+    "PSEC_qualified": false,
+    "curl_entry_proven_by_event": false,
+    "curl_network_adapter_qualified": false,
+    "dns_isolation_qualified": false,
+    "hostile_same_sid_boundary_verified": false,
+    "product_acceptance": false,
+    "proxy_qualified": false,
+    "restoration_fully_verified": false,
+    "restore_payload_absence_verified": false,
+    "section_handle_mapping_proven": false,
+    "whole_mapped_image_integrity_verified": false,
+    "winsock_absence_verified": false
+  },
+  "globals": {
+    "actual_counts": {
+      "after": {
+        "dns": 12,
+        "firewall_profiles": 3,
+        "routes": 52
+      },
+      "baseline": {
+        "dns": 12,
+        "firewall_profiles": 3,
+        "routes": 50
+      },
+      "before": {
+        "dns": 12,
+        "firewall_profiles": 3,
+        "routes": 52
+      }
+    },
+    "before_after_byte_equal": true,
+    "before_after_objects_equal": {
+      "dns": true,
+      "firewall_profiles": true,
+      "routes": true,
+      "user_proxy": true
+    },
+    "commitments": {
+      "after": {
+        "bytes": 7655,
+        "sha256": "e2628e54697b73876c68b6ad3a055f407b8518023f42f239e1668599eba9b1e0"
+      },
+      "baseline": {
+        "bytes": 7378,
+        "sha256": "f05d91ee76ee8a97ae5ab3bfa092167a8ee560c083255f142e6c453f2edf7ab3"
+      },
+      "before": {
+        "bytes": 7655,
+        "sha256": "e2628e54697b73876c68b6ad3a055f407b8518023f42f239e1668599eba9b1e0"
+      }
+    },
+    "configuration_or_route_cleanup_called": false,
+    "equality_assumed": false,
+    "original_after_byte_equal": false,
+    "original_after_objects_equal": {
+      "dns": true,
+      "firewall_profiles": true,
+      "routes": false,
+      "user_proxy": true
+    },
+    "original_before_byte_equal": false,
+    "original_before_objects_equal": {
+      "dns": true,
+      "firewall_profiles": true,
+      "routes": false,
+      "user_proxy": true
+    },
+    "route_writer_or_time_attribution_proven": false
+  },
+  "limits": [
+    "This assay stopped before selected Resume and observe; it is not complete loader/MM qualification.",
+    "A qualified first LPAC matrix is not the two-proof public LPAC predicate.",
+    "Update TRUE records possible remote mutation; neither full restoration nor payload absence was independently proved.",
+    "The14 cleanup fields are scoped predicates, not14 allocated objects; profile deletion API return is not independent external absence.",
+    "Full-reader, raw private inputs, Context buffers, stdout, identities, paths and numeric process/handle/clock values are not published.",
+    "The opaque Context audit is source-specific consistency only, not a public helper-row ABI.",
+    "Before/after globals match this assay; the earlier two-route baseline difference and unknown attribution remain.",
+    "Native11 and any later assay are outside this immutable actual01 summary."
+  ],
+  "native_operations": [
+    {
+      "context_zero_after_known_forget": null,
+      "opaque_context_commitment": {
+        "bytes": 8192,
+        "sha256": "65e2ab293718b33e6d2e214935532c20dd40bb582c945c21ff66b0ace06da408"
+      },
+      "operation": "begin",
+      "primary_call": {
+        "entered": 0,
+        "error": null,
+        "error_valid": 0,
+        "operation": 0,
+        "raw_BOOL": null,
+        "returned": 0
+      },
+      "result_class": 9,
+      "result_commitment": {
+        "bytes": 256,
+        "sha256": "39ecb08f67cdc8741fd07181dc182b3323b54e78360fdc702957a6e9db0d9861"
+      },
+      "return_code": 9
+    },
+    {
+      "context_zero_after_known_forget": null,
+      "opaque_context_commitment": {
+        "bytes": 8192,
+        "sha256": "f23c77805f0852d84289485b05bc2f517c963c904a67fd04c516ce3e11e230df"
+      },
+      "operation": "update",
+      "primary_call": {
+        "entered": 1,
+        "error": null,
+        "error_valid": 0,
+        "operation": 220,
+        "raw_BOOL": 1,
+        "returned": 1
+      },
+      "result_class": 11,
+      "result_commitment": {
+        "bytes": 256,
+        "sha256": "197ce98bb9ffeea9b2588241b369f272f0a5b608dbe955a6b18f5dd4a7f836e2"
+      },
+      "return_code": 11
+    },
+    {
+      "context_zero_after_known_forget": null,
+      "opaque_context_commitment": {
+        "bytes": 8192,
+        "sha256": "eb73f24e14b8c2a7b06b6b97c1ea2d1583e0aa7d05fc6a7d98dec2ba67761fa3"
+      },
+      "operation": "install",
+      "primary_call": {
+        "entered": 0,
+        "error": null,
+        "error_valid": 0,
+        "operation": 0,
+        "raw_BOOL": null,
+        "returned": 0
+      },
+      "result_class": 1,
+      "result_commitment": {
+        "bytes": 256,
+        "sha256": "68f01e7f5515c05e5c74642e15eb2610e2ebaa19107ba4d8cbe2d43be3a056de"
+      },
+      "return_code": 1
+    },
+    {
+      "context_zero_after_known_forget": true,
+      "opaque_context_commitment": {
+        "bytes": 8192,
+        "sha256": "9f1dcbc35c350d6027f98be0f5c8b43b42ca52b7604459c0c42be3aa88913d47"
+      },
+      "operation": "forget",
+      "primary_call": {
+        "entered": 0,
+        "error": null,
+        "error_valid": 0,
+        "operation": 0,
+        "raw_BOOL": null,
+        "returned": 0
+      },
+      "result_class": 10,
+      "result_commitment": {
+        "bytes": 256,
+        "sha256": "39c02495579262c84f6be135a0833af51c92f02c74d80f0b08236e8b3ffed801"
+      },
+      "return_code": 10
+    }
+  ],
+  "observation_complete": false,
+  "ordinary_controls": {
+    "after": {
+      "control_commitment": {
+        "bytes": 4220,
+        "sha256": "f9138578eaf02c7237d5664bf615a505ff4957271890d7008d82b2154e7ae231"
+      },
+      "positive_independently_confirmed": true,
+      "status": "valid",
+      "task": {
+        "admitted": true,
+        "exit_code": 0,
+        "natural_exit": true,
+        "resumed": true
+      }
+    },
+    "before": {
+      "control_commitment": {
+        "bytes": 4221,
+        "sha256": "6eca21921d3de65eefbce30cc5da6c62a50b38d38ab5f63a8c91ad5e3f095b89"
+      },
+      "positive_independently_confirmed": true,
+      "status": "valid",
+      "task": {
+        "admitted": true,
+        "exit_code": 0,
+        "natural_exit": true,
+        "resumed": true
+      }
+    }
+  },
+  "original_preflight": {
+    "bytes": 1756,
+    "name": "lpac-curl-mm-loader-local-01-preflight.json",
+    "sha256": "45e4a03bdb9af48c550c59dcfd8cbbea8cba7d56725ab7046fa52784f48c048f"
+  },
+  "original_public": {
+    "bytes": 3229,
+    "name": "lpac-curl-mm-loader-local-01-public.json",
+    "sha256": "f475ab17da80bbdc626712f565c7c225abf00b8623feac81b0442aa98d99afd1"
+  },
+  "original_safe_observation": {
+    "DllMain_return_proven_by_event": false,
+    "Linux_equivalence": false,
+    "PSEC_qualified": false,
+    "acl_removed": true,
+    "body_event_observed": false,
+    "cleanup_tools": true,
+    "coherent_marker_observed": false,
+    "curl_entry_proven_by_event": false,
+    "curl_network_adapter_qualified": false,
+    "dns_isolation_qualified": false,
+    "entered_event_observed": false,
+    "failure": "payload",
+    "hostile_same_sid_boundary_verified": false,
+    "labels_restored": true,
+    "loader_mechanism_observed": false,
+    "lpac_identity_verified": false,
+    "marker_file_closed": true,
+    "memory_mapping_correlated": false,
+    "native_critical_complete": false,
+    "native_resources_closed": true,
+    "observation_complete": false,
+    "observer_resources_cleanup_verified": true,
+    "ordinary_after_positive": true,
+    "ordinary_before_positive": true,
+    "outer_query_closed": true,
+    "parent_event_stdio_closed": true,
+    "payload_installed": false,
+    "product_acceptance": false,
+    "profile_deleted": true,
+    "proxy_qualified": false,
+    "query_resources_closed": true,
+    "restoration_fully_verified": false,
+    "restore_payload_absence_verified": false,
+    "section_handle_mapping_proven": false,
+    "selected_exit_code": 1,
+    "selected_natural_exit": false,
+    "selected_resumed": false,
+    "selected_version_positive": false,
+    "sid_released": true,
+    "target_file_closed": true,
+    "trace_complete": false,
+    "update_returned_true": true,
+    "version_behavior_observed": false,
+    "whole_mapped_image_integrity_verified": false,
+    "winsock_absence_verified": false,
+    "workload_cleanup": true,
+    "workload_job_empty": true
+  },
+  "outer_cleanup_verified": true,
+  "profile": "zero-cap-curl-memory-map-observation-with-version-controls-v1",
+  "reader": {
+    "bytes": 47719,
+    "name": "lpac-curl-mm-loader-actual-01-independent-review.json",
+    "sha256": "38e0265e5d98f9091c9744e8d2f99c77f087e5d10dd561a3ec5c9fc2c41cfff8"
+  },
+  "reader_checked_facts": {
+    "forensic_exact": true,
+    "outer_exact": true,
+    "public_projection_exact": true,
+    "safe_projection_complete": true,
+    "worker_binding_valid": true,
+    "worker_envelope_valid": true,
+    "worker_report_present": true,
+    "worker_result_valid": true
+  },
+  "reader_errors": {
+    "binding_error": null,
+    "projection_error": null,
+    "validation_error": null
+  },
+  "recovery_required": false,
+  "schema_version": 1,
+  "scope": "one-local-held-zero-cap-lpac-curl-memory-map-observation-v1",
+  "selected": {
+    "MM_mapping_observed": false,
+    "controlled_stop_attempted": true,
+    "exit_code": 1,
+    "exit_confirmed": true,
+    "marker_events_observed": false,
+    "natural_exit": false,
+    "observe_called": false,
+    "resumed": false
+  },
+  "signal_domain_review": {
+    "Python_lifecycle_change_required": false,
+    "cross_domain_numeric_reuse_confirmed": true,
+    "receipt": {
+      "bytes": 7442,
+      "name": "lpac-curl-mm-actual01-signal-lifetime-independent-review-01.json",
+      "sha256": "38fe38b2fd831beea756636e4f52f2b7f55639ea7d4f0313f9bf8bb583776801"
+    },
+    "target_signal_usability_empirically_tested": false,
+    "verdict": "Python-lifecycle-consistent; native-cross-domain-rejection-confirmed"
+  },
+  "source_commit": "9d0b20eed652f9e0da7d47f2a918a63ea2e7ea25",
+  "source_count": 70,
+  "source_sha256": "e5c0287b08bfb32bbe040c2b1a7299a01f563daf33aaa1e1ff741e6e06196fbf",
+  "stage": "sanitized-CMM-actual01-summary",
+  "status": "inconclusive"
+}

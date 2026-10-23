@@ -1,0 +1,294 @@
+{
+  "CI": {
+    "conclusion": "success",
+    "decoded_log_representation": "UTF-8 encoding of the connector-decoded full job log; leading BOM and original CRLF retained. This is a decoded text view, not original ZIP/download-octet identity.",
+    "errors": 0,
+    "failures": 0,
+    "job_id": 120710760563,
+    "job_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/40040676265/job/120710760563",
+    "run_id": 40040676265,
+    "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/40040676265",
+    "runtime_steps_skipped": true,
+    "skips": 0,
+    "source_commit": "464b2ddb200d2d711a82ccf7fe04c33464f640a4",
+    "source_only": true,
+    "status": "completed",
+    "test_seconds": 216.378,
+    "tests": 1350,
+    "workflow_trigger_revision": {
+      "added_paths": [
+        ".github/windows_identity_lpac_curl_mm_*.py",
+        ".github/native/windows_identity_lpac_curl_mm_loader_*",
+        "tests/lpac_curl_mm_loader_fake.cpp"
+      ],
+      "additions": 3,
+      "changed_file": ".github/workflows/windows-identity-proof.yml",
+      "complete_original_text_reconstruction_verified": true,
+      "deletions": 0,
+      "other_commit_files_unchanged": true,
+      "parent725_independent_CI_success_claimed": false,
+      "parent_source_commit": "72572e7a6fd180672c9a6ae4f984b4ecf21d51bf",
+      "prior_no_matching_path_record": "lpac-curl-mm-loader-ci-trigger-gap-02.json",
+      "steps_timeouts_runtime_conditions_unchanged": true
+    }
+  },
+  "CI_raw_commitments_not_copied": {
+    "commit_raw": {
+      "bytes": 4452,
+      "name": "ci-lpac-curl-mm-464b2dd-40040676265-workflow-commit-api.json",
+      "sha256": "6a6afb0b0c0dfb9fe82da525f9f79f67e36a39d3533a74e5bf43ed5753323e5f"
+    },
+    "jobs_raw": {
+      "bytes": 3058,
+      "name": "ci-lpac-curl-mm-464b2dd-40040676265-jobs-connector.json",
+      "sha256": "599a13b295d6411f0898242e4e67cb5000d6604260bb58f1cb707d6964ec2564"
+    },
+    "log_raw": {
+      "bytes": 317868,
+      "name": "ci-lpac-curl-mm-464b2dd-40040676265-job120710760563-full.txt",
+      "sha256": "f8ab8bedb0d46a2e052b039bc06145db5822f6af12101fbac0f56ae5e458278f"
+    },
+    "run_raw": {
+      "bytes": 12676,
+      "name": "ci-lpac-curl-mm-464b2dd-40040676265-run-api.json",
+      "sha256": "6facee8f80af2eab3671155c530773d9af56f48ccdab0c23470d67bf7b4c8179"
+    },
+    "workflow_raw": {
+      "bytes": 12151,
+      "name": "ci-lpac-curl-mm-464b2dd-40040676265-workflow.yml",
+      "sha256": "8955866620b43fa708b3369ae42d51125ac1575184ce8cd67faeca81178b60f7"
+    }
+  },
+  "CI_root_receipt": {
+    "bytes": 6995,
+    "name": "lpac-curl-mm-loader-ci-source-proof-02.json",
+    "sha256": "d06fbdbb080f0032ff0c21f0b9105ae505f586c97c7859d8a112e6c58aebe147"
+  },
+  "CI_trigger_gap": {
+    "local_security_constraints_changed": false,
+    "matching_changed_paths": [],
+    "only_three_workflow_path_lines_changed": true,
+    "receipt": {
+      "bytes": 3294,
+      "name": "lpac-curl-mm-loader-ci-trigger-gap-02.json",
+      "sha256": "ffd04dd43144d8c0c8e11ce37f49e441668d86b5a6618f2967286de9d52bd88f"
+    },
+    "repair_added_paths": [
+      ".github/windows_identity_lpac_curl_mm_*.py",
+      ".github/native/windows_identity_lpac_curl_mm_loader_*",
+      "tests/lpac_curl_mm_loader_fake.cpp"
+    ],
+    "source_commit": "72572e7a6fd180672c9a6ae4f984b4ecf21d51bf",
+    "steps_timeouts_runtime_conditions_unchanged": true,
+    "success_for_this_parent_claimed": false
+  },
+  "Ready": {
+    "bytes": 14841,
+    "name": "lpac-curl-mm-loader-ready-source-freeze-02.json",
+    "sha256": "4402b3c5b79de8a309fecb50061e9effdb41f32177d1be561e9e663081dbd325"
+  },
+  "actual02": {
+    "capture_source": {
+      "bytes": 2695,
+      "sha256": "8a068a898ee0f526350df0d3688cdc864e468991489c13fecf6a23104e925f0e"
+    },
+    "driver_log_private_commitment": {
+      "bytes": 7223,
+      "name": "lpac-curl-mm-loader-actual-02-driver.log",
+      "sha256": "a80f2e2f6586cc09a3934f07ee8bfba066d8d2a83939f61ecceb866a1e7442ca"
+    },
+    "driver_result": {
+      "bytes": 2957,
+      "name": "lpac-curl-mm-loader-actual-02-driver-result.json",
+      "sha256": "1f7519a96f40db85c1533795a00d98ec8d56c985ccbcb5651f11f20029ee48e7"
+    },
+    "driver_source": {
+      "bytes": 22001,
+      "name": "run_lpac_curl_mm_loader_02_candidate.py",
+      "sha256": "2086991f07a91bcd2c7ca7c781cc343730ecac188cd0e12dd50fdad9dd1c649b"
+    },
+    "independent_reader_output": {
+      "bytes": 56917,
+      "name": "lpac-curl-mm-loader-actual-02-independent-review.json",
+      "sha256": "a9f919358f1806f3916b070c0655b29f0d8141ebf5a4bce3d308d2efb08b8b78"
+    },
+    "physical_journal_count": 33,
+    "physical_return_count": 19,
+    "preflight": {
+      "bytes": 1756,
+      "name": "lpac-curl-mm-loader-local-02-preflight.json",
+      "sha256": "293ee07d8a9cb0b2c9967e099a107814e65c4c84470f9f290accb3b568ef1924"
+    },
+    "private_commitments": {
+      "config": {
+        "bytes": 9358,
+        "sha256": "25f64d8fe7af8d4539c5ba5ec98b4a9865d2fd7814f5cfa18f05e9eba301195a"
+      },
+      "driver": {
+        "bytes": 22001,
+        "sha256": "2086991f07a91bcd2c7ca7c781cc343730ecac188cd0e12dd50fdad9dd1c649b"
+      },
+      "forensic": {
+        "bytes": 107096,
+        "sha256": "17cd32ce70630e80138490e4fb41111871bca76175cc9448d97ff3140adfc3ac"
+      },
+      "outer_report": {
+        "bytes": 619,
+        "sha256": "c08c8bc52a56f04451f86a044626dec1ea4ad39e47f705f9a683f7ff827275da"
+      },
+      "plan": {
+        "bytes": 2733,
+        "sha256": "4e00b13d8d841d0f2c094d30ef216d548a87599279d7787002f035ccef041ad3"
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "stdout": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "worker_report": {
+        "bytes": 107096,
+        "sha256": "17cd32ce70630e80138490e4fb41111871bca76175cc9448d97ff3140adfc3ac"
+      }
+    },
+    "public": {
+      "bytes": 3201,
+      "name": "lpac-curl-mm-loader-local-02-public.json",
+      "sha256": "1d82fb4090f9b75104646166502c4fde66f331d2df51f95d3f8f3b5980e03d70"
+    },
+    "retried": false,
+    "return_code": 0,
+    "seconds": 6.405999999988126,
+    "source_only_launcher_review": {
+      "bytes": 5939,
+      "name": "lpac-curl-mm-actual02-root-launcher-independent-source-review-02.json",
+      "sha256": "5e81bc82616faa6c8201f15261342b1ab4acd793516dd5da28c7cafe4e8c91a4"
+    }
+  },
+  "file_audit": {
+    "Result256_headers_and_Output_result_exact": true,
+    "journal33_returns19_commitments_exact": true,
+    "output_counts109_2_2_2_exact": true,
+    "reader_project_import_or_execution": false,
+    "selected_stdio_text_checked": true,
+    "stage_sources70_and_Git_exact": true,
+    "tests_API_DLL_target_CI_executed": false,
+    "worker_forensic_equal_not_fallback": true
+  },
+  "full_regression": {
+    "errors": 0,
+    "failures": 0,
+    "historical_pending_field_is_freeze_time_only": true,
+    "private_log_commitment": {
+      "bytes": 257652,
+      "name": "lpac-curl-mm-loader-main-pure-02.log",
+      "sha256": "37509d8d18933e2ab8a8b8b98d9a3986ae2be5a855f2c92ecda8117d70dac39b"
+    },
+    "production_Windows_actor_or_resource_API_executed": false,
+    "receipt": {
+      "bytes": 1214,
+      "name": "lpac-curl-mm-loader-main-pure-02.json",
+      "sha256": "efcc390f50b5b35339ba3ea498d48b22792c3a9d9a5829b31e4ccdd55838e1a2"
+    },
+    "seconds": 361.219,
+    "skips": 2,
+    "tests": 1350
+  },
+  "globals_commitments": {
+    "after": {
+      "bytes": 7655,
+      "sha256": "e2628e54697b73876c68b6ad3a055f407b8518023f42f239e1668599eba9b1e0"
+    },
+    "baseline": {
+      "bytes": 7378,
+      "sha256": "f05d91ee76ee8a97ae5ab3bfa092167a8ee560c083255f142e6c453f2edf7ab3"
+    },
+    "before": {
+      "bytes": 7655,
+      "sha256": "e2628e54697b73876c68b6ad3a055f407b8518023f42f239e1668599eba9b1e0"
+    }
+  },
+  "native11_build03": {
+    "artifacts": {
+      "curl": {
+        "bytes": 818512,
+        "sha256": "73d24149ff289afc49ec41f08918ef9faa727d39ad993e929757dc2ddafab805"
+      },
+      "manifest": {
+        "bytes": 4174,
+        "sha256": "763e7ead50ab9a9188220c3db8ec82ea216b105dd96140fbad0d4f2f15918d53"
+      },
+      "marker": {
+        "bytes": 142848,
+        "sha256": "2a632f635390043a021fb3feacc640818a4e1f2b62051dc7ef8b2977652c35c0"
+      },
+      "wrapper": {
+        "bytes": 201216,
+        "sha256": "dfac44623d4e506c2e490ef958bbf716c2fca2516516349958333d615154b529"
+      }
+    },
+    "compile_receipt": {
+      "bytes": 53214,
+      "name": "compile-static-receipt.json",
+      "sha256": "81133dc25a6f01c7869b515f17efd35147aa9c162f3eb50639baccad9a0fd5c9"
+    },
+    "independent_static_review": {
+      "bytes": 32818,
+      "name": "lpac-curl-mm-loader-native-compile-independent-review-03.json",
+      "sha256": "10bb3ecdb7dde77052f6cbe5c88dbeaf8639ae5ba898c80263b6e0346992b0e2"
+    },
+    "native_source_count": 31,
+    "native_source_freeze": {
+      "bytes": 19864,
+      "name": "lpac-curl-mm-loader-backend-source-freeze-11.json",
+      "sha256": "d3b748b9108e69ef9f82e52cd6851e807a3bed613b2d0b1d819eb26aa7fc29d0"
+    },
+    "original_precompile_snapshot": {
+      "bytes": 5632,
+      "sha256": "117248b3fe90198cba531f9d416240e1370d3504f1a657d871f6ea442788e322"
+    },
+    "source33_sha256": "8a512c8f2b0317d7bb2e5fd8cd05dc73f919bac873194eeacd351a463f1f1b44",
+    "static_is_not_runtime_acceptance": true
+  },
+  "prior_actual01": {
+    "observation_complete": false,
+    "preflight": {
+      "bytes": 1756,
+      "name": "lpac-curl-mm-loader-local-01-preflight.json",
+      "sha256": "45e4a03bdb9af48c550c59dcfd8cbbea8cba7d56725ab7046fa52784f48c048f"
+    },
+    "public": {
+      "bytes": 3229,
+      "name": "lpac-curl-mm-loader-local-01-public.json",
+      "sha256": "f475ab17da80bbdc626712f565c7c225abf00b8623feac81b0442aa98d99afd1"
+    },
+    "signal_lifetime_review": {
+      "bytes": 7442,
+      "name": "lpac-curl-mm-actual01-signal-lifetime-independent-review-01.json",
+      "sha256": "38fe38b2fd831beea756636e4f52f2b7f55639ea7d4f0313f9bf8bb583776801"
+    },
+    "source_commit": "9d0b20eed652f9e0da7d47f2a918a63ea2e7ea25",
+    "status": "inconclusive"
+  },
+  "publication": {
+    "existing_originals_to_stage_without_rewrite": [
+      "verification/windows-2026-10-22/lpac-curl-mm-loader-local-02-public.json",
+      "verification/windows-2026-10-22/lpac-curl-mm-loader-local-02-preflight.json"
+    ],
+    "full_reader_private_binary_or_raw_stdio_copied": false,
+    "main_outputs_or_prior_evidence_modified_by_this_preparation": false,
+    "new_paths": [
+      "docs/validation/2026-10-24-lpac-curl-mm-loader-02.md",
+      "verification/windows-2026-10-22/lpac-curl-mm-loader-actual-02/summary.json",
+      "verification/windows-2026-10-22/lpac-curl-mm-loader-actual-02/index.json"
+    ]
+  },
+  "schema_version": 1,
+  "source_commit": "464b2ddb200d2d711a82ccf7fe04c33464f640a4",
+  "source_count": 70,
+  "source_sha256": "8effea4db1dd12447a262c53cb4bede81ce2aebbefbf6396d1475a4ac78cdb96",
+  "source_url": "https://github.com/Shermanxwz/Rule-proxy-Web/tree/464b2ddb200d2d711a82ccf7fe04c33464f640a4",
+  "stage": "sanitized-CMM-actual02-evidence-index"
+}

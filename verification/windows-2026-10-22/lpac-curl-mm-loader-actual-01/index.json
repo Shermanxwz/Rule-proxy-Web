@@ -1,0 +1,315 @@
+{
+  "actual01": {
+    "Ready": {
+      "bytes": 14577,
+      "name": "lpac-curl-mm-loader-ready-source-freeze-01.json",
+      "sha256": "c434e29c8ccaef013d539c3f8f29957c61a829d14d7a1df5e1cc135a3ec58d72"
+    },
+    "driver_log_private_commitment": {
+      "bytes": 7279,
+      "name": "lpac-curl-mm-loader-actual-01-driver.log",
+      "sha256": "7c56aa9b3d7bba2a369f94f3b09c92ed102e8de6b2ec6734ce18ca47b17206ba"
+    },
+    "driver_result": {
+      "bytes": 2958,
+      "name": "lpac-curl-mm-loader-actual-01-driver-result.json",
+      "sha256": "5a6f09b715db331f464a301fde68076e99d9cd39d56dddffdd6b19c5b56a5dc7"
+    },
+    "driver_source": {
+      "bytes": 22001,
+      "name": "run_lpac_curl_mm_loader_01_candidate.py",
+      "sha256": "e3b015979e17aeb94a22a08c85e6daa746a19082a665f58bf71073e0de51476f"
+    },
+    "independent_reader_output": {
+      "bytes": 47719,
+      "name": "lpac-curl-mm-loader-actual-01-independent-review.json",
+      "sha256": "38e0265e5d98f9091c9744e8d2f99c77f087e5d10dd561a3ec5c9fc2c41cfff8"
+    },
+    "preflight": {
+      "bytes": 1756,
+      "name": "lpac-curl-mm-loader-local-01-preflight.json",
+      "sha256": "45e4a03bdb9af48c550c59dcfd8cbbea8cba7d56725ab7046fa52784f48c048f"
+    },
+    "private_commitments": {
+      "config": {
+        "bytes": 9358,
+        "sha256": "c1006ddcf4b4a687699a18449e3c17bad1b01bbc0603770245a4ad6eb571b34c"
+      },
+      "driver": {
+        "bytes": 22001,
+        "sha256": "e3b015979e17aeb94a22a08c85e6daa746a19082a665f58bf71073e0de51476f"
+      },
+      "forensic": {
+        "bytes": 89203,
+        "sha256": "13578f51490c01022676a66b4b068484e27bbc7631c75a45147b6736c2f592c5"
+      },
+      "outer_report": {
+        "bytes": 620,
+        "sha256": "fb6e6a983e1edf87f420a99c9a9233b30d0a3ae3ab054ca802f5deb2bf2a2103"
+      },
+      "plan": {
+        "bytes": 2733,
+        "sha256": "00a9ab2cf8c6eb4540d165859721f1467e5c178fc564b336d2e2afbb0c12b71f"
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "stdout": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "worker_report": {
+        "bytes": 89203,
+        "sha256": "13578f51490c01022676a66b4b068484e27bbc7631c75a45147b6736c2f592c5"
+      }
+    },
+    "public": {
+      "bytes": 3229,
+      "name": "lpac-curl-mm-loader-local-01-public.json",
+      "sha256": "f475ab17da80bbdc626712f565c7c225abf00b8623feac81b0442aa98d99afd1"
+    },
+    "reader_source_review": {
+      "bytes": 1734,
+      "name": "lpac-curl-mm-actual-reader-root-source-review-02.json",
+      "sha256": "7b6ac7c1fa9b27304c1b0b176ab0f051068bd6af82ebcb9996c7e8bdfb88686a"
+    },
+    "retried": false,
+    "return_code": 1,
+    "seconds": 6.1560000000172295,
+    "signal_lifetime_review": {
+      "bytes": 7442,
+      "name": "lpac-curl-mm-actual01-signal-lifetime-independent-review-01.json",
+      "sha256": "38fe38b2fd831beea756636e4f52f2b7f55639ea7d4f0313f9bf8bb583776801"
+    }
+  },
+  "globals_commitments": {
+    "after": {
+      "bytes": 7655,
+      "sha256": "e2628e54697b73876c68b6ad3a055f407b8518023f42f239e1668599eba9b1e0"
+    },
+    "baseline": {
+      "bytes": 7378,
+      "sha256": "f05d91ee76ee8a97ae5ab3bfa092167a8ee560c083255f142e6c453f2edf7ab3"
+    },
+    "before": {
+      "bytes": 7655,
+      "sha256": "e2628e54697b73876c68b6ad3a055f407b8518023f42f239e1668599eba9b1e0"
+    }
+  },
+  "local_full_regression": {
+    "errors": 0,
+    "failures": 0,
+    "historical_receipt_pending_fields_are_freeze_time_only": true,
+    "log_private_commitment": {
+      "bytes": 257652,
+      "name": "lpac-curl-mm-loader-main-pure-01.log",
+      "sha256": "7af8dc7fbe977a7a38606568b7efb1ecd6d9de50eef03a69711d3a99ab65fc07"
+    },
+    "production_Windows_API_or_actor_executed": false,
+    "receipt": {
+      "bytes": 1212,
+      "name": "lpac-curl-mm-loader-main-pure-01.json",
+      "sha256": "661267bde414c99d61b052e5c3e7403b0b3556849ea8e3bfe15422cec3b32b9b"
+    },
+    "seconds": 344.57,
+    "skips": 2,
+    "tests": 1350
+  },
+  "native10_build02": {
+    "all_commands_returned_zero": true,
+    "artifacts": {
+      "curl": {
+        "bytes": 818512,
+        "sha256": "73d24149ff289afc49ec41f08918ef9faa727d39ad993e929757dc2ddafab805"
+      },
+      "manifest": {
+        "bytes": 4174,
+        "sha256": "298abd442f54b8ccbca856f6b0ba383eacba8d113151f9d68cb54dd3171474f7"
+      },
+      "marker": {
+        "bytes": 142848,
+        "sha256": "138cb00844fe5ba744a95af140b4a0bcaf0d60269ed110b6be973e05e900dfab"
+      },
+      "wrapper": {
+        "bytes": 201216,
+        "sha256": "c85a84672710b615cbc17346976095e586001ad45503eaed4215b5cf22102f18"
+      }
+    },
+    "command_count": 17,
+    "compile_receipt": {
+      "bytes": 53221,
+      "name": "compile-static-receipt.json",
+      "sha256": "d59770cfb0e1d242b9830889a7b9fbb4cf0aa628b05f2f758ed636896f92b55f"
+    },
+    "independent_static_review": {
+      "bytes": 32094,
+      "name": "lpac-curl-mm-loader-native-compile-independent-review-02.json",
+      "sha256": "d64946b02bdc0b784a9cd97159a6212bc32e27c39cee237bca1436adaea2ce59"
+    },
+    "original_precompile_snapshot": {
+      "bytes": 5632,
+      "sha256": "92f438f56da3f402e0e3ce83e333b49a06c83bfd2f853f47cdf2284c8935aac1"
+    },
+    "own_source_count": 11,
+    "runtime_manifest_interface_version": 2,
+    "source33_sha256": "0c1f896766828de6bcaff2bfcca62bbecd37e77cccd9200d322c88a5e79b8cd0",
+    "source_freeze": {
+      "bytes": 19348,
+      "name": "lpac-curl-mm-loader-backend-source-freeze-10.json",
+      "sha256": "5a00e49c1a4b369508bb2b7313c037b6445bf3df9c94cef495ee11d5c2bb55c2"
+    },
+    "source_input_count": 31,
+    "static_review_is_not_runtime_acceptance": true,
+    "vendor_source_count": 20
+  },
+  "official_contract_references": [
+    {
+      "purpose": "Handle inheritance contract; not a substitute for the actual01 physical/source audit.",
+      "url": "https://learn.microsoft.com/en-us/windows/win32/sysinfo/handle-inheritance"
+    },
+    {
+      "purpose": "Inherited synchronization object handles; target usability was not exercised in this assay.",
+      "url": "https://learn.microsoft.com/en-us/windows/win32/sync/object-inheritance"
+    }
+  ],
+  "publication": {
+    "existing_originals_to_stage_without_rewrite": [
+      "verification/windows-2026-10-22/lpac-curl-mm-loader-local-01-public.json",
+      "verification/windows-2026-10-22/lpac-curl-mm-loader-local-01-preflight.json"
+    ],
+    "full_reader_or_raw_private_material_copied": false,
+    "main_outputs_old_evidence_mutated_by_this_preparation": false,
+    "native11_or_future_actual02_included": false,
+    "new_paths": [
+      "docs/validation/2026-10-24-lpac-curl-mm-loader-01.md",
+      "verification/windows-2026-10-22/lpac-curl-mm-loader-actual-01/summary.json",
+      "verification/windows-2026-10-22/lpac-curl-mm-loader-actual-01/index.json"
+    ]
+  },
+  "schema_version": 1,
+  "source_CI": {
+    "conclusion": "success",
+    "decoded_log_representation": "Exact UTF-8 bytes of connector-decoded job log string. Leading BOM and original CRLF retained; no ZIP/download-octet identity is claimed.",
+    "errors": 0,
+    "failures": 0,
+    "job_id": 120701707521,
+    "job_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/40037880515/job/120701707521",
+    "run_id": 40037880515,
+    "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/40037880515",
+    "runtime_steps_skipped": true,
+    "skips": 0,
+    "source_commit": "9d0b20eed652f9e0da7d47f2a918a63ea2e7ea25",
+    "source_only": true,
+    "status": "completed",
+    "test_seconds": 461.234,
+    "tests": 1350
+  },
+  "source_CI_commitments": {
+    "safe_root_receipt": {
+      "bytes": 6112,
+      "name": "lpac-curl-mm-loader-ci-source-proof-01.json",
+      "sha256": "6735cd3833e84207868cec914546c47c6cb1db63772c2f916d1d19ceb10c61a8"
+    },
+    "saved_raw_inputs_not_copied": {
+      "jobs_raw": {
+        "bytes": 3058,
+        "name": "ci-lpac-curl-mm-9d0b20e-40037880515-jobs-connector.json",
+        "sha256": "61ff879c537942c01fbb4b1ac48c4c186c51d74dbcf8f4ce2dd29c5b453da5b2"
+      },
+      "log_raw": {
+        "bytes": 317865,
+        "name": "ci-lpac-curl-mm-9d0b20e-40037880515-job120701707521-full.txt",
+        "sha256": "2661d50d29e700fd8d26d9d2e2d230f82b1b9febbf839d542ee8bc2041d02d94"
+      },
+      "run_raw": {
+        "bytes": 12684,
+        "name": "ci-lpac-curl-mm-9d0b20e-40037880515-run-api.json",
+        "sha256": "ee9df6a00fd32fc4a537a8a99b8691cd40593dbddb908132dba4d6dffbc77b73"
+      },
+      "workflow_raw": {
+        "bytes": 11989,
+        "name": "ci-lpac-curl-mm-9d0b20e-40037880515-workflow.yml",
+        "sha256": "987969ccf48adbfc0d5cdc93738f70390c0bc5d42ea0a31e353dd19707682fce"
+      }
+    }
+  },
+  "source_binding_basis": "Historical actual01 Ready and staged inputs, not the current checkout or a later native revision.",
+  "source_commit": "9d0b20eed652f9e0da7d47f2a918a63ea2e7ea25",
+  "source_count": 70,
+  "source_hashes": {
+    ".github/native/windows_identity_actor.cpp": "530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553",
+    ".github/native/windows_identity_dns_raw_udp.hpp": "43b8cc7afce3acd91cdd4f23ae7d7075a996f98860447c3e9791e298d33a8a78",
+    ".github/native/windows_identity_dns_standard_probe.hpp": "bce69ff57a173525a9cff2731f4d05fe34b5144daeaa465b0d8bb5181432d28c",
+    ".github/native/windows_identity_lpac_curl_mm_loader_backend.hpp": "8791a9b20c7648fffbe714cb7f1770c29d928b0061aa591454f69a0bf7c28a55",
+    ".github/native/windows_identity_lpac_curl_mm_loader_context.hpp": "b49c75e6879c96ddadff67322fe242129595f9bef349a3cab715e6c2fb60ebe7",
+    ".github/native/windows_identity_lpac_curl_mm_loader_core.hpp": "994d8515f6f91195a6d605624903307e73969e010a8e67636a82b40d75353ad7",
+    ".github/native/windows_identity_lpac_curl_mm_loader_marker.cpp": "ca6e88dadd59ce90c88f6aa88da196176a6d4c038260c18a952998b39a2b541c",
+    ".github/native/windows_identity_lpac_curl_mm_loader_marker.def": "f4a458081c57f79b798b7f0778e22e1e00c40e6abf3692346951a830963b227e",
+    ".github/native/windows_identity_lpac_curl_mm_loader_marker_core.hpp": "f1375c0494374e3cc4073cee7cdad087bbbe1b77a247c88a173cfab70ab85e4e",
+    ".github/native/windows_identity_lpac_curl_mm_loader_operations.hpp": "c8ce4ed80de3630b34f9d998d9dfd22eb37ea4fe1ad84445ecd88ae09dc1f82d",
+    ".github/native/windows_identity_lpac_curl_mm_loader_ownership.hpp": "0b38ea82617b111ee6a018747e76b1ec1675b728d78e9192a4c497b7149555ec",
+    ".github/native/windows_identity_lpac_curl_mm_loader_win32.hpp": "2fe2579ec647cb317c21c66672a94c81b2de83df15ef4a5026a0792ef6754556",
+    ".github/native/windows_identity_lpac_curl_mm_loader_wrapper.cpp": "3f45af8778551d42895cab5cd5ef33b5aa207f43ab7dc752b46aeee6f991d767",
+    ".github/native/windows_identity_lpac_curl_mm_loader_wrapper.hpp": "0cea2a9a3e7474d45e6b23f70b3184255decf0b9dfc7968cd590541fae06b9b4",
+    ".github/native/windows_identity_proxy_bridge_core.hpp": "f03e45166265f02a65abc12930efd73634a332596d22aa78cadc1267a80b6356",
+    ".github/native/windows_identity_proxy_c_actor.cpp": "17f8a816028f71667513586b2efd57fc1c46b369e1d7171e74a2cef6e9c543a3",
+    ".github/native/windows_identity_proxy_c_contract.hpp": "150efbbccdbcb9064eb6d43ddd25608a4a3655c5a408402779dae6216269ff1c",
+    ".github/native/windows_identity_proxy_origin_actor.cpp": "3d079e77e387ba77545c27f5b5c260f591657ef3a44384426cd2039fa8c04010",
+    ".github/native/windows_identity_proxy_origin_transport.hpp": "bed113e5e20064722cbb2c6d3e71b4d3ca6c4769ebd694c86997abec0af661c4",
+    ".github/native/windows_identity_proxy_pipe_actor.cpp": "26636a6b9979e91452cf6e7d2049d6fbbfa43639a35708ee18d4a71e67fb8dd0",
+    ".github/vendor/detours/CREDITS.md": "f998e4cc8c40ec7d0d9bf4e476164935b18928cc2315b3c1f9d730ab3f692baa",
+    ".github/vendor/detours/LICENSE": "7c77a44a8acd9b41fdc209864a8016b3d430b5d0e09309818d5b7444336df744",
+    ".github/vendor/detours/LICENSE.md": "b301808b732cfaa60df2b4b422d78cd97d2a15058b207e7e33f0535ba5170dd6",
+    ".github/vendor/detours/Makefile": "26e55b343fce15b54b8723e4caa77c44fe115f6d0e90cc6887d27f653ab42c3b",
+    ".github/vendor/detours/README.md": "3dd37ea61584e1d1e17bbfdc6160d19beb35c6771c90d04be5024f6d703c9b7a",
+    ".github/vendor/detours/src/Makefile": "4ae1200e0e3767bf3c6b60e8362ea99c10c5f25615716d06dce85715d7ca1688",
+    ".github/vendor/detours/src/creatwth.cpp": "57d1756707c93d4544d3346355d3c7fe900578a8ecb4b4f6835da55e71b02cd5",
+    ".github/vendor/detours/src/detours.cpp": "ea4f2b7ae5b71a902d88ae6b55e9167b72fcf69d2bece8acc453450702be3f91",
+    ".github/vendor/detours/src/detours.h": "74b9d7a9f4f219a3ba1f08ee3f11ffece16f10ba413b12477955cca7449c4f60",
+    ".github/vendor/detours/src/detver.h": "997d713d5b47d159f1736840b318ea426c76ed6f148014a5a9da78ebb4bd700c",
+    ".github/vendor/detours/src/disasm.cpp": "13c38684b1c1018828138301b57863feb37be70557d39ffe171849a0894ff395",
+    ".github/vendor/detours/src/disolarm.cpp": "20900e34f4afa968f4182fc9ae2d94d00ad15ddf1a17c53a034b18b38a9a4592",
+    ".github/vendor/detours/src/disolarm64.cpp": "b93f39ba5691b9ffb98aae45c7fa5f5a6975a8fed001704ec97f7867a59998ce",
+    ".github/vendor/detours/src/disolia64.cpp": "8ce93f70257c11a7b1015fac5ff801e7b72bbb9621f302a74f9d0bc1db49d334",
+    ".github/vendor/detours/src/disolx64.cpp": "dcac45e9bf07b916e454e141f850856b76e3e0f7b502bd5dd56e18aa2250e020",
+    ".github/vendor/detours/src/disolx86.cpp": "045d4b00029e810a9a156c1e17b33c2becdda1cc652a7cadfe61d9d1c66c81b6",
+    ".github/vendor/detours/src/image.cpp": "a039466a8edc0248042c9df804a2d13bb8a4e03cb038fb10b4b762b2e5d214a9",
+    ".github/vendor/detours/src/modules.cpp": "1950d936e27e847d69c132ee063752b5078593a98ab1841a2e10f33d8bbb4567",
+    ".github/vendor/detours/src/uimports.cpp": "18f86c93d2c2d8feb46ddfb500027ce959a542b824c1d70cf7671227b8c70176",
+    ".github/vendor/detours/system.mak": "469b83d2ac623738232d579458dfa402cca07ee981f4e9935efee4eea8ccaf22",
+    ".github/windows_dns_fixture.py": "5a330ae54ec887742ed14c0d2fd1135e486790b686fbc850c3681f04e674273a",
+    ".github/windows_identity_dns_cases_fixture.py": "28b3035e570ef57fbb3a12f9b8034c71be3d9280712a811fdb636fdb388c9d91",
+    ".github/windows_identity_dns_standard_inventory.ps1": "87d98b0463e031376b6c6d29f1a0db375f74639904d34023ee8bcffa8893dbf1",
+    ".github/windows_identity_lpac_accesscheck.py": "19c0d626e653147276cab9a97c5a0071f1c37b2eeb097c55fbacb39f262ade15",
+    ".github/windows_identity_lpac_curl_mm_binary_reader.py": "e63427cec186ae008d16a2a330bcb1d5a729cf22a5811bc08c0cfebedeca08ab",
+    ".github/windows_identity_lpac_curl_mm_inputs.py": "8dfe91f91a792abf0e147935cd0a3157aab742f894c96c37b4aa7b03f700ecbd",
+    ".github/windows_identity_lpac_curl_mm_loader.py": "6c98c155b54455dfe7f399031c9e716fe902715331a5e001ddc312b58fc8b2a0",
+    ".github/windows_identity_lpac_curl_mm_loader_local.py": "f7cb45b4fb5544f0514b563d6761d9e4735bfe161fc2ca6c608e114b6a1d017f",
+    ".github/windows_identity_lpac_curl_mm_protocol.py": "5e413884e326d6d9576d1820e4487c9a2561ecbd83a3536f144202ce99b94972",
+    ".github/windows_identity_lpac_dns_local.py": "aff8bd5d2a6b1dd688934f9f98fe66146d74a5365caf2ca2c53f6b934f10fd53",
+    ".github/windows_identity_lpac_identity_cell.py": "b7ffce514f00fbd44ce2e4bc77cd93dfe8285e90c608f5f1a82f30b025798105",
+    ".github/windows_identity_lpac_loopback.py": "3c65e68a9ab975126ece6042100a17897ac099d04efb6d7d8f52d8a1dc847a67",
+    ".github/windows_identity_model2_controller.py": "9ecc846082f03fcbb206e5610e86d9f2af06250f2f1b165187229ea5582cc2c1",
+    ".github/windows_identity_model2_dns.py": "748b2e7e4adc7008e83d17e184659e7d428fa41a06958f738190b75133b02847",
+    ".github/windows_identity_model2_dns_raw.py": "e0d06ceed384433597a47dfa839043ff4572774a8425b842f38f5fa69fc405c0",
+    ".github/windows_identity_model2_firewall.ps1": "0c78f295fe0a5a6ec2d7a04d58dcfb888767a9231928121493853519f1613cdb",
+    ".github/windows_identity_model2_live.py": "c27260065808dd9f180918b49ba907897a963ff360da9ca72dd9a735c36029fd",
+    ".github/windows_identity_model2_local.py": "e8aa1c1072469bfbf48cafc29ee1d8f09de228aa37ca0734187c9b1af98c6d45",
+    ".github/windows_identity_model2_local_probe.py": "ec14c0d1b185da1deed651bb27726fdc114b4641181cfc29d998f2eac14e56bf",
+    ".github/windows_identity_model2_maintenance.py": "68b6ce894d0dd544a61e19faf4d52f8388af9973a4f86f4dad35868842e38788",
+    ".github/windows_identity_ordinary_launcher.py": "a890f4740bc2869586278158edad65dd8c649e09afed8c7aab355d842301d4a0",
+    ".github/windows_identity_pipe_probe.py": "4dc8567d8a64e544d7a4baa873ff08900720320e26c8d6a6fd43ae3e5744dc74",
+    ".github/windows_identity_proof.py": "aada68c3a0c309dffe422cd6271cf80a728e05a3c4a52a6a81293b47b74d2386",
+    ".github/windows_identity_proxy_origin_probe.py": "33cfddf58caa8877bbe3f6b97132dfa45e9803c88df7c34f17a8501b1b560095",
+    ".github/windows_identity_proxy_pipe_ac_guest.py": "78777d3a6b210a9e27494fc35f9dc53782adda0594b4f4705dee2c008d8d02e1",
+    ".github/windows_identity_proxy_pipe_ac_local.py": "f5ce0fbc20a727f1c78a513bdac816dc49ae43fb1b24e4f8d7eefcd0b252163b",
+    ".github/windows_identity_proxy_pipe_probe.py": "e6bb37aa6f2c5a98dde44d63d097f7921775fd0d7858b95053f33565602df15b",
+    ".github/windows_psec_compartment_smoke.py": "6602471c0cf08f977879caef5c34bab20db9b84208f5cdae0a00b7a1f802d019",
+    "ruleproxy/windows_app_process.py": "8e62820f98d9dbe352d988501d211565aceecce84657200c2793b69404cbee33",
+    "ruleproxy/windows_runtime_pins.py": "2854702df1f2f7bfefce2b772920394033aaefaadf7b45de7b7d4a3fd1d73e65"
+  },
+  "source_sha256": "e5c0287b08bfb32bbe040c2b1a7299a01f563daf33aaa1e1ff741e6e06196fbf",
+  "source_url": "https://github.com/Shermanxwz/Rule-proxy-Web/tree/9d0b20eed652f9e0da7d47f2a918a63ea2e7ea25",
+  "stage": "sanitized-CMM-actual01-source-evidence-index"
+}
