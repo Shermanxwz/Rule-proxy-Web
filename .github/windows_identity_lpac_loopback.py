@@ -836,7 +836,8 @@ def atomic_publish(path,raw,budget,end):
     path=Path(path);temporary=path.with_name('.'+path.name+'.pending')
     require(not path.exists() and not temporary.exists(),'zero_fresh_control')
     budget.require_ms(end);base.durable_private(temporary,raw);budget.require_ms(end)
-    temporary.rename(path);require(local.bounded(path,128)==raw,'zero_control_readback');budget.require_ms(end)
+    require(local.bounded(temporary,128)==raw,'zero_control_readback');budget.require_ms(end)
+    temporary.rename(path);budget.require_ms(end)
 
 def native_token(primary):
     return dict(is_appcontainer=primary['appcontainer'],capability_count=len(primary['capabilities']),

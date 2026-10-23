@@ -257,6 +257,35 @@ class CoreTests(unittest.TestCase):
         self.assertEqual(len(raw),128);self.assertEqual(raw[:4],b'ZCL1');self.assertEqual(raw[104:],bytes(24));self.assertEqual(len(m.packet(c,c['selected_case'])),64)
         for args in (('selected-client',1,c['before_case'],T+1,T+100),('front-listener',1,c['selected_case'],T+1,T+8002)):
             with self.assertRaises(ValueError):m.control(c,*args)
+    def test_atomic_publish_reads_closed_pending_and_never_reopens_hot_control(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td).resolve();target=root/'phase-01.bin';pending=root/'.phase-01.bin.pending'
+            c=config();raw=m.control(c,'selected-client',1,c['selected_case'],T+1,T+8001);events=[]
+            bounded=m.local.bounded;rename=Path.rename
+            def read(path,limit):
+                path=Path(path);events.append(('read',path.name))
+                if path==target:
+                    error=OSError('native share-zero owns the published GO');error.winerror=32;raise error
+                self.assertEqual(path,pending);self.assertFalse(target.exists());return bounded(path,limit)
+            def publish(path,destination):
+                self.assertEqual(path,pending);self.assertEqual(destination,target)
+                self.assertTrue(events);self.assertTrue(all(event==('read',pending.name) for event in events))
+                events.append(('publish',target.name));return rename(path,destination)
+            budget=NS(require_ms=lambda end:1)
+            with patch.object(m.local,'bounded',side_effect=read),patch.object(Path,'rename',publish):m.atomic_publish(target,raw,budget,T+8001)
+            self.assertEqual(target.read_bytes(),raw);self.assertFalse(pending.exists())
+            self.assertEqual(events[-1],('publish',target.name));self.assertTrue(all(event==('read',pending.name) for event in events[:-1]))
+        owner,_,j,_=self.owner()
+        with patch.object(m.local,'bounded',wraps=m.local.bounded) as reads:m.validate_result(j,owner.c,parent=b.PARENT,root=owner.root)
+        self.assertIn(owner.root/'selected-control/phase-01.bin',[Path(call.args[0]) for call in reads.call_args_list])
+    def test_atomic_publish_wrong_pending_bytes_never_become_visible(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td).resolve();target=root/'phase-01.bin';pending=root/'.phase-01.bin.pending';raw=bytes(128)
+            def corrupt(path,limit):
+                self.assertEqual(Path(path),pending);self.assertFalse(target.exists());return bytes([1])+raw[1:]
+            with patch.object(m.local,'bounded',side_effect=corrupt),patch.object(Path,'rename',side_effect=AssertionError('must not publish')):
+                with self.assertRaises(ValueError):m.atomic_publish(target,raw,NS(require_ms=lambda end:1),T+8001)
+            self.assertFalse(target.exists());self.assertTrue(pending.exists())
     def test_tcp_exact_pid_address_state_and_ports_are_required(self):
         L='7f000001';rows=[(2,11,49153,0,L,'00000000'),(7,22,50001,49153,L,L),(8,11,49153,50001,L,L)]
         m.exact_tcp(tcp_raw(rows),11,49153,client_pid=22,client_port=50001)
