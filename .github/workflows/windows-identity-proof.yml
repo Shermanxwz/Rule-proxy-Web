@@ -13,6 +13,10 @@ on:
       - '.github/windows_identity_paired_startup.py'
       - '.github/windows_identity_dumpbin.py'
       - '.github/windows_identity_publication.py'
+      - '.github/windows_identity_lpac_stream_mihomo_origin.py'
+      - '.github/windows_identity_lpac_stream_mihomo_origin_local.py'
+      - '.github/native/windows_identity_lpac_stream_mihomo_http.hpp'
+      - '.github/native/windows_identity_lpac_stream_mihomo_network_actor.cpp'
       - 'tests/test_windows_identity*.py'
       - '.github/workflows/windows-identity-proof.yml'
 

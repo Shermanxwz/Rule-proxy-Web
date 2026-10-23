@@ -500,7 +500,7 @@ def mihomo_configuration(declared):
         'proxy-providers':{},'rule-providers':{},'proxies':[],'proxy-groups':[],'sub-rules':{},'hosts':{},
         'rules':['AND,((NETWORK,TCP),(IP-CIDR,127.0.0.1/32,no-resolve),(DST-PORT,'+str(O)+')),DIRECT','MATCH,REJECT'],
         'listeners':[{'type':'mixed','name':'ruleproxy-a2-owned','listen':'127.0.0.1','port':str(M),'udp':False,'users':[],
-            'certificate':'','private-key':'','client-auth-type':'','client-auth-cert':'','ech-key':'','reality-config':{},'routing-mark':0,'proxy':'','rule':''}],
+            'certificate':'','private-key':'','client-auth-type':'','client-auth-cert':'','ech-key':'','routing-mark':0,'proxy':'','rule':''}],
         'dns':{'enable':False,'prefer-h3':False,'ipv6':False,'ipv6-timeout':0,'use-hosts':False,'use-system-hosts':False,'respect-rules':False,
             'nameserver':[],'fallback':[],'fallback-filter':{'geoip':False,'geoip-code':'','ipcidr':[],'domain':[],'geosite':[]},'fallback-lazy-query':False,
             'listen':'','listen-routing-mark':0,'enhanced-mode':'normal','fake-ip-range':'','fake-ip-range6':'','fake-ip-filter':[],
