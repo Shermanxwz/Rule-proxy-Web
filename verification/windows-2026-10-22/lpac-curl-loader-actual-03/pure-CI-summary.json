@@ -1,0 +1,36 @@
+{
+  "CI_runtime_acceptance": false,
+  "full04": {
+    "passed": true,
+    "raw_log": {
+      "bytes": 242940,
+      "sha256": "d26601b46b9b6939e95ee6198de8f5c97c8a924d302fa4626c9c006fcea65244"
+    },
+    "receipt": {
+      "bytes": 1210,
+      "sha256": "a6130d955323dd0ba6c82781c0e02dfa92cd52047f29b150667785c82b8807ad"
+    },
+    "seconds": 292.446,
+    "skipped": 2,
+    "tests": 1271
+  },
+  "raw_logs_not_republished": true,
+  "runtime_steps_5_to_9": "skipped",
+  "schema_version": 1,
+  "source_CI": {
+    "passed": true,
+    "raw_log": {
+      "bytes": 300865,
+      "sha256": "5f3e10f2182e84788a64ba3555c9dbe9576cefb21efb6d785f7899173f46efbd"
+    },
+    "receipt": {
+      "bytes": 1008,
+      "sha256": "5c933fb38a32feda5909424b62f342b408882ea08e78e65fac266842f0b88633"
+    },
+    "seconds": 284.904,
+    "skipped": 0,
+    "tests": 1271
+  },
+  "source_commit": "00d1f08d4d1b7a6aac842f295d6cfd33e35a0fba",
+  "stage": "curl-loader-actual03-pure-CI-summary"
+}

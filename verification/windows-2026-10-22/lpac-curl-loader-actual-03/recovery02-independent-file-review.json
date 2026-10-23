@@ -1,0 +1,370 @@
+{
+  "actions": {
+    "API_DLL_target_cleanup_compiler_tests_CI_executed": false,
+    "file_reads_hashes_readonly_Git_and_new_safe_WORK_review_only": true,
+    "main_outputs_or_original_files_modified": false,
+    "recovery_or_project_or_reader_imported": false
+  },
+  "bindings": {
+    "all_original_report_public_plan_config_and_Ready_committed": true,
+    "all_six_durable_records_physical_bytes_and_QPC_exact": true,
+    "closed_guard_proof_config_base_and_raw_descriptor_exact": true,
+    "config_sha256_canonical_and_raw_checked": true,
+    "entry_private_copy_exact": true,
+    "guard_historical_commit_source62_proof": true,
+    "independent_reader_staged62_equals_historical_Git_raw": true,
+    "public_reprojection_exact": true,
+    "tool_physical_launch_equals_worker_report": true,
+    "worker_PID_to_held_outer_child_checked_privately": true
+  },
+  "driver": {
+    "executed_once": true,
+    "exit_code": 0,
+    "raw_log": {
+      "bytes": 1380,
+      "sha256": "21da746e8b1e2c9ebebff1ce664cd0be93db7cd74db29569a0f943f81b45da02"
+    },
+    "receipt": {
+      "bytes": 705,
+      "name": "lpac-curl-loader-recovery03-root-driver-02.json",
+      "sha256": "a0dd94561786b206ce930093467338c99bb81b11b662e5f1def6e7cd9e5e863e"
+    },
+    "seconds": 2.562000000005355
+  },
+  "executed_entry": {
+    "bytes": 28408,
+    "sha256": "8f258d3f1aae0f29672799e34a0d4ca7e636181bf0b40509839d8749f949f9ea"
+  },
+  "facts": {
+    "all_label_readbacks_empty": true,
+    "all_label_writes_returned": true,
+    "all_original_sid_ACEs_absent": true,
+    "current_ordinary_device_bound": true,
+    "exact_profile_sid_derived_and_released": true,
+    "old_exact_generations_not_live": true,
+    "original_exact_sid_ACE_scope": true,
+    "original_files_and_source_bound": true,
+    "original_known_cleanup_and_forget_bound": true,
+    "original_outer_job_absent": true,
+    "profile_delete_returned_success": true,
+    "remove_tool_held_outer_atomic": true,
+    "remove_tool_natural_exit0_cleanup": true,
+    "selected_stdio_and_label_scope_bound": true
+  },
+  "failed_recovery01_public": {
+    "bytes": 1328,
+    "sha256": "88f2b3e245741c60ccd6d2c74e697e31dc52575ee390ffe6410e574104de50a4"
+  },
+  "fixed_false_claims": {
+    "curl_or_wrapper_run": false,
+    "external_profile_absence_independently_verified": false,
+    "network_experiment_run": false,
+    "old_unknowns_cleared": false,
+    "original_actual03_rewritten": false,
+    "product_acceptance": false
+  },
+  "forensic_never_substituted": true,
+  "globals": {
+    "after": {
+      "bytes": 7655,
+      "sha256": "e2628e54697b73876c68b6ad3a055f407b8518023f42f239e1668599eba9b1e0"
+    },
+    "baseline": {
+      "bytes": 7378,
+      "sha256": "f05d91ee76ee8a97ae5ab3bfa092167a8ee560c083255f142e6c453f2edf7ab3"
+    },
+    "before": {
+      "bytes": 7655,
+      "sha256": "e2628e54697b73876c68b6ad3a055f407b8518023f42f239e1668599eba9b1e0"
+    },
+    "before_after_byte_equal": true,
+    "before_after_objects_equal": {
+      "dns": true,
+      "firewall_profiles": true,
+      "routes": true,
+      "user_proxy": true
+    },
+    "no_configuration_or_route_cleanup_by_auditor": true,
+    "original_baseline_after_objects_equal": {
+      "dns": true,
+      "firewall_profiles": true,
+      "routes": false,
+      "user_proxy": true
+    },
+    "route_writer_or_time_attribution_proven": false
+  },
+  "label_nodes_before": [
+    {
+      "had_label": true,
+      "name": "selected-output",
+      "raw_sha256": "d46e032c013fe9fb4d0a9cf81fc09f46f11eb2fb4a7bcb6082f32072b1dc3472"
+    },
+    {
+      "had_label": true,
+      "name": "stdout",
+      "raw_sha256": "df32d7042b3365e9112279512521f74a4c2f8eff2162d042cbe949e8701c26b7"
+    },
+    {
+      "had_label": true,
+      "name": "stdin",
+      "raw_sha256": "df32d7042b3365e9112279512521f74a4c2f8eff2162d042cbe949e8701c26b7"
+    },
+    {
+      "had_label": true,
+      "name": "stderr",
+      "raw_sha256": "df32d7042b3365e9112279512521f74a4c2f8eff2162d042cbe949e8701c26b7"
+    }
+  ],
+  "label_result_basis": "Source-bound maintenance helper observations: all four writes returned and then all four independent LABEL readbacks yielded mandatory-label ACE absence. The auditor did not invoke a label API or claim full SACL byte restoration.",
+  "label_write_then_readback_count": 4,
+  "limitations": [
+    "This is a successful separate exact maintenance action; the original assay remains inconclusive and recovery-required in its immutable public.",
+    "Worker/API effects are source-bound observations and ordinary launcher receipts. The auditor only read physical files/Git; it did not re-query profiles, labels, ACLs, processes or Jobs.",
+    "Normal delete-helper return is not an independent external profile-absence query.",
+    "The original marker signals do not prove DllMain return or curl entry; fast target-race/mapping/marker qualification gaps and all broad claims remain unchanged.",
+    "Legacy ordinary launcher field nested_resource_cleanup_incomplete is retained verbatim as a diagnostic, not silently rewritten into broad nested-resource qualification."
+  ],
+  "maintenance_records": [
+    {
+      "QPC_nondecreasing": true,
+      "QPC_within_new_root120_worker115_work85": true,
+      "action": "label-restore-intent",
+      "commitment": {
+        "bytes": 699,
+        "sha256": "993e96fd9249159f4d4271d9e2b84c6d8ed203dc490b88d304011143cf7c765e"
+      },
+      "config_and_original_report_bound": true,
+      "raw_QPC_not_published": true,
+      "sequence": 0
+    },
+    {
+      "QPC_nondecreasing": true,
+      "QPC_within_new_root120_worker115_work85": true,
+      "action": "label-writes-returned",
+      "commitment": {
+        "bytes": 232,
+        "sha256": "1e29ced5888db057015784af855e08064de5fdaa6819fbcc4de60b66dec8eeb1"
+      },
+      "config_and_original_report_bound": true,
+      "raw_QPC_not_published": true,
+      "sequence": 1
+    },
+    {
+      "QPC_nondecreasing": true,
+      "QPC_within_new_root120_worker115_work85": true,
+      "action": "label-readbacks-empty",
+      "commitment": {
+        "bytes": 232,
+        "sha256": "39baf9317b1294031f0f2d594e179e264f1edf5e3f637628461bbcd758ac69db"
+      },
+      "config_and_original_report_bound": true,
+      "raw_QPC_not_published": true,
+      "sequence": 2
+    },
+    {
+      "QPC_nondecreasing": true,
+      "QPC_within_new_root120_worker115_work85": true,
+      "action": "remove-original-SID-intent",
+      "commitment": {
+        "bytes": 608,
+        "sha256": "bc8a3bf799702c95eefc58e1630793ea08bb8ddd1db715ffb0c45a0ddf5db69b"
+      },
+      "config_and_original_report_bound": true,
+      "raw_QPC_not_published": true,
+      "sequence": 3
+    },
+    {
+      "QPC_nondecreasing": true,
+      "QPC_within_new_root120_worker115_work85": true,
+      "action": "delete-original-profile-intent",
+      "commitment": {
+        "bytes": 403,
+        "sha256": "22ff8a3f8826aa4dcce11f4e0f0786f47678105083ae9a9a464ac03744ca5090"
+      },
+      "config_and_original_report_bound": true,
+      "raw_QPC_not_published": true,
+      "sequence": 4
+    },
+    {
+      "QPC_nondecreasing": true,
+      "QPC_within_new_root120_worker115_work85": true,
+      "action": "delete-original-profile-returned",
+      "commitment": {
+        "bytes": 248,
+        "sha256": "b2fd5c3a6ee7da8351818e9d9f1298bb9fcc2f105523617d7d8ff16d50c266ce"
+      },
+      "config_and_original_report_bound": true,
+      "raw_QPC_not_published": true,
+      "sequence": 5
+    }
+  ],
+  "old_generation_roles": [
+    {
+      "original_generation_live": false,
+      "query_resources_closed": true,
+      "reported_absent": true,
+      "role": "before",
+      "unrelated_reused_generation": false
+    },
+    {
+      "original_generation_live": false,
+      "query_resources_closed": true,
+      "reported_absent": false,
+      "role": "grant-root",
+      "unrelated_reused_generation": true
+    },
+    {
+      "original_generation_live": false,
+      "query_resources_closed": true,
+      "reported_absent": true,
+      "role": "grant-package",
+      "unrelated_reused_generation": false
+    },
+    {
+      "original_generation_live": false,
+      "query_resources_closed": true,
+      "reported_absent": true,
+      "role": "grant-output",
+      "unrelated_reused_generation": false
+    },
+    {
+      "original_generation_live": false,
+      "query_resources_closed": true,
+      "reported_absent": true,
+      "role": "selected",
+      "unrelated_reused_generation": false
+    },
+    {
+      "original_generation_live": false,
+      "query_resources_closed": true,
+      "reported_absent": true,
+      "role": "after",
+      "unrelated_reused_generation": false
+    }
+  ],
+  "old_original_outer_generation_boundary": "No original outer-worker FILETIME was recorded. The source uses its known physical exit/Job/handle cleanup plus a current exact named Job absence observation; no fabricated generation.",
+  "ordinary_fixed_remove_tool": {
+    "capabilities_empty": true,
+    "cleanup": {
+      "close_uncertain": false,
+      "errors": [],
+      "handles_closed": true,
+      "job_closed": true,
+      "job_empty": true,
+      "process_exit_confirmed": true
+    },
+    "exit_code": 0,
+    "held_ordinary_same_user_session_before_resume": true,
+    "natural_exit0_before_owned_job_cleanup_source_branch": true,
+    "nested_resource_cleanup_incomplete_original_field": true,
+    "resumed": true,
+    "started": true,
+    "timed_out": false
+  },
+  "ordinary_recovery_worker": {
+    "capabilities_empty": true,
+    "cleanup": {
+      "close_uncertain": false,
+      "errors": [],
+      "handles_closed": true,
+      "job_closed": true,
+      "job_empty": true,
+      "process_exit_confirmed": true
+    },
+    "exit_code": 0,
+    "held_ordinary_same_user_session_before_resume": true,
+    "natural_exit0_before_owned_job_cleanup_source_branch": true,
+    "nested_resource_cleanup_incomplete_original_field": true,
+    "resumed": true,
+    "started": true,
+    "timed_out": false
+  },
+  "original_A3_loader_or_network_acceptance_not_changed": true,
+  "original_actual03_public": {
+    "bytes": 2902,
+    "sha256": "7b5173f6560a03d7d2ab9f5a35fcb89878b0531363df32e766550f66e7963e2e"
+  },
+  "original_actual03_raw_worker_forensic_and_public_unchanged": true,
+  "original_actual03_recovery_required_still_true": true,
+  "original_reader": {
+    "bytes": 44713,
+    "sha256": "35788f03d58b11de25cd00d5f89707041661e08fd25520248e9bacfa479d143d"
+  },
+  "original_source_count": 62,
+  "original_source_sha256": "a6d15e9b40107ced51077f3462e7561d3f5ad3d100a44398cbb751e2285dd470",
+  "passed": true,
+  "private_commitments": {
+    "config": {
+      "bytes": 1053,
+      "sha256": "718b5a77cebe09d3d4aec9a06f1802e2342bbf1e80db9e8b9c51661666e82fe7"
+    },
+    "guard_proof": {
+      "bytes": 7871,
+      "sha256": "ae5895a45457c148fefd3537805d747273c7351376c111122cbe7f62afd30ad2"
+    },
+    "outer_launch": {
+      "bytes": 619,
+      "sha256": "77054b70b0a78bf34573989044d8b58b9663e68c4b940b5a7429e2c9d91184aa"
+    },
+    "remove_launch": {
+      "bytes": 619,
+      "sha256": "d72c7919ef0d9657c4d09928bd6eb773e2750afb5bfe676c414358dee2d50c2b"
+    },
+    "stdio": {
+      "guard": {
+        "controller.stderr": {
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "controller.stdin": {
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "controller.stdout": {
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      },
+      "remove-tool": {
+        "controller.stderr": {
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "controller.stdin": {
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "controller.stdout": {
+          "bytes": 44,
+          "sha256": "7e53c9cd0bc72b4c7a78b4e4260ef1f5ddaac27fae55fe2caef2dead77b3b1fa"
+        }
+      }
+    },
+    "worker_report": {
+      "bytes": 2744,
+      "sha256": "d92e3884d6d0cdba08d61bbcbb063df6d62851970497368ea9a0d2e704e09521"
+    }
+  },
+  "profile_result": {
+    "DeleteAppContainerProfile_helper_returned_normally": true,
+    "all_original_SID_ACEs_absent_reported_after_tool": true,
+    "exact_original_profile_and_derived_SID_bound_privately": true,
+    "external_profile_absence_independently_verified": false,
+    "no_new_profile_created": true,
+    "only_original_SID_ACEs_removed": true
+  },
+  "recovery_public": {
+    "bytes": 1312,
+    "sha256": "e69d8cbd0799b8a7491226071cff1e3ef6f2c893822d5f40ec1f653181871f05"
+  },
+  "remove_tool_held_inner_atomic_and_exact_outer_membership_basis": "Sealed Tool.assign_job delegates atomic JOB_LIST verification then queries exact recovery outer membership before launcher Resume; raw successful launch and worker fact bind this source path, not an independent new kernel query by auditor.",
+  "reviewed_source_GO": {
+    "bytes": 4483,
+    "name": "lpac-curl-loader-actual03-recovery-independent-source-review-02.json",
+    "sha256": "2f396e4f2e36d6bd25947eb9f7e348a9737ac67cd42b1b14bf8867bebe301c04"
+  },
+  "schema_version": 1,
+  "source_commit": "00d1f08d4d1b7a6aac842f295d6cfd33e35a0fba",
+  "stage": "actual03-recovery02-independent-file-review",
+  "verdict": "CONFIRMED-SCOPED-RECOVERY02-SOURCE-BOUND"
+}
