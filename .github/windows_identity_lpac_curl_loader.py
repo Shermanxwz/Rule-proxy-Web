@@ -790,8 +790,10 @@ class Owner(cell.CellOwner):
             try:
                 if self.j['labels']:
                     self.journal('label-restore')
-                    for p in reversed(base.owned_tree(self.root/'selected-output')):
-                        self.api.label_set(p,None);require(self.api.label_read(p) is None,'loader_label_restore')
+                    for p in sorted(base.owned_tree(self.root/'selected-output'),key=lambda p:len(p.parts),reverse=True):
+                        self.budget.require_ms(self.budget.cutoff(5));self.api.label_set(p,None)
+                    for p in base.owned_tree(self.root/'selected-output'):
+                        self.budget.require_ms(self.budget.cutoff(5));require(self.api.label_read(p) is None,'loader_label_restore')
                     self.j['labels'][0]['restored']=True
                 self.j['labels_restored']=True
                 if self.profile['created']:
