@@ -1,0 +1,3 @@
+LIBRARY windows_identity_lpac_curl_mm_loader_marker
+EXPORTS
+ cmm_marker_anchor @1 NONAME
