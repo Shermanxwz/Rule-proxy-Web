@@ -1,0 +1,10 @@
+test_api_success_is_separate_from_false_membership_and_no_private_scalars (__main__.ProjectionTests.test_api_success_is_separate_from_false_membership_and_no_private_scalars) ... ok
+test_both_exact_queries_and_physical_receipts_closed_for_full_fake (__main__.ProjectionTests.test_both_exact_queries_and_physical_receipts_closed_for_full_fake) ... ok
+test_failed_api_never_fakes_membership (__main__.ProjectionTests.test_failed_api_never_fakes_membership) ... ok
+test_missing_or_modified_claimed_disk_receipt_rejected (__main__.ProjectionTests.test_missing_or_modified_claimed_disk_receipt_rejected) ... ok
+test_unbound_physical_receipt_cannot_supply_runtime_facts (__main__.ProjectionTests.test_unbound_physical_receipt_cannot_supply_runtime_facts) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.494s
+
+OK

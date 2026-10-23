@@ -1,0 +1,48 @@
+{
+  "actual03_result_remains_inconclusive": true,
+  "compile_only_actor_step_executed": true,
+  "conclusion": "success",
+  "cpse_experiment_executed": false,
+  "decoded_original": {
+    "bytes": 207436,
+    "encoding": "UTF-8 BOM",
+    "kept_in_work": true,
+    "line_endings": "CRLF",
+    "not_raw_zip": true,
+    "sha256": "026733c942fab57d2eec4e71113149b189156dad734cd5ab0e2803600e36c478"
+  },
+  "errors": 0,
+  "event": "push",
+  "failures": 0,
+  "gated_runtime_steps_skipped": [
+    5,
+    6,
+    7,
+    8,
+    9
+  ],
+  "isolated_runtime_qualified": false,
+  "job_id": 120164793726,
+  "native_actor_executed": false,
+  "network_experiment_executed": false,
+  "prior_source_ci_does_not_transfer": true,
+  "public_log_view": {
+    "bytes": 206344,
+    "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-03/ci-39876964598-decoded-public-view.log",
+    "sha256": "ceb1bb01ae44a37deab40bd38d58068017f59ad31e1897b3ada6c8dda4086cfc"
+  },
+  "pure_or_ci_success_does_not_override_actual03_failure": true,
+  "run_id": 39876964598,
+  "runtime_steps_basis": "Root independently read GitHub job step metadata; decoded log does not contain skipped step bodies.",
+  "schema_version": 1,
+  "seconds": 104.933,
+  "skips": 0,
+  "source_commit": "4c5878ba0ffa6f4b938e26bf5c8c016b7042b333",
+  "stage": "read-only-psec-identity-source03-auto-ci-summary",
+  "status": "completed",
+  "tests_run": 872,
+  "url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39876964598",
+  "verified": true,
+  "workflow_dispatched": false,
+  "workflow_rerun": false
+}

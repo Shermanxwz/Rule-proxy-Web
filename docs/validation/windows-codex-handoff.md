@@ -1,5 +1,7 @@
 # Windows Codex 交接：先验证身份绑定 IPC，再完成应用级代理隔离
 
+**PSEC+LPAC identity03（2026-10-23）**：[独立 Job 准入观察](2026-10-23-psec-lpac-identity-03.md)明确记录 inner API成功/member=false、outer API成功/member=true。准入停止于 primary/LPAC/proof/resume 前，本轮已知资源清理闭合；外部 absence 与崩溃等价清理未证明。01未知、02未分离查询历史及原 G/PSEC DNS 泄漏均保留，产品资格仍为false。
+
 **Semantic-LPAC DNS02，2026-10-23：** [本机完整观察](2026-10-23-lpac-semantic-dns-02.md)已得到LPAC DnsQueryEx API/query5、零记录且selected receiver零查询；普通同API前后各成功查询/答复一次。11次身份检查、自然退出和全部清理通过，配置快照字节与最初baseline相同。原G/PSEC泄漏仍保留；代理组合、默认resolver及Linux等效尚未验收。
 
 **Semantic-LPAC DNS01，2026-10-23：** [本机原始观察](2026-10-23-lpac-semantic-dns-01.md)为 inconclusive：普通 before API/query0且receiver1/1，随后snapshot缺deadline参数停止；selected尚未查询。全部自动清理和原baseline字节比较通过，原失败保留，正修接口合同。

@@ -1,0 +1,79 @@
+{
+  "archive_files": 14,
+  "archive_written": false,
+  "files": {
+    "archive_psec_lpac_identity_03.py": {
+      "bytes": 55918,
+      "sha256": "99bb2b206cb4bc7dce799b267b84740d19f5e2e8fd5c088c3acfae80f5786c29"
+    },
+    "archive_psec_lpac_identity_03_command.ps1": {
+      "bytes": 1438,
+      "sha256": "1150bfbdcf7b7a56306af4bb9d74ffbb56ca3e72f4963e9fcffe855113537c6b"
+    },
+    "psec-lpac-identity-03-job-admissions-preview.json": {
+      "bytes": 4260,
+      "sha256": "c23eee832d66dd561509a25b5982b66b7e76cbb131000a45fae4e179b78c42ed"
+    },
+    "stage_psec_lpac_identity_local_03_paths.txt": {
+      "bytes": 1121,
+      "sha256": "7fc1f49ff9655a2eec56320d8e017f417c95f01754f7c89164bee4bc2090090e"
+    }
+  },
+  "independent_actual_review": {
+    "bytes": 29753,
+    "sha256": "9e70ae4ea7651d0c31ebd779dad05171f5cbf76d9d182f0e51ddfd56e4a65d83"
+  },
+  "inner": {
+    "api_success": true,
+    "membership": false
+  },
+  "known_cleanup_report_preserved": true,
+  "no_ids_handles_sid_names_paths_creation_or_qpc_published": true,
+  "old_freeze_timing_metadata_not_rewritten": true,
+  "original_public_sha256": "75f3198b40afc5b9919fd862b66ab14b023b4b30e4ab979b742cf3e315e734f6",
+  "outer": {
+    "api_success": true,
+    "membership": true
+  },
+  "partial_admission_not_promoted": true,
+  "planned14_pathlist_exact": true,
+  "pure_projection_tests": {
+    "duration_seconds": 0.494,
+    "errors": 0,
+    "failures": 0,
+    "skipped": 0,
+    "tests": 5
+  },
+  "raw_job_receipt_metadata": [
+    {
+      "bound_to_validated_held_worker_result": true,
+      "bytes": 2285,
+      "independent_physical_file_establishes_admission": false,
+      "raw_private_text_published": false,
+      "role": "ac",
+      "sequence": 1,
+      "sha256": "bb4682cb27f869e49051c813525f8abf2690edee4b7a88d08a2c05d7bd50d68e",
+      "unvalidated_or_incomplete_forensic_only": false
+    }
+  ],
+  "repo_mutated": false,
+  "result": {
+    "bridge_pin_count": 37,
+    "broker_outcome_unknown": false,
+    "forensic_used_for_qualification": false,
+    "job_admission_records": 1,
+    "native_api_or_experiment_run": false,
+    "observation_complete": false,
+    "physical_job_admission_receipts": 1,
+    "proof_count": 0,
+    "recovery_required": false,
+    "returned_receipt_files": 5,
+    "runtime_source_count": 36,
+    "source_commit": "4c5878ba0ffa6f4b938e26bf5c8c016b7042b333",
+    "status": "inconclusive",
+    "verified": true,
+    "worker_result_validated": true
+  },
+  "schema_version": 1,
+  "stage": "psec-lpac-attempt03-archive-reader-actual-pin-check"
+}
