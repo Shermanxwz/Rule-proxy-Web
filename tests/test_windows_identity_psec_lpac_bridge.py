@@ -4,6 +4,7 @@ import importlib.util
 import os
 from pathlib import Path
 import tempfile
+from types import SimpleNamespace as NS
 import unittest
 from unittest.mock import patch
 
@@ -31,6 +32,41 @@ def native(label,now,state=0):
     if label in ('close','unbind'):v.update(close_invoked_once=1,close_returned_normally=1)
     if label=='unbind':v.update(module_close_attempted=1,module_close_confirmed=1)
     return v
+
+class Function:
+    def __init__(self,fn):self.fn=fn
+    def __call__(self,*args):return self.fn(*args)
+
+class JobKernel:
+    """ctypes-shaped kernel callbacks: no OS handle or native call is used."""
+    def __init__(self,api):
+        self.api=api;self.calls=[];self.closed=[];self.next_handle=900001
+        self.IsProcessInJob=Function(self.query);self.OpenJobObjectW=Function(self.open);self.CloseHandle=Function(self.close)
+    def query(self,process,job,out):
+        a=self.api;inner=job==a.owner.job;label='inner' if inner else 'outer';self.calls.append(('query',process,job))
+        # A failed API may leave stale TRUE in the caller buffer. It must not
+        # become membership evidence, even when the immediate error is valid.
+        m.C.cast(out,m.C.POINTER(m.C.c_int))[0]=1
+        if a.fault==label+'-api-error':m.C.set_last_error(5 if inner else 87);return 0
+        if a.fault==label+'-exception':raise OSError('pure query exception')
+        if a.fault==label+'-no-output':m.C.cast(out,m.C.POINTER(m.C.c_int))[0]=-1;return 1
+        if a.fault in (label+'-false','outerjob' if not inner else ''):m.C.cast(out,m.C.POINTER(m.C.c_int))[0]=0
+        if a.fault=='held-inner-false' and inner and sum(call[0]=='query' and call[2]==job for call in self.calls)>=2:
+            m.C.cast(out,m.C.POINTER(m.C.c_int))[0]=0
+        if a.fault=='query-late' and not inner:a.now=m.work_cutoff(a.owner.c)
+        return 1
+    def open(self,access,inherit,name):
+        self.calls.append(('open',access,inherit,name))
+        if self.api.fault=='open-null':m.C.set_last_error(5);return None
+        if self.api.fault=='open-exception':raise OSError('pure open unknown')
+        if self.api.fault=='open-invalid':return (1<<64)-1
+        if self.api.fault=='open-alias':return self.api.alias
+        return self.next_handle
+    def close(self,handle):
+        self.calls.append(('close-query',handle));self.closed.append(handle)
+        if self.api.fault=='query-close-false':m.C.set_last_error(6);return 0
+        if self.api.fault=='query-close-exception':raise OSError('pure close unknown')
+        return 1
 
 class Probe(fixture.Probe):
     def verify_process(self,process,pid,creation):
@@ -72,7 +108,7 @@ class FakeBridge:
             # rejects the old wrong order rather than supplying only empty=True.
             job=self.api.owner.job
             assert job not in a.closed and a.job_empty(job),'Job must stay held through VOID close'
-            assert all(r['info'].hProcess in a.closed and r['info'].hThread in a.closed and r['token'] in a.closed
+            assert all(r['info'].hProcess in a.closed and r['info'].hThread in a.closed and (r['token'] is None or r['token'] in a.closed)
                 for r in a.owner.rows if r['info'].hProcess),'kernel handles must close before opaque'
             if a.fault=='close-exception':raise OSError('VOID close did not return')
             self.state=3;v.update(environment_state=3)
@@ -87,16 +123,26 @@ class FakeBridge:
 class API(fixture.API):
     def __init__(self,root,fault=None,probe_fault=None):
         super().__init__(root,fault,probe_fault);self.children_inputs=[];self.loaded=[]
+        self.kernel=JobKernel(self)
+        for name in ('IsProcessInJob','OpenJobObjectW','CloseHandle'):setattr(self.k,name,getattr(self.kernel,name))
+    query_exact_jobs=m.NativeAPI.query_exact_jobs
     def bridge(self,path):self.loaded.append(path);return FakeBridge(self)
     def processmodel_path(self):return self.root/'processmodel.dll'
     def access_api(self):return Probe(self)
     def creation_time(self,h):return 133900000000000000+h if self.fault=='filetime-real' else super().creation_time(h)
     def process_id(self,h):return self.rows[h].get('pid',h)
     def close(self,h):self.events.append(('close',h));return super().close(h)
+    def token_for_process(self,h):self.events.append(('open-primary',h));return super().token_for_process(h)
+    def terminate_process(self,h):self.events.append(('terminate-process',h));return super().terminate_process(h)
     def resume(self,*a):raise AssertionError('CPSE identity actors must never resume')
 
 class BridgeTests(unittest.TestCase):
     def setUp(self):
+        # Linux ctypes lacks these Windows entry points. Only the fake's error
+        # slot is supplied; the production backend receives no fallback API.
+        errors={'value':0}
+        self.enterContext(patch.object(m.C,'set_last_error',side_effect=lambda value:errors.update(value=value),create=True))
+        self.enterContext(patch.object(m.C,'get_last_error',side_effect=lambda:errors['value'],create=True))
         # Lifecycle fakes use the host's TemporaryDirectory syntax. Only this
         # fixture's path-syntax seam is replaced on POSIX; production remains
         # Windows-only and SpecTests always exercise real Windows syntax.
@@ -264,4 +310,114 @@ class BridgeTests(unittest.TestCase):
         value=m.decode(raw);self.assertEqual(value['native']['size'],95);self.assertTrue(all(value['pi'].values()))
         self.assertIsNotNone(row['exception']);self.assertEqual(j['failure'],'construct')
         with self.assertRaises(ValueError):m.validate_result(j,cell.c,parent=b.PARENT)
+
+    def test_exact_job_known_false_or_api_error_records_both_before_token(self):
+        for fault,key,api_success,error in (('inner-false','inner',True,0),('outer-false','outer',True,0),
+                ('inner-api-error','inner',False,5),('outer-api-error','outer',False,87)):
+            with self.subTest(fault=fault):
+                cell,api,j,p=self.run_cell(fault);row=j['tasks'][0];entry=row['job_admissions'][0];q=entry['query']
+                self.assertEqual(j['failure'],'admission');self.assertFalse(p['inner_complete']);self.assertEqual(len(j['tasks']),1)
+                self.assertEqual(q[key]['api_success'],api_success);self.assertEqual(q[key]['win32_error'],error)
+                self.assertEqual(q[key]['membership'],False if api_success else None)
+                self.assertEqual([call[0] for call in api.kernel.calls[:4]],['query','open','query','close-query'])
+                self.assertTrue(q['resource_cleanup_verified']);self.assertFalse(row['assigned']);self.assertFalse(row['admitted'])
+                self.assertIsNone(row['expected_primary']);self.assertFalse(any(isinstance(x,tuple) and x[0]=='open-primary' for x in api.events))
+                self.assertNotIn('lpac',api.events);self.assertEqual(j['proofs'],[])
+                raw=(cell.root/'job-admissions'/entry['receipt']['name']).read_bytes();value=m.decode(raw)
+                self.assertEqual(raw,entry['receipt']['text'].encode('ascii'));self.assertEqual(m.sha(raw),entry['receipt']['sha256'])
+                self.assertFalse(value['admission_decision_recorded']);self.assertEqual(value['query'],q)
+                operation=next(op for op in j['operations'] if op['label']=='ac')
+                self.assertEqual(value['pi_receipt_sha256'],operation['receipt']['sha256'])
+                self.assertTrue(j['api_obligations_closed']);self.assertTrue(row['exited'])
+
+    def test_exact_job_native_shaped_signatures_and_immediate_errors(self):
+        # This invokes production code via __new__, not an overridden query
+        # method. A later QPC call deliberately changes the fake last-error.
+        c=config(Path(r'C:\RuleProxyProof\synthetic'));state=NS(now=T+1,fault='inner-api-error',owner=NS(job=50,c=c))
+        kernel=JobKernel(state);api=m.NativeAPI.__new__(m.NativeAPI);api.k=kernel;api.controls_uncertain=False
+        class Clock:
+            frequency=F;deadline=D
+            def read(self):m.C.set_last_error(999);return state.now
+        q=api.query_exact_jobs(100,50,c['guard_job_name'],Clock(),m.work_cutoff(c),protected_handles=(50,100,101,102))
+        m.validate_job_query(q,c,process=100,inner=50)
+        self.assertEqual(q['inner']['win32_error'],5);self.assertIsNone(q['inner']['membership']);self.assertFalse(q['inner']['api_success'])
+        self.assertTrue(q['outer']['membership']);self.assertEqual(kernel.closed,[900001]);self.assertFalse(api.controls_uncertain)
+        self.assertEqual(kernel.calls[1],('open',4,False,c['guard_job_name']))
+        self.assertEqual(kernel.IsProcessInJob.argtypes,[m.C.c_void_p,m.C.c_void_p,m.C.POINTER(m.C.c_int)])
+        self.assertIs(kernel.IsProcessInJob.restype,m.C.c_int)
+        self.assertEqual(kernel.OpenJobObjectW.argtypes,[m.C.c_uint32,m.C.c_int,m.C.c_wchar_p]);self.assertIs(kernel.OpenJobObjectW.restype,m.C.c_void_p)
+        self.assertEqual(kernel.CloseHandle.argtypes,[m.C.c_void_p]);self.assertIs(kernel.CloseHandle.restype,m.C.c_int)
+
+    def test_exact_job_query_handle_alias_invalid_and_null_never_blind_close(self):
+        c=config(Path(r'C:\RuleProxyProof\synthetic'))
+        for fault,alias in [('open-alias',h) for h in (50,100,101,102)]+[('open-invalid',None),('open-null',None)]:
+            with self.subTest(fault=fault,alias=alias):
+                state=NS(now=T+1,fault=fault,alias=alias,owner=NS(job=50,c=c));kernel=JobKernel(state)
+                api=m.NativeAPI.__new__(m.NativeAPI);api.k=kernel;api.controls_uncertain=False
+                budget=NS(frequency=F,deadline=D,read=lambda:state.now)
+                q=api.query_exact_jobs(100,50,c['guard_job_name'],budget,m.work_cutoff(c),protected_handles=(50,100,101,102))
+                m.validate_job_query(q,c,process=100,inner=50);self.assertFalse(m.job_query_passed(q));self.assertEqual(kernel.closed,[])
+                self.assertFalse(q['outer']['attempted']);self.assertEqual(api.controls_uncertain,fault!='open-null')
+                self.assertEqual(q['resource_cleanup_verified'],fault=='open-null')
+
+    def test_exact_job_query_close_unknown_keeps_recovery_and_consumes_once(self):
+        for fault in ('query-close-false','query-close-exception','open-exception'):
+            with self.subTest(fault=fault):
+                _,api,j,p=self.run_cell(fault);q=j['tasks'][0]['job_admissions'][0]['query']
+                self.assertFalse(p['inner_complete']);self.assertFalse(j['job_query_resources_cleanup_verified'])
+                self.assertFalse(j['api_obligations_closed']);self.assertFalse(j['module_unbound']);self.assertNotIn('close',api.events)
+                self.assertTrue(api.controls_uncertain);self.assertEqual(len(api.kernel.closed),0 if fault=='open-exception' else 1)
+                self.assertFalse(q['resource_cleanup_verified']);self.assertTrue(q['outer_resource']['close_uncertain'])
+                if fault=='query-close-false':self.assertEqual(q['outer_resource']['close_win32_error'],6)
+
+    def test_exact_job_durable_failure_prevents_admission_without_erasing_query(self):
+        writer=m.base.durable_private
+        def write(path,raw):
+            if path.parent.name=='job-admissions':raise OSError('pure job observation write failure')
+            return writer(path,raw)
+        with patch.object(m.base,'durable_private',side_effect=write):_,api,j,p=self.run_cell()
+        row=j['tasks'][0];entry=row['job_admissions'][0]
+        self.assertFalse(row['assigned']);self.assertFalse(row['admitted']);self.assertIsNone(entry['receipt']);self.assertIsNotNone(entry['exception'])
+        self.assertTrue(m.job_query_passed(entry['query']));self.assertTrue(j['job_query_resources_cleanup_verified']);self.assertFalse(p['inner_complete'])
+        self.assertNotIn('lpac',api.events);self.assertIsNone(row['expected_primary']);self.assertEqual(j['proofs'],[])
+
+    def test_durable_job_write_consumes_original_budget_before_any_admission(self):
+        original=API.qpc
+        def qpc(api):
+            if (api.root/'job-admissions'/'ac-01.json').exists():api.now=m.work_cutoff(api.owner.c)
+            return original(api)
+        with patch.object(API,'qpc',qpc):cell,api,j,p=self.run_cell()
+        row=j['tasks'][0];entry=row['job_admissions'][0]
+        self.assertIsNotNone(entry['receipt']);self.assertTrue(m.job_query_passed(entry['query']))
+        self.assertEqual(entry['decision_qpc'],m.work_cutoff(cell.c));self.assertIsNotNone(entry['exception'])
+        self.assertFalse(row['assigned']);self.assertIsNone(row['expected_primary']);self.assertFalse(p['inner_complete'])
+        self.assertNotIn('lpac',api.events);self.assertEqual(cell.budget.deadline,D)
+
+    def test_later_job_false_keeps_historical_assignment_but_exact_stops_held_actor(self):
+        _,api,j,p=self.run_cell('held-inner-false');row=j['tasks'][0]
+        self.assertTrue(row['assigned']);self.assertFalse(row['admitted']);self.assertEqual(len(row['job_admissions']),2)
+        self.assertTrue(m.job_admission_passed(row['job_admissions'][0],row,config(api.root)))
+        self.assertFalse(m.job_query_passed(row['job_admissions'][-1]['query']));self.assertIn(('terminate-process',row['pi']['process']),api.events)
+        self.assertTrue(row['exited']);self.assertEqual(row['exit_code'],1);self.assertFalse(p['inner_complete']);self.assertEqual(j['proofs'],[])
+
+    def test_query_late_or_unwritten_success_output_never_admits_or_extends_budget(self):
+        for fault in ('query-late','inner-no-output','outer-no-output'):
+            with self.subTest(fault=fault):
+                cell,api,j,p=self.run_cell(fault);row=j['tasks'][0]
+                self.assertFalse(p['inner_complete']);self.assertFalse(row['assigned']);self.assertIsNone(row['expected_primary'])
+                self.assertEqual(cell.budget.deadline,D);self.assertEqual(len(api.kernel.closed),1)
+                self.assertNotIn('lpac',api.events);self.assertTrue(j['job_query_resources_cleanup_verified'])
+
+    def test_job_admission_receipt_and_cleanup_boolean_cannot_be_rewritten_to_qualify(self):
+        cell,_,j,_=self.run_cell()
+        def rejected(mut,value=j):
+            bad=copy.deepcopy(value);mut(bad)
+            with self.assertRaises((ValueError,m.launcher.GateFailure)):m.validate_result(bad,cell.c,parent=b.PARENT)
+        rejected(lambda x:x['tasks'][0]['job_admissions'][0]['receipt'].update(sha256='0'*64))
+        rejected(lambda x:x['tasks'][0]['job_admissions'][0]['query']['inner'].update(membership=False))
+        rejected(lambda x:x['tasks'][0]['job_admissions'][0]['query'].update(outer_job='Local\\wrong'))
+        rejected(lambda x:x.update(job_query_resources_cleanup_verified=False))
+        _,_,failed,_=self.run_cell('query-close-false')
+        rejected(lambda x:x.update(job_query_resources_cleanup_verified=True),failed)
+        rejected(lambda x:x.update(api_obligations_closed=True),failed)
 if __name__=='__main__':unittest.main()
