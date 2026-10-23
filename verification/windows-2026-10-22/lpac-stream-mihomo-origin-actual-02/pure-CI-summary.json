@@ -1,0 +1,71 @@
+{
+  "CI_or_runtime_dispatched_by_publisher": false,
+  "actual_runtime_results_separate": true,
+  "automatic_CI": {
+    "complete_unittest_summary_present": true,
+    "conclusion": "success",
+    "job_conclusion": "success",
+    "job_id": 120579085475,
+    "jobs": {
+      "bytes": 3058,
+      "sha256": "b10b3da52f06ffd7d7590666389640ff1b14a3741c499565a899949730720327"
+    },
+    "log_format": "connector decoded log; not raw ZIP or HTTP",
+    "passed": true,
+    "raw_log": {
+      "bytes": 286380,
+      "sha256": "f7aa6e23e506bfa8aa4804dabccb54272454dae2bdc8d351cab4ef168785bd73"
+    },
+    "run": {
+      "bytes": 12690,
+      "sha256": "25204feaca0b12de6ae848b4a8dc4d1b7a321ec83454f983546b93885b9d9a64"
+    },
+    "run_id": 40001681122,
+    "runtime_steps5_to9": "skipped",
+    "seconds": 159.802,
+    "skips": 0,
+    "status": "completed",
+    "tests": 1207,
+    "url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/40001681122"
+  },
+  "completed_local_full": {
+    "complete_unittest_summary_present": true,
+    "passed": true,
+    "raw_log": {
+      "bytes": 230311,
+      "sha256": "4f1e1aa5d7b4193cfe087d149acc74ef928e699493a7a099c455e6d55908c6af"
+    },
+    "receipt": {
+      "bytes": 1079,
+      "sha256": "bc514ce01181e277315650231e93bb646ff09ccb165f3189f252c12fc96d8e4b"
+    },
+    "seconds": 238.392,
+    "skips": 2,
+    "tests": 1207
+  },
+  "portable_compiled_assertions_not_additional_unittest_methods": true,
+  "raw_logs_republished": false,
+  "schema_version": 1,
+  "shared_preparation_history": {
+    "earlier_interrupted_full01": {
+      "classification": "Neither a complete pass nor an assertion/test failure; user-requested pause stopped capture. No total inferred from partial lines.",
+      "complete_unittest_summary_present": false,
+      "passed": null,
+      "raw_log": {
+        "bytes": 197206,
+        "sha256": "f06b67c25e4f26036f1e9b42ce015adb45f7d42c6ebefc0e97e5b235abff50fa"
+      },
+      "seconds": null,
+      "skips": null,
+      "status": "interrupted-at-user-request",
+      "tests": null
+    },
+    "initial_Ready": "lpac-stream-mihomo-A2-ready-source-freeze-02.json",
+    "native_tests": 4,
+    "not_new_current_revision_tests": true,
+    "owner_guard_tests": 31,
+    "source_commit": "99ae5695d3cfb66edaeff79074bca4c305014f5d"
+  },
+  "source_commit": "4a6ead8bc6b5618ddc04a608eff65af8a5035f94",
+  "stage": "lpac-stream-mihomo-pure-CI-summary"
+}

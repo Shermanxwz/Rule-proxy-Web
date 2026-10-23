@@ -1,0 +1,109 @@
+{
+  "binding_input": {
+    "bytes": 2326,
+    "sha256": "f74892b0be54cf7f47d1212a46120837664ea7f41bc240a02cc76399f4ee2937"
+  },
+  "files": [
+    {
+      "bytes": 10690,
+      "path": "verification/windows-2026-10-22/lpac-stream-mihomo-origin-actual-02/summary.json",
+      "sha256": "43bd4b94be59afc0b90e8cd1bb99c749d06f3832e9e7abcb36a8c24c182eb747"
+    },
+    {
+      "bytes": 43102,
+      "path": "verification/windows-2026-10-22/lpac-stream-mihomo-origin-actual-02/components.json",
+      "sha256": "909f5e9770c9ee8c7a179eac40fcbe1b941a9021d8e4dfe6a7e28043e67dc9a1"
+    },
+    {
+      "bytes": 2406,
+      "path": "verification/windows-2026-10-22/lpac-stream-mihomo-origin-actual-02/pure-CI-summary.json",
+      "sha256": "da6152d99cfd81a34e642f3383b04193ba5f0b1b7597d891b1421f2b08c68a14"
+    },
+    {
+      "bytes": 24042,
+      "path": "verification/windows-2026-10-22/lpac-stream-mihomo-origin-actual-02/source-build-index.json",
+      "sha256": "d0a0375501b42dce5200455147e60f96a6aeb59abb08cf91a4f5ec6953bec346"
+    },
+    {
+      "bytes": 17381,
+      "path": "verification/windows-2026-10-22/lpac-stream-mihomo-origin-actual-02/runner.py",
+      "sha256": "f8d1232aa459d12d8162088011745b20487a0f45f442ba79e857b914c67715bc"
+    },
+    {
+      "bytes": 34656,
+      "path": "verification/windows-2026-10-22/lpac-stream-mihomo-origin-actual-02/reader.py",
+      "sha256": "d4ace154d8f6581f1083db6e01c9a832f3c62475b2e246a3591c2af3564fbb14"
+    },
+    {
+      "bytes": 3176,
+      "path": "docs/validation/2026-10-24-lpac-stream-mihomo-origin-02.md",
+      "sha256": "15554b6e7cc08b47655a116365199c8c3548754755dd67867a1427c00eb23f4a"
+    }
+  ],
+  "old_history_and_interrupted_test_log_preserved": true,
+  "original_independent_review": {
+    "bytes": 47425,
+    "sha256": "600b96d9c13438fde496abd5a793b5edd8698829d5015e8d5a42b6206df175a1"
+  },
+  "original_preflight": {
+    "bytes": 2690,
+    "path": "verification/windows-2026-10-22/lpac-stream-mihomo-origin-local-02-preflight.json",
+    "sha256": "b3141bba4d333a8ca31083340c4d10df2d30f2fb19702f11ecbe0c2cb72e8bcd"
+  },
+  "original_public": {
+    "bytes": 5002,
+    "path": "verification/windows-2026-10-22/lpac-stream-mihomo-origin-local-02-public.json",
+    "sha256": "b05e715577001c16b9be8c084df996dd2f3b8c4b0b9c26a062559cb4450305c0"
+  },
+  "physical_originals_not_copied": true,
+  "privacy": "Safe booleans/counts/status, symbolic roles and byte hashes only; no SID/PID/HANDLE/QPC/token statistics/host path/query nonce/raw payload/failure message. Public source paths and hashes remain reviewable.",
+  "private_commitments": {
+    "config": {
+      "bytes": 7357,
+      "sha256": "789ff5b5ec4866a8cbc193fef0314afffa39adca0aed250aeab7be3c7f0d7594"
+    },
+    "driver": {
+      "bytes": 17381,
+      "sha256": "f8d1232aa459d12d8162088011745b20487a0f45f442ba79e857b914c67715bc"
+    },
+    "forensic": {
+      "bytes": 83562,
+      "sha256": "af6217994943844128c531b655506b89f3d8d549e1081c5d4973d60c0b67b680"
+    },
+    "outer_report": {
+      "bytes": 620,
+      "sha256": "cd47d128ff226f8f1b8a3ffa3484e4b84a84a2c74dfa82d1ba4901d8615f993a"
+    },
+    "plan": {
+      "bytes": 2331,
+      "sha256": "c5b64032dae8f25dc1d4c9db6d38592bd658106aeb34f8f9f1e90e74fcd6e42b"
+    },
+    "stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "stdout": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "worker_report": {
+      "bytes": 83562,
+      "sha256": "af6217994943844128c531b655506b89f3d8d549e1081c5d4973d60c0b67b680"
+    }
+  },
+  "publisher": {
+    "bytes": 25499,
+    "sha256": "619b002a64836fbb3b92c6b6a622176f959dab43bcc5f58a5997f6d7a807cb85"
+  },
+  "reader": {
+    "bytes": 34656,
+    "sha256": "d4ace154d8f6581f1083db6e01c9a832f3c62475b2e246a3591c2af3564fbb14"
+  },
+  "reader_helper": {
+    "name": "verify_lpac_stream_origin_actual_01_candidate.py",
+    "sha256": "95f0a068e3d90bfefc73b433ac4870667b506585026b5ca3861c1db4eb4ef7e0"
+  },
+  "schema_version": 1,
+  "source_commit": "4a6ead8bc6b5618ddc04a608eff65af8a5035f94",
+  "stage": "lpac-stream-mihomo-origin-actual02-thin-index"
+}
