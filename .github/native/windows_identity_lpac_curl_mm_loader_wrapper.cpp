@@ -92,9 +92,7 @@ u32 update(CMM_CONTEXT8192* opaque,CMM_RESULT256* result){
 u32 install(CMM_CONTEXT8192* opaque,const CMM_MARKER320* marker,CMM_RESULT256* result){
  if(!clean_output(opaque,result,256)||!span(marker,320)||!align8(marker)||overlaps(marker,320,opaque,8192)||overlaps(marker,320,result,256))return rejected;
  init(*result,3);auto& c=*state(opaque);if(!known(c))return rejected;c.helper_count=0;std::memset(c.helpers,0,sizeof(c.helpers));
- if(!c.update_timely||c.install_once||c.mutation_unknown||!marker_initial(*marker,c.input.plan))return done(c,*result,rejected);
- const u64 borrowed[]={c.input.plan.process,c.input.plan.thread,c.input.plan.primary_token,c.input.plan.inner_job,c.input.plan.outer_job,c.input.plan.entered_event,c.input.plan.body_event,c.input.plan.target_lease,c.input.plan.marker_lease};
- for(u64 h:borrowed)if(marker->entered_signal==h||marker->body_signal==h)return done(c,*result,rejected);c.busy=1;
+ if(!c.update_timely||c.install_once||c.mutation_unknown||!install_inputs(*marker,c.input.plan))return done(c,*result,rejected);c.busy=1;
  if(!small_generation(c,false))return done(c,*result,identity_changed);u64 q=0;if(!qpc(q)||q<c.last_qpc||!tick(c.input.plan,q))return done(c,*result,late_clock);result->entered_qpc=q;c.last_qpc=q;
  if(!safe_copy(&c.input.initial,marker,320))return done(c,*result,rejected);c.install_once=1;mutation(c,*result,true);u32 code=0;mutation_seh(&c,true,&code);result->primary_call=c.install;result->exception_code=code;
  u64 end=0;const bool clock=qpc(end);if(clock&&c.install.returned==1)c.install.returned_qpc=end;result->primary_call=c.install;if(clock&&end>=c.last_qpc)c.last_qpc=end;

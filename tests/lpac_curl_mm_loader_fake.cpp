@@ -207,4 +207,15 @@ static void marker_tests(){auto in=inputs();MarkerAPI api{};api.value=in.initial
  for(u64 address:{0ull,0x1000ull,0xffff800000000000ull,0x7ffffffff000ull}){MarkerAPI outside{};outside.value=in.initial;check(!cmm::marker_attach(outside,address,&touched));check(outside.events==0&&outside.restores==0);}
  MarkerAPI restore{};restore.value=in.initial;restore.bad_restore=true;check(!cmm::marker_attach(restore,0x180000000ull,&touched));check(restore.events==1&&restore.restores==1&&restore.value.failure==8&&restore.value.restore_error==0);
  MarkerAPI backwards{};backwards.value=in.initial;backwards.backward=true;check(!cmm::marker_attach(backwards,0x180000000ull,&touched));check(backwards.value.failure==4&&backwards.value.last_qpc==1101&&backwards.events==0);}
-int main(){observer_tests();ownership_tests();terminal_tests();zero_row_tests();marker_tests();std::cout<<"CMM_PURE_ASSERTIONS "<<checks<<"\n";return 0;}
+static void install_handle_domains_test(){
+ // This is the production install predicate, not a reimplementation. Both
+ // target signal values may coincide numerically with distinct worker borrows.
+ auto in=inputs();in.initial.entered_signal=in.plan.primary_token;in.initial.body_signal=in.plan.process;
+ check(cmm::install_inputs(in.initial,in.plan));
+ // Real aliases within either one HANDLE table remain fail-closed.
+ auto worker_alias=in.plan;worker_alias.primary_token=worker_alias.process;
+ check(!cmm::install_inputs(in.initial,worker_alias));
+ auto target_alias=in.initial;target_alias.body_signal=target_alias.entered_signal;
+ check(!cmm::install_inputs(target_alias,in.plan));
+}
+int main(){install_handle_domains_test();observer_tests();ownership_tests();terminal_tests();zero_row_tests();marker_tests();std::cout<<"CMM_PURE_ASSERTIONS "<<checks<<"\n";return 0;}

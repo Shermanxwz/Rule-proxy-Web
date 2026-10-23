@@ -64,6 +64,10 @@ inline bool marker_initial(const CMM_MARKER320& m,const CMM_PLAN512& p){return e
  &&m.frequency==p.frequency&&m.root_start==p.root_start&&m.root_deadline==p.root_deadline&&m.window_start==p.window_start&&m.window_end==p.window_end
  &&m.target_pid==p.target_pid&&!m.reserved0&&m.target_creation==p.target_creation&&handle(m.entered_signal)&&handle(m.body_signal)&&m.entered_signal!=m.body_signal
  &&m.status_size==128&&m.status_version==2&&!nonzero(reinterpret_cast<const std::uint8_t*>(&m)+200,120);}
+// Plan handles are borrowed in the caller/worker HANDLE table. Marker signal
+// handles are inherited in the target HANDLE table. Check each domain locally;
+// equal integer values across the two processes do not identify an alias.
+inline bool install_inputs(const CMM_MARKER320& m,const CMM_PLAN512& p){return plan_shape(p)&&marker_initial(m,p);}
 inline bool coherent(const CMM_MARKER320& a,const CMM_MARKER320& b,const CMM_MARKER320& initial){return equal(&a,&initial,192)&&equal(&b,&initial,192)
  &&equal(reinterpret_cast<const std::uint8_t*>(&a)+192,reinterpret_cast<const std::uint8_t*>(&b)+192,128)
  &&a.status_size==128&&a.status_version==2&&a.sequence&&!(a.sequence&1u)&&a.module_base_known==1&&user_image_base(a.module_base)
