@@ -1,0 +1,87 @@
+{
+  "conclusion": "success",
+  "event": "push",
+  "input_kind": "Connector-decoded UTF8 BOM/CRLF job text plus API-decoded metadata, not ZIP bytes.",
+  "inputs": [
+    {
+      "original": {
+        "bytes": 244299,
+        "sha256": "01f59dcbefc89b30b5b0e0aa4569c03847149bf271ca0143b2df366caad67a33"
+      },
+      "source": "ci-registry-read-loopback-39899744500-full.txt",
+      "view": {
+        "bytes": 242908,
+        "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/ci-registry-read-loopback-39899744500-full.txt",
+        "sha256": "bcac2940ba96acaac7df7f909186296a71d3ce1ea1a5ef6f59faf412ac0556fb"
+      }
+    },
+    {
+      "original": {
+        "bytes": 12726,
+        "sha256": "253ec718161c360880e93665d8d0a3cf02b320b757d289488260918c69e8729f"
+      },
+      "source": "ci-registry-read-loopback-39899744500-runs-metadata.json",
+      "view": {
+        "bytes": 12726,
+        "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/ci-registry-read-loopback-39899744500-runs-metadata.json",
+        "sha256": "253ec718161c360880e93665d8d0a3cf02b320b757d289488260918c69e8729f"
+      }
+    },
+    {
+      "original": {
+        "bytes": 3951,
+        "sha256": "c65d5a7dad7d5af47d55d573e8bc10613cbfc527461db423156bcfa41180da37"
+      },
+      "source": "ci-registry-read-loopback-39899744500-jobs-metadata.json",
+      "view": {
+        "bytes": 3951,
+        "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/ci-registry-read-loopback-39899744500-jobs-metadata.json",
+        "sha256": "c65d5a7dad7d5af47d55d573e8bc10613cbfc527461db423156bcfa41180da37"
+      }
+    }
+  ],
+  "job_id": 120238333961,
+  "job_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39899744500/job/120238333961",
+  "manually_dispatched_or_rerun": false,
+  "old_handoff_1016_suite_is_not_this_suite": true,
+  "product_acceptance": false,
+  "pure_errors": 0,
+  "pure_failures": 0,
+  "pure_seconds": "148.731",
+  "pure_skips": 0,
+  "pure_tests": 1025,
+  "run_attempt": 1,
+  "run_id": 39899744500,
+  "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39899744500",
+  "runtime_acceptance": false,
+  "runtime_steps": [
+    {
+      "conclusion": "skipped",
+      "name": "Read-only current and existing linked token ABI preflight",
+      "number": 5
+    },
+    {
+      "conclusion": "skipped",
+      "name": "Approved Stage 0b inherited-pipe proof in a verified ordinary token",
+      "number": 6
+    },
+    {
+      "conclusion": "skipped",
+      "name": "Read-only R0 source token field and ABI diagnostics",
+      "number": 7
+    },
+    {
+      "conclusion": "skipped",
+      "name": "Restricted-caller R0 identity diagnostic, not ordinary-user acceptance",
+      "number": 8
+    },
+    {
+      "conclusion": "skipped",
+      "name": "Four-cell trusted-actor startup controls, no isolation acceptance",
+      "number": 9
+    }
+  ],
+  "schema_version": 1,
+  "source_commit": "d309ae322cca84360923d6bc51013057991a4218",
+  "stage": "registry-read-loopback-source-push-ci-only"
+}

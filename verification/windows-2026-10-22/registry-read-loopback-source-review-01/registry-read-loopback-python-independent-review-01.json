@@ -1,0 +1,77 @@
+{
+  "acl_or_label_changed": false,
+  "actor_executed": false,
+  "actual_acceptance": false,
+  "author_34_suite_not_repeated": true,
+  "capability_sid_sha256": "66ad18b3326a9cb33bf2c59d57d4029ce756e0634c6d0fb3cfe09d6550a213f5",
+  "checks": {
+    "caller_owned_sid_and_array_live_until_create_return": true,
+    "cleanup_owned_labels_acl_profile_and_unknown_resource_retention_preserved": true,
+    "cold_pending_publish_and_physical_tcp_go_reports_preserved": true,
+    "direct_dns_proxy_linux_and_product_fixed_false": true,
+    "explicit_broad_registry_read_ack_and_not_matched_capabilities": true,
+    "false_ready_gate_before_backend": true,
+    "four_real_descriptor_accesscheck_and_resource_gate_preserved": true,
+    "manifest_seven_key_source_mapping_aligned": true,
+    "no_class46_or_fake_lpac_flag": true,
+    "other_roles_exact_zero_caps": true,
+    "rlp1_rcl1_argc15_fourroles_and_report_keys_aligned": true,
+    "root120_worker115_work85_phase8_original_epoch": true,
+    "selected_exact_one_registryread_attrs4": true,
+    "whole_token_snapshot_generation_image_two_jobs_preserved": true
+  },
+  "cross_serializer": {
+    "argv_roles_checked": 4,
+    "commands_checked": 6,
+    "packets_checked": 6
+  },
+  "files": {
+    ".github/windows_identity_lpac_registry_loopback.py": {
+      "bytes": 103389,
+      "sha256": "fe035665e5e3e2be69d82b4b2efc330b86c90b8e0a1b2690b294720a75bc10d0"
+    },
+    ".github/windows_identity_lpac_registry_loopback_local.py": {
+      "bytes": 18346,
+      "sha256": "6be159dee375ffa3d0c11e2091442ccfd99199f5b3c56d665a3d2ea48d62c1e8"
+    },
+    "tests/test_windows_identity_lpac_registry_loopback.py": {
+      "bytes": 32548,
+      "sha256": "be6ad9dfdafa47415e1760937113cf1e2aa2af05f251eb77d2a0ba074fb9d59a"
+    },
+    "tests/test_windows_identity_lpac_registry_loopback_local.py": {
+      "bytes": 11787,
+      "sha256": "3872bce76079609ab2ac4c175bb685dfaa880ed83ec549088794b3ab4e333c0c"
+    }
+  },
+  "freeze": {
+    "bytes": 12413,
+    "sha256": "659081e58c0f450937f76831dda62ce7fbec1c7cacadb152ef9bd6782771b61c"
+  },
+  "independent_injected_tests": {
+    "count": 6,
+    "errors": 0,
+    "failures": 0,
+    "log": {
+      "bytes": 1264,
+      "sha256": "bc84b93ad2178b6bfb50933e7d4fc252ed99b179a2ed1ffdf7b5dde117cd8215"
+    },
+    "skipped": 0
+  },
+  "limitations": [
+    "RegistryRead can grant reads beyond the Winsock catalogs; no Internet/PNCS is added but neither startup success nor a unique failure cause is assumed.",
+    "False candidate remains runtime blocked until the parent separately promotes/freezes/commits it.",
+    "No same-SID adversarial boundary, DNS isolation, proxy qualification or product acceptance is inferred."
+  ],
+  "native_abi": {
+    "bytes": 13724,
+    "sha256": "7194cfce1637ed778b67999e81cd2ea08e8af3097f8b6d94ae91029287247dea"
+  },
+  "native_windows_api_called": false,
+  "network_called": false,
+  "review_boundary": "Independent Python/backend and cross-language interface review. Native source author does not self-certify native; parent reviews and compiles native separately.",
+  "schema_version": 1,
+  "source_count": 37,
+  "source_sha256": "b1cf80146f94e09a508ed26f05f6fe97ec320fbce8a96d7dce89aa308e8146bd",
+  "stage": "registry-read-loopback-python-independent-review",
+  "verdict": "GO-for-reviewed-promotion-only"
+}

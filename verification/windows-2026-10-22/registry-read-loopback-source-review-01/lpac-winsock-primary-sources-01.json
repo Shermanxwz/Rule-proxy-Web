@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "stage": "primary-source-lpac-registry-read-research",
+  "chromium_sources": [
+    {
+      "repository": "chromium/chromium",
+      "path": "sandbox/policy/win/sandbox_win.cc",
+      "git_blob_sha1": "b6eccdade4f4d6d72acc975b097843e7f64b003a",
+      "immutable_blob_url": "https://api.github.com/repos/chromium/chromium/git/blobs/b6eccdade4f4d6d72acc975b097843e7f64b003a",
+      "read_url": "https://github.com/chromium/chromium/blob/main/sandbox/policy/win/sandbox_win.cc",
+      "bytes": 42892,
+      "selected_line_numbers": [
+        380,
+        396,
+        791
+      ]
+    },
+    {
+      "repository": "chromium/chromium",
+      "path": "base/win/sid.cc",
+      "git_blob_sha1": "1b1cad2b812efc7d2c107a225aa1879dc30dedff",
+      "immutable_blob_url": "https://api.github.com/repos/chromium/chromium/git/blobs/1b1cad2b812efc7d2c107a225aa1879dc30dedff",
+      "read_url": "https://github.com/chromium/chromium/blob/main/base/win/sid.cc",
+      "bytes": 11726,
+      "selected_line_numbers": [
+        105,
+        127,
+        128,
+        132,
+        134,
+        138,
+        139,
+        257,
+        261
+      ]
+    },
+    {
+      "repository": "chromium/chromium",
+      "path": "sandbox/policy/win/lpac_capability.h",
+      "git_blob_sha1": "f2a91f0f4ab2829718a4fe4920b9989810cfba91",
+      "immutable_blob_url": "https://api.github.com/repos/chromium/chromium/git/blobs/f2a91f0f4ab2829718a4fe4920b9989810cfba91",
+      "read_url": "https://github.com/chromium/chromium/blob/main/sandbox/policy/win/lpac_capability.h",
+      "bytes": 1846,
+      "selected_line_numbers": [
+        37
+      ]
+    }
+  ],
+  "official_sources": [
+    {
+      "url": "https://learn.microsoft.com/en-us/windows/win32/winsock/windows-sockets-error-codes-2",
+      "fact": "10107 is WSASYSCALLFAILURE, a generic system-call failure; 10106 is WSAEPROVIDERFAILEDINIT."
+    },
+    {
+      "url": "https://learn.microsoft.com/en-us/windows/win32/api/winsock/nf-winsock-wsastartup",
+      "fact": "WSAStartup directly returns its error; successful startup is required before later socket functions."
+    },
+    {
+      "url": "https://learn.microsoft.com/en-us/windows/win32/api/securitybaseapi/nf-securitybaseapi-derivecapabilitysidsfromname",
+      "fact": "The function derives named capability/group SIDs and requires LocalFree for individual SIDs and arrays; deriving a name does not assert OS authorization semantics."
+    }
+  ],
+  "coverage": "The three listed current Chromium primary source files were read. lpacNetworking/lpacNetwork were absent there; no claim of exhaustive historical Chromium search."
+}

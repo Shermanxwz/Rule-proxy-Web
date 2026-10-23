@@ -1,3 +1,5 @@
+**registryRead LPAC同SID loopback01（2026-10-23）**：[独立实测](2026-10-23-registry-read-same-sid-loopback-01.md)仍inconclusive：WSAStartup成功，socket创建10013，未connect/send；前端零cap AC监听、两身份矩阵、普通前后控制与已知清理通过。不是peer/端口连接拒绝、matchedcaps或AAP-only比较；旧零cap32/10107、atomic unknown与DNS泄漏保留。
+
 **零cap同SID loopback01/02（2026-10-23）**：[独立两轮实测](2026-10-23-zero-cap-same-sid-loopback-01-02.md)均为inconclusive：01控制文件Win32 32；02已读GO但WSAStartup10107，尚无socket/connect/send。两矩阵、front监听、普通前后控制与已知清理通过；未证明主连通、direct隔离、共享SID对抗边界或Linux等效，旧unknown/DNS泄漏保留。
 
 **PSEC matchedcaps01（2026-10-23，新scope）**：[三held与相同SC输入实测](2026-10-23-psec-lpac-matchedcaps-identity-01.md)记录三次assignment、24次后置双Job和相同SC输入通过创建；AC四项通过，LPAC仅combined grant3（预期2）即停，后三项未执行，仍inconclusive/accesscheck。未Resume/网络测试，PSEC网络保留与Linux等价均未证明；旧unknown、postassign和DNS历史保留。

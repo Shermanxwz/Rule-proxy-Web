@@ -1,0 +1,44 @@
+{
+  "actor_bytes": 299008,
+  "actor_executed": false,
+  "actor_sha256": "ff5ce2453d91902b516eed4d9266735579c3ee7fd936b4fbdf915ce086b531f0",
+  "compile_log": {
+    "bytes": 51,
+    "sha256": "a2476fd5b70b79310ee4b5fd00ab66ae7b198c4fb13aa0326704795a855281f5"
+  },
+  "input_snapshot_sha256": "f6cf0f55eb1d59c6b71521a911cd42ecb388853954a0451befba06ba0b334868",
+  "manifest_sha256": "72679ffee1c1e110730207b9cae747385afb8a0f4a6a65f5fe78e6b2b76758a1",
+  "native_freeze_sha256": "456f5c83ba8c35d9af31cedbb63c8be248ca4bab15dbce288287511580d5e5ce",
+  "native_source_count": 2,
+  "native_sources": {
+    ".github/native/windows_identity_lpac_registry_loopback_actor.cpp": {
+      "bytes": 30847,
+      "sha256": "e585646ff2ddc3b29b987e8191455acea96bfc0a347129a6f57936e4ac1ca079"
+    },
+    ".github/native/windows_identity_lpac_registry_loopback_contract.hpp": {
+      "bytes": 5839,
+      "sha256": "842658f2771a34722276805948cb2b65123a9407f7f323c94ea46f56a53ca966"
+    }
+  },
+  "network_executed": false,
+  "passed": true,
+  "pe": {
+    "delay_imports": [],
+    "dll": false,
+    "entrypoint_nonzero": true,
+    "imports": [
+      "WS2_32.dll",
+      "ADVAPI32.dll",
+      "KERNEL32.dll"
+    ],
+    "machine": "AMD64",
+    "section_count": 6,
+    "subsystem": "WINDOWS_GUI"
+  },
+  "reused_parser_sha256": "d29a32690af506dc6aa4da446a8fb282077ff713183f71760c8dc8fbac359329",
+  "runtime_acceptance": false,
+  "schema_version": 1,
+  "stage": "registry-read-loopback-compile-static-review",
+  "toolchain_sha256": "4de0bc8d4e4f7e5089279efb2f8b883d4d19e6b63838ec9acb60b74bbe169cc6",
+  "unused_root_preparer_input_is_not_the_compile_snapshot": true
+}

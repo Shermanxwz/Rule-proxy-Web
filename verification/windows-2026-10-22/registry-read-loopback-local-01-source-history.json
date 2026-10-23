@@ -1,0 +1,97 @@
+{
+  "compile_independent_review": {
+    "bytes": 9632,
+    "sha256": "ce24bade27c5369b8da0ecea18246a3f4d8873e4323f27c35aad9efbaa04d046"
+  },
+  "compiled_assertions_not_extra_test_methods": true,
+  "earlier_log": {
+    "bytes": 6789,
+    "sha256": "cb59c4ee6a72da2e33b27e564bb6e4ddc264d62315446fc0f0816e1f364f18ae"
+  },
+  "earlier_pure": {
+    "errors": 0,
+    "failures": 0,
+    "reason": "Added one real-ctypes-shaped nonzero capability parser/bounds regression before final freeze.",
+    "seconds": "16.807",
+    "skipped": 0,
+    "test_count": 33
+  },
+  "earlier_zero_cap_attempts_not_overwritten": true,
+  "false_freeze": {
+    "bytes": 12413,
+    "sha256": "659081e58c0f450937f76831dda62ce7fbec1c7cacadb152ef9bd6782771b61c"
+  },
+  "focused_log": {
+    "bytes": 7002,
+    "sha256": "40d836c4f5d422da5c86eec9587410ef457ffdfb20da9cb55c49013d06e83de8"
+  },
+  "focused_pure": {
+    "errors": 0,
+    "failures": 0,
+    "seconds": "16.547",
+    "skipped": 0,
+    "test_count": 34,
+    "test_method_counts": {
+      "tests/test_windows_identity_lpac_registry_loopback.py": 23,
+      "tests/test_windows_identity_lpac_registry_loopback_local.py": 11
+    }
+  },
+  "full_count_is_988_plus_34_new_python_plus_3_new_native_methods": true,
+  "full_pure": {
+    "errors": 0,
+    "failures": 0,
+    "identity_tests": 1025,
+    "log": {
+      "bytes": 193801,
+      "sha256": "c4d6754d7be8bf0ff6e50bd684ab03d69f4b1028f005edcb7ded83243f481ed3"
+    },
+    "receipt": {
+      "bytes": 2698,
+      "sha256": "57793812a9512a88f32bbae6d13b065e803f5ab63d61a693bda0af948744b4aa"
+    },
+    "seconds": "141.372",
+    "skipped": 2,
+    "source_sha256": "069d9f2702e235f03603d11b5962f320fe0f077cd81ccfabafefd48cbd11dfb6"
+  },
+  "independent_review": {
+    "bytes": 3307,
+    "sha256": "f30d26aefa40a09587c3788cb1026cf77668309edec87c04a891c4b025f93df7"
+  },
+  "independent_verdict": "GO-for-reviewed-promotion-only",
+  "pure_or_compile_not_substituted_for_actual": true,
+  "ready_only_freeze": {
+    "bytes": 13456,
+    "sha256": "48f4f10b020b78754511e1ba6c0db8dca59f5257aab6ce5e78288f391be46bac"
+  },
+  "root_reported_non_runtime_compile_history": [
+    {
+      "observed_evidence": "The unused root input JSON physically exists and differs from the actual helper snapshot. The preparer uses exclusive creation and could stop at the already-existing helper.",
+      "raw_failure_log_available": false,
+      "root_report": "FileExistsError at helper xb after extra unused input JSON; no compile from that failed preparer; actual existing helper subsequently executed.",
+      "script": {
+        "bytes": 1987,
+        "path": "prepare_registry_read_native_compile_01.py",
+        "sha256": "6e34b0dd1319542b2a69111d73e925b2be8ece480a2e7ca8f5fbeb1121715933"
+      },
+      "stage": "root-preparation"
+    },
+    {
+      "exact_change": "utf8-sig to utf-8-sig only",
+      "fresh_reader": {
+        "bytes": 4341,
+        "path": "inspect_registry_read_loopback_compile_01_reader02.py",
+        "sha256": "48f18f71e01a4898c330d7370c95f61c3eb27d98a6f5e8dcf1929e29563905cb"
+      },
+      "original": {
+        "bytes": 4340,
+        "path": "inspect_registry_read_loopback_compile_01.py",
+        "sha256": "5cf84fe936ce7e0a63ca38d09de8b65186746948944b62c866c23d66785fbb81"
+      },
+      "raw_failure_log_available": false,
+      "root_report": "LookupError before receipt; fresh file-only reader02 succeeded; no recompilation.",
+      "stage": "root-static-reader-01"
+    }
+  ],
+  "schema_version": 1,
+  "stage": "registry-read-loopback-source-and-non-runtime-history"
+}

@@ -1,0 +1,130 @@
+{
+  "abi": {
+    "bytes": 13724,
+    "path": "registry-read-loopback-native-abi-01.json",
+    "sha256": "7194cfce1637ed778b67999e81cd2ea08e8af3097f8b6d94ae91029287247dea"
+  },
+  "actor_compiled": false,
+  "actor_executed": false,
+  "actual_ready": false,
+  "capability_policy": {
+    "broader_read_scope": "registryRead may grant reads to any object carrying its existing ACE, not only Winsock catalog roots",
+    "external_held_primary_is_authority": true,
+    "front_count": 0,
+    "no_other_capabilities": true,
+    "ordinary_count": 0,
+    "selected": {
+      "attributes": 4,
+      "count": 1,
+      "name": "registryRead",
+      "native_fixed_bytes_not_observed_adaptation": true,
+      "sid": "S-1-15-3-1024-1065365936-1281604716-3511738428-1654721687-432734479-3232135806-4053264122-3456934681",
+      "sid_bytes": 48,
+      "sid_raw_hex": "010a00000000000f0300000000040000b031803f6cbc634c3ce050d1970ca1620f01cb197e7aa6c0fae697f119a30cce",
+      "sid_sha256": "66ad18b3326a9cb33bf2c59d57d4029ce756e0634c6d0fb3cfe09d6550a213f5"
+    }
+  },
+  "files": {
+    ".github/native/windows_identity_lpac_registry_loopback_actor.cpp": {
+      "bytes": 30847,
+      "sha256": "e585646ff2ddc3b29b987e8191455acea96bfc0a347129a6f57936e4ac1ca079"
+    },
+    ".github/native/windows_identity_lpac_registry_loopback_contract.hpp": {
+      "bytes": 5839,
+      "sha256": "842658f2771a34722276805948cb2b65123a9407f7f323c94ea46f56a53ca966"
+    },
+    "tests/test_windows_identity_lpac_registry_loopback_native.py": {
+      "bytes": 9387,
+      "sha256": "7fbf38f66a8f458df53e85cf03afbf664b0d6b02c4f90d02bc36d26c5c9613dc"
+    }
+  },
+  "global_configuration_changed": false,
+  "interface_version": 1,
+  "native_actor_api_called": false,
+  "native_source_count": 2,
+  "native_sources": {
+    ".github/native/windows_identity_lpac_registry_loopback_actor.cpp": {
+      "bytes": 30847,
+      "sha256": "e585646ff2ddc3b29b987e8191455acea96bfc0a347129a6f57936e4ac1ca079"
+    },
+    ".github/native/windows_identity_lpac_registry_loopback_contract.hpp": {
+      "bytes": 5839,
+      "sha256": "842658f2771a34722276805948cb2b65123a9407f7f323c94ea46f56a53ca966"
+    }
+  },
+  "network_called": false,
+  "old_zero_cap_native_unchanged": {
+    ".github/native/windows_identity_lpac_loopback_actor.cpp": {
+      "bytes": 30053,
+      "sha256": "c3744801ef26fd42a3f1b1712a7d0b7c8e49369ae7e4d655ab46d8eb3f188985"
+    },
+    ".github/native/windows_identity_lpac_loopback_contract.hpp": {
+      "bytes": 4650,
+      "sha256": "a5e46a18c25211d34fd33c21a6e640dd7a6a3e3e02ec67fe03c30f010f9f9dce"
+    }
+  },
+  "patch": {
+    "bytes": 46980,
+    "path": "registry-read-loopback-native-candidate-01.patch",
+    "sha256": "4564ae694b86df91789fb0c5c0a31b20bb5569fe959a3df43dcfc8c5c756d0e2"
+  },
+  "portable_pure": {
+    "actor_cpp_never_compiled": true,
+    "actor_never_executed": true,
+    "command": "python -I -S -B -m unittest discover -s work/registry-read-same-sid-loopback-candidate/tests -p test_windows_identity_lpac_registry_loopback_native.py -v",
+    "compiler_environment": "Installed MSVC x64 developer shell; process-local environment only",
+    "coverage": [
+      "production fixed registryRead SID48 all-bit mutations, count1/attrs4, other role zero-cap requirement",
+      "production SID pointer extent underflow/overflow/shortbuffer including near UINTPTR_MAX",
+      "production4B empty capability header and x64 nonzero entry extent",
+      "production RLP1 packet64 and RCL1 command128 canonical/role/case/reserved/deadline/release checks",
+      "source scope/no extra cap/fallback/UI API and pointer-bound-before-SDK checks"
+    ],
+    "errors": 0,
+    "failures": 0,
+    "log": {
+      "bytes": 839,
+      "path": "registry-read-loopback-native-pure-02.log",
+      "sha256": "7f7486f93af8949e3cd50e30e341355c79e53d28b53188495b8a492c0a1ef55a"
+    },
+    "seconds": 1.078,
+    "sid_and_capability_harness_assertions": 436,
+    "skipped": 0,
+    "test_count": 3,
+    "test_source": {
+      "bytes": 9387,
+      "sha256": "7fbf38f66a8f458df53e85cf03afbf664b0d6b02c4f90d02bc36d26c5c9613dc"
+    }
+  },
+  "prior_portable_iteration": {
+    "bytes": 839,
+    "errors": 0,
+    "failures": 0,
+    "log": "registry-read-loopback-native-pure-01.log",
+    "seconds": 1.298,
+    "sha256": "f3099bde5bc8e23135b96753e6fb288e59cf8aac21619265d8ce4b64a05b75c4",
+    "skipped": 0,
+    "superseded_by": "Moved SID pointer extent into production portable helper and added ten boundary assertions plus closed role guard",
+    "test_count": 3
+  },
+  "profile": "same-sid-registry-read-lpac-loopback-mechanism-v1",
+  "profile_or_acl_changed": false,
+  "remaining": [
+    "Parent independent review then one separate immutable two-source actor compile-only snapshot.",
+    "Python owner/local source and held registryRead catalog binding remain independently owned/reviewed.",
+    "No runtime result or unique WSAStartup10107 cause is established by portable tests."
+  ],
+  "research": {
+    "bytes": 4988,
+    "path": "lpac-registry-read-winsock-research-01.json",
+    "sha256": "485b023e693ac77a7e8f5ba759ba378633fb61f16934722f8bdc8dbd2535adca"
+  },
+  "schema_version": 1,
+  "scope": "one-local-registry-read-same-sid-loopback-v1",
+  "scope_diff": {
+    "bytes": 21567,
+    "path": "registry-read-loopback-native-scope-diff-01.patch",
+    "sha256": "76fb11539e4516956ee8d8f444f9a3fcc46fe8357c3f001d1180622d971b09cd"
+  },
+  "stage": "registry-read-loopback-native-candidate-freeze"
+}

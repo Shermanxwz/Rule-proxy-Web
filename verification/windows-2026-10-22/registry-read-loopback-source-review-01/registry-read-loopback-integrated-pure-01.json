@@ -1,0 +1,65 @@
+{
+  "actor_executed": false,
+  "baseline_commit": "600c4ec7c4c6a63f55fed980ed8bce7eabc4fd95",
+  "compiler_used_for_portable_fake_tests_only": true,
+  "errors": 0,
+  "failures": 0,
+  "identity_tests": 1025,
+  "index_bytes_exact": true,
+  "linux_equivalence_proven": false,
+  "network_tested": false,
+  "new_file_count": 7,
+  "new_files": {
+    ".github/native/windows_identity_lpac_registry_loopback_actor.cpp": {
+      "bytes": 30847,
+      "sha256": "e585646ff2ddc3b29b987e8191455acea96bfc0a347129a6f57936e4ac1ca079"
+    },
+    ".github/native/windows_identity_lpac_registry_loopback_contract.hpp": {
+      "bytes": 5839,
+      "sha256": "842658f2771a34722276805948cb2b65123a9407f7f323c94ea46f56a53ca966"
+    },
+    ".github/windows_identity_lpac_registry_loopback.py": {
+      "bytes": 103388,
+      "sha256": "1ae6c40a5363d6f10031f1f1fef90d7a3fb0112009610220973e78d214962d18"
+    },
+    ".github/windows_identity_lpac_registry_loopback_local.py": {
+      "bytes": 18346,
+      "sha256": "6be159dee375ffa3d0c11e2091442ccfd99199f5b3c56d665a3d2ea48d62c1e8"
+    },
+    "tests/test_windows_identity_lpac_registry_loopback.py": {
+      "bytes": 32548,
+      "sha256": "be6ad9dfdafa47415e1760937113cf1e2aa2af05f251eb77d2a0ba074fb9d59a"
+    },
+    "tests/test_windows_identity_lpac_registry_loopback_local.py": {
+      "bytes": 11787,
+      "sha256": "3872bce76079609ab2ac4c175bb685dfaa880ed83ec549088794b3ab4e333c0c"
+    },
+    "tests/test_windows_identity_lpac_registry_loopback_native.py": {
+      "bytes": 9387,
+      "sha256": "7fbf38f66a8f458df53e85cf03afbf664b0d6b02c4f90d02bc36d26c5c9613dc"
+    }
+  },
+  "new_test_methods": 37,
+  "old_tracked_sources_unchanged": true,
+  "product_acceptance": false,
+  "profile_or_acl_changed": false,
+  "pure_log": {
+    "bytes": 193801,
+    "sha256": "c4d6754d7be8bf0ff6e50bd684ab03d69f4b1028f005edcb7ded83243f481ed3"
+  },
+  "ready_freeze": {
+    "bytes": 13456,
+    "sha256": "48f4f10b020b78754511e1ba6c0db8dca59f5257aab6ce5e78288f391be46bac"
+  },
+  "schema_version": 1,
+  "seconds": "141.372",
+  "shared33_unchanged": true,
+  "skip_log_lines": [
+    "test_symlink_and_outside_root_are_rejected (test_windows_identity_ordinary_launcher.InputTests.test_symlink_and_outside_root_are_rejected) ... skipped 'unprivileged symlink creation unavailable'\r",
+    "test_owned_tree_rejects_symlink_before_recursing (test_windows_identity_pipe_probe.PipeEvidenceTests.test_owned_tree_rejects_symlink_before_recursing) ... skipped 'symlink creation unavailable'\r"
+  ],
+  "skipped": 2,
+  "source_count": 37,
+  "source_sha256": "069d9f2702e235f03603d11b5962f320fe0f077cd81ccfabafefd48cbd11dfb6",
+  "stage": "root-registry-read-loopback-integrated-pure-and-source-stage"
+}

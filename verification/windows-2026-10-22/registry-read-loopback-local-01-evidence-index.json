@@ -1,0 +1,82 @@
+{
+  "actual_runtime_rerun_by_archive": false,
+  "files": [
+    {
+      "bytes": 3038,
+      "path": "verification/windows-2026-10-22/registry-read-loopback-local-01-public.json",
+      "sha256": "641ea1db8e80b19da7778ad2180c83a6d63c2c0fc421276922f36e390da5b65f"
+    },
+    {
+      "bytes": 1559,
+      "path": "verification/windows-2026-10-22/registry-read-loopback-local-01-preflight.json",
+      "sha256": "5b033275c45ef9a38754531650d1625d64310720cd153ac81db615b77f61da47"
+    },
+    {
+      "bytes": 6043,
+      "path": "verification/windows-2026-10-22/registry-read-loopback-local-01-runner.py",
+      "sha256": "49df6d13892dbc3f2a23a2d7f50525f30d2b321853c2e77d2fbacd940c8a0098"
+    },
+    {
+      "bytes": 1601,
+      "path": "verification/windows-2026-10-22/registry-read-loopback-local-01-global-capture_01.ps1",
+      "sha256": "82b03eec39203056c46fa146734e2963dc126447ee994e4159ecdf1063ab2176"
+    },
+    {
+      "bytes": 2018,
+      "path": "verification/windows-2026-10-22/registry-read-loopback-local-01-global-before-registry01_expanded.ps1",
+      "sha256": "0c0131c19d9c7eac8673981625acb73d97aa88cd6cd6e706cb2b762d8c062e24"
+    },
+    {
+      "bytes": 2017,
+      "path": "verification/windows-2026-10-22/registry-read-loopback-local-01-global-after-registry01_expanded.ps1",
+      "sha256": "7b7ae5ba0ce78dea97d50e8073c00b30ab816b522a538056c14ffc03b4f80f6e"
+    },
+    {
+      "bytes": 25913,
+      "path": "verification/windows-2026-10-22/registry-read-loopback-local-01-component-projection.json",
+      "sha256": "0fbb1206acececc3b0392a0b083634e23ec5b63fa1479f39b40834996167bfef"
+    },
+    {
+      "bytes": 9299,
+      "path": "verification/windows-2026-10-22/registry-read-loopback-local-01-accesscheck-projection.json",
+      "sha256": "6c719f8d73d43146c667bf2ba822f7523f015a376b4b96ba0ad47a4e5fdc1486"
+    },
+    {
+      "bytes": 2463,
+      "path": "verification/windows-2026-10-22/registry-read-loopback-local-01-protocol-projection.json",
+      "sha256": "7a8a353d88a72b7a67aed6ad33d490eb1fe35bc1502cbdb3728d74c272f755a9"
+    },
+    {
+      "bytes": 882,
+      "path": "verification/windows-2026-10-22/registry-read-loopback-local-01-global-projection.json",
+      "sha256": "ab2c890a00d771b9cfae01ab42432401bf5aa237dbc15f78a19373ab12e87f3b"
+    },
+    {
+      "bytes": 3548,
+      "path": "verification/windows-2026-10-22/registry-read-loopback-local-01-source-history.json",
+      "sha256": "3e4dffb0a846565f329f4046e82a3b61fbeebfe21ef39b3f7d86bf66776d6a9b"
+    },
+    {
+      "bytes": 10946,
+      "path": "verification/windows-2026-10-22/registry-read-loopback-local-01-source-review.json",
+      "sha256": "5254116bd3786053b49e08913ad4409c27ea9d7196fdb9eae777b8c333e8493d"
+    },
+    {
+      "bytes": 8983,
+      "path": "verification/windows-2026-10-22/registry-read-loopback-local-01-summary.json",
+      "sha256": "50423402a2d76ff8da3351194e6209694cbb58d19e45f81fa58c42d6035ea408"
+    }
+  ],
+  "index_self_hash_excluded": true,
+  "native_API_or_backend_constructed_by_archive": false,
+  "network_or_cleanup_by_archive": false,
+  "original_public_modified": false,
+  "prior_evidence_modified": false,
+  "profile": "same-sid-registry-read-lpac-loopback-mechanism-v1",
+  "raw_private_evidence_published": false,
+  "schema_version": 1,
+  "scope": "one-local-registry-read-same-sid-loopback-v1",
+  "source_commit": "d309ae322cca84360923d6bc51013057991a4218",
+  "source_sha256": "069d9f2702e235f03603d11b5962f320fe0f077cd81ccfabafefd48cbd11dfb6",
+  "stage": "registry-read-loopback-actual-evidence-index"
+}

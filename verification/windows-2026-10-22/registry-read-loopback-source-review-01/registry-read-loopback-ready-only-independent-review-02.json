@@ -1,0 +1,65 @@
+{
+  "acl_or_label_changed": false,
+  "actor_executed": false,
+  "actual_acceptance": false,
+  "checks": {
+    "all_original_independent_identity_ownership_clock_cleanup_protocol_gates_unchanged": true,
+    "main_candidate_all37_exact": true,
+    "native_two_sources_and_native_test_unchanged": true,
+    "old_zero_cap_native_unchanged": true,
+    "only_actual_ready_false_to_true": true,
+    "other_three_python_files_unchanged": true,
+    "shared33_current_git_bytes_unchanged": true
+  },
+  "compiler_invoked": false,
+  "false_freeze": {
+    "bytes": 12413,
+    "sha256": "659081e58c0f450937f76831dda62ce7fbec1c7cacadb152ef9bd6782771b61c"
+  },
+  "files": {
+    ".github/windows_identity_lpac_registry_loopback.py": {
+      "bytes": 103388,
+      "sha256": "1ae6c40a5363d6f10031f1f1fef90d7a3fb0112009610220973e78d214962d18"
+    },
+    ".github/windows_identity_lpac_registry_loopback_local.py": {
+      "bytes": 18346,
+      "sha256": "6be159dee375ffa3d0c11e2091442ccfd99199f5b3c56d665a3d2ea48d62c1e8"
+    },
+    "tests/test_windows_identity_lpac_registry_loopback.py": {
+      "bytes": 32548,
+      "sha256": "be6ad9dfdafa47415e1760937113cf1e2aa2af05f251eb77d2a0ba074fb9d59a"
+    },
+    "tests/test_windows_identity_lpac_registry_loopback_local.py": {
+      "bytes": 11787,
+      "sha256": "3872bce76079609ab2ac4c175bb685dfaa880ed83ec549088794b3ab4e333c0c"
+    }
+  },
+  "inspected_git_head": "600c4ec7c4c6a63f55fed980ed8bce7eabc4fd95",
+  "limitations": [
+    "Ready is an entry-point promotion, not evidence of a successful mechanism or product acceptance.",
+    "This checks the Python promotion and source equality; native source author does not self-certify native review.",
+    "Parent retains responsibility for full pure validation, source commit and any separately authorized single actual run."
+  ],
+  "native_freeze": {
+    "bytes": 5447,
+    "sha256": "456f5c83ba8c35d9af31cedbb63c8be248ca4bab15dbce288287511580d5e5ce"
+  },
+  "native_windows_api_called": false,
+  "network_called": false,
+  "prior_independent_review": {
+    "bytes": 3307,
+    "sha256": "f30d26aefa40a09587c3788cb1026cf77668309edec87c04a891c4b025f93df7"
+  },
+  "runtime_modules_imported": false,
+  "schema_version": 1,
+  "shared_dependency_count": 33,
+  "source_count": 37,
+  "source_sha256": "069d9f2702e235f03603d11b5962f320fe0f077cd81ccfabafefd48cbd11dfb6",
+  "stage": "registry-read-loopback-ready-only-independent-review",
+  "tests_executed": false,
+  "true_freeze": {
+    "bytes": 13456,
+    "sha256": "48f4f10b020b78754511e1ba6c0db8dca59f5257aab6ce5e78288f391be46bac"
+  },
+  "verdict": "GO-for-ready-only-promotion"
+}

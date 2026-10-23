@@ -1,0 +1,51 @@
+{
+  "actors_not_executed": true,
+  "before_import_source37_git_and_freeze_pinned": true,
+  "broad_existing_registryRead_ACE_effect_disclosed": true,
+  "capture_rename_only": true,
+  "compiled_native_sources_pinned": true,
+  "complete_driver_delta_verified": true,
+  "files": {
+    "c_local_baseline.ps1": {
+      "bytes": 1993,
+      "path": "c_local_baseline.ps1",
+      "sha256": "98610b0eeeba3457b1bd289e399acfa1744c2c2220c4b1ee53d474418e5df05b"
+    },
+    "registry-read-loopback-driver-capture-01.patch": {
+      "bytes": 9161,
+      "path": "registry-read-loopback-driver-capture-01.patch",
+      "sha256": "a475429d311ef275221366b9f761a45ad7e524ec9cb6a50a0ae4309695e3168e"
+    },
+    "registry-read-loopback-integrated-pure-01.json": {
+      "bytes": 2698,
+      "path": "registry-read-loopback-integrated-pure-01.json",
+      "sha256": "57793812a9512a88f32bbae6d13b065e803f5ab63d61a693bda0af948744b4aa"
+    },
+    "registry-read-loopback-ready-only-independent-review-02.json": {
+      "bytes": 2603,
+      "path": "registry-read-loopback-ready-only-independent-review-02.json",
+      "sha256": "306e5320482d1f04675711f97ed5f88c504b9098394f7249003e0212f1bddb2e"
+    },
+    "registry_read_loopback_capture_01.ps1": {
+      "bytes": 1601,
+      "path": "registry_read_loopback_capture_01.ps1",
+      "sha256": "82b03eec39203056c46fa146734e2963dc126447ee994e4159ecdf1063ab2176"
+    },
+    "run_registry_read_loopback_01.py": {
+      "bytes": 6043,
+      "path": "run_registry_read_loopback_01.py",
+      "sha256": "49df6d13892dbc3f2a23a2d7f50525f30d2b321853c2e77d2fbacd940c8a0098"
+    }
+  },
+  "front_and_ordinary_capabilities_zero": true,
+  "linux_equivalence_proven": false,
+  "network_not_called": true,
+  "no_retry_or_capability_fallback": true,
+  "only_fresh_report_subtree_acl_labels": true,
+  "original_job_identity_clock_cleanup_gates_preserved": true,
+  "product_acceptance": false,
+  "schema_version": 1,
+  "selected_only_registryRead_attrs4": true,
+  "stage": "root-registry-read-loopback-driver-file-only-independent-review",
+  "verdict": "GO-one-reviewed-actual-entry"
+}

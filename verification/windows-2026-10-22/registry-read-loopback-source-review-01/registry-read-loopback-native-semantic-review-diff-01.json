@@ -1,0 +1,35 @@
+{
+  "actor_compiled": false,
+  "actor_executed": false,
+  "diff": {
+    "bytes": 3888,
+    "path": "registry-read-loopback-native-semantic-review-diff-01.txt",
+    "sha256": "be8c61a8ab0d552d4f4eabe2e78a05e8b976fab0d93c53dbb7f9c1ad2732022d"
+  },
+  "native_freeze_sha256": "456f5c83ba8c35d9af31cedbb63c8be248ca4bab15dbce288287511580d5e5ce",
+  "normalization_only": [
+    "new contract include basename -> old basename",
+    "new rlp namespace -> old zlp namespace",
+    "new registry-read-loopback report stages -> old zero-cap-loopback stages",
+    "RLP1/RCL1 first byte -> old ZLP1/ZCL1"
+  ],
+  "rows": [
+    {
+      "new_path": ".github/native/windows_identity_lpac_registry_loopback_actor.cpp",
+      "new_sha256": "e585646ff2ddc3b29b987e8191455acea96bfc0a347129a6f57936e4ac1ca079",
+      "old_path": ".github/native/windows_identity_lpac_loopback_actor.cpp",
+      "old_sha256": "c3744801ef26fd42a3f1b1712a7d0b7c8e49369ae7e4d655ab46d8eb3f188985",
+      "review_normalized_sha256": "cf8e59bb955c878f2aec637ffa441b81ea2242a6f554294a3fb264006aa8878f"
+    },
+    {
+      "new_path": ".github/native/windows_identity_lpac_registry_loopback_contract.hpp",
+      "new_sha256": "842658f2771a34722276805948cb2b65123a9407f7f323c94ea46f56a53ca966",
+      "old_path": ".github/native/windows_identity_lpac_loopback_contract.hpp",
+      "old_sha256": "a5e46a18c25211d34fd33c21a6e640dd7a6a3e3e02ec67fe03c30f010f9f9dce",
+      "review_normalized_sha256": "97997e07897f0d5a68bfc3ec969ec399f13b593589868e83f8ab824b9f942b50"
+    }
+  ],
+  "schema_version": 1,
+  "stage": "registry-read-native-review-diff",
+  "warning": "Review aid only, never apply this normalized comparison as a source patch."
+}

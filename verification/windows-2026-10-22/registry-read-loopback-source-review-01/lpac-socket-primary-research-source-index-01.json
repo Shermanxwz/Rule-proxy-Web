@@ -1,0 +1,177 @@
+{
+  "actor_or_network_runtime_executed": false,
+  "files": [
+    {
+      "bytes": 19162,
+      "git_blob_sha1": "d899e19da24b8f69ab1ffc1edcfb1e7b75ec9eb3",
+      "immutable_blob_url": "https://api.github.com/repos/chromium/chromium/git/blobs/d899e19da24b8f69ab1ffc1edcfb1e7b75ec9eb3",
+      "path": "sandbox/win/src/app_container_test.cc",
+      "read_url": "https://github.com/chromium/chromium/blob/main/sandbox/win/src/app_container_test.cc",
+      "selected_source_lines": [
+        174,
+        175,
+        186,
+        352,
+        354,
+        374,
+        376,
+        396,
+        398,
+        400,
+        425
+      ],
+      "sha256": "16968f8bb72d1fbc74c053dcb2f19de3c594a17b763cb56b47faab1cd496bda0"
+    },
+    {
+      "bytes": 4102,
+      "git_blob_sha1": "25b520bd9c8a305ebe171eb4a46f2f76ceb24aa7",
+      "immutable_blob_url": "https://api.github.com/repos/chromium/chromium/git/blobs/25b520bd9c8a305ebe171eb4a46f2f76ceb24aa7",
+      "path": "services/network/brokered_client_socket_factory.cc",
+      "read_url": "https://github.com/chromium/chromium/blob/main/services/network/brokered_client_socket_factory.cc",
+      "selected_source_lines": [
+        57,
+        95,
+        97,
+        100,
+        103
+      ],
+      "sha256": "3ab3b5eec478d3505c31d3c2fa65ae4825bd483a94fc636cb545912f28e72caf"
+    },
+    {
+      "bytes": 3822,
+      "git_blob_sha1": "c1c2ac7d6d491aaeb2d6e717f526ae9deda1bf79",
+      "immutable_blob_url": "https://api.github.com/repos/chromium/chromium/git/blobs/c1c2ac7d6d491aaeb2d6e717f526ae9deda1bf79",
+      "path": "services/network/broker_helper_win.cc",
+      "read_url": "https://github.com/chromium/chromium/blob/main/services/network/broker_helper_win.cc",
+      "selected_source_lines": [
+        41,
+        44,
+        71
+      ],
+      "sha256": "fc9123e2e3e054d6a4cb24f5ccf39cbcb7b0a7ea0ef2fef9eeb3a5420acfc0bb"
+    },
+    {
+      "bytes": 1594,
+      "git_blob_sha1": "c8be5ef7ed380565cadffe2f736cb821fcf35cad",
+      "immutable_blob_url": "https://api.github.com/repos/chromium/chromium/git/blobs/c8be5ef7ed380565cadffe2f736cb821fcf35cad",
+      "path": "services/network/public/mojom/socket_broker.mojom",
+      "read_url": "https://github.com/chromium/chromium/blob/main/services/network/public/mojom/socket_broker.mojom",
+      "selected_source_lines": [
+        14,
+        18,
+        21,
+        27,
+        31,
+        34
+      ],
+      "sha256": "d9a5d4e3674dbd238c030a2fcc352cc8c65bc5287de1ea5fbad0160aa8acd6c4"
+    },
+    {
+      "bytes": 6021,
+      "git_blob_sha1": "c3c0892ebd80a834f4cd9d1e1b21d0ca5b5fd0d7",
+      "immutable_blob_url": "https://api.github.com/repos/chromium/chromium/git/blobs/c3c0892ebd80a834f4cd9d1e1b21d0ca5b5fd0d7",
+      "path": "services/network/public/cpp/socket_broker_impl.cc",
+      "read_url": "https://github.com/chromium/chromium/blob/main/services/network/public/cpp/socket_broker_impl.cc",
+      "selected_source_lines": [
+        55,
+        56,
+        65,
+        68,
+        127,
+        131,
+        136,
+        140
+      ],
+      "sha256": "0e501026cc2677a2105d68d6d74976da09059a3f46697192a510ada401899272"
+    },
+    {
+      "bytes": 1592,
+      "git_blob_sha1": "7c9ba04ef730c5e86ee410cdd7c10e8c3c3d399d",
+      "immutable_blob_url": "https://api.github.com/repos/chromium/chromium/git/blobs/7c9ba04ef730c5e86ee410cdd7c10e8c3c3d399d",
+      "path": "services/network/public/cpp/socket_broker_client.cc",
+      "read_url": "https://github.com/chromium/chromium/blob/main/services/network/public/cpp/socket_broker_client.cc",
+      "selected_source_lines": [
+        22,
+        33,
+        44
+      ],
+      "sha256": "e0732142fadba5b4c002fbbd5eeb75bb2be23f0374ad33e3acbeb8f43ca2e436"
+    },
+    {
+      "bytes": 3232,
+      "git_blob_sha1": "489064d83e5127c036377780a4527a942e9ee327",
+      "immutable_blob_url": "https://api.github.com/repos/chromium/chromium/git/blobs/489064d83e5127c036377780a4527a942e9ee327",
+      "path": "services/network/public/cpp/transferable_socket.cc",
+      "read_url": "https://github.com/chromium/chromium/blob/main/services/network/public/cpp/transferable_socket.cc",
+      "selected_source_lines": [
+        29,
+        40,
+        83
+      ],
+      "sha256": "20764cb338322ef1e3b6c3b5d3b1b7d3e6e955b0cba58bb7d3192a9519c80599"
+    },
+    {
+      "bytes": 42892,
+      "git_blob_sha1": "b6eccdade4f4d6d72acc975b097843e7f64b003a",
+      "immutable_blob_url": "https://api.github.com/repos/chromium/chromium/git/blobs/b6eccdade4f4d6d72acc975b097843e7f64b003a",
+      "path": "sandbox/policy/win/sandbox_win.cc",
+      "read_url": "https://github.com/chromium/chromium/blob/main/sandbox/policy/win/sandbox_win.cc",
+      "selected_source_lines": [
+        337,
+        385,
+        396,
+        410,
+        411,
+        424,
+        427,
+        429,
+        430,
+        435,
+        442,
+        448,
+        452,
+        455,
+        464,
+        514,
+        824,
+        1072
+      ],
+      "sha256": "3b8720f6cf3722431ab0b30034e5f48a1d961e418429416132fa863c641f1e42"
+    },
+    {
+      "bytes": 1846,
+      "git_blob_sha1": "f2a91f0f4ab2829718a4fe4920b9989810cfba91",
+      "immutable_blob_url": "https://api.github.com/repos/chromium/chromium/git/blobs/f2a91f0f4ab2829718a4fe4920b9989810cfba91",
+      "path": "sandbox/policy/win/lpac_capability.h",
+      "read_url": "https://github.com/chromium/chromium/blob/main/sandbox/policy/win/lpac_capability.h",
+      "selected_source_lines": [
+        37
+      ],
+      "sha256": "b5a5daac8c2ab607a3718240d9ed5fed1c072ea112cbb9a7978feee331af410e"
+    },
+    {
+      "bytes": 4154,
+      "git_blob_sha1": "5d042fe91f4df788501831a5462ac78529a6cc10",
+      "immutable_blob_url": "https://api.github.com/repos/chromium/chromium/git/blobs/5d042fe91f4df788501831a5462ac78529a6cc10",
+      "path": "sandbox/win/src/socket_dispatcher.cc",
+      "read_url": "https://github.com/chromium/chromium/blob/0394e042facd365087746734f65211702b78ad6d/sandbox/win/src/socket_dispatcher.cc",
+      "selected_source_lines": [
+        109,
+        121
+      ],
+      "sha256": "d110a05d47fa8ae492ca97e0f1fd3df4738fa9f411bd5440a961d3a3d0a3f149"
+    }
+  ],
+  "findings": {
+    "bytes": 5246,
+    "path": "lpac-socket-primary-research-findings-01.json",
+    "sha256": "51891fedf622656f1d4b02a94d26cdcfb5e9bb4639dbafb22255a86ece1df9f6"
+  },
+  "main_modified": false,
+  "native_or_security_api_called": false,
+  "only_source_fetch_and_stdlib_file_hashing": true,
+  "primary_bytes_git_blob_verified": true,
+  "schema_version": 1,
+  "scope_note": "Current files were fetched once and fixed by exact Git blob. The historical dispatcher is explicitly commit0394e042, not a claim that that old implementation remains current.",
+  "stage": "verified-primary-source-lpac-socket-research"
+}
