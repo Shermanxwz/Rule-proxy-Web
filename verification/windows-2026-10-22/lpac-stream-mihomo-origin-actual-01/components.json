@@ -1,0 +1,660 @@
+{
+  "compiled_artifacts": {
+    "artifacts": {
+      "Mihomo": {
+        "actual_listener_exclusivity_verified": false,
+        "binary_exact_tag_source_proven": false,
+        "executable": {
+          "bytes": 61276672,
+          "sha256": "04f8d7fc2b314771e1ecbf15951d59f0e1cb7914503c88cfb6972ff6a824e314"
+        },
+        "ordinary_private_sibling_bundle": true,
+        "release_reproducible_build": false
+      },
+      "network": {
+        "actor": {
+          "bytes": 284672,
+          "sha256": "ef419337943b8b3acdc538a9c2904ca81cf304b9de0ed8149de23b655ac1b2a7"
+        },
+        "interface_version": 2,
+        "manifest": {
+          "bytes": 672,
+          "sha256": "41128b9ca698bc84412de280b07a431975f1774671e1617f4273d6946e736685"
+        },
+        "native_pin_count": 5,
+        "original_input_snapshot": {
+          "bytes": 879,
+          "sha256": "fb5e00114e4c06b1cdf48db8c6b61876d491e2ca8d479eaf40df2f2f04235e02"
+        },
+        "static_PE_review": {
+          "bytes": 5481,
+          "sha256": "ee02b13e2f632c6e299a288183bc020afa19fbd8117b40d703730a6cd5d8eb5b"
+        },
+        "toolchain": {
+          "bytes": 548,
+          "sha256": "31eedc0be3072c8832e07d03e539f601740f077d9e4b34c7dad49703dcedfc64"
+        }
+      },
+      "selected": {
+        "actor": {
+          "bytes": 195072,
+          "sha256": "b7327db1d30f4d81f7806b449d191cf7d49e22563c1da0c734f85cd478c9ae2a"
+        },
+        "interface_version": 1,
+        "manifest": {
+          "bytes": 481,
+          "sha256": "9a9df1de567bc4c6a9d0de334adeed4665fba2ade5ae5b62d26279d37134c4ba"
+        },
+        "native_pin_count": 3,
+        "original_input_snapshot": {
+          "bytes": 693,
+          "sha256": "1819823e18df4a58c3cb6e304f40141ad2172abd4846e97b6f63fa9365cba317"
+        },
+        "static_PE_review": {
+          "bytes": 5719,
+          "sha256": "8388a661c10036a7676fc79b3b595a141905e2a87b734a777809878456cf5d35"
+        },
+        "toolchain": {
+          "bytes": 395,
+          "sha256": "741ce52b6e75a8306e9ac036a2d22278d3db4112ab309109059237a4c59f0d55"
+        }
+      }
+    },
+    "canonical_configuration": {
+      "bytes": 3155,
+      "sha256": "d19b3361632caa93d19056930edbf9808c9de3dd6bf52bc30319e8788fe9aa6c"
+    },
+    "original_selected_unchanged": true,
+    "precompile_snapshots_not_reconstructed": true,
+    "unique_original_compile_inputs": 6
+  },
+  "fixed_false_claims": {
+    "DNS_isolation": false,
+    "PSEC_G": false,
+    "all_incidental_external_activity_excluded": false,
+    "all_protocol_isolation": false,
+    "arbitrary_application_adapter": false,
+    "browser_integration": false,
+    "browser_support": false,
+    "class46_queried": false,
+    "concurrent_full_duplex": false,
+    "direct_network_denial": false,
+    "dns_isolation": false,
+    "global_configuration_unchanged_proven": false,
+    "hostile_same_sid_authentication": false,
+    "ipv6_tested": false,
+    "linux_equivalence": false,
+    "mihomo_binary_exact_tag_source_proven": false,
+    "mihomo_listener_exclusivity_verified": false,
+    "payload_seed_supplied": false,
+    "product_acceptance": false,
+    "psec_network_preservation_proven": false,
+    "psec_or_g_support": false,
+    "release_reproducible_build": false,
+    "remote_selected_proxy_qualification": false,
+    "selected_dns_api_tested": false,
+    "selected_proxy_qualification": false,
+    "selected_socket_api_tested": false,
+    "service_broker_isolation": false,
+    "sustained_or_concurrent_streams": false,
+    "transparent_TCP_FIN": false,
+    "transparent_transport": false,
+    "udp_tested": false,
+    "unmodified_application_support": false
+  },
+  "globals": {
+    "NRPT_included": false,
+    "all_four_before_after_equal": true,
+    "capture": {
+      "bytes": 2734,
+      "sha256": "4d3520eeecaa036568fb238babb63e932d353cdce476331f4e3eceb580da692f"
+    },
+    "no_mutator_is_not_equality_proof": true,
+    "object_equalities": {
+      "before_after": {
+        "dns": true,
+        "firewall_profiles": true,
+        "routes": true,
+        "user_proxy": true
+      },
+      "original_after": {
+        "dns": true,
+        "firewall_profiles": true,
+        "routes": false,
+        "user_proxy": true
+      },
+      "original_before": {
+        "dns": true,
+        "firewall_profiles": true,
+        "routes": false,
+        "user_proxy": true
+      }
+    },
+    "raw_bytes_before_after_equal": true,
+    "route_difference_deleted_or_repaired": false,
+    "route_difference_observed": false,
+    "route_writer_attribution_proven": false,
+    "snapshot_commitments": [
+      {
+        "bytes": 7378,
+        "sha256": "f05d91ee76ee8a97ae5ab3bfa092167a8ee560c083255f142e6c453f2edf7ab3"
+      },
+      {
+        "bytes": 7655,
+        "sha256": "e2628e54697b73876c68b6ad3a055f407b8518023f42f239e1668599eba9b1e0"
+      },
+      {
+        "bytes": 7655,
+        "sha256": "e2628e54697b73876c68b6ad3a055f407b8518023f42f239e1668599eba9b1e0"
+      }
+    ],
+    "whole_JSON_before_after_equal": true
+  },
+  "original_independent_review": {
+    "bytes": 24589,
+    "sha256": "9aaeae05b2e933aeeb10c09cf8b00288d3e7453d9d031a2c23d07078340e4d1c"
+  },
+  "original_preflight": {
+    "bytes": 2690,
+    "sha256": "0060073611a8925002820f36b33e80895509829f805745a85c986897d0892610"
+  },
+  "original_public": {
+    "bytes": 5061,
+    "sha256": "3d53c895d173b9e5b6c3284a07fe585d850dda7be850b1bedc95aea07ba577ae"
+  },
+  "physical_evidence_commitments": {
+    "journal": [
+      {
+        "bytes": 326,
+        "sha256": "bffbec84873401bf885e6734784a983a9d34c8d1d13d7cec3215be76836df706"
+      },
+      {
+        "bytes": 321,
+        "sha256": "60e82cd03f920e99711601ddebe66eeae4f77567b332b1cb920f4f86ff558440"
+      },
+      {
+        "bytes": 328,
+        "sha256": "93e9aa1eb2e3ba4102ade2fc5960e3ae3889e38665e8cf82a3840c478195be7f"
+      },
+      {
+        "bytes": 330,
+        "sha256": "389f08349d4115ab1c56c4c5e1f3a862b6056304c32288ba7edff6353ec43719"
+      },
+      {
+        "bytes": 339,
+        "sha256": "763bc7fa64680fc02f9439c93bbbb5284086b4924e159599ab4e70c7d2bab0fa"
+      },
+      {
+        "bytes": 339,
+        "sha256": "e7db682c7ae8e522acab1c417dd1245da92ed6f84620cebcf1c54d3350eb5b89"
+      },
+      {
+        "bytes": 323,
+        "sha256": "552f70bb9b207ec5eb7c5589c432bceecdc822c5528cb82695e67328cbb4015c"
+      },
+      {
+        "bytes": 323,
+        "sha256": "ef2a25c5db859ef0c99f97c868c6ac0b7079ff58c650ed093132f9d7029316f8"
+      },
+      {
+        "bytes": 337,
+        "sha256": "0fbbce5a3f8fce3ba45308f201d25d2f097b348d3d3f59dd7e6bae62841be1a8"
+      },
+      {
+        "bytes": 357,
+        "sha256": "48a0100f43809c79cbd2298b97af8452024dd959979250119d0fcb89fa129cc8"
+      },
+      {
+        "bytes": 325,
+        "sha256": "6c32731e58fdbeca7a46a567a3b02da7487a64882b5c8a438e632181a61817fe"
+      },
+      {
+        "bytes": 322,
+        "sha256": "b905a133ed34cc0b4ad91a66be09f437de614dee6b4b65a1ce2c70fb2e01beec"
+      },
+      {
+        "bytes": 324,
+        "sha256": "c0082b4e524dab95ecfb70ca594432d017681be9f92f7d53742772336e1fb524"
+      },
+      {
+        "bytes": 326,
+        "sha256": "b89fb9ec74bed296dab8ed9da17a723ad70f192406c0ee43a613f64e55c07f1d"
+      }
+    ],
+    "returns": [
+      {
+        "bytes": 436,
+        "sha256": "6fa06b6bf1d1a5ac3a355ea45fd21148b1ed262aa90754cfeb635fae388fc848"
+      }
+    ]
+  },
+  "private_commitments": {
+    "config": {
+      "bytes": 7357,
+      "sha256": "48412edc00a9ec83070cc646d01e966d1cbd0bf41ebad51a64ec62080261bbd8"
+    },
+    "driver": {
+      "bytes": 17381,
+      "sha256": "72cc9b701699df549f8114a6ea428d8c37ab8e20b16d56cc9bcb116b59e05763"
+    },
+    "forensic": {
+      "bytes": 28361,
+      "sha256": "c2cf483c5e7b007f762c66e5cfd72765e0eb28be828cb10729c4f8ef458ce57d"
+    },
+    "outer_report": {
+      "bytes": 620,
+      "sha256": "030eae478884e1ffa97bc34dc6d28c17329a02c6a6a9d18848a888bd552b45fe"
+    },
+    "plan": {
+      "bytes": 2331,
+      "sha256": "07d20de5b40cea2e8981468aa8227b39fe0abd160ccb368c02f0d3e6f21baf41"
+    },
+    "stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "stdout": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "worker_report": {
+      "bytes": 28361,
+      "sha256": "c2cf483c5e7b007f762c66e5cfd72765e0eb28be828cb10729c4f8ef458ce57d"
+    }
+  },
+  "result": {
+    "binding_error_present": false,
+    "cleanup": {
+      "acl_removed": true,
+      "cleanup_tools": true,
+      "core_stdio_closed": true,
+      "labels_restored": true,
+      "observer_resources_cleanup_verified": true,
+      "parent_pipe_handles_closed": true,
+      "pipe_allocation_known": true,
+      "port_leases_closed": true,
+      "profile_deleted": true,
+      "sid_released": true,
+      "workload_cleanup": true,
+      "workload_job_empty": true
+    },
+    "config_check_natural0": false,
+    "epoch": {
+      "completed_within_pair": false,
+      "original_work85": false,
+      "pair10": false,
+      "root120_worker115": true
+    },
+    "extension": {
+      "ACK": null,
+      "actual_Mihomo_listener_exclusive_option_verified": false,
+      "barrier_commands": {},
+      "core_check_completed": false,
+      "core_controlled_stop": null,
+      "core_stdio": [
+        {
+          "all_once_closed": true,
+          "close_count": 3,
+          "closed_before_admission": true,
+          "confirmed": true,
+          "exactly_three_inherited": true,
+          "opened_count": 3,
+          "role": "mihomo-config-check",
+          "stderr": {
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "stdout": {
+            "bytes": 480,
+            "sha256": "d641536628c71738334adb0cca59736722c3a64a6a0ec9999726677a0f2407cd"
+          },
+          "unique_opened": true
+        }
+      ],
+      "core_stdio_closed": true,
+      "finite_core_integration_observed": false,
+      "kernel_TCP_observed": false,
+      "leases": {
+        "calls": [
+          {
+            "exception_present": false,
+            "operation": "startup",
+            "return_clock_known": true,
+            "returned": true,
+            "status": 0,
+            "timely_original_work": true,
+            "wsa_error": 0
+          },
+          {
+            "SOCKET_zero_valid": false,
+            "exception_present": false,
+            "operation": "socket-origin_port",
+            "return_clock_known": true,
+            "returned": true,
+            "socket_valid": true,
+            "timely_original_work": true,
+            "wsa_error": 0
+          },
+          {
+            "exception_present": false,
+            "operation": "exclusive-origin_port",
+            "return_clock_known": true,
+            "returned": true,
+            "status": 0,
+            "timely_original_work": true,
+            "wsa_error": 0
+          },
+          {
+            "exception_present": false,
+            "operation": "bind-origin_port",
+            "return_clock_known": true,
+            "returned": true,
+            "status": 0,
+            "timely_original_work": true,
+            "wsa_error": 0
+          },
+          {
+            "exception_present": false,
+            "operation": "read-exclusive-origin_port",
+            "option_enabled": 1,
+            "option_length": 4,
+            "return_clock_known": true,
+            "returned": true,
+            "status": 0,
+            "timely_original_work": true,
+            "wsa_error": 0
+          },
+          {
+            "exact_declared_loopback_endpoint": true,
+            "exception_present": false,
+            "operation": "name-origin_port",
+            "return_clock_known": true,
+            "returned": true,
+            "status": 0,
+            "timely_original_work": true,
+            "wsa_error": 0
+          },
+          {
+            "SOCKET_zero_valid": false,
+            "exception_present": false,
+            "operation": "socket-proxy_port",
+            "return_clock_known": true,
+            "returned": true,
+            "socket_valid": true,
+            "timely_original_work": true,
+            "wsa_error": 0
+          },
+          {
+            "exception_present": false,
+            "operation": "exclusive-proxy_port",
+            "return_clock_known": true,
+            "returned": true,
+            "status": 0,
+            "timely_original_work": true,
+            "wsa_error": 0
+          },
+          {
+            "exception_present": false,
+            "operation": "bind-proxy_port",
+            "return_clock_known": true,
+            "returned": true,
+            "status": 0,
+            "timely_original_work": true,
+            "wsa_error": 0
+          },
+          {
+            "exception_present": false,
+            "operation": "read-exclusive-proxy_port",
+            "option_enabled": 1,
+            "option_length": 4,
+            "return_clock_known": true,
+            "returned": true,
+            "status": 0,
+            "timely_original_work": true,
+            "wsa_error": 0
+          },
+          {
+            "exact_declared_loopback_endpoint": true,
+            "exception_present": false,
+            "operation": "name-proxy_port",
+            "return_clock_known": true,
+            "returned": true,
+            "status": 0,
+            "timely_original_work": true,
+            "wsa_error": 0
+          },
+          {
+            "exception_present": false,
+            "operation": "cleanup",
+            "return_clock_known": true,
+            "returned": true,
+            "status": 0,
+            "timely_original_work": true,
+            "wsa_error": 0
+          }
+        ],
+        "cleanup_attempted": true,
+        "cleanup_confirmed": true,
+        "closes": [
+          {
+            "attempted": true,
+            "confirmed": true,
+            "exception_present": false,
+            "port_role": "origin_port",
+            "raw_pair_typed": true,
+            "raw_status": 0,
+            "return_clock_known": true,
+            "wsa_error": 0
+          },
+          {
+            "attempted": true,
+            "confirmed": true,
+            "exception_present": false,
+            "port_role": "proxy_port",
+            "raw_pair_typed": true,
+            "raw_status": 0,
+            "return_clock_known": true,
+            "wsa_error": 0
+          }
+        ],
+        "sampled_socket_values_not_published": true,
+        "source_known_cleanup_recomputed": true,
+        "source_raw_success_recomputed": true,
+        "started": true,
+        "unknown": false
+      },
+      "native_response_barrier": null,
+      "physical_TCP": {},
+      "port_leases_closed": true
+    },
+    "held_tasks": [
+      {
+        "admitted": true,
+        "all_held_generation_image_primary_both_jobs": true,
+        "attempted": true,
+        "capabilities_empty": true,
+        "created": true,
+        "exit_code": 1,
+        "exited": true,
+        "held_snapshot_count": 2,
+        "raw_return_receipt": {
+          "bytes": 436,
+          "sha256": "6fa06b6bf1d1a5ac3a355ea45fd21148b1ed262aa90754cfeb635fae388fc848"
+        },
+        "resumed": true,
+        "role": "mihomo-config-check"
+      }
+    ],
+    "journal": {
+      "commitments": [
+        {
+          "bytes": 326,
+          "sha256": "bffbec84873401bf885e6734784a983a9d34c8d1d13d7cec3215be76836df706"
+        },
+        {
+          "bytes": 321,
+          "sha256": "60e82cd03f920e99711601ddebe66eeae4f77567b332b1cb920f4f86ff558440"
+        },
+        {
+          "bytes": 328,
+          "sha256": "93e9aa1eb2e3ba4102ade2fc5960e3ae3889e38665e8cf82a3840c478195be7f"
+        },
+        {
+          "bytes": 330,
+          "sha256": "389f08349d4115ab1c56c4c5e1f3a862b6056304c32288ba7edff6353ec43719"
+        },
+        {
+          "bytes": 339,
+          "sha256": "763bc7fa64680fc02f9439c93bbbb5284086b4924e159599ab4e70c7d2bab0fa"
+        },
+        {
+          "bytes": 339,
+          "sha256": "e7db682c7ae8e522acab1c417dd1245da92ed6f84620cebcf1c54d3350eb5b89"
+        },
+        {
+          "bytes": 323,
+          "sha256": "552f70bb9b207ec5eb7c5589c432bceecdc822c5528cb82695e67328cbb4015c"
+        },
+        {
+          "bytes": 323,
+          "sha256": "ef2a25c5db859ef0c99f97c868c6ac0b7079ff58c650ed093132f9d7029316f8"
+        },
+        {
+          "bytes": 337,
+          "sha256": "0fbbce5a3f8fce3ba45308f201d25d2f097b348d3d3f59dd7e6bae62841be1a8"
+        },
+        {
+          "bytes": 357,
+          "sha256": "48a0100f43809c79cbd2298b97af8452024dd959979250119d0fcb89fa129cc8"
+        },
+        {
+          "bytes": 325,
+          "sha256": "6c32731e58fdbeca7a46a567a3b02da7487a64882b5c8a438e632181a61817fe"
+        },
+        {
+          "bytes": 322,
+          "sha256": "b905a133ed34cc0b4ad91a66be09f437de614dee6b4b65a1ce2c70fb2e01beec"
+        },
+        {
+          "bytes": 324,
+          "sha256": "c0082b4e524dab95ecfb70ca594432d017681be9f92f7d53742772336e1fb524"
+        },
+        {
+          "bytes": 326,
+          "sha256": "b89fb9ec74bed296dab8ed9da17a723ad70f192406c0ee43a613f64e55c07f1d"
+        }
+      ],
+      "intent_count": 14
+    },
+    "native": {
+      "ACK_expected_schema_key_count": 22,
+      "ordinary_expected_schema_key_count": 29,
+      "reports": [
+        {
+          "commitment": null,
+          "parsed": false,
+          "slot": "ready",
+          "status": "unavailable"
+        },
+        {
+          "commitment": null,
+          "parsed": false,
+          "slot": "selected",
+          "status": "unavailable"
+        },
+        {
+          "commitment": null,
+          "parsed": false,
+          "slot": "relay",
+          "status": "unavailable"
+        },
+        {
+          "commitment": null,
+          "parsed": false,
+          "slot": "origin",
+          "status": "unavailable"
+        }
+      ],
+      "selected_interface_version": 1,
+      "selected_relay_dynamic_frames_and_payload_cross_equal": null
+    },
+    "optional_projection_errors_present": {},
+    "ordinary_tool_exits": [
+      {
+        "admitted": true,
+        "exit_code": 0,
+        "exited": true,
+        "operation": "grant-root",
+        "resumed": true
+      },
+      {
+        "admitted": true,
+        "exit_code": 0,
+        "exited": true,
+        "operation": "grant-inputs",
+        "resumed": true
+      },
+      {
+        "admitted": true,
+        "exit_code": 0,
+        "exited": true,
+        "operation": "grant-selected-inputs",
+        "resumed": true
+      },
+      {
+        "admitted": true,
+        "exit_code": 0,
+        "exited": true,
+        "operation": "grant-selected-report",
+        "resumed": true
+      },
+      {
+        "admitted": true,
+        "exit_code": 0,
+        "exited": true,
+        "operation": "remove",
+        "resumed": true
+      }
+    ],
+    "payload_files": {
+      "HTTP_Content_Length_boundary": true,
+      "all_five_physical_sinks_exact": false,
+      "hashes_computed_from_files": true,
+      "inputs": {
+        "request": {
+          "bytes": 8193,
+          "sha256": "d14ab495d889d94e5568c6f7a898e73901dc78331b564a8bae11426ea85feebf"
+        },
+        "response": {
+          "bytes": 12289,
+          "sha256": "51402527f29661c33dd5c2506e4c4558d37e19093b8162ea52b9750f15fbaaec"
+        }
+      },
+      "native_hashes_used_for_bytes": false,
+      "sinks": {},
+      "transparent_TCP_FIN": false
+    },
+    "pipe": {
+      "allocation_unknown": false,
+      "allocations": 0,
+      "exact_four_once_closed": false,
+      "inherited_exact_two_each_direction": null,
+      "parent_close_count": 0,
+      "return_receipts": []
+    },
+    "projection_error_present": false,
+    "proof": null,
+    "public_projection_exact": true,
+    "safe_projection_complete": true,
+    "three_native_natural0": false,
+    "validation_error_present": false,
+    "worker_binding_valid": true,
+    "worker_report_present": true,
+    "worker_result_valid": true,
+    "workload_stop": false
+  },
+  "schema_version": 1,
+  "source_commit": "99ae5695d3cfb66edaeff79074bca4c305014f5d",
+  "source_sha256": "73e02a396c3b9bf698d00ab1280c80b4d4889e3aaf0c62d818afd885034dd28a",
+  "stage": "lpac-stream-mihomo-origin-actual01-component-projection"
+}
