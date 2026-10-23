@@ -1,0 +1,39 @@
+{
+  "actor_or_helper_or_native_API_run_by_review": false,
+  "atomic_job_before_worker_runs": true,
+  "author_freeze": {
+    "bytes": 5030,
+    "sha256": "86fb29b41f652a1b8a897c135db7c4faec63d15f250b31f7525e8519411639a8"
+  },
+  "bounded_relative_SD_ACL_SID_before_native_readback": true,
+  "candidate": {
+    "bytes": 4104,
+    "sha256": "2d4252217dde54e8582e6c9d31edf1562fcb3a0aa66f425633f2128e9532a4f0"
+  },
+  "exact_two_query_calls_bounded_64KiB": true,
+  "failed_socket_unique_cause_or_held_LPAC_effective_access_proven": false,
+  "fixed_device_name": true,
+  "global_network_policy_changed": false,
+  "helper": {
+    "bytes": 17884,
+    "sha256": "73bba54b6fb35fe7e8f8d6008849dc21b4de9aa6a87cfcfd45c96431501e2e89"
+  },
+  "helper_internal_no_socket_import": true,
+  "linux_equivalence_proven": false,
+  "no_EA_IOCTL_security_write_or_path_fallback": true,
+  "no_SOCKET_creation_or_network_IO_requested": true,
+  "once_handle_and_allocation_consumption": true,
+  "only_exact_success_device_ownership": true,
+  "ordinary_identity_before_device_open": true,
+  "parent_import_may_initialize_WSA": true,
+  "parent_original_work15_root20_QPC_preserved": true,
+  "product_acceptance": false,
+  "read_control_synchronize_only": true,
+  "schema_version": 1,
+  "stage": "root-file-only-afd-helper-and-supervisor-review",
+  "supervisor": {
+    "bytes": 5027,
+    "sha256": "cd77f37f45686700192436d945702613cb58aa6993fe92fee5db1599601b96c9"
+  },
+  "verdict": "GO-one-readonly-diagnostic"
+}

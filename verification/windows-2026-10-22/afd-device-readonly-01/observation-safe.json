@@ -1,0 +1,116 @@
+{
+  "afd_endpoint_descriptor_observed": false,
+  "afd_internal_endpoint_absence_proven": false,
+  "application_isolation_test": false,
+  "cleanup_unknown": false,
+  "clock_values_published": false,
+  "current_ordinary_verified": true,
+  "descriptor": {
+    "ace_count": 4,
+    "aces": [
+      {
+        "flags": 0,
+        "index": 0,
+        "mask": "0x001201bf",
+        "principal": "world",
+        "sid_bytes": 12,
+        "type": "basic_allow"
+      },
+      {
+        "flags": 0,
+        "index": 1,
+        "mask": "0x001f01ff",
+        "principal": "local_system",
+        "sid_bytes": 12,
+        "type": "basic_allow"
+      },
+      {
+        "flags": 0,
+        "index": 2,
+        "mask": "0x001f01ff",
+        "principal": "builtin_administrators",
+        "sid_bytes": 16,
+        "type": "basic_allow"
+      },
+      {
+        "flags": 0,
+        "index": 3,
+        "mask": "0x001200a9",
+        "principal": "other_sid",
+        "sid_bytes": 12,
+        "type": "basic_allow"
+      }
+    ],
+    "acl_bytes": 92,
+    "all_ace_sid_layouts_supported": true,
+    "bytes": 140,
+    "group": {
+      "principal": "local_system",
+      "sid_bytes": 12
+    },
+    "owner": {
+      "principal": "builtin_administrators",
+      "sid_bytes": 16
+    },
+    "sha256": "9a113eb569a7298bcb6ce94e0705f81519b11e07b919b31374957cd44cbb7219"
+  },
+  "desired_access": "0x00120000",
+  "desired_access_names": [
+    "READ_CONTROL",
+    "SYNCHRONIZE"
+  ],
+  "device_closed_once": true,
+  "explicit_helper_winsock_call": false,
+  "failure": null,
+  "held_LPAC_effective_access_proven": false,
+  "helper_socket_module_imported": false,
+  "known_AAP_ARAP_network_registryRead_ACE_identified": false,
+  "linux_equivalence_proven": false,
+  "no_SOCKET_or_network_IO_requested": true,
+  "no_security_write_requested": true,
+  "object_attributes": "0x00000040",
+  "observation_complete": true,
+  "open_options": "0x00000060",
+  "open_status": {
+    "hex": "0x00000000",
+    "pending": false,
+    "success_exact": true,
+    "unsigned": 0
+  },
+  "ordinary_held_before_resume": true,
+  "ordinary_identity_token_closed_once": true,
+  "original_absolute_deadline_verified": true,
+  "other_sid_unidentified": true,
+  "parent_import_may_initialize_WSA": true,
+  "product_acceptance": false,
+  "query_statuses": [
+    {
+      "hex": "0xc0000023",
+      "pending": false,
+      "success_exact": false,
+      "unsigned": 3221225507
+    },
+    {
+      "hex": "0x00000000",
+      "pending": false,
+      "success_exact": true,
+      "unsigned": 0
+    }
+  ],
+  "raw_SD_SDDL_or_other_SID_published": false,
+  "schema_version": 1,
+  "sddl": {
+    "allocation_freed_once": true,
+    "characters": 70,
+    "sha256": "0b6528012056d931394c44e76616c49a0df520cd233bd406a44b15cf57bbd5f4"
+  },
+  "security_information": 7,
+  "share_access": 7,
+  "source_pins": {
+    ".github/windows_identity_ordinary_launcher.py": "a890f4740bc2869586278158edad65dd8c649e09afed8c7aab355d842301d4a0",
+    "ruleproxy/windows_app_process.py": "8e62820f98d9dbe352d988501d211565aceecce84657200c2793b69404cbee33"
+  },
+  "stage": "safe-ordinary-afd-control-object-dacl-observation",
+  "target": "\\Device\\Afd",
+  "unique_socket10013_cause_proven": false
+}

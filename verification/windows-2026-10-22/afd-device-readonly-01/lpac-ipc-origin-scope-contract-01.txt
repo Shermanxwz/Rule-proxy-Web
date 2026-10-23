@@ -1,0 +1,17 @@
+Proposed IPC-only semantic LPAC cell (design, not runtime evidence)
+
+Scope: one-local-semantic-lpac-held-ipc-relay-origin-v1
+
+Three roles: native zero-cap LPAC frontend; ordinary B relay; ordinary B single-request origin. The selected executable receives exactly a read end and a write end, receives no socket, and imports no Winsock/DNS library. Its external prior identity and four AccessChecks must yield [2,0,0,2] before Resume. No class46 query or named capability fallback.
+
+Keep the current RPB1 48-byte mapped-operation protocol. These frames map one generated request and fixed sink to real relay-origin HTTP; they are not arbitrary HTTP payload forwarding or an application adapter. The B origin accepts one connection; no ordinary before/after health or denial conclusion is claimed in this positive-only cell.
+
+New selected constructor: SC empty + AAP OPT_OUT + JOB_LIST + HANDLE_LIST2. Relay: JOB_LIST + HANDLE_LIST2. All four parent pipe ends close once before either pair process resumes. Original root120/worker115, work cutoff Droot-35F, and legacy exact ten-second pair interval remain; proof/setup/close/IO consume that interval. No inheritance, constructor, capability or timeout fallback.
+
+Reuse source-bound zero-safe observer/token/LowMIC helpers and the old once ownership/cleanup through small explicit adapters. The new selected wrapper compiles the old pipe Probe as a library without the B Winsock translation unit. Do not clone the 100KB loopback owner, call legacy run_ac_pair as LPAC, or change imported scope globals. Expected new runtime files are one selected C++ wrapper plus two Python modules; three new test files. Expected source closure40 is a prediction to verify from the final literal imports, not a frozen source count.
+
+Only the fresh selected report subtree gets a verified/reverted Low label and owned SID Modify grant. Inputs stay RX; relay/origin/journal/proof outputs remain ordinary-only. All held exits and once resources must close before label restoration, exact SID ACE removal/readback and profile deletion. Unknown ownership/restoration retains recovery.
+
+Explicit hazard to address before implementation: Microsoft documents failed CreatePipe outputs as indeterminate. The old helper's unconditional adoption of nonzero outputs cannot be treated as a strict known-handle contract. A typed conservative failure seam is required.
+
+The JSON contract binds twelve exact baseline source blobs at commit277c112f81fb4e3b70305d9e881beada4758b115, describes physical reports/tuple/clock and the meaningful negative tests. All implementation/actual readiness remains false. Direct/DNS/all-protocol denial, browser/arbitrary-app integration, hostile same-SID trust, PSEC preservation, Linux equivalence and product qualification remain false.

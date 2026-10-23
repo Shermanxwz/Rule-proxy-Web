@@ -1,0 +1,440 @@
+{
+  "schema_version": 1,
+  "stage": "design-only-native-lpac-ipc-owned-origin-contract",
+  "decision": "Proposed minimal positive cooperative transport cell. Parent review is required before implementation; no runtime or implementation is authorized by this document alone.",
+  "scope": "one-local-semantic-lpac-held-ipc-relay-origin-v1",
+  "profile": "zero-cap-lpac-fixed-pipe-origin-mechanism-v1",
+  "identity_basis": "held-four-descriptor-zero-cap-lpac-v1",
+  "actual_ready": false,
+  "baseline": {
+    "source_commit": "277c112f81fb4e3b70305d9e881beada4758b115",
+    "critical_sources": {
+      ".github/windows_identity_lpac_loopback.py": {
+        "bytes": 101306,
+        "sha256": "3c65e68a9ab975126ece6042100a17897ac099d04efb6d7d8f52d8a1dc847a67",
+        "git_blob_byte_exact": true
+      },
+      ".github/windows_identity_lpac_identity_cell.py": {
+        "bytes": 46637,
+        "sha256": "b7ffce514f00fbd44ce2e4bc77cd93dfe8285e90c608f5f1a82f30b025798105",
+        "git_blob_byte_exact": true
+      },
+      ".github/windows_identity_lpac_accesscheck.py": {
+        "bytes": 34465,
+        "sha256": "19c0d626e653147276cab9a97c5a0071f1c37b2eeb097c55fbacb39f262ade15",
+        "git_blob_byte_exact": true
+      },
+      ".github/windows_identity_lpac_dns_local.py": {
+        "bytes": 64394,
+        "sha256": "aff8bd5d2a6b1dd688934f9f98fe66146d74a5365caf2ca2c53f6b934f10fd53",
+        "git_blob_byte_exact": true
+      },
+      ".github/windows_identity_proxy_origin_probe.py": {
+        "bytes": 42871,
+        "sha256": "33cfddf58caa8877bbe3f6b97132dfa45e9803c88df7c34f17a8501b1b560095",
+        "git_blob_byte_exact": true
+      },
+      ".github/windows_identity_proxy_pipe_probe.py": {
+        "bytes": 75569,
+        "sha256": "e6bb37aa6f2c5a98dde44d63d097f7921775fd0d7858b95053f33565602df15b",
+        "git_blob_byte_exact": true
+      },
+      ".github/windows_identity_ordinary_launcher.py": {
+        "bytes": 67809,
+        "sha256": "a890f4740bc2869586278158edad65dd8c649e09afed8c7aab355d842301d4a0",
+        "git_blob_byte_exact": true
+      },
+      ".github/native/windows_identity_proxy_pipe_actor.cpp": {
+        "bytes": 16095,
+        "sha256": "26636a6b9979e91452cf6e7d2049d6fbbfa43639a35708ee18d4a71e67fb8dd0",
+        "git_blob_byte_exact": true
+      },
+      ".github/native/windows_identity_proxy_origin_actor.cpp": {
+        "bytes": 25762,
+        "sha256": "3d079e77e387ba77545c27f5b5c260f591657ef3a44384426cd2039fa8c04010",
+        "git_blob_byte_exact": true
+      },
+      ".github/native/windows_identity_actor.cpp": {
+        "bytes": 31002,
+        "sha256": "530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553",
+        "git_blob_byte_exact": true
+      },
+      ".github/native/windows_identity_proxy_bridge_core.hpp": {
+        "bytes": 16902,
+        "sha256": "f03e45166265f02a65abc12930efd73634a332596d22aa78cadc1267a80b6356",
+        "git_blob_byte_exact": true
+      },
+      ".github/native/windows_identity_proxy_origin_transport.hpp": {
+        "bytes": 6338,
+        "sha256": "bed113e5e20064722cbb2c6d3e71b4d3ca6c4769ebd694c86997abec0af661c4",
+        "git_blob_byte_exact": true
+      }
+    },
+    "prior_brokered_transport_research": {
+      "bytes": 8787,
+      "sha256": "1b45237c45b6109e2841cae1368b3e248df1b6836be13e17c8afbfc472775ba4"
+    },
+    "registry_read_actual_independent_review": {
+      "bytes": 42527,
+      "sha256": "7b1606aa434d5da2d78836dce65541b566e41571efc63539bfe44b7c43332e5f"
+    },
+    "baseline_pin_is_not_a_future_runtime_freeze": true
+  },
+  "claim": {
+    "positive_only": true,
+    "statement": "A source-bound, cooperative native LPAC request generator and sink with exact empty capabilities completes one fixed nonce-bound HTTP mapping through exactly two inherited pipe endpoints and a distinct ordinary relay to one held ordinary origin.",
+    "http_boundary": "generated-lpac-request-and-sink-fixed-frame-mapping-ordinary-relay-real-owned-origin",
+    "selected_receives_socket_or_protocol_info": false,
+    "selected_calls_winsock_or_dns": false,
+    "no_denial_inference": "Any failure, deadline, setup denial, missing receipt or incomplete cleanup is inconclusive for this mechanism and proves no selected network denial. The test contains no ordinary before/after health cases because it makes no network-denial claim.",
+    "not_a_transparent_adapter": "The 48-byte frames encode a closed reducer operation and nonce binding; they do not transport arbitrary HTTP request bytes. The selected frontend creates its fixed request internally and checks an internal fixed response sink.",
+    "fixed_false": [
+      "arbitrary_application_adapter",
+      "browser_integration",
+      "selected_proxy_qualification",
+      "psec_or_g_support",
+      "psec_network_preservation_proven",
+      "direct_network_denial",
+      "dns_isolation",
+      "service_broker_isolation",
+      "all_protocol_isolation",
+      "ipv6_tested",
+      "udp_tested",
+      "hostile_same_sid_authentication",
+      "kernel_tcp_snapshot_observed",
+      "linux_equivalence",
+      "product_acceptance"
+    ],
+    "prior_evidence": "Old AC pipe/origin success is code/protocol evidence only. It is not LPAC evidence. Old zero-cap, registryRead, PSEC/DNS and unknown-recovery records remain unchanged."
+  },
+  "roles": [
+    {
+      "role": "lpac-pipe-front",
+      "artifact": "windows_identity_lpac_pipe_front_actor.exe",
+      "wire_role": "pipe-front",
+      "identity": "Fresh expected package SID, primary token, same user/session as held ordinary worker, IL4096, not elevated, UIAccess false, exact capabilities [], semantic matrix [2,0,0,2].",
+      "environment": "Only verified SystemRoot and KnownFolder-derived LOCALAPPDATA, using existing admitted-environment metadata. No inherited environment or guessed local path.",
+      "inherited_handles": [
+        "relay-to-selected.read",
+        "selected-to-relay.write"
+      ],
+      "resume": "Exactly once only after external held admission, complete qualified four-descriptor proof with observer cleanup, both pair children registered and admitted, and all four parent data ends closed once."
+    },
+    {
+      "role": "ordinary-pipe-relay",
+      "artifact": "windows_identity_proxy_origin_actor.exe",
+      "wire_role": "pipe-relay",
+      "identity": "Held ordinary primary, same parent user/session, medium IL and exact existing ordinary predicate, no AC SID, no capabilities, unelevated, UIAccess false.",
+      "inherited_handles": [
+        "selected-to-relay.read",
+        "relay-to-selected.write"
+      ],
+      "authority": "Owns all network sockets. Receives the one already-bound numeric origin port through source-bound argv. The pipe cannot supply another host, port, path, method or resolver option."
+    },
+    {
+      "role": "ordinary-origin-fixture",
+      "artifact": "windows_identity_proxy_origin_actor.exe",
+      "wire_role": "origin-fixture",
+      "identity": "Independently held ordinary primary/image/generation in the same exact inner and outer Jobs.",
+      "inherited_handles": [],
+      "authority": "Existing single-accept, exclusive 127.0.0.1:0 listener; closed ready report binds its actual port in 49153..65535 to run, case, PID, F and original deadline. Exactly one canonical request and response/EOF. No before/after or persistent-listener claim."
+    }
+  ],
+  "identity_contract": {
+    "zero_caps": "TokenCapabilities requires a four-byte count header. Count zero is valid without dereferencing TOKEN_GROUPS.Groups; nonzero count or any capability is rejected, never truncated or adapted.",
+    "lpac_proof": "Use the existing source-bound four fixed security descriptors and MAXIMUM_ALLOWED AccessCheck observer against a query-and-duplicate handle opened from the held selected process. The duplicate is identification-level, never assigned/impersonated; its identity is bound to the prior primary snapshot and held generation. All four calls, descriptor readbacks, expected granted masks [2,0,0,2], API success, timing and once-close/free receipts must qualify before Resume.",
+    "class46": "Not queried, not synthesized and not used as proof. Public class46_queried remains false and any private scalar field remains null/not queried.",
+    "held_checks": [
+      "process handle not signaled",
+      "PID and 64-bit creation generation unchanged",
+      "exact staged image path and SHA unchanged",
+      "primary TokenStatistics identity unchanged",
+      "fresh expected package SID exact",
+      "capabilities exactly empty",
+      "exact inner Job membership true",
+      "exact named outer Job membership true"
+    ],
+    "check_points": [
+      "post-create while suspended",
+      "immediately before semantic observer",
+      "after semantic observer and before parent-end closure/resume",
+      "immediately before selected Resume"
+    ],
+    "proof_scope": "Only the selected four-descriptor LPAC classification is required. No new never-resumed AC reference actor is needed for this positive cell and no claim of an AAP-only causal comparison is made. A separate matched identity-only reference remains separate evidence."
+  },
+  "constructor_contract": {
+    "selected_attributes_exact": [
+      "SECURITY_CAPABILITIES: fresh profile SID, null capability pointer, count0, reserved0",
+      "ALL_APPLICATION_PACKAGES_POLICY: DWORD1 OPT_OUT",
+      "JOB_LIST: exactly the held inner Job",
+      "HANDLE_LIST: exactly two distinct, owned data ends in declared read/write order"
+    ],
+    "relay_attributes_exact": [
+      "JOB_LIST: exactly the same held inner Job",
+      "HANDLE_LIST: exactly its two distinct owned data ends"
+    ],
+    "flags": [
+      "CREATE_SUSPENDED",
+      "CREATE_UNICODE_ENVIRONMENT",
+      "EXTENDED_STARTUPINFO_PRESENT",
+      "CREATE_NO_WINDOW"
+    ],
+    "inheritance": "bInheritHandles is true only for selected and relay with exact HANDLE_LIST2. No STARTF_USESTDHANDLES, no third data/stdio handle, no Job/process/thread/token/socket handle or WSAPROTOCOL_INFO. Existing origin/tool ordinary atomic launches may keep their separately declared stdio inheritance; those handles never enter the selected list.",
+    "lifetime": "Attribute storage, SID storage, exact handle arrays, AAP DWORD, command buffer, environment block and STARTUPINFOEX remain alive through the single CreateProcess return. Process/thread handles are noninheritable.",
+    "job_boundary": "The worker is already atomically admitted to a fresh named outer KILL_ON_JOB_CLOSE Job before any profile/ACL/child work. Each child is atomically assigned to the held inner KILL_ON_JOB_CLOSE Job through JOB_LIST and must independently read back both memberships before any Resume. No fallback to broad inheritance, post-assignment or a different constructor if an attribute or membership fails.",
+    "creation_observation": "Persist durable intent before the call and raw return/adjacent Winerror/PROCESS_INFORMATION four fields/return-QPC immediately after return, before interpreting them. Preserve actual 64-bit handles/creation times and DWORD PIDs/TIDs. Known no-child may use only the existing exact timely returned-false/nonzero-error/all-PI-zero tuple; exception, late, partial, error0 or missing receipt remains unknown.",
+    "not_reusable_unchanged": [
+      "identity_cell.NativeCellAPI.create_matched_suspended fixes Agentic+PNCS and is not a zero-cap constructor",
+      "zero API.create_zero_suspended has bInheritHandles false and only three attributes",
+      "legacy run_ac_pair creates ordinary AC and does not prove LPAC or use this atomic pair constructor"
+    ]
+  },
+  "pipe_ownership_contract": {
+    "objects": "Two anonymous pipes; four parent handles initially. CreatePipe successful output pairs must be nonnull, distinct and nonaliased with every live owned handle. Request and response direction is fixed.",
+    "security": "Create with an explicit protected descriptor limited to creator user and SYSTEM, without a named external rendezvous or broad AAP/ARAP/everyone/package ACE. Read back the descriptor and inherit flags before use. Inheritance transfers existing handle authority; it is not a new package-SID open or an authentication proof. Do not silently add a pipe capability/ACL/label if inherited use fails.",
+    "failure_boundary": "Microsoft documents failed CreatePipe outputs as indeterminate. Do not blindly adopt or CloseHandle arbitrary nonzero failed-call outputs as known handles. Failed/exceptional allocation with ambiguous outputs is a separate unknown-allocation receipt and conservative recovery state; no second allocation attempt. Legacy owned_pipe currently adopts nonzero outputs in finally and cannot be copied as the new strict failure contract without resolving this boundary.",
+    "parent_close": "After both pair children have returned known process handles, been ledger-registered and held-admitted, close each of the four parent ends once before resuming either pair child. A close failure consumes the handle, prevents resume, and remains uncertain; do not retry it.",
+    "child_checks": "Each child checks both values are distinct FILE_TYPE_PIPE handles, clears HANDLE_FLAG_INHERIT and reads back both flags before any protocol I/O. The selected wrapper adds readback because the old Probe only checks the SetHandleInformation return.",
+    "eof": "No writer duplicate may be retained in worker, origin or the wrong child. Both pipe EOF observations, frame totals and consumed close receipts are mandatory for success. Synchronous ReadFile/WriteFile can block; the original outer Job watchdog bounds process lifetime, not API cancellation."
+  },
+  "wire_and_http_contract": {
+    "wire_reuse": "Use the current unmodified RPB1 reducer and frame format; no new 64-byte loopback protocol or 128-byte file GO is needed in this first scope.",
+    "frame_bytes": 48,
+    "frame_layout": {
+      "magic": "RPB1",
+      "kind_offset": 4,
+      "reserved": "all unspecified bytes zero",
+      "run_offset": 8,
+      "case_offset": 24,
+      "sequence_offset": 40,
+      "status_offset": 44,
+      "kinds": "1..5 exactly; sequence=kind-1; nonzero status1..4 only on kind4"
+    },
+    "success_order": [
+      "relay writes kind1",
+      "selected reads1 then writes2",
+      "selected generates its fixed absolute-form request and writes3",
+      "relay maps3 to the canonical numeric owned-origin GET",
+      "origin independently verifies exact request and request EOF, then sends exact response and send EOF",
+      "relay verifies exact response/EOF, writes4 status0 and closes its write end",
+      "selected reads4 and pipe EOF, closes read end, verifies its generated fixed sink, writes5 and closes write end",
+      "relay reads5 and pipe EOF, closes read end"
+    ],
+    "exact_totals": {
+      "selected_read_frames": 2,
+      "selected_read_bytes": 96,
+      "selected_write_frames": 3,
+      "selected_write_bytes": 144,
+      "relay_read_frames": 3,
+      "relay_read_bytes": 144,
+      "relay_write_frames": 2,
+      "relay_write_bytes": 96
+    },
+    "request": "GET /p1/<32 lowercase hex case> HTTP/1.1\\r\\nHost: 127.0.0.1:<held fixture port>\\r\\nConnection: close\\r\\n\\r\\n",
+    "response": "HTTP/1.1 200 OK\\r\\nContent-Length: 32\\r\\nConnection: close\\r\\n\\r\\n<32 lowercase hex case>",
+    "bounds": "Current core request limit8192/response256/header32/line1024 remain unchanged; actual relay/origin comparison is the single exact canonical request and response. A 257-byte observation can be a valid negative overflow receipt, never success. No URL parameter, DNS, redirect, CONNECT, credential, arbitrary method/path, reconnect, extra request, fallback or retry.",
+    "selected_argv": "argc14: exe, pipe-front, run, case, report_path, read_handle, write_handle, pair_start_qpc, F, pair_end_qpc, expected_user_sid, exact_profile_sid, 0, held_origin_port. New wrapper is frontend-only and rejects pipe-relay or other roles.",
+    "relay_argv": "Existing B argc14 pipe-relay ABI, exact same run/case/F/start/end/originport; expected AC SID is none.",
+    "origin_argv": "Existing B argc9 origin-fixture ABI with same run/case/F and original work cutoff."
+  },
+  "clock_contract": {
+    "root": "One original epoch T0/F. Droot=T0+120F; ordinary worker Dworker=Droot-5F. No reset, converted wall clock or fresh local timeout domain.",
+    "work_cutoff": "Dwork=Droot-35F, preserving cleanup reserve. Origin setup/ready and all pair protocol work fit this cutoff.",
+    "pair": "Preserve the old native exact ten-second pair contract: pairS is sampled once before pair creation; pairE=pairS+10F and pairE<=Dwork. Pair creation, held admission, four AccessChecks, durable returns, parent-end closure, resumes, HTTP/pipe work and normal exits all consume that same pair interval. If this cannot fit, stop inconclusive; do not move pairS after launch or extend pairE.",
+    "waits": "Wait all three held processes with the original absolute cutoffs. After the two pair processes finish normally, explicitly await the held origin's final report/exit in the same pairE before generic cleanup so a healthy origin writing its report is not killed by a zero-time poll.",
+    "causality": "Private raw returns and native reports bind F/start/end to the durable pre-create pair intent. Pair start is the epoch established before creation, not a claim that native I/O started then. Persist a resume-authorized intent before ResumeThread; the new selected wrapper records its first admitted native QPC after entry and before pipe I/O, no earlier than that intent and no later than its final sample. Do not compare first native execution to the owner post-ResumeThread return timestamp, since the child can run before the owner samples that return. The LPAC observer completes before the resume intent. Monotonic native final samples must be before pairE. Old B reports retain their existing F/start/end/final shape; their pair start is not promoted into a first-I/O observation. No file-GO proof is claimed.",
+    "sync_limits": "Job kill/held exit is process supervision only. It is not a claim that a blocked synchronous pipe API was cancellable, no side effect occurred, or a service/broker was cancelled."
+  },
+  "filesystem_and_low_mic": {
+    "fresh_stage": "Fresh private root with protected creator+SYSTEM DACL, no reparse/ancestor ACL mutation; source/device/artifact/plan/config byte binding before backend work. Mark possible tree retention before the first directory API may partially succeed.",
+    "selected_grants": "Exact fresh profile SID RX on declared stage traversal/inputs and Modify only on selected-report. Relay/origin report trees, journal, raw PI, token/proof and outer-launch ledgers remain ordinary-only. No arbitrary report/control/output path.",
+    "labels": "Only fresh selected-report subtree may receive the existing Low mandatory label. Require original explicit label absent, durable intent before change, exact label/DACL readback and no reparse. Do not lower stage root, inputs, journal, relay/origin output, ancestors or pipe objects. The selected report is CREATE_NEW/share0 and is read only after held exit/closed handle.",
+    "restoration": "After all held workload exits and Job empty, restore label absence for every bounded descendant and verify it, then remove only the owned package SID ACEs and read back exact absence, finish/close all cleanup tools, delete only the owned fresh profile and free the owned SID once. Unknown descendants, writes, labels, handles, allocation/creation, observer resources or close results retain the tree/profile and recovery-required state; no automatic sweep.",
+    "report_publication": "No hot final GO file exists in this pipe protocol. If future file commands are added they must use closed pending readback before rename and never reopen the hot final path. The current report is never read concurrently with the native share0 writer."
+  },
+  "evidence_contract": {
+    "private": [
+      "exact source tree and Git/LF closure",
+      "plan/config/device plus both artifact/manifests",
+      "outer raw launch ledger and worker report",
+      "durable profile/ACL/LowMIC/create/resume/stop intents",
+      "all raw CreateProcess/API return and PI receipts",
+      "two pipe allocation receipts and four once-close ledgers",
+      "external selected token/generation/image/two-Job snapshots and four-call proof with resource receipts",
+      "held ordinary relay/origin admission and exit reports",
+      "raw selected, B relay, B origin ready/final bytes and descriptors",
+      "original pair clock intent and native F/start/end binding",
+      "profile/ACL/label restoration and all resources cleanup records"
+    ],
+    "tuple": "Require relay's independent local_port==origin's peer_port, origin port==relay peer_port==ready port, both source-bound native reports claim loopback, and each report binds to its distinct held generation. This is cross-held-native tuple evidence. The unchanged B fixture does not hold the connection for an independent live kernel TCP-table snapshot; that stronger property stays false.",
+    "sticky": "Independently harvest origin acceptance/request/response/EOF and relay connect facts even if another report is malformed or deadline/cleanup fails. Missing or malformed final evidence is not absence and cannot reset observed facts. Preserve raw bytes/hashes; unvalidated forensic records alone cannot qualify success.",
+    "success": "Require complete source/plan/device/artifact binding, genuine empty-cap held LPAC proof before resume, two exact inherited endpoints each, all parent closes, exact mapped request/response and both EOFs, independent held origin report/tuple, all three normal exit0, same-budget completion, Job empty, observer cleanup, LowMIC/ACL restoration, profile/SID cleanup and root worker/outer cleanup. No individual native report or old A/B pass is sufficient.",
+    "public": "Closed safe schema. Allow mechanism_verified/network_tested (network scope ordinary-relay-to-owned-origin only), selected_ipc_observed, semantic_lpac_verified, cleanup flags and source/raw commitment hashes. Never expose PID/SID/raw handles/paths/nonces/creation time/raw QPC/private exceptions. selected_socket_api_tested stays false. API invocation/acceptance facts are not packet absence or all-network policy claims. A missing/invalid final report is explicitly unknown, not proof of network absence; retain a closed observation-status enum or equivalent nullable field rather than presenting unknown as a verified negative.",
+    "status": "observed only after the whole positive mechanism and cleanup closes. Otherwise inconclusive, with observed positive facts retained. Recovery required is independent and reflects unknown ownership/restoration, not an automatic consequence of any protocol failure.",
+    "new_selected_native_report": {
+      "schema_version": 1,
+      "stage": "lpac-ipc-origin-selected",
+      "exact_keys": [
+        "schema_version",
+        "stage",
+        "role",
+        "run_id",
+        "case_id",
+        "pid",
+        "ipc_mechanics",
+        "admitted_qpc",
+        "read_handle_inherit_cleared",
+        "write_handle_inherit_cleared",
+        "identity_basis",
+        "network_tested",
+        "proxy_tested",
+        "product_acceptance"
+      ],
+      "role": "lpac-pipe-front",
+      "identity_basis": "external-held-four-descriptor-required",
+      "ipc_mechanics": "Unmodified closed bridge-pipe-test frontend report, with its source-bound native self-token identity and empty capabilities; external proof is not replaced by this self-report.",
+      "admitted_qpc": "null on early failure, otherwise first sampled native tick after identity and flag readback before pipe I/O; bound to pre-Resume authorized intent, original F/start/end.",
+      "read_handle_inherit_cleared": "strict bool, true only after GetHandleInformation readback",
+      "write_handle_inherit_cleared": "strict bool, true only after GetHandleInformation readback",
+      "network_tested": false,
+      "proxy_tested": false,
+      "product_acceptance": false,
+      "positive_predicate": "Both flag readbacks true, admitted_qpc in causal interval, bound native empty-token identity, all old frontend mechanics exact positive predicates, external held four-descriptor proof and overall owner success gates. Unknown keys and bool-as-int rejected."
+    }
+  },
+  "composition": {
+    "reuse_immutable": [
+      {
+        "file": ".github/windows_identity_lpac_loopback.py",
+        "use": "Import only zero-safe token/accesscheck primitives, API label helpers and source-bound base objects. Do not call its Owner/execute/run_local or reuse its old scope/public schema."
+      },
+      {
+        "file": ".github/windows_identity_lpac_identity_cell.py",
+        "use": "Transitive ownership/access APIs and existing base guards; do not call its fixed two-cap constructor."
+      },
+      {
+        "file": ".github/windows_identity_proxy_origin_probe.py",
+        "use": "Pure B manifest/ready/relay/fixture validators, canonical payloads and a CombinedLedgers-style view into the existing single cleanup routine. Do not call run_controller/run_ac_pair or project B into an LPAC qualification."
+      },
+      {
+        "file": ".github/native/windows_identity_proxy_pipe_actor.cpp",
+        "use": "Compile as a library via RULEPROXY_PROXY_PIPE_LIBRARY, reuse Probe/read-write/once-close/reducer helpers in a new selected-only entry. Add native readback/identity wrapper facts without altering old source or reports."
+      },
+      {
+        "file": ".github/native/windows_identity_proxy_bridge_core.hpp",
+        "use": "Unchanged 48-byte protocol and canonical HTTP mapper."
+      },
+      {
+        "file": ".github/native/windows_identity_proxy_origin_actor.cpp",
+        "use": "Unchanged ordinary relay and single origin fixture artifact; never compile/include this Winsock translation unit into the selected binary."
+      },
+      {
+        "file": ".github/windows_identity_ordinary_launcher.py",
+        "use": "Original QpcBudget, launch_owned, held ordinary qualification, atomic root guard and once-handle ledger."
+      }
+    ],
+    "new_runtime_files": [
+      ".github/native/windows_identity_lpac_pipe_front_actor.cpp",
+      ".github/windows_identity_lpac_pipe_origin.py",
+      ".github/windows_identity_lpac_pipe_origin_local.py"
+    ],
+    "new_test_files": [
+      "tests/test_windows_identity_lpac_pipe_front_native.py",
+      "tests/test_windows_identity_lpac_pipe_origin.py",
+      "tests/test_windows_identity_lpac_pipe_origin_local.py"
+    ],
+    "build": "A new compile-only helper/closed selected manifest may be prepared in WORK first. Selected PE expected direct imports KERNEL32.dll and ADVAPI32.dll only, no delay imports or WS2_32/DNSAPI/WinHTTP/WinINet/Shell32/User32. Use static CRT, immutable four-source snapshot (new selected cpp plus old pipe actor, identity actor and core). Existing B actor and its exact five-source manifest are a distinct immutable artifact input.",
+    "source_closure": "New runtime SOURCES is ordered unique(old zero-cap SOURCES37 plus new selected cpp plus new core/local)=expected40; compute the actual literal import/native-source closure and verify Git byte equality before freezing, rather than trusting this prediction. Old zero native sources remain transitive source commitments but their loopback executable is not run or described as the selected artifact. New selected manifest binds its four actual compilation inputs; B manifest binds its five actual inputs. No old manifest or archive is rewritten.",
+    "avoid_duplication": "A small new coordinator owns only the new role/schema/constructor/pipe/LPAC gating. Reuse established once ownership and cleanup through explicit adapters and a ledger view; do not copy the old 100KB loopback Owner/validators or fork a second general process-supervision framework. Never mutate imported module globals to turn one scope into another."
+  },
+  "minimum_meaningful_tests": [
+    {
+      "area": "native composition",
+      "cases": [
+        "new selected frontend-only argv rejects relay role",
+        "RPB1 every-byte/short/long/nonce/status/order failures and split reads via existing production reducer",
+        "four-byte zero capability header accepted without Groups dereference; nonzero/truncated caps rejected",
+        "SetHandleInformation success without cleared readback fails",
+        "selected PE static import boundary; no selected Winsock/DNS import",
+        "same F/exact ten-second epoch and overflow/deadline checks"
+      ]
+    },
+    {
+      "area": "constructor ownership",
+      "cases": [
+        "ctypes/API-shaped exact four selected and two relay attributes with HANDLE_LIST2, correct byte sizes/storage lifetimes/bInherit true",
+        "missing, third, aliased or opposite pipe end rejected",
+        "ordinary tool/origin inheritance cannot flow into selected",
+        "returned-false/partial/exception/late/unknown CreateProcess preserve typed ownership",
+        "failed CreatePipe indeterminate outputs are not blindly adopted/closed or retried",
+        "all four parent ends consumed before either pair resume; uncertain close prevents resume"
+      ]
+    },
+    {
+      "area": "held LPAC",
+      "cases": [
+        "full empty-cap primary and four expected AccessChecks pass before first resume",
+        "self-reported AC/LPAC or old A success alone cannot qualify",
+        "nonzero cap, wrong fresh SID/user/session/IL/type/token statistics, wrong image/generation/inner or outer Job rejects resume",
+        "observer descriptor/token close uncertainty prevents resume and profile deletion",
+        "late proof or phase before authorized epoch cannot qualify"
+      ]
+    },
+    {
+      "area": "end-to-end inert fake",
+      "cases": [
+        "real coordinator with inert pipe/process/network adapters completes one mapped fixed request and independent held origin response/EOF/tuple",
+        "wrong port/nonce/request/response, extra byte/frame or retained writer breaks success",
+        "origin delayed final report within same pairE is awaited instead of prematurely killed",
+        "pair/worker/root deadline and origin exit1 cannot promote partial success",
+        "malformed selected report preserves independently bound origin positive facts but cannot complete",
+        "every role and shared resource participates in generic cleanup and profile-deletion gate"
+      ]
+    },
+    {
+      "area": "LowMIC and public/guard",
+      "cases": [
+        "only the one fresh selected-report subtree is lowered; unexpected baseline label/reparse/extra ACL stops",
+        "partially successful directory/label write retains tree and recovery state",
+        "restore every owned descendant and read back absence before exact ACE/profile cleanup",
+        "default preflight performs no spawn/profile/ACL/label/network calls",
+        "root120/worker115/device/source40/artifact2/plan/worker report and raw outer ledger physically bound",
+        "public cannot claim observed without all reports/exit0/cleanup commitments or expose private identifiers",
+        "all denial/arbitrary-app/browser/PSEC/Linux/product flags remain false on both success and failure"
+      ]
+    }
+  ],
+  "implementation_entry_gates": [
+    "Parent review of this exact minimal scope and composition before creating a candidate implementation.",
+    "Candidate starts ACTUAL_READY false; all old sources and evidence immutable.",
+    "Independent native source/compile/PE review, meaningful pure tests and closed source/artifact/plan freezes before parent promotion.",
+    "Only the root performs any full integrated run, stage/commit/push, before/actual/after capture or real API/network/security mutation. No automatic retry or fallback."
+  ],
+  "primary_sources": [
+    {
+      "url": "https://learn.microsoft.com/en-us/windows/win32/procthread/inheritance",
+      "supports": "Inherited handles preserve the same object, value and access privileges; HANDLE_LIST can select which inherited handles a specific child receives."
+    },
+    {
+      "url": "https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-createprocessw",
+      "supports": "Explicit application path/environment/extended startup and inheritance semantics; a successful creation return is before process initialization and does not prove later image/identity/initialization success."
+    },
+    {
+      "url": "https://learn.microsoft.com/en-us/windows/win32/api/namedpipeapi/nf-namedpipeapi-createpipe",
+      "supports": "Anonymous ReadFile/WriteFile pipe I/O, explicit security/inheritance, output parameters indeterminate on failure, and pipe lifetime until the last handle closes."
+    },
+    {
+      "url": "https://learn.microsoft.com/en-us/windows/win32/ipc/named-pipe-security-and-access-rights",
+      "supports": "Pipe descriptor permissions require deliberate scope. An inherited-handle cooperative mechanism is not a hostile same-SID authentication proof."
+    }
+  ],
+  "actions": {
+    "design_only": true,
+    "implementation_created": false,
+    "native_compiled_or_executed": false,
+    "process_or_token_created": false,
+    "network_api_called": false,
+    "profile_acl_label_or_global_configuration_changed": false,
+    "main_or_prior_evidence_modified": false
+  }
+}

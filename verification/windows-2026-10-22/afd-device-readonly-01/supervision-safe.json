@@ -1,0 +1,36 @@
+{
+  "application_isolation_test": false,
+  "atomic_KOC_Job_requested": true,
+  "global_network_policy_write_requested": false,
+  "helper_and_source37_postrun_hashes_checked_by_source_bound_wrapper": true,
+  "helper_observation_original": {
+    "bytes": 5662,
+    "sha256": "4a542201053d1ea550c939d7eab39ab0acad28dd738ed4e664f81e55d929a7f7"
+  },
+  "linux_equivalence_proven": false,
+  "no_SOCKET_or_network_IO_requested": true,
+  "ordinary_image_and_identity_verified_before_resume": true,
+  "original_absolute_QPC_forwarded": true,
+  "original_budget_seconds": 20,
+  "original_work_seconds": 15,
+  "outer_cleanup": {
+    "close_uncertain": false,
+    "errors": [],
+    "handles_closed": true,
+    "job_closed": true,
+    "job_empty": true,
+    "process_exit_confirmed": true
+  },
+  "parent_dependency_import_may_initialize_WSA": true,
+  "product_acceptance": false,
+  "raw_launch_ledger_or_private_identity_published": false,
+  "resumed": true,
+  "schema_version": 1,
+  "source_commit": "d309ae322cca84360923d6bc51013057991a4218",
+  "source_count": 37,
+  "source_sha256": "069d9f2702e235f03603d11b5962f320fe0f077cd81ccfabafefd48cbd11dfb6",
+  "stage": "safe-ordinary-afd-readonly-supervision",
+  "started": true,
+  "timed_out": false,
+  "worker_exit_code": 0
+}

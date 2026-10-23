@@ -57,3 +57,6 @@ native actor只做 compile/static 验证后才由根单次运行：产物SHA256 
 主 same-SID reachability、direct隔离、默认resolver/DNS、IPv6、UDP、服务broker、代理/产品/Linux等效、同SID篡改/注入/pipe盗取均未证明，全部固定false。selected registryRead 与前端零cap的不对称也不构成 AAP-only 对照。
 
 [原G/PSEC DNS泄漏](2026-10-23-selected-dns-standard53.md)、[rawUDP未定论](2026-10-23-selected-dns-raw-udp.md)、[standalone semantic-LPAC DNS02有限5/5](2026-10-23-lpac-semantic-dns-02.md)、[atomic01 unknown](2026-10-23-psec-lpac-identity-01.md)以及 postassign/matchedcaps 的部分 proof 均保持原值，不由本次已知清理或 socket10013 覆盖。后续路线仍需要新明确 scope 和真实证据。
+
+
+AFD 控制对象另做过一次受监督的 ordinary 只读诊断（[安全投影与来源索引](../../verification/windows-2026-10-22/afd-device-readonly-01/index.json)）：固定 `\Device\Afd` 仅请求 `READ_CONTROL|SYNCHRONIZE`，无 EA、IOCTL、SOCKET 或权限写；原 root20秒/work15秒同一绝对 QPC、原子 Job、恢复执行前映像/普通身份及一次清理均闭合。读得140字节 SD，四条 basic allow ACE 分别为 world `0x001201bf`、SYSTEM/Administrators 各 `0x001f01ff`、未识别12字节 SID `0x001200a9`；本描述符未识别出 AAP/ARAP 或 helper 固定名单中的网络/registryRead ACE。它不是 AFD endpoint SD、held LPAC effective-access 计算或 socket10013 的唯一原因证明；父监督器导入可能初始化 WSA，不能称整个运行无 Winsock 初始化，也未证明 driver 内部无 endpoint。[后续 IPC 契约](../../verification/windows-2026-10-22/afd-device-readonly-01/lpac-ipc-origin-scope-contract-01.txt)是独立零cap LPAC→固定继承管道→ordinary relay→owned origin 单轮正向设计；契约冻结时未实现，当前 WORK 候选实现推进中、仍未验证。此处不包含候选的编译、本机运行或应用适配验收证据，也不改变本轮结果、DNS反例或任何隔离/应用适配/产品资格。

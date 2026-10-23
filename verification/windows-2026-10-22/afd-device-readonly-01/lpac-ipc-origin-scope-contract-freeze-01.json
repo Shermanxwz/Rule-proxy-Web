@@ -1,0 +1,35 @@
+{
+  "actual_ready": false,
+  "baseline_source_commit": "277c112f81fb4e3b70305d9e881beada4758b115",
+  "compile_performed": false,
+  "contract": {
+    "bytes": 33381,
+    "name": "lpac-ipc-origin-scope-contract-01.json",
+    "sha256": "50c679695df76c6a1288abf7a040daf14c126187ea620e38eeb7246c5b126cd0"
+  },
+  "critical_sources_git_blob_exact": 12,
+  "decision": "DESIGN_READY_FOR_PARENT_REVIEW_ONLY",
+  "implementation_created": false,
+  "main_modified": false,
+  "native_api_or_runtime_executed": false,
+  "new_runtime_files": [
+    ".github/native/windows_identity_lpac_pipe_front_actor.cpp",
+    ".github/windows_identity_lpac_pipe_origin.py",
+    ".github/windows_identity_lpac_pipe_origin_local.py"
+  ],
+  "new_test_files": [
+    "tests/test_windows_identity_lpac_pipe_front_native.py",
+    "tests/test_windows_identity_lpac_pipe_origin.py",
+    "tests/test_windows_identity_lpac_pipe_origin_local.py"
+  ],
+  "old_evidence_modified": false,
+  "parent_scope_confirmation": "Minimal single positive byteflow. No denial inference or ordinary before/after extension.",
+  "pure_scope_review_only": true,
+  "schema_version": 1,
+  "stage": "lpac-ipc-origin-design-freeze",
+  "summary": {
+    "bytes": 2790,
+    "name": "lpac-ipc-origin-scope-contract-01.txt",
+    "sha256": "8fbcf55420ddf303fed8c91a93d3cabef7419b52451c7b2025d3ccf6ba3ec549"
+  }
+}
