@@ -1,0 +1,3 @@
+LIBRARY windows_identity_lpac_curl_loader_marker
+EXPORTS
+    cl_marker_anchor @1

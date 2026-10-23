@@ -17,6 +17,10 @@ on:
       - '.github/windows_identity_lpac_stream_mihomo_origin_local.py'
       - '.github/native/windows_identity_lpac_stream_mihomo_http.hpp'
       - '.github/native/windows_identity_lpac_stream_mihomo_network_actor.cpp'
+      - '.github/windows_identity_lpac_curl_loader.py'
+      - '.github/windows_identity_lpac_curl_loader_local.py'
+      - '.github/native/windows_identity_lpac_curl_loader_*'
+      - '.github/vendor/detours/**'
       - 'tests/test_windows_identity*.py'
       - '.github/workflows/windows-identity-proof.yml'
 
