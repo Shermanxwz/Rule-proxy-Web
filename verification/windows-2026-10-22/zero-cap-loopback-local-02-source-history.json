@@ -1,0 +1,175 @@
+{
+  "control_publish_fix": {
+    "false_freeze": {
+      "bytes": 7642,
+      "sha256": "78eb9d8d55fb6e0df800461d1826d00ae10fe8306038fd41e8454a91d040de9b"
+    },
+    "focused": {
+      "errors": 0,
+      "failures": 0,
+      "log": {
+        "bytes": 1547,
+        "path": "zero-cap-loopback02-python-focused-02.log",
+        "sha256": "e7a69ca5a5e14fff2cb3d6740b0bed5ef813440a2ff37d0b3bbc3d1a76d75dc5"
+      },
+      "seconds": "6.952",
+      "skipped": 0,
+      "test_count": 8
+    },
+    "full_pure": {
+      "errors": 0,
+      "failures": 0,
+      "identity_tests": 988,
+      "log": {
+        "bytes": 186167,
+        "sha256": "98a37f2a193e3647c7dba1078c45d1c054acd7fbf6e5b5a16c08ff6432795ec6"
+      },
+      "receipt": {
+        "bytes": 2102,
+        "sha256": "24e77298954498adab09cf088f371cb44483895c53ad03378c8a949f1ea30349"
+      },
+      "seconds": "103.628",
+      "skipped": 2,
+      "source_sha256": "b726d48d6dddfed2533168ac0921add834488f333931f08b75dc6195cd9fc4ac"
+    },
+    "independent_review": {
+      "bytes": 2222,
+      "sha256": "d0a373bc781d08dedbcba21a162157032f4d981dc9cf36a07a3d57899e597b24"
+    },
+    "independent_tests": {
+      "count": 2,
+      "errors": 0,
+      "failures": 0,
+      "log": {
+        "bytes": 460,
+        "sha256": "70ce05ec1f848edf0f0a4ecf0b310f88bc826dca8d891000f9aa99b15eef185d"
+      },
+      "skipped": 0
+    },
+    "previous_actual01_control32_preserved": true,
+    "prior_test_assumption_failure": {
+      "errors": 0,
+      "failures": 1,
+      "log": {
+        "bytes": 3488,
+        "path": "zero-cap-loopback02-python-focused-01.log",
+        "sha256": "06153f48c64ea225fef0c24fab5e4083ab2cb5b671d17b2ddc1bd7b598fb748b"
+      },
+      "reason": "new test initially assumed one pending read; existing durable_private also performs closed pending readback, so test now permits all prepublish reads only on pending; production fix unchanged",
+      "seconds": "5.049",
+      "skipped": 0,
+      "test_count": 8
+    },
+    "production_fix": "Verify the closed pending file before rename; never reopen the published control file.",
+    "pure_not_runtime_evidence": true,
+    "same_native_two_sources_and_compile_reused": true,
+    "test_assumption_only_failed": "The first new test assumed one pending read; durable_private also performs closed pending readback. Production fix did not change.",
+    "true_ready_only_freeze": {
+      "bytes": 8351,
+      "sha256": "086940edb854de4a54cc6ced7068972b7cc02e77e7eaebeb522f0eac93da242f"
+    }
+  },
+  "corrected_binding": "Nonzero native flow start after original GO issue; release/received/response clocks causally ordered.",
+  "corrected_independent_review": {
+    "bytes": 4222,
+    "sha256": "f4348193c6dab64db2c8cc8b5c56521844b8e5b301ee4ef847fea3c3ccd0ba98"
+  },
+  "corrected_verdict": "GO-no-source-or-injected-backend-blocker",
+  "first_independent_review": {
+    "bytes": 3499,
+    "sha256": "c986667e628414e531eb368fea2b655474dae4b13ba05e14f4bda697f6ffc88a"
+  },
+  "first_revision_blocked_not_used_for_actual": true,
+  "first_verdict": "BLOCKED",
+  "integrated_pure": {
+    "errors": 0,
+    "failures": 0,
+    "identity_tests": 986,
+    "log": {
+      "bytes": 185791,
+      "sha256": "58aa996162d3a566f376e563d5a82495dc29a024f7494404dede93b2d8fcbb5f"
+    },
+    "receipt": {
+      "bytes": 2632,
+      "sha256": "f20eac708a02e4e0a7a030573d518619656b0168be7a3d066e73b030d5607462"
+    },
+    "seconds": "106.104",
+    "skipped": 2,
+    "source_sha256": "3df55cdbc317522d74a3f6cc8f0f68258aa73da0b1d5cd8ae811aebf7ab9342f"
+  },
+  "native_compile_not_repeated_by_this_archive": true,
+  "original_blocked_and_failure_evidence_preserved": true,
+  "pure_or_compile_not_substituted_for_actual": true,
+  "revisions": [
+    {
+      "actual_execution_evidence": false,
+      "actual_ready": false,
+      "focused_pure": {
+        "errors": 0,
+        "failures": 0,
+        "log": {
+          "bytes": 5298,
+          "sha256": "06adf8eaf6910da75c6760d597e6e71f0df3dfb00eaa833c520020bbd3810d49"
+        },
+        "seconds": "11.970",
+        "skipped": 0,
+        "test_count": 26,
+        "test_method_counts": {
+          "tests/test_windows_identity_lpac_loopback.py": 15,
+          "tests/test_windows_identity_lpac_loopback_local.py": 11
+        }
+      },
+      "freeze": {
+        "bytes": 11658,
+        "sha256": "ea58eb261b5068c330c83d643395b4eafa262179f6c73b4a61b38b630690801c"
+      },
+      "original_patch": {
+        "bytes": 155538,
+        "sha256": "a9bf661db4446e5dfb420ce19d0b455266afb7779cee25c2747502433981d139"
+      },
+      "revision": 1,
+      "source_sha256": "7fe63154382674dfc6c84bdec8ff1a752f37497e988fbdb774172367fae45ff0"
+    },
+    {
+      "actual_execution_evidence": false,
+      "actual_ready": false,
+      "focused_pure": {
+        "errors": 0,
+        "failures": 0,
+        "log": {
+          "bytes": 5680,
+          "sha256": "7d5f1dfe505dbf91da1a4b8614136335ccfd3af18da59b585a3c56fa5ed30766"
+        },
+        "seconds": "13.978",
+        "skipped": 0,
+        "test_count": 28,
+        "test_method_counts": {
+          "tests/test_windows_identity_lpac_loopback.py": 17,
+          "tests/test_windows_identity_lpac_loopback_local.py": 11
+        }
+      },
+      "freeze": {
+        "bytes": 12060,
+        "sha256": "dfa25c54ad2193292e1e36af6313e9fe3897a5554c0955689d9d67eaaf12d7af"
+      },
+      "original_patch": {
+        "bytes": 158485,
+        "sha256": "ebe4ec7fdbec42804c9f9715dc74a86a4ba510c2023218cb02980aab30239c54"
+      },
+      "revision": 2,
+      "source_sha256": "97b53aee73a6040cc2753c55e463aef6fbec42cf853f6758e4ec09056d459520"
+    },
+    {
+      "actual_execution_evidence": false,
+      "actual_ready": true,
+      "freeze": {
+        "bytes": 17875,
+        "sha256": "42dc85fff24fcf952458a3aae14a6ee31da6ebbcd9cf943e5bf53a03c7d8efc9"
+      },
+      "revision": 3,
+      "source_sha256": "3df55cdbc317522d74a3f6cc8f0f68258aa73da0b1d5cd8ae811aebf7ab9342f"
+    }
+  ],
+  "schema_version": 1,
+  "stage": "zero-cap-loopback-source-review-history-through-control-fix"
+}

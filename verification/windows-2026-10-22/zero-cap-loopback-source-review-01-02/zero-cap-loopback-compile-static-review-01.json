@@ -1,0 +1,39 @@
+{
+  "actor_bytes": 298496,
+  "actor_executed": false,
+  "actor_sha256": "5015367a6edeaefd1830f5a6584024894070926ea5012c343534e43054b0461d",
+  "compile_log_bytes": 42,
+  "compile_log_sha256": "c68056c1ff7b718f753af3e94cd3505caa9f6c7e379c4acac65bebfb91b4a072",
+  "input_snapshot_sha256": "a92d15a257efcfd85dc5069d7cadba2c7406204c6a9fb3fef3ec1ec26911796a",
+  "inspection_method": "file-only bounded PE parsing; no executable load",
+  "manifest_sha256": "0c371e646873d3970bb3aea2e05ba05a10bb1b3e0b4c02c84963f7f265537a52",
+  "native_sources": {
+    ".github/native/windows_identity_lpac_loopback_actor.cpp": {
+      "bytes": 30053,
+      "sha256": "c3744801ef26fd42a3f1b1712a7d0b7c8e49369ae7e4d655ab46d8eb3f188985"
+    },
+    ".github/native/windows_identity_lpac_loopback_contract.hpp": {
+      "bytes": 4650,
+      "sha256": "a5e46a18c25211d34fd33c21a6e640dd7a6a3e3e02ec67fe03c30f010f9f9dce"
+    }
+  },
+  "network_executed": false,
+  "passed": true,
+  "pe": {
+    "delay_imports": [],
+    "dll": false,
+    "entrypoint_nonzero": true,
+    "imports": [
+      "WS2_32.dll",
+      "ADVAPI32.dll",
+      "KERNEL32.dll"
+    ],
+    "machine": "AMD64",
+    "section_count": 6,
+    "subsystem": "WINDOWS_GUI"
+  },
+  "runtime_acceptance": false,
+  "schema_version": 1,
+  "stage": "zero-cap-loopback-compile-static-review",
+  "toolchain_sha256": "4de0bc8d4e4f7e5089279efb2f8b883d4d19e6b63838ec9acb60b74bbe169cc6"
+}

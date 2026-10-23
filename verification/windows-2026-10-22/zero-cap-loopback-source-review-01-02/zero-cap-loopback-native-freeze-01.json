@@ -1,0 +1,92 @@
+{
+  "abi_document": {
+    "bytes": 11517,
+    "path": "zero-cap-same-sid-loopback-native-abi-02.json",
+    "sha256": "d55a880640c02f7e5ca2b6ae9bb9c6a2ddb24f9d322af9660186f010e0c900e3"
+  },
+  "actor_executed": false,
+  "actual_ready": false,
+  "compile": {
+    "actor_bytes": 298496,
+    "actor_sha256": "5015367a6edeaefd1830f5a6584024894070926ea5012c343534e43054b0461d",
+    "build_directory": "zero-cap-loopback-compile-01",
+    "flags": [
+      "W4",
+      "WX",
+      "O2",
+      "guard:cf",
+      "SUBSYSTEM:WINDOWS"
+    ],
+    "imports": [
+      "WS2_32.dll",
+      "ADVAPI32.dll",
+      "KERNEL32.dll"
+    ],
+    "machine": "AMD64",
+    "manifest_bytes": 387,
+    "manifest_sha256": "0c371e646873d3970bb3aea2e05ba05a10bb1b3e0b4c02c84963f7f265537a52",
+    "original_helper_not_executed": true,
+    "reader_sha256": "d29a32690af506dc6aa4da446a8fb282077ff713183f71760c8dc8fbac359329",
+    "root_executed_helper_sha256": "2373db25c06e080105f19ea32037879f5e251403b4392e787e93c94d624b8d21",
+    "root_helper_change": "PowerShell automatic $input variable renamed only to task-specific $loopbackCompileInput",
+    "runtime": "MT",
+    "snapshot_sources_match_candidate": true,
+    "static_review_sha256": "12bfefdbb3bf6370650ef6b1c4920df35e1d085cd499469756f31752e1527bc7",
+    "subsystem": "WINDOWS_GUI"
+  },
+  "files": {
+    ".github/native/windows_identity_lpac_loopback_actor.cpp": {
+      "bytes": 30053,
+      "sha256": "c3744801ef26fd42a3f1b1712a7d0b7c8e49369ae7e4d655ab46d8eb3f188985"
+    },
+    ".github/native/windows_identity_lpac_loopback_contract.hpp": {
+      "bytes": 4650,
+      "sha256": "a5e46a18c25211d34fd33c21a6e640dd7a6a3e3e02ec67fe03c30f010f9f9dce"
+    },
+    "tests/test_windows_identity_lpac_loopback_native.py": {
+      "bytes": 7600,
+      "sha256": "b97083a9089f5a9384febf8c09bab6c2dec38ce0f24be19ab3e6d97bacde0343"
+    }
+  },
+  "interface_version": 1,
+  "limitations": [
+    "same_sid_tamper_boundary_verified",
+    "injection_resistance_verified",
+    "pipe_theft_resistance_verified",
+    "proxy_qualified",
+    "WFP_policy_tested",
+    "DNS_isolation_tested",
+    "product_acceptance"
+  ],
+  "native_source_count": 2,
+  "network_executed": false,
+  "no_capability_or_loopback_fallback": true,
+  "no_system_network_configuration_changed": true,
+  "notes": [
+    "Compile/pure facts do not authorize runtime or establish reachability.",
+    "Native self token report is not external held identity qualification.",
+    "Synchronous file/token Windows calls are not claimed cancelable.",
+    "External root owns the later source promotion and any single actual experiment."
+  ],
+  "patch": {
+    "bytes": 43140,
+    "sha256": "f5ec55300ec8339166f65bd59c14eec8a4685dc2ab10d72808252d072539cdc1"
+  },
+  "profile": "same-sid-zero-cap-loopback-mechanism-v1",
+  "profile_or_acl_changed": false,
+  "runtime_acceptance": false,
+  "schema_version": 1,
+  "scope": "one-local-zero-cap-same-sid-loopback-v1",
+  "stage": "zero-cap-loopback-native-final-freeze",
+  "tests": {
+    "count": 3,
+    "errors": 0,
+    "failures": 0,
+    "log": "zero-cap-loopback-native-pure-wip-01.log",
+    "log_bytes": 808,
+    "log_sha256": "7f0cbed08586ad8f73fe87e9e4871463c3f57ec5f9dcc049b60dc0881dc49b6c",
+    "method": "two compiled portable production-contract fake harnesses and one source-scope check; actor never run",
+    "reported_seconds": 1.307,
+    "skipped": 0
+  }
+}

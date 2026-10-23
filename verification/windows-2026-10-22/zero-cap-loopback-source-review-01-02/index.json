@@ -1,0 +1,1007 @@
+{
+  "actual_archive_indexes": [
+    {
+      "bytes": 5623,
+      "path": "verification/windows-2026-10-22/zero-cap-loopback-local-01-evidence-index.json",
+      "sha256": "fc1fbd39f9f5105aa4b8f85df5d4cdbf1d25faa8cc9d75b921010b4d8e909e46"
+    },
+    {
+      "bytes": 7667,
+      "path": "verification/windows-2026-10-22/zero-cap-loopback-local-02-evidence-index.json",
+      "sha256": "13a3142fe07bd4540d3d357e30e5e950acbf844d9b974b873f303852e3cf024f"
+    }
+  ],
+  "actual_sources": {
+    "1": {
+      "commit": "07146b7118c345e4a1046fe9066ba2f26b37cf3a",
+      "public": "a4502dda11fbc39567e53c909ca2e4d8b9c5b5825e92e056fea46fd8cb396b18",
+      "source": "3df55cdbc317522d74a3f6cc8f0f68258aa73da0b1d5cd8ae811aebf7ab9342f"
+    },
+    "2": {
+      "commit": "c7145b9d50dc99c14f11764a03ad23f31ce3e638",
+      "public": "457c26fdf13707807a5412ff81951bba7b4112129c472c6f09804c073a6813ed",
+      "source": "b726d48d6dddfed2533168ac0921add834488f333931f08b75dc6195cd9fc4ac"
+    }
+  },
+  "all_new_current_source_is_not_substituted_for_old_actual_source": true,
+  "archive_builder_history": [
+    {
+      "actual_network_rerun": false,
+      "executed": false,
+      "issue": "wrong fixed verdict literal",
+      "observed_by": "root-static-review",
+      "tool": "archive_zero_cap_loopback_01.py"
+    },
+    {
+      "actual_network_rerun": false,
+      "archive_files_written": 0,
+      "executed": true,
+      "observed_by": "root-default-dry-once",
+      "safe_error": "report",
+      "safe_error_type": "ValueError",
+      "stage": "intents projection passed str instead of bytes",
+      "tool": "archive_zero_cap_loopback_01_builder02.py"
+    },
+    {
+      "actual_network_rerun": false,
+      "archive_new_files": 22,
+      "correction": "m.decode(r['text'].encode('ascii'))",
+      "observed_by": "root-dry-and-Archive",
+      "tool": "archive_zero_cap_loopback_01_builder03.py"
+    },
+    {
+      "actual_network_rerun": false,
+      "archive_new_files": 31,
+      "observed_by": "root-dry-and-Archive",
+      "tool": "archive_zero_cap_loopback_02.py"
+    }
+  ],
+  "ci_summary": {
+    "bytes": 6614,
+    "path": "verification/windows-2026-10-22/zero-cap-loopback-source-review-01-02/ci-summary.json",
+    "sha256": "60e1dae7bc61d5c93096cfec4a52a258bca8ff9782447210cdfb1f7fbf877058"
+  },
+  "compiler_pure_or_ci_not_actual_evidence": true,
+  "files": [
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 29531,
+        "sha256": "53deeefeca8c2056a6a7a9867f51eb06d9f72ea5e2e34c2f371e3b050b9e5125"
+      },
+      "path": "verification/windows-2026-10-22/zero-cap-loopback-source-review-01-02/archive_zero_cap_loopback_01.py",
+      "public_view": {
+        "bytes": 29531,
+        "sha256": "53deeefeca8c2056a6a7a9867f51eb06d9f72ea5e2e34c2f371e3b050b9e5125"
+      },
+      "source": "archive_zero_cap_loopback_01.py",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 29594,
+        "sha256": "0f434ffba7f56375db37805690ccc7e271d80422c7b5fa46a8359825e16d77a8"
+      },
+      "path": "verification/windows-2026-10-22/zero-cap-loopback-source-review-01-02/archive_zero_cap_loopback_01_builder02.py",
+      "public_view": {
+        "bytes": 29594,
+        "sha256": "0f434ffba7f56375db37805690ccc7e271d80422c7b5fa46a8359825e16d77a8"
+      },
+      "source": "archive_zero_cap_loopback_01_builder02.py",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 29610,
+        "sha256": "88748927b9514c831701f59ce728e571e015e5980f864ffed823429feda79c2a"
+      },
+      "path": "verification/windows-2026-10-22/zero-cap-loopback-source-review-01-02/archive_zero_cap_loopback_01_builder03.py",
+      "public_view": {
+        "bytes": 29610,
+        "sha256": "88748927b9514c831701f59ce728e571e015e5980f864ffed823429feda79c2a"
+      },
+      "source": "archive_zero_cap_loopback_01_builder03.py",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 849,
+        "sha256": "044c8f6a767e1e5c9fb10a0fc266758f79c2db1168e61d3b88078635f6d71aa3"
+      },
+      "path": "verification/windows-2026-10-22/zero-cap-loopback-source-review-01-02/archive_zero_cap_loopback_01_command.ps1",
+      "public_view": {
+        "bytes": 849,
+        "sha256": "044c8f6a767e1e5c9fb10a0fc266758f79c2db1168e61d3b88078635f6d71aa3"
+      },
+      "source": "archive_zero_cap_loopback_01_command.ps1",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 859,
+        "sha256": "1d0bb11623125f70d64840548d1d33021872ea9595bb9db6d9d28025dd3a07cd"
+      },
+      "path": "verification/windows-2026-10-22/zero-cap-loopback-source-review-01-02/archive_zero_cap_loopback_01_command02.ps1",
+      "public_view": {
+        "bytes": 859,
+        "sha256": "1d0bb11623125f70d64840548d1d33021872ea9595bb9db6d9d28025dd3a07cd"
+      },
+      "source": "archive_zero_cap_loopback_01_command02.ps1",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 859,
+        "sha256": "9b3e53f6239e307b5ee03c641b183f9a915e67ce12ef8b594fee857d546aee5f"
+      },
+      "path": "verification/windows-2026-10-22/zero-cap-loopback-source-review-01-02/archive_zero_cap_loopback_01_command03.ps1",
+      "public_view": {
+        "bytes": 859,
+        "sha256": "9b3e53f6239e307b5ee03c641b183f9a915e67ce12ef8b594fee857d546aee5f"
+      },
+      "source": "archive_zero_cap_loopback_01_command03.ps1",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 35549,
+        "sha256": "600756d7b0580e6be12579f309f67bf9d5c81c397a337a443018b5a150fafa96"
+      },
+      "path": "verification/windows-2026-10-22/zero-cap-loopback-source-review-01-02/archive_zero_cap_loopback_02.py",
+      "public_view": {
+        "bytes": 35549,
+        "sha256": "600756d7b0580e6be12579f309f67bf9d5c81c397a337a443018b5a150fafa96"
+      },
+      "source": "archive_zero_cap_loopback_02.py",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 849,
+        "sha256": "615d65d0c9b31e67e90482c193a1b4f90e89e5d2219ddf2fdd6980666c4583d5"
+      },
+      "path": "verification/windows-2026-10-22/zero-cap-loopback-source-review-01-02/archive_zero_cap_loopback_02_command.ps1",
+      "public_view": {
+        "bytes": 849,
+        "sha256": "615d65d0c9b31e67e90482c193a1b4f90e89e5d2219ddf2fdd6980666c4583d5"
+      },
+      "source": "archive_zero_cap_loopback_02_command.ps1",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": false,
+      "original": {
+        "bytes": 235158,
+        "sha256": "443ccf7d86ae3fcb60f0134492156a2ccde5f99b5f750a1ccdab32c6f705d588"
+      },
+      "path": "verification/windows-2026-10-22/zero-cap-loopback-source-review-01-02/ci-lpac-loopback-39893448693-full.txt",
+      "public_view": {
+        "bytes": 233806,
+        "sha256": "8b74f7251c1afafc8f7e77dfb0392fe7165740818a784cd063747a878c1d2d61"
+      },
+      "source": "ci-lpac-loopback-39893448693-full.txt",
+      "transformations": [
+        {
+          "count": 1,
+          "kind": "utf8_bom_removed"
+        },
+        {
+          "count": 9,
+          "kind": "hosted_workspace_prefix_redacted"
+        },
+        {
+          "count": 1205,
+          "kind": "line_endings_normalized_to_lf"
+        }
+      ]
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 3951,
+        "sha256": "28c07d153287b7c304af6a40d0c0f3ee11ebcfbc05caa0eb873d0ebc4ffe3d36"
+      },
+      "path": "verification/windows-2026-10-22/zero-cap-loopback-source-review-01-02/ci-lpac-loopback-39893448693-jobs-metadata.json",
+      "public_view": {
+        "bytes": 3951,
+        "sha256": "28c07d153287b7c304af6a40d0c0f3ee11ebcfbc05caa0eb873d0ebc4ffe3d36"
+      },
+      "source": "ci-lpac-loopback-39893448693-jobs-metadata.json",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 12730,
+        "sha256": "3edc5f2ad2532f322802bb5cf9b410bf6732c00972857b73dd6e82a3d3fc7e87"
+      },
+      "path": "verification/windows-2026-10-22/zero-cap-loopback-source-review-01-02/ci-lpac-loopback-39893448693-runs-metadata.json",
+      "public_view": {
+        "bytes": 12730,
+        "sha256": "3edc5f2ad2532f322802bb5cf9b410bf6732c00972857b73dd6e82a3d3fc7e87"
+      },
+      "source": "ci-lpac-loopback-39893448693-runs-metadata.json",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": false,
+      "original": {
+        "bytes": 235595,
+        "sha256": "fc1e87b44993c1724f7386dd44ce080f0b6e0bcb98b7580438463d020ceab271"
+      },
+      "path": "verification/windows-2026-10-22/zero-cap-loopback-source-review-01-02/ci-lpac-loopback-39895061571-full.txt",
+      "public_view": {
+        "bytes": 234241,
+        "sha256": "a0d75897867cc906beed5ae4db75e1d82c65ecb25f0999512f55a649c55c84e8"
+      },
+      "source": "ci-lpac-loopback-39895061571-full.txt",
+      "transformations": [
+        {
+          "count": 1,
+          "kind": "utf8_bom_removed"
+        },
+        {
+          "count": 9,
+          "kind": "hosted_workspace_prefix_redacted"
+        },
+        {
+          "count": 1207,
+          "kind": "line_endings_normalized_to_lf"
+        }
+      ]
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 3951,
+        "sha256": "172ea62b99e0b5541bdd1c63e7131d309b60f033166bb0d4c28195c9bd6e73ca"
+      },
+      "path": "verification/windows-2026-10-22/zero-cap-loopback-source-review-01-02/ci-lpac-loopback-39895061571-jobs-metadata.json",
+      "public_view": {
+        "bytes": 3951,
+        "sha256": "172ea62b99e0b5541bdd1c63e7131d309b60f033166bb0d4c28195c9bd6e73ca"
+      },
+      "source": "ci-lpac-loopback-39895061571-jobs-metadata.json",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 12752,
+        "sha256": "266912092889b5a9463c90209d6ee0e18f5553a091f520aab37e29bb50d01c45"
+      },
+      "path": "verification/windows-2026-10-22/zero-cap-loopback-source-review-01-02/ci-lpac-loopback-39895061571-runs-metadata.json",
+      "public_view": {
+        "bytes": 12752,
+        "sha256": "266912092889b5a9463c90209d6ee0e18f5553a091f520aab37e29bb50d01c45"
+      },
+      "source": "ci-lpac-loopback-39895061571-runs-metadata.json",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 3655,
+        "sha256": "f0465d3b1fa64a160e6ceb3f4534a2ede25ae1a578be04b8b37b15529787f029"
+      },
+      "path": "verification/windows-2026-10-22/zero-cap-loopback-source-review-01-02/compile_zero_cap_loopback_01.ps1",
+      "public_view": {
+        "bytes": 3655,
+        "sha256": "f0465d3b1fa64a160e6ceb3f4534a2ede25ae1a578be04b8b37b15529787f029"
+      },
+      "source": "compile_zero_cap_loopback_01.ps1",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 3790,
+        "sha256": "2373db25c06e080105f19ea32037879f5e251403b4392e787e93c94d624b8d21"
+      },
+      "path": "verification/windows-2026-10-22/zero-cap-loopback-source-review-01-02/compile_zero_cap_loopback_01_root.ps1",
+      "public_view": {
+        "bytes": 3790,
+        "sha256": "2373db25c06e080105f19ea32037879f5e251403b4392e787e93c94d624b8d21"
+      },
+      "source": "compile_zero_cap_loopback_01_root.ps1",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 6770,
+        "sha256": "d29a32690af506dc6aa4da446a8fb282077ff713183f71760c8dc8fbac359329"
+      },
+      "path": "verification/windows-2026-10-22/zero-cap-loopback-source-review-01-02/inspect_zero_cap_loopback_compile_01.py",
+      "public_view": {
+        "bytes": 6770,
+        "sha256": "d29a32690af506dc6aa4da446a8fb282077ff713183f71760c8dc8fbac359329"
+      },
+      "source": "inspect_zero_cap_loopback_compile_01.py",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 21459,
+        "sha256": "7e9d40f56464976eaef9d186f4207eb3cee3c1c4a9a222f6cdb35d9d7040e670"
+      },
+      "path": "verification/windows-2026-10-22/zero-cap-loopback-source-review-01-02/verify_zero_cap_loopback_actual_01.py",
+      "public_view": {
+        "bytes": 21459,
+        "sha256": "7e9d40f56464976eaef9d186f4207eb3cee3c1c4a9a222f6cdb35d9d7040e670"
+      },
+      "source": "verify_zero_cap_loopback_actual_01.py",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 21459,
+        "sha256": "e72eb4c86fb4593ca5d55730e7285631530a84afdb3c2705b727fca5889fe910"
+      },
+      "path": "verification/windows-2026-10-22/zero-cap-loopback-source-review-01-02/verify_zero_cap_loopback_actual_02.py",
+      "public_view": {
+        "bytes": 21459,
+        "sha256": "e72eb4c86fb4593ca5d55730e7285631530a84afdb3c2705b727fca5889fe910"
+      },
+      "source": "verify_zero_cap_loopback_actual_02.py",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 39309,
+        "sha256": "93cebeb25a1fcea5c2766bb02dacaf4ef43f5c46207c134181d048d8d6bf500e"
+      },
+      "path": "verification/windows-2026-10-22/zero-cap-loopback-source-review-01-02/zero-cap-loopback-actual-01-independent-review.json",
+      "public_view": {
+        "bytes": 39309,
+        "sha256": "93cebeb25a1fcea5c2766bb02dacaf4ef43f5c46207c134181d048d8d6bf500e"
+      },
+      "source": "zero-cap-loopback-actual-01-independent-review.json",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 40162,
+        "sha256": "1f7667177453f7f924891608a57084972d033d5217137580237926ac854b71ea"
+      },
+      "path": "verification/windows-2026-10-22/zero-cap-loopback-source-review-01-02/zero-cap-loopback-actual-02-independent-review.json",
+      "public_view": {
+        "bytes": 40162,
+        "sha256": "1f7667177453f7f924891608a57084972d033d5217137580237926ac854b71ea"
+      },
+      "source": "zero-cap-loopback-actual-02-independent-review.json",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 2128,
+        "sha256": "071e8d05ce967eccb1258c64fbc09ba2183e4239742e7bc19060e3909410cc58"
+      },
+      "path": "verification/windows-2026-10-22/zero-cap-loopback-source-review-01-02/zero-cap-loopback-actual-reader-freeze-01.json",
+      "public_view": {
+        "bytes": 2128,
+        "sha256": "071e8d05ce967eccb1258c64fbc09ba2183e4239742e7bc19060e3909410cc58"
+      },
+      "source": "zero-cap-loopback-actual-reader-freeze-01.json",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 3042,
+        "sha256": "0a47bcf8cb6ed30b1cdb2299a478fbef8e7c120df1f037dc696cac3539e40c2b"
+      },
+      "path": "verification/windows-2026-10-22/zero-cap-loopback-source-review-01-02/zero-cap-loopback-actual-reader-freeze-02.json",
+      "public_view": {
+        "bytes": 3042,
+        "sha256": "0a47bcf8cb6ed30b1cdb2299a478fbef8e7c120df1f037dc696cac3539e40c2b"
+      },
+      "source": "zero-cap-loopback-actual-reader-freeze-02.json",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 1845,
+        "sha256": "50a1224a9a81320b9ccc0b109676b87dc7b968773d4770cab107f5ae15cac6b3"
+      },
+      "path": "verification/windows-2026-10-22/zero-cap-loopback-source-review-01-02/zero-cap-loopback-archive-freeze-01.json",
+      "public_view": {
+        "bytes": 1845,
+        "sha256": "50a1224a9a81320b9ccc0b109676b87dc7b968773d4770cab107f5ae15cac6b3"
+      },
+      "source": "zero-cap-loopback-archive-freeze-01.json",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 2250,
+        "sha256": "c97124d1b2a40e70dd49c66964393684f8a1a305cca1aa344c255bd78ed8ac3d"
+      },
+      "path": "verification/windows-2026-10-22/zero-cap-loopback-source-review-01-02/zero-cap-loopback-archive-freeze-02.json",
+      "public_view": {
+        "bytes": 2250,
+        "sha256": "c97124d1b2a40e70dd49c66964393684f8a1a305cca1aa344c255bd78ed8ac3d"
+      },
+      "source": "zero-cap-loopback-archive-freeze-02.json",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 2679,
+        "sha256": "6c84037d64d3f196f8a29b2c09d236078df217d2fe149c40d9757f2775c5cd29"
+      },
+      "path": "verification/windows-2026-10-22/zero-cap-loopback-source-review-01-02/zero-cap-loopback-archive-freeze-03.json",
+      "public_view": {
+        "bytes": 2679,
+        "sha256": "6c84037d64d3f196f8a29b2c09d236078df217d2fe149c40d9757f2775c5cd29"
+      },
+      "source": "zero-cap-loopback-archive-freeze-03.json",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 1402,
+        "sha256": "12bfefdbb3bf6370650ef6b1c4920df35e1d085cd499469756f31752e1527bc7"
+      },
+      "path": "verification/windows-2026-10-22/zero-cap-loopback-source-review-01-02/zero-cap-loopback-compile-static-review-01.json",
+      "public_view": {
+        "bytes": 1402,
+        "sha256": "12bfefdbb3bf6370650ef6b1c4920df35e1d085cd499469756f31752e1527bc7"
+      },
+      "source": "zero-cap-loopback-compile-static-review-01.json",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 4854,
+        "sha256": "625e72db9423ad297885958c1d0d68cc8cb4d0bfbdd24419fc4cc06eb52f432f"
+      },
+      "path": "verification/windows-2026-10-22/zero-cap-loopback-source-review-01-02/zero-cap-loopback-cross-abi-independent-review-02.json",
+      "public_view": {
+        "bytes": 4854,
+        "sha256": "625e72db9423ad297885958c1d0d68cc8cb4d0bfbdd24419fc4cc06eb52f432f"
+      },
+      "source": "zero-cap-loopback-cross-abi-independent-review-02.json",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 2073,
+        "sha256": "50334e0ec3ff841970d1d0ece8480b062409c161e463ca5e5ffddf0774daa228"
+      },
+      "path": "verification/windows-2026-10-22/zero-cap-loopback-source-review-01-02/zero-cap-loopback-driver-independent-review-01.json",
+      "public_view": {
+        "bytes": 2073,
+        "sha256": "50334e0ec3ff841970d1d0ece8480b062409c161e463ca5e5ffddf0774daa228"
+      },
+      "source": "zero-cap-loopback-driver-independent-review-01.json",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 2632,
+        "sha256": "f20eac708a02e4e0a7a030573d518619656b0168be7a3d066e73b030d5607462"
+      },
+      "path": "verification/windows-2026-10-22/zero-cap-loopback-source-review-01-02/zero-cap-loopback-integrated-pure-01.json",
+      "public_view": {
+        "bytes": 2632,
+        "sha256": "f20eac708a02e4e0a7a030573d518619656b0168be7a3d066e73b030d5607462"
+      },
+      "source": "zero-cap-loopback-integrated-pure-01.json",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": false,
+      "original": {
+        "bytes": 185791,
+        "sha256": "58aa996162d3a566f376e563d5a82495dc29a024f7494404dede93b2d8fcbb5f"
+      },
+      "path": "verification/windows-2026-10-22/zero-cap-loopback-source-review-01-02/zero-cap-loopback-main-pure-01.log",
+      "public_view": {
+        "bytes": 184796,
+        "sha256": "4664943c083fa8859169ce175f734762ddf34dedf56e92aba797293c092acbda"
+      },
+      "source": "zero-cap-loopback-main-pure-01.log",
+      "transformations": [
+        {
+          "count": 995,
+          "kind": "line_endings_normalized_to_lf"
+        }
+      ]
+    },
+    {
+      "byte_exact_copy": false,
+      "original": {
+        "bytes": 186167,
+        "sha256": "98a37f2a193e3647c7dba1078c45d1c054acd7fbf6e5b5a16c08ff6432795ec6"
+      },
+      "path": "verification/windows-2026-10-22/zero-cap-loopback-source-review-01-02/zero-cap-loopback-main-pure-02.log",
+      "public_view": {
+        "bytes": 185170,
+        "sha256": "9622fe01cb3e68a061224f6340a19030b5d789aab1f2f985991fb8ed79557cf2"
+      },
+      "source": "zero-cap-loopback-main-pure-02.log",
+      "transformations": [
+        {
+          "count": 997,
+          "kind": "line_endings_normalized_to_lf"
+        }
+      ]
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 43140,
+        "sha256": "f5ec55300ec8339166f65bd59c14eec8a4685dc2ab10d72808252d072539cdc1"
+      },
+      "path": "verification/windows-2026-10-22/zero-cap-loopback-source-review-01-02/zero-cap-loopback-native-candidate-01.patch",
+      "public_view": {
+        "bytes": 43140,
+        "sha256": "f5ec55300ec8339166f65bd59c14eec8a4685dc2ab10d72808252d072539cdc1"
+      },
+      "source": "zero-cap-loopback-native-candidate-01.patch",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 3375,
+        "sha256": "f5553c70716112a3ff2338b3c6a3a755c9b261b56ecddbe0198ebea2d474f7fd"
+      },
+      "path": "verification/windows-2026-10-22/zero-cap-loopback-source-review-01-02/zero-cap-loopback-native-freeze-01.json",
+      "public_view": {
+        "bytes": 3375,
+        "sha256": "f5553c70716112a3ff2338b3c6a3a755c9b261b56ecddbe0198ebea2d474f7fd"
+      },
+      "source": "zero-cap-loopback-native-freeze-01.json",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 8251,
+        "sha256": "64693367cc978e6f27bcdaec312e0691eccf9c8f38002f5b93b2242ff29a04da"
+      },
+      "path": "verification/windows-2026-10-22/zero-cap-loopback-source-review-01-02/zero-cap-loopback-native-independent-review-01.json",
+      "public_view": {
+        "bytes": 8251,
+        "sha256": "64693367cc978e6f27bcdaec312e0691eccf9c8f38002f5b93b2242ff29a04da"
+      },
+      "source": "zero-cap-loopback-native-independent-review-01.json",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": false,
+      "original": {
+        "bytes": 808,
+        "sha256": "7f0cbed08586ad8f73fe87e9e4871463c3f57ec5f9dcc049b60dc0881dc49b6c"
+      },
+      "path": "verification/windows-2026-10-22/zero-cap-loopback-source-review-01-02/zero-cap-loopback-native-pure-wip-01.log",
+      "public_view": {
+        "bytes": 800,
+        "sha256": "08c11415f1e3775bb631477cd86914a4c4e7bd17eadac83d2fef10068c5874e7"
+      },
+      "source": "zero-cap-loopback-native-pure-wip-01.log",
+      "transformations": [
+        {
+          "count": 8,
+          "kind": "line_endings_normalized_to_lf"
+        }
+      ]
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 155538,
+        "sha256": "a9bf661db4446e5dfb420ce19d0b455266afb7779cee25c2747502433981d139"
+      },
+      "path": "verification/windows-2026-10-22/zero-cap-loopback-source-review-01-02/zero-cap-loopback-python-candidate-01.patch",
+      "public_view": {
+        "bytes": 155538,
+        "sha256": "a9bf661db4446e5dfb420ce19d0b455266afb7779cee25c2747502433981d139"
+      },
+      "source": "zero-cap-loopback-python-candidate-01.patch",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 158485,
+        "sha256": "ebe4ec7fdbec42804c9f9715dc74a86a4ba510c2023218cb02980aab30239c54"
+      },
+      "path": "verification/windows-2026-10-22/zero-cap-loopback-source-review-01-02/zero-cap-loopback-python-candidate-02.patch",
+      "public_view": {
+        "bytes": 158485,
+        "sha256": "ebe4ec7fdbec42804c9f9715dc74a86a4ba510c2023218cb02980aab30239c54"
+      },
+      "source": "zero-cap-loopback-python-candidate-02.patch",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 157968,
+        "sha256": "1ae83b149aec6f4a0611bfa7791b87cdd04da093fa8b50f388945cd3a68b374e"
+      },
+      "path": "verification/windows-2026-10-22/zero-cap-loopback-source-review-01-02/zero-cap-loopback-python-candidate-03.patch",
+      "public_view": {
+        "bytes": 157968,
+        "sha256": "1ae83b149aec6f4a0611bfa7791b87cdd04da093fa8b50f388945cd3a68b374e"
+      },
+      "source": "zero-cap-loopback-python-candidate-03.patch",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 11658,
+        "sha256": "ea58eb261b5068c330c83d643395b4eafa262179f6c73b4a61b38b630690801c"
+      },
+      "path": "verification/windows-2026-10-22/zero-cap-loopback-source-review-01-02/zero-cap-loopback-python-candidate-freeze-01.json",
+      "public_view": {
+        "bytes": 11658,
+        "sha256": "ea58eb261b5068c330c83d643395b4eafa262179f6c73b4a61b38b630690801c"
+      },
+      "source": "zero-cap-loopback-python-candidate-freeze-01.json",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 12060,
+        "sha256": "dfa25c54ad2193292e1e36af6313e9fe3897a5554c0955689d9d67eaaf12d7af"
+      },
+      "path": "verification/windows-2026-10-22/zero-cap-loopback-source-review-01-02/zero-cap-loopback-python-candidate-freeze-02.json",
+      "public_view": {
+        "bytes": 12060,
+        "sha256": "dfa25c54ad2193292e1e36af6313e9fe3897a5554c0955689d9d67eaaf12d7af"
+      },
+      "source": "zero-cap-loopback-python-candidate-freeze-02.json",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 17875,
+        "sha256": "42dc85fff24fcf952458a3aae14a6ee31da6ebbcd9cf943e5bf53a03c7d8efc9"
+      },
+      "path": "verification/windows-2026-10-22/zero-cap-loopback-source-review-01-02/zero-cap-loopback-python-candidate-freeze-03.json",
+      "public_view": {
+        "bytes": 17875,
+        "sha256": "42dc85fff24fcf952458a3aae14a6ee31da6ebbcd9cf943e5bf53a03c7d8efc9"
+      },
+      "source": "zero-cap-loopback-python-candidate-freeze-03.json",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 3499,
+        "sha256": "c986667e628414e531eb368fea2b655474dae4b13ba05e14f4bda697f6ffc88a"
+      },
+      "path": "verification/windows-2026-10-22/zero-cap-loopback-source-review-01-02/zero-cap-loopback-python-independent-review-01.json",
+      "public_view": {
+        "bytes": 3499,
+        "sha256": "c986667e628414e531eb368fea2b655474dae4b13ba05e14f4bda697f6ffc88a"
+      },
+      "source": "zero-cap-loopback-python-independent-review-01.json",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 4222,
+        "sha256": "f4348193c6dab64db2c8cc8b5c56521844b8e5b301ee4ef847fea3c3ccd0ba98"
+      },
+      "path": "verification/windows-2026-10-22/zero-cap-loopback-source-review-01-02/zero-cap-loopback-python-independent-review-02.json",
+      "public_view": {
+        "bytes": 4222,
+        "sha256": "f4348193c6dab64db2c8cc8b5c56521844b8e5b301ee4ef847fea3c3ccd0ba98"
+      },
+      "source": "zero-cap-loopback-python-independent-review-02.json",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": false,
+      "original": {
+        "bytes": 5298,
+        "sha256": "06adf8eaf6910da75c6760d597e6e71f0df3dfb00eaa833c520020bbd3810d49"
+      },
+      "path": "verification/windows-2026-10-22/zero-cap-loopback-source-review-01-02/zero-cap-loopback-python-pure-01.log",
+      "public_view": {
+        "bytes": 5267,
+        "sha256": "55273e6b57aadd5df85cbac3620857e1f58a071b9099234c8e51808f0d78069b"
+      },
+      "source": "zero-cap-loopback-python-pure-01.log",
+      "transformations": [
+        {
+          "count": 31,
+          "kind": "line_endings_normalized_to_lf"
+        }
+      ]
+    },
+    {
+      "byte_exact_copy": false,
+      "original": {
+        "bytes": 5680,
+        "sha256": "7d5f1dfe505dbf91da1a4b8614136335ccfd3af18da59b585a3c56fa5ed30766"
+      },
+      "path": "verification/windows-2026-10-22/zero-cap-loopback-source-review-01-02/zero-cap-loopback-python-pure-02.log",
+      "public_view": {
+        "bytes": 5647,
+        "sha256": "d5741f237cd7ed644565f1e5050099e68946841c0cb0272e576bfa3356ba8376"
+      },
+      "source": "zero-cap-loopback-python-pure-02.log",
+      "transformations": [
+        {
+          "count": 33,
+          "kind": "line_endings_normalized_to_lf"
+        }
+      ]
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 2511,
+        "sha256": "35a73fa8cb6ddd4aa5a2bdcf6d997a7b236a60743b4a1559069450c6f62dd64b"
+      },
+      "path": "verification/windows-2026-10-22/zero-cap-loopback-source-review-01-02/zero-cap-loopback-ready-only-independent-review-03.json",
+      "public_view": {
+        "bytes": 2511,
+        "sha256": "35a73fa8cb6ddd4aa5a2bdcf6d997a7b236a60743b4a1559069450c6f62dd64b"
+      },
+      "source": "zero-cap-loopback-ready-only-independent-review-03.json",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 1504,
+        "sha256": "db8d89817d763db93bd3bffe40ad080a3f2d771790eaad282fd098163fccaa31"
+      },
+      "path": "verification/windows-2026-10-22/zero-cap-loopback-source-review-01-02/zero-cap-loopback02-archive-freeze-01.json",
+      "public_view": {
+        "bytes": 1504,
+        "sha256": "db8d89817d763db93bd3bffe40ad080a3f2d771790eaad282fd098163fccaa31"
+      },
+      "source": "zero-cap-loopback02-archive-freeze-01.json",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 2953,
+        "sha256": "12d1c37f1bbec652f5275d6ed9431485ea24e39714c751ad11ac4f871314371f"
+      },
+      "path": "verification/windows-2026-10-22/zero-cap-loopback-source-review-01-02/zero-cap-loopback02-driver-independent-review-01.json",
+      "public_view": {
+        "bytes": 2953,
+        "sha256": "12d1c37f1bbec652f5275d6ed9431485ea24e39714c751ad11ac4f871314371f"
+      },
+      "source": "zero-cap-loopback02-driver-independent-review-01.json",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 460,
+        "sha256": "70ce05ec1f848edf0f0a4ecf0b310f88bc826dca8d891000f9aa99b15eef185d"
+      },
+      "path": "verification/windows-2026-10-22/zero-cap-loopback-source-review-01-02/zero-cap-loopback02-fix-independent-pure-01.log",
+      "public_view": {
+        "bytes": 460,
+        "sha256": "70ce05ec1f848edf0f0a4ecf0b310f88bc826dca8d891000f9aa99b15eef185d"
+      },
+      "source": "zero-cap-loopback02-fix-independent-pure-01.log",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 2222,
+        "sha256": "d0a373bc781d08dedbcba21a162157032f4d981dc9cf36a07a3d57899e597b24"
+      },
+      "path": "verification/windows-2026-10-22/zero-cap-loopback-source-review-01-02/zero-cap-loopback02-fix-independent-review-01.json",
+      "public_view": {
+        "bytes": 2222,
+        "sha256": "d0a373bc781d08dedbcba21a162157032f4d981dc9cf36a07a3d57899e597b24"
+      },
+      "source": "zero-cap-loopback02-fix-independent-review-01.json",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 2102,
+        "sha256": "24e77298954498adab09cf088f371cb44483895c53ad03378c8a949f1ea30349"
+      },
+      "path": "verification/windows-2026-10-22/zero-cap-loopback-source-review-01-02/zero-cap-loopback02-integrated-pure-01.json",
+      "public_view": {
+        "bytes": 2102,
+        "sha256": "24e77298954498adab09cf088f371cb44483895c53ad03378c8a949f1ea30349"
+      },
+      "source": "zero-cap-loopback02-integrated-pure-01.json",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 4533,
+        "sha256": "53d3461f91ef6244201a516f92c34fdbbf2aa467479e6438bb304ecdb22fdd21"
+      },
+      "path": "verification/windows-2026-10-22/zero-cap-loopback-source-review-01-02/zero-cap-loopback02-python-candidate-01.patch",
+      "public_view": {
+        "bytes": 4533,
+        "sha256": "53d3461f91ef6244201a516f92c34fdbbf2aa467479e6438bb304ecdb22fdd21"
+      },
+      "source": "zero-cap-loopback02-python-candidate-01.patch",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 4019,
+        "sha256": "01b9f52deb058adb8bf517c6e2bc94842a3eb37b01f6f24057641ce03c9413fb"
+      },
+      "path": "verification/windows-2026-10-22/zero-cap-loopback-source-review-01-02/zero-cap-loopback02-python-candidate-02.patch",
+      "public_view": {
+        "bytes": 4019,
+        "sha256": "01b9f52deb058adb8bf517c6e2bc94842a3eb37b01f6f24057641ce03c9413fb"
+      },
+      "source": "zero-cap-loopback02-python-candidate-02.patch",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 7642,
+        "sha256": "78eb9d8d55fb6e0df800461d1826d00ae10fe8306038fd41e8454a91d040de9b"
+      },
+      "path": "verification/windows-2026-10-22/zero-cap-loopback-source-review-01-02/zero-cap-loopback02-python-candidate-freeze-01.json",
+      "public_view": {
+        "bytes": 7642,
+        "sha256": "78eb9d8d55fb6e0df800461d1826d00ae10fe8306038fd41e8454a91d040de9b"
+      },
+      "source": "zero-cap-loopback02-python-candidate-freeze-01.json",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 8351,
+        "sha256": "086940edb854de4a54cc6ced7068972b7cc02e77e7eaebeb522f0eac93da242f"
+      },
+      "path": "verification/windows-2026-10-22/zero-cap-loopback-source-review-01-02/zero-cap-loopback02-python-candidate-freeze-02.json",
+      "public_view": {
+        "bytes": 8351,
+        "sha256": "086940edb854de4a54cc6ced7068972b7cc02e77e7eaebeb522f0eac93da242f"
+      },
+      "source": "zero-cap-loopback02-python-candidate-freeze-02.json",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": false,
+      "original": {
+        "bytes": 3488,
+        "sha256": "06153f48c64ea225fef0c24fab5e4083ab2cb5b671d17b2ddc1bd7b598fb748b"
+      },
+      "path": "verification/windows-2026-10-22/zero-cap-loopback-source-review-01-02/zero-cap-loopback02-python-focused-01.log",
+      "public_view": {
+        "bytes": 3237,
+        "sha256": "2b6e587556bb8d38cfb32cf91fbb446a9fee3e13413b99b5545c629a40e1ef3e"
+      },
+      "source": "zero-cap-loopback02-python-focused-01.log",
+      "transformations": [
+        {
+          "count": 3,
+          "kind": "workspace_prefix_redacted"
+        },
+        {
+          "count": 35,
+          "kind": "line_endings_normalized_to_lf"
+        }
+      ]
+    },
+    {
+      "byte_exact_copy": false,
+      "original": {
+        "bytes": 1547,
+        "sha256": "e7a69ca5a5e14fff2cb3d6740b0bed5ef813440a2ff37d0b3bbc3d1a76d75dc5"
+      },
+      "path": "verification/windows-2026-10-22/zero-cap-loopback-source-review-01-02/zero-cap-loopback02-python-focused-02.log",
+      "public_view": {
+        "bytes": 1534,
+        "sha256": "d195bba95f40da396107e3c991d3bd42c5dd1c7ec2618dc5e220c5a5d845efcb"
+      },
+      "source": "zero-cap-loopback02-python-focused-02.log",
+      "transformations": [
+        {
+          "count": 13,
+          "kind": "line_endings_normalized_to_lf"
+        }
+      ]
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 11517,
+        "sha256": "d55a880640c02f7e5ca2b6ae9bb9c6a2ddb24f9d322af9660186f010e0c900e3"
+      },
+      "path": "verification/windows-2026-10-22/zero-cap-loopback-source-review-01-02/zero-cap-same-sid-loopback-native-abi-02.json",
+      "public_view": {
+        "bytes": 11517,
+        "sha256": "d55a880640c02f7e5ca2b6ae9bb9c6a2ddb24f9d322af9660186f010e0c900e3"
+      },
+      "source": "zero-cap-same-sid-loopback-native-abi-02.json",
+      "transformations": []
+    }
+  ],
+  "native_actor_or_network_or_recovery_run_by_publication": false,
+  "originals_retained_in_work": true,
+  "profile": "same-sid-zero-cap-loopback-mechanism-v1",
+  "schema_version": 1,
+  "scope": "one-local-zero-cap-same-sid-loopback-v1",
+  "source_revision_history": [
+    {
+      "actual_run": false,
+      "independent_verdict": "BLOCKED",
+      "pure_methods": 26,
+      "reason": "GO/release/report causal clock binding",
+      "revision": "initial-False01",
+      "seconds": "11.970"
+    },
+    {
+      "actual_run": false,
+      "independent_verdict": "GO-no-source-or-injected-backend-blocker",
+      "pure_methods": 28,
+      "revision": "causal-fix-False02",
+      "seconds": "13.978"
+    },
+    {
+      "actual_attempt": 1,
+      "full_methods": 986,
+      "revision": "ready-only-True03",
+      "seconds": "106.104",
+      "skips": 2,
+      "source_commit": "07146b7118c345e4a1046fe9066ba2f26b37cf3a"
+    },
+    {
+      "actual_run": false,
+      "corrected_failures": 0,
+      "corrected_seconds": "6.952",
+      "focused_methods": 8,
+      "independent_methods": 2,
+      "initial_focused_failures": 1,
+      "initial_seconds": "5.049",
+      "revision": "control-publish-fix-False01"
+    },
+    {
+      "actual_attempt": 2,
+      "full_methods": 988,
+      "revision": "control-publish-fix-ready-only-True02",
+      "seconds": "103.628",
+      "skips": 2,
+      "source_commit": "c7145b9d50dc99c14f11764a03ad23f31ce3e638"
+    }
+  ],
+  "stage": "zero-cap-loopback01-02-source-review-index"
+}

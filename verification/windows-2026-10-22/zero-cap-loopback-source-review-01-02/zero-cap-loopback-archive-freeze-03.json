@@ -1,0 +1,70 @@
+{
+  "actual_public": {
+    "bytes": 2731,
+    "sha256": "a4502dda11fbc39567e53c909ca2e4d8b9c5b5825e92e056fea46fd8cb396b18"
+  },
+  "actual_review": {
+    "bytes": 39309,
+    "sha256": "93cebeb25a1fcea5c2766bb02dacaf4ef43f5c46207c134181d048d8d6bf500e"
+  },
+  "actual_source_commit": "07146b7118c345e4a1046fe9066ba2f26b37cf3a",
+  "actual_source_sha256": "3df55cdbc317522d74a3f6cc8f0f68258aa73da0b1d5cd8ae811aebf7ab9342f",
+  "archive_builder_called_by_this_preparation": false,
+  "archive_written_by_this_preparation": false,
+  "files": {
+    "archive_zero_cap_loopback_01_builder03.py": {
+      "bytes": 29610,
+      "sha256": "88748927b9514c831701f59ce728e571e015e5980f864ffed823429feda79c2a"
+    },
+    "archive_zero_cap_loopback_01_command03.ps1": {
+      "bytes": 859,
+      "sha256": "9b3e53f6239e307b5ee03c641b183f9a915e67ce12ef8b594fee857d546aee5f"
+    },
+    "draft_zero_cap_loopback_publication_01.py": {
+      "bytes": 4386,
+      "sha256": "c5b186c9ff7078c339dcd2cbeca57774161196f425c11502e8dfd3ad27b7945f"
+    }
+  },
+  "main_actual_source_public_reader_or_stage_modified": false,
+  "narrow_changes": [
+    "Encode intent text as ASCII bytes before the source-bound decoder",
+    "Command03 selects builder03 only"
+  ],
+  "native_API_actor_network_cleanup_invoked": false,
+  "original02_preserved": {
+    "archive_zero_cap_loopback_01_builder02.py": {
+      "bytes": 29594,
+      "sha256": "0f434ffba7f56375db37805690ccc7e271d80422c7b5fa46a8359825e16d77a8"
+    },
+    "archive_zero_cap_loopback_01_command02.ps1": {
+      "bytes": 859,
+      "sha256": "1d0bb11623125f70d64840548d1d33021872ea9595bb9db6d9d28025dd3a07cd"
+    },
+    "zero-cap-loopback-archive-freeze-02.json": {
+      "bytes": 2250,
+      "sha256": "c97124d1b2a40e70dd49c66964393684f8a1a305cca1aa344c255bd78ed8ac3d"
+    }
+  },
+  "prior_root_dry_failure": {
+    "actor_native_network_or_cleanup_executed": false,
+    "archive_written": false,
+    "command": "& work/archive_zero_cap_loopback_01_command02.ps1",
+    "exception_label": "report",
+    "exception_type": "ValueError",
+    "operation": "projection intents: source decoder received str rather than required bytes",
+    "raw_trace_log_commitment": null,
+    "reported_by_root": true,
+    "source_line": 228
+  },
+  "publication_written": false,
+  "revision": 3,
+  "root_runs_dry_before_archive": true,
+  "schema_version": 1,
+  "source_decoder_call_scan": {
+    "m_decode_call_count": 1,
+    "only_str_argument_site_corrected": true,
+    "other_source_decoder_str_sites_found": 0
+  },
+  "stage": "zero-cap-loopback-actual-01-archive-preparation",
+  "validation_performed": "Exact preserved source-byte checks, decoder-call scan and Python AST only"
+}

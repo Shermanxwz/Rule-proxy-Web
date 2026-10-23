@@ -1,0 +1,324 @@
+{
+  "finite_zero_cap_identity_only": true,
+  "proofs": [
+    {
+      "calls": [
+        {
+          "access_status": true,
+          "api_success": true,
+          "attempted": true,
+          "descriptor": {
+            "bytes": 120,
+            "sha256": "ee3c86d1f6cfc1dc651629670b2789f4da64b1b138ad964ad7ac5844c94c8129"
+          },
+          "descriptor_verified": true,
+          "granted_access": 3,
+          "label": "combined",
+          "privilege_count": 0,
+          "win32_error": null,
+          "within_deadline": true
+        },
+        {
+          "access_status": false,
+          "api_success": true,
+          "attempted": true,
+          "descriptor": {
+            "bytes": 72,
+            "sha256": "9be942e409861151bb93da9abaf0d8033c2e3a7df4577f8d6d3b929bd44e0bea"
+          },
+          "descriptor_verified": true,
+          "granted_access": 0,
+          "label": "world",
+          "privilege_count": 0,
+          "win32_error": null,
+          "within_deadline": true
+        },
+        {
+          "access_status": true,
+          "api_success": true,
+          "attempted": true,
+          "descriptor": {
+            "bytes": 96,
+            "sha256": "39e5fce56dc10aa4c1e55cbb35d1207042d6617608db16da8ac308a9861c2314"
+          },
+          "descriptor_verified": true,
+          "granted_access": 1,
+          "label": "aap",
+          "privilege_count": 0,
+          "win32_error": null,
+          "within_deadline": true
+        },
+        {
+          "access_status": true,
+          "api_success": true,
+          "attempted": true,
+          "descriptor": {
+            "bytes": 96,
+            "sha256": "15166e6015903b018e6c5d49ee7f2527f3d1f3768309fd473be49d1e3814e21a"
+          },
+          "descriptor_verified": true,
+          "granted_access": 2,
+          "label": "arap",
+          "privilege_count": 0,
+          "win32_error": null,
+          "within_deadline": true
+        }
+      ],
+      "classification": "ac-semantic-match",
+      "duplicate_identification_bound": true,
+      "expected_matrix": [
+        3,
+        0,
+        1,
+        2
+      ],
+      "failure": null,
+      "generation_after": true,
+      "generation_before": true,
+      "observation_complete": true,
+      "observed_matrix": [
+        3,
+        0,
+        1,
+        2
+      ],
+      "proof_sha256": "afdd8d54aea7e53cb96bd4232e55e01274e6e06bb72faa2bdb2f48688337067f",
+      "qualified": true,
+      "resource_cleanup_verified": true,
+      "resources": [
+        {
+          "alias": false,
+          "attempted": true,
+          "close_attempted": true,
+          "close_confirmed": true,
+          "close_uncertain": false,
+          "creation_returned": true,
+          "kind": "token",
+          "name": "source-primary",
+          "returned": true
+        },
+        {
+          "alias": false,
+          "attempted": true,
+          "close_attempted": true,
+          "close_confirmed": true,
+          "close_uncertain": false,
+          "creation_returned": true,
+          "kind": "token",
+          "name": "duplicate-identification",
+          "returned": true
+        },
+        {
+          "alias": false,
+          "attempted": true,
+          "close_attempted": true,
+          "close_confirmed": true,
+          "close_uncertain": false,
+          "creation_returned": true,
+          "kind": "descriptor",
+          "name": "descriptor-combined",
+          "returned": true
+        },
+        {
+          "alias": false,
+          "attempted": true,
+          "close_attempted": true,
+          "close_confirmed": true,
+          "close_uncertain": false,
+          "creation_returned": true,
+          "kind": "descriptor",
+          "name": "descriptor-world",
+          "returned": true
+        },
+        {
+          "alias": false,
+          "attempted": true,
+          "close_attempted": true,
+          "close_confirmed": true,
+          "close_uncertain": false,
+          "creation_returned": true,
+          "kind": "descriptor",
+          "name": "descriptor-aap",
+          "returned": true
+        },
+        {
+          "alias": false,
+          "attempted": true,
+          "close_attempted": true,
+          "close_confirmed": true,
+          "close_uncertain": false,
+          "creation_returned": true,
+          "kind": "descriptor",
+          "name": "descriptor-arap",
+          "returned": true
+        }
+      ],
+      "role": "ac",
+      "source_primary_bound": true,
+      "unattempted_call_labels": [],
+      "unexecuted_calls_not_synthesized": true
+    },
+    {
+      "calls": [
+        {
+          "access_status": true,
+          "api_success": true,
+          "attempted": true,
+          "descriptor": {
+            "bytes": 120,
+            "sha256": "ee3c86d1f6cfc1dc651629670b2789f4da64b1b138ad964ad7ac5844c94c8129"
+          },
+          "descriptor_verified": true,
+          "granted_access": 2,
+          "label": "combined",
+          "privilege_count": 0,
+          "win32_error": null,
+          "within_deadline": true
+        },
+        {
+          "access_status": false,
+          "api_success": true,
+          "attempted": true,
+          "descriptor": {
+            "bytes": 72,
+            "sha256": "9be942e409861151bb93da9abaf0d8033c2e3a7df4577f8d6d3b929bd44e0bea"
+          },
+          "descriptor_verified": true,
+          "granted_access": 0,
+          "label": "world",
+          "privilege_count": 0,
+          "win32_error": null,
+          "within_deadline": true
+        },
+        {
+          "access_status": false,
+          "api_success": true,
+          "attempted": true,
+          "descriptor": {
+            "bytes": 96,
+            "sha256": "39e5fce56dc10aa4c1e55cbb35d1207042d6617608db16da8ac308a9861c2314"
+          },
+          "descriptor_verified": true,
+          "granted_access": 0,
+          "label": "aap",
+          "privilege_count": 0,
+          "win32_error": null,
+          "within_deadline": true
+        },
+        {
+          "access_status": true,
+          "api_success": true,
+          "attempted": true,
+          "descriptor": {
+            "bytes": 96,
+            "sha256": "15166e6015903b018e6c5d49ee7f2527f3d1f3768309fd473be49d1e3814e21a"
+          },
+          "descriptor_verified": true,
+          "granted_access": 2,
+          "label": "arap",
+          "privilege_count": 0,
+          "win32_error": null,
+          "within_deadline": true
+        }
+      ],
+      "classification": "lpac-semantic-match",
+      "duplicate_identification_bound": true,
+      "expected_matrix": [
+        2,
+        0,
+        0,
+        2
+      ],
+      "failure": null,
+      "generation_after": true,
+      "generation_before": true,
+      "observation_complete": true,
+      "observed_matrix": [
+        2,
+        0,
+        0,
+        2
+      ],
+      "proof_sha256": "5087ebeb44824bc72719f5f7c54ddf6aa6036c6ca04aad1121fcfd0a7956607e",
+      "qualified": true,
+      "resource_cleanup_verified": true,
+      "resources": [
+        {
+          "alias": false,
+          "attempted": true,
+          "close_attempted": true,
+          "close_confirmed": true,
+          "close_uncertain": false,
+          "creation_returned": true,
+          "kind": "token",
+          "name": "source-primary",
+          "returned": true
+        },
+        {
+          "alias": false,
+          "attempted": true,
+          "close_attempted": true,
+          "close_confirmed": true,
+          "close_uncertain": false,
+          "creation_returned": true,
+          "kind": "token",
+          "name": "duplicate-identification",
+          "returned": true
+        },
+        {
+          "alias": false,
+          "attempted": true,
+          "close_attempted": true,
+          "close_confirmed": true,
+          "close_uncertain": false,
+          "creation_returned": true,
+          "kind": "descriptor",
+          "name": "descriptor-combined",
+          "returned": true
+        },
+        {
+          "alias": false,
+          "attempted": true,
+          "close_attempted": true,
+          "close_confirmed": true,
+          "close_uncertain": false,
+          "creation_returned": true,
+          "kind": "descriptor",
+          "name": "descriptor-world",
+          "returned": true
+        },
+        {
+          "alias": false,
+          "attempted": true,
+          "close_attempted": true,
+          "close_confirmed": true,
+          "close_uncertain": false,
+          "creation_returned": true,
+          "kind": "descriptor",
+          "name": "descriptor-aap",
+          "returned": true
+        },
+        {
+          "alias": false,
+          "attempted": true,
+          "close_attempted": true,
+          "close_confirmed": true,
+          "close_uncertain": false,
+          "creation_returned": true,
+          "kind": "descriptor",
+          "name": "descriptor-arap",
+          "returned": true
+        }
+      ],
+      "role": "lpac",
+      "source_primary_bound": true,
+      "unattempted_call_labels": [],
+      "unexecuted_calls_not_synthesized": true
+    }
+  ],
+  "raw_identity_not_published": true,
+  "schema_version": 1,
+  "scope": "one-local-zero-cap-same-sid-loopback-v1",
+  "stage": "zero-cap-loopback-safe-accesscheck",
+  "unexecuted_calls_not_synthesized": true
+}

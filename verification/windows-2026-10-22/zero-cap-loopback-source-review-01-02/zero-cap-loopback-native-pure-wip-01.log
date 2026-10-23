@@ -1,0 +1,8 @@
+test_compiled_python_packets_commands_mutation_roles_and_original_deadline (test_windows_identity_lpac_loopback_native.ZeroCapabilityLoopbackNativeTests.test_compiled_python_packets_commands_mutation_roles_and_original_deadline) ... ok
+test_compiled_zero_capability_header_is_safe_before_x64_group_offset (test_windows_identity_lpac_loopback_native.ZeroCapabilityLoopbackNativeTests.test_compiled_zero_capability_header_is_safe_before_x64_group_offset) ... ok
+test_native_is_fixed_role_no_capability_or_loopback_fallback_and_no_ui_loader (test_windows_identity_lpac_loopback_native.ZeroCapabilityLoopbackNativeTests.test_native_is_fixed_role_no_capability_or_loopback_fallback_and_no_ui_loader) ... ok
+
+----------------------------------------------------------------------
+Ran 3 tests in 1.307s
+
+OK

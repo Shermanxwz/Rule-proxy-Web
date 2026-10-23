@@ -1,0 +1,54 @@
+{
+  "actual_reader_executed": false,
+  "behavior": {
+    "file_only": true,
+    "fresh_work_receipt_only_after_bindings": true,
+    "missing_report_never_synthesized": true,
+    "no_acl_or_label_changes": true,
+    "no_actor_execution": true,
+    "no_backend_constructors": true,
+    "no_cleanup_calls": true,
+    "no_forensic_qualification_fallback": true,
+    "no_global_capture_calls": true,
+    "no_socket_calls": true,
+    "project_calls_only_pure_validators_and_file_readers": true,
+    "project_import_after_all_sources_equal_operator_git_commit": true
+  },
+  "expected_output": "zero-cap-loopback-actual-01-independent-review.json",
+  "fixed_native": {
+    "actor_sha256": "5015367a6edeaefd1830f5a6584024894070926ea5012c343534e43054b0461d",
+    "manifest_sha256": "0c371e646873d3970bb3aea2e05ba05a10bb1b3e0b4c02c84963f7f265537a52",
+    "source_count": 2
+  },
+  "operator_arguments": {
+    "public_bytes": 2731,
+    "public_sha256": "a4502dda11fbc39567e53c909ca2e4d8b9c5b5825e92e056fea46fd8cb396b18",
+    "source_commit": "07146b7118c345e4a1046fe9066ba2f26b37cf3a",
+    "source_sha256": "3df55cdbc317522d74a3f6cc8f0f68258aa73da0b1d5cd8ae811aebf7ab9342f"
+  },
+  "private_commitments_keys": [
+    "config",
+    "plan",
+    "worker_report",
+    "forensic",
+    "outer_launch",
+    "stdout",
+    "stderr",
+    "driver"
+  ],
+  "reader": {
+    "bytes": 21459,
+    "path": "verify_zero_cap_loopback_actual_01.py",
+    "sha256": "7e9d40f56464976eaef9d186f4207eb3cee3c1c4a9a222f6cdb35d9d7040e670"
+  },
+  "schema_version": 1,
+  "scope_notes": [
+    "Global network_tested can be true from ordinary before/after while selected did not reach WSAStartup/connect.",
+    "Typed Win32 control-open32 is distinct from WSA10013 and from network denial.",
+    "Natural ordinary exit0, source-bound actor typed exit5 and suspended cleanup exit1 are separate projections.",
+    "Neither nonzero exit nor Job empty alone proves an actual Job termination.",
+    "Every fixed false claim remains false; no same-SID adversarial or proxy/product conclusion."
+  ],
+  "stage": "zero-cap-loopback-actual-reader-freeze",
+  "syntax_check_only": true
+}

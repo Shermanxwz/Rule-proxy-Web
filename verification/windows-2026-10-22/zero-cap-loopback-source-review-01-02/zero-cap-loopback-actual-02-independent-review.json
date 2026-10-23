@@ -1,0 +1,1315 @@
+{
+  "accesscheck_proofs": [
+    {
+      "calls": [
+        {
+          "access_status": true,
+          "api_success": true,
+          "attempted": true,
+          "granted_access": 3,
+          "label": "combined",
+          "privilege_count": 0,
+          "win32_error": null,
+          "within_deadline": true
+        },
+        {
+          "access_status": false,
+          "api_success": true,
+          "attempted": true,
+          "granted_access": 0,
+          "label": "world",
+          "privilege_count": 0,
+          "win32_error": null,
+          "within_deadline": true
+        },
+        {
+          "access_status": true,
+          "api_success": true,
+          "attempted": true,
+          "granted_access": 1,
+          "label": "aap",
+          "privilege_count": 0,
+          "win32_error": null,
+          "within_deadline": true
+        },
+        {
+          "access_status": true,
+          "api_success": true,
+          "attempted": true,
+          "granted_access": 2,
+          "label": "arap",
+          "privilege_count": 0,
+          "win32_error": null,
+          "within_deadline": true
+        }
+      ],
+      "duplicate_bound": true,
+      "generation_after": true,
+      "generation_before": true,
+      "observation_complete": true,
+      "proof_sha256": "afdd8d54aea7e53cb96bd4232e55e01274e6e06bb72faa2bdb2f48688337067f",
+      "qualified": true,
+      "resources_closed": true,
+      "role": "ac",
+      "source_primary_bound": true
+    },
+    {
+      "calls": [
+        {
+          "access_status": true,
+          "api_success": true,
+          "attempted": true,
+          "granted_access": 2,
+          "label": "combined",
+          "privilege_count": 0,
+          "win32_error": null,
+          "within_deadline": true
+        },
+        {
+          "access_status": false,
+          "api_success": true,
+          "attempted": true,
+          "granted_access": 0,
+          "label": "world",
+          "privilege_count": 0,
+          "win32_error": null,
+          "within_deadline": true
+        },
+        {
+          "access_status": false,
+          "api_success": true,
+          "attempted": true,
+          "granted_access": 0,
+          "label": "aap",
+          "privilege_count": 0,
+          "win32_error": null,
+          "within_deadline": true
+        },
+        {
+          "access_status": true,
+          "api_success": true,
+          "attempted": true,
+          "granted_access": 2,
+          "label": "arap",
+          "privilege_count": 0,
+          "win32_error": null,
+          "within_deadline": true
+        }
+      ],
+      "duplicate_bound": true,
+      "generation_after": true,
+      "generation_before": true,
+      "observation_complete": true,
+      "proof_sha256": "5087ebeb44824bc72719f5f7c54ddf6aa6036c6ca04aad1121fcfd0a7956607e",
+      "qualified": true,
+      "resources_closed": true,
+      "role": "lpac",
+      "source_primary_bound": true
+    }
+  ],
+  "actor": {
+    "bytes": 298496,
+    "sha256": "5015367a6edeaefd1830f5a6584024894070926ea5012c343534e43054b0461d"
+  },
+  "bindings_validated": true,
+  "cleanup": {
+    "acl_removed": true,
+    "cleanup_tools": true,
+    "labels_restored": true,
+    "observer_resources_cleanup_verified": true,
+    "profile_deleted": true,
+    "sid_released": true,
+    "workload_cleanup": true,
+    "workload_job_empty": true
+  },
+  "commands": [
+    {
+      "bytes": 128,
+      "phase_ticks": 80000000,
+      "phase_within_original_reserve": true,
+      "release": false,
+      "role": "ordinary-listener",
+      "sequence": 1,
+      "sha256": "8ef137504634fae11f5296a6a5ef610faf2a5b0e5106c9e31791e32894fec15f"
+    },
+    {
+      "bytes": 128,
+      "phase_ticks": 80000000,
+      "phase_within_original_reserve": true,
+      "release": false,
+      "role": "ordinary-client",
+      "sequence": 1,
+      "sha256": "09fbdec4cdde00bc7f6c474744e8c70da866aa84c3a3f62bc24a70e7d0f34825"
+    },
+    {
+      "bytes": 128,
+      "phase_ticks": 80000000,
+      "phase_within_original_reserve": true,
+      "release": false,
+      "role": "front-listener",
+      "sequence": 1,
+      "sha256": "a4efe41906001ae3538de3e2056607381d83335c76ba4ff475ea10a086d2f5fb"
+    },
+    {
+      "bytes": 128,
+      "phase_ticks": 80000000,
+      "phase_within_original_reserve": true,
+      "release": false,
+      "role": "selected-client",
+      "sequence": 1,
+      "sha256": "5b62f2c5d6b130d72da3a569d2df5ccd3fb9444e73d6330eae7b90d27764b103"
+    },
+    {
+      "bytes": 128,
+      "phase_ticks": 80000000,
+      "phase_within_original_reserve": true,
+      "release": false,
+      "role": "ordinary-listener",
+      "sequence": 2,
+      "sha256": "6067709bb54fb59730cb9a4065de5771784766f09fb3d8222f3b77e890c63a9e"
+    },
+    {
+      "bytes": 128,
+      "phase_ticks": 80000000,
+      "phase_within_original_reserve": true,
+      "release": false,
+      "role": "ordinary-client",
+      "sequence": 2,
+      "sha256": "9a2fa8d769b28f5ac2e8df2e51418bd0ba00c6ba3978167d1eacd4a11b0836cf"
+    }
+  ],
+  "config": {
+    "bytes": 5456,
+    "sha256": "81da4fe826aae9660f4af06d1688ceaa82964130293ac04df4ffab5fefbaed45"
+  },
+  "fixed_false_claims": {
+    "DNS_isolation_tested": false,
+    "WFP_policy_tested": false,
+    "default_resolver_tested": false,
+    "direct_isolation_tested": false,
+    "injection_resistance_verified": false,
+    "ipv6_tested": false,
+    "linux_equivalence_proven": false,
+    "pipe_theft_resistance_verified": false,
+    "product_acceptance": false,
+    "proxy_qualified": false,
+    "same_sid_tamper_boundary_verified": false,
+    "service_brokers_tested": false,
+    "udp_tested": false
+  },
+  "forensic": {
+    "bytes": 80737,
+    "sha256": "ec4b97a60c1d76fad9111142fb8b425ad86591d435a79db59e89221e4685d25e"
+  },
+  "globals": {
+    "all_bytes_equal": true,
+    "all_four_objects_equal": true,
+    "all_json_objects_equal": true,
+    "before_after_byte_equal": true,
+    "capture": {
+      "bytes": 1566,
+      "sha256": "d88778caf20e680dd0d88499aa656ab6a7103d05ef991e47ed114333b7155d21"
+    },
+    "expanded_scripts": {
+      "after-zero02": {
+        "bytes": 2008,
+        "sha256": "fd1dfaf1feb7afb5e3bb3510363646efb1d58ceb6e896be2f00e09c8fa277f8e"
+      },
+      "before-zero02": {
+        "bytes": 2009,
+        "sha256": "fbb45484d703ef885275f1686c5baa18695dfd6796c740d9af0d4374efbcbc80"
+      }
+    },
+    "no_mutation_or_api_executed_by_this_reader": true,
+    "nrpt_included": false,
+    "objects_equal": {
+      "dns": true,
+      "firewall_profiles": true,
+      "routes": true,
+      "user_proxy": true
+    },
+    "raw_snapshots": {
+      "after": {
+        "bytes": 7378,
+        "sha256": "f05d91ee76ee8a97ae5ab3bfa092167a8ee560c083255f142e6c453f2edf7ab3"
+      },
+      "before": {
+        "bytes": 7378,
+        "sha256": "f05d91ee76ee8a97ae5ab3bfa092167a8ee560c083255f142e6c453f2edf7ab3"
+      },
+      "original": {
+        "bytes": 7378,
+        "sha256": "f05d91ee76ee8a97ae5ab3bfa092167a8ee560c083255f142e6c453f2edf7ab3"
+      }
+    }
+  },
+  "held_tasks": [
+    {
+      "actor": false,
+      "admitted": true,
+      "assigned": true,
+      "attempted": true,
+      "class46_not_queried": true,
+      "exit_code": 0,
+      "exited": true,
+      "held_check_count": 0,
+      "job_termination_inferred_from_nonzero_alone": false,
+      "known_suspended_cleanup_exit1": false,
+      "name": "grant-root",
+      "natural_exit_zero": true,
+      "nonzero_exit": false,
+      "process_returned": true,
+      "remained_suspended_before_cleanup": false,
+      "resumed": true,
+      "source_bound_typed_exit5": false,
+      "zero_capabilities_verified": true
+    },
+    {
+      "actor": false,
+      "admitted": true,
+      "assigned": true,
+      "attempted": true,
+      "class46_not_queried": true,
+      "exit_code": 0,
+      "exited": true,
+      "held_check_count": 0,
+      "job_termination_inferred_from_nonzero_alone": false,
+      "known_suspended_cleanup_exit1": false,
+      "name": "grant-inputs",
+      "natural_exit_zero": true,
+      "nonzero_exit": false,
+      "process_returned": true,
+      "remained_suspended_before_cleanup": false,
+      "resumed": true,
+      "source_bound_typed_exit5": false,
+      "zero_capabilities_verified": true
+    },
+    {
+      "actor": false,
+      "admitted": true,
+      "assigned": true,
+      "attempted": true,
+      "class46_not_queried": true,
+      "exit_code": 0,
+      "exited": true,
+      "held_check_count": 0,
+      "job_termination_inferred_from_nonzero_alone": false,
+      "known_suspended_cleanup_exit1": false,
+      "name": "grant-front-report",
+      "natural_exit_zero": true,
+      "nonzero_exit": false,
+      "process_returned": true,
+      "remained_suspended_before_cleanup": false,
+      "resumed": true,
+      "source_bound_typed_exit5": false,
+      "zero_capabilities_verified": true
+    },
+    {
+      "actor": false,
+      "admitted": true,
+      "assigned": true,
+      "attempted": true,
+      "class46_not_queried": true,
+      "exit_code": 0,
+      "exited": true,
+      "held_check_count": 0,
+      "job_termination_inferred_from_nonzero_alone": false,
+      "known_suspended_cleanup_exit1": false,
+      "name": "grant-selected-report",
+      "natural_exit_zero": true,
+      "nonzero_exit": false,
+      "process_returned": true,
+      "remained_suspended_before_cleanup": false,
+      "resumed": true,
+      "source_bound_typed_exit5": false,
+      "zero_capabilities_verified": true
+    },
+    {
+      "actor": false,
+      "admitted": true,
+      "assigned": true,
+      "attempted": true,
+      "class46_not_queried": true,
+      "exit_code": 0,
+      "exited": true,
+      "held_check_count": 0,
+      "job_termination_inferred_from_nonzero_alone": false,
+      "known_suspended_cleanup_exit1": false,
+      "name": "grant-front-control",
+      "natural_exit_zero": true,
+      "nonzero_exit": false,
+      "process_returned": true,
+      "remained_suspended_before_cleanup": false,
+      "resumed": true,
+      "source_bound_typed_exit5": false,
+      "zero_capabilities_verified": true
+    },
+    {
+      "actor": false,
+      "admitted": true,
+      "assigned": true,
+      "attempted": true,
+      "class46_not_queried": true,
+      "exit_code": 0,
+      "exited": true,
+      "held_check_count": 0,
+      "job_termination_inferred_from_nonzero_alone": false,
+      "known_suspended_cleanup_exit1": false,
+      "name": "grant-selected-control",
+      "natural_exit_zero": true,
+      "nonzero_exit": false,
+      "process_returned": true,
+      "remained_suspended_before_cleanup": false,
+      "resumed": true,
+      "source_bound_typed_exit5": false,
+      "zero_capabilities_verified": true
+    },
+    {
+      "actor": true,
+      "admitted": true,
+      "assigned": true,
+      "attempted": true,
+      "class46_not_queried": true,
+      "exit_code": 5,
+      "exited": true,
+      "held_check_count": 9,
+      "job_termination_inferred_from_nonzero_alone": false,
+      "known_suspended_cleanup_exit1": false,
+      "name": "front-listener",
+      "natural_exit_zero": false,
+      "nonzero_exit": true,
+      "process_returned": true,
+      "remained_suspended_before_cleanup": false,
+      "resumed": true,
+      "source_bound_typed_exit5": true,
+      "zero_capabilities_verified": true
+    },
+    {
+      "actor": true,
+      "admitted": true,
+      "assigned": true,
+      "attempted": true,
+      "class46_not_queried": true,
+      "exit_code": 5,
+      "exited": true,
+      "held_check_count": 7,
+      "job_termination_inferred_from_nonzero_alone": false,
+      "known_suspended_cleanup_exit1": false,
+      "name": "selected-client",
+      "natural_exit_zero": false,
+      "nonzero_exit": true,
+      "process_returned": true,
+      "remained_suspended_before_cleanup": false,
+      "resumed": true,
+      "source_bound_typed_exit5": true,
+      "zero_capabilities_verified": true
+    },
+    {
+      "actor": true,
+      "admitted": true,
+      "assigned": true,
+      "attempted": true,
+      "class46_not_queried": true,
+      "exit_code": 0,
+      "exited": true,
+      "held_check_count": 10,
+      "job_termination_inferred_from_nonzero_alone": false,
+      "known_suspended_cleanup_exit1": false,
+      "name": "ordinary-listener",
+      "natural_exit_zero": true,
+      "nonzero_exit": false,
+      "process_returned": true,
+      "remained_suspended_before_cleanup": false,
+      "resumed": true,
+      "source_bound_typed_exit5": false,
+      "zero_capabilities_verified": true
+    },
+    {
+      "actor": true,
+      "admitted": true,
+      "assigned": true,
+      "attempted": true,
+      "class46_not_queried": true,
+      "exit_code": 0,
+      "exited": true,
+      "held_check_count": 10,
+      "job_termination_inferred_from_nonzero_alone": false,
+      "known_suspended_cleanup_exit1": false,
+      "name": "ordinary-client",
+      "natural_exit_zero": true,
+      "nonzero_exit": false,
+      "process_returned": true,
+      "remained_suspended_before_cleanup": false,
+      "resumed": true,
+      "source_bound_typed_exit5": false,
+      "zero_capabilities_verified": true
+    },
+    {
+      "actor": false,
+      "admitted": true,
+      "assigned": true,
+      "attempted": true,
+      "class46_not_queried": true,
+      "exit_code": 0,
+      "exited": true,
+      "held_check_count": 0,
+      "job_termination_inferred_from_nonzero_alone": false,
+      "known_suspended_cleanup_exit1": false,
+      "name": "remove",
+      "natural_exit_zero": true,
+      "nonzero_exit": false,
+      "process_returned": true,
+      "remained_suspended_before_cleanup": false,
+      "resumed": true,
+      "source_bound_typed_exit5": false,
+      "zero_capabilities_verified": true
+    }
+  ],
+  "intents": [
+    {
+      "action": "profile-create",
+      "bytes": 372,
+      "sha256": "05b655189e23aea4391ca507f76699532070527da19d9c1c6dfdf0d080c6fc46"
+    },
+    {
+      "action": "acl-grant",
+      "bytes": 367,
+      "sha256": "82b0e9dc831a2a169966cd3dc4332df52779a168d61631f97c965ca54948259f"
+    },
+    {
+      "action": "spawn-grant-root",
+      "bytes": 374,
+      "sha256": "56a316003b2569c17e712d88a5b92e6e996f3994e4ac7750fc641fc04fdaf9ef"
+    },
+    {
+      "action": "spawn-grant-inputs",
+      "bytes": 376,
+      "sha256": "0d2d3fbde0ca98b6a6b3daaae1499e9315ca46de9c349f5018d95e7c14dbf8dd"
+    },
+    {
+      "action": "spawn-grant-front-report",
+      "bytes": 382,
+      "sha256": "a15d6987357a64b20ad11f080b66e9b667d9e1c1b4225e6dfd73eb64791eb723"
+    },
+    {
+      "action": "spawn-grant-selected-report",
+      "bytes": 385,
+      "sha256": "91bd02cef98348e4ebabbadbc9e55a0ceff1a8c7d8b41a16c791279f4f2f3437"
+    },
+    {
+      "action": "spawn-grant-front-control",
+      "bytes": 383,
+      "sha256": "df0d0551d6fd52a69a474e1f814fc82630f7467641d4c8972a11225121e95e9a"
+    },
+    {
+      "action": "spawn-grant-selected-control",
+      "bytes": 386,
+      "sha256": "582c24389d125fb874dc925ca38f0a33ae3bacf8a8eae6e9aa03f0492182d274"
+    },
+    {
+      "action": "label-lower-front-report",
+      "bytes": 382,
+      "sha256": "f8ad0baa4f42fb03b529c33587c539a22336f360dfb05e384991571c6f9b54b1"
+    },
+    {
+      "action": "label-lower-selected-report",
+      "bytes": 385,
+      "sha256": "f65411205721b41a1e14cdfe906a09f4922d25f60d80bfe92a23cab3aaec8c31"
+    },
+    {
+      "action": "spawn-front-listener",
+      "bytes": 378,
+      "sha256": "bff31d8b9bc503d154beac0d677ed348503c6ef526c3f2451d38a0cbd52660bf"
+    },
+    {
+      "action": "spawn-selected-client",
+      "bytes": 379,
+      "sha256": "a23afd2a9468d0d16135e24cfba0ca18ebf57464895516f9967575679cc33314"
+    },
+    {
+      "action": "spawn-ordinary-listener",
+      "bytes": 381,
+      "sha256": "ed183f5ecf27d4073a7b2471f3e30e75d593fe35eb3985b12b71f3050bbde6eb"
+    },
+    {
+      "action": "spawn-ordinary-client",
+      "bytes": 379,
+      "sha256": "f54af2fcfe1585ace5fc92e9ea410eceef77c09032c242b37a48a55c914fbb2f"
+    },
+    {
+      "action": "observe-front-listener",
+      "bytes": 380,
+      "sha256": "9f5b325be092e1960eeb8905792fcba26970b812344b19b1cdccadb8bd055f3b"
+    },
+    {
+      "action": "observe-selected-client",
+      "bytes": 381,
+      "sha256": "3eb88d78f256dcdfec6bdae31c7be14f01a0f1d4c3dbe5abda4ef44ed9846566"
+    },
+    {
+      "action": "go-ordinary-listener-1",
+      "bytes": 380,
+      "sha256": "f64dc57e060e37fa35aedd23c450bb29e0307be3d68f0bf1a01693f887d2a979"
+    },
+    {
+      "action": "go-ordinary-client-1",
+      "bytes": 378,
+      "sha256": "115a6b462c0881b3e6a13b682a6cb3293744ae431e001bdfa23285819c24b794"
+    },
+    {
+      "action": "go-front-listener-1",
+      "bytes": 377,
+      "sha256": "d0afe3280f428025c94c83236971df20473d29c7fc15e666c1e67e42ab7f6985"
+    },
+    {
+      "action": "go-selected-client-1",
+      "bytes": 378,
+      "sha256": "9fcdbb883eb8353737746a95da11a0870123d229df173a362e0d67e2b5cd79d8"
+    },
+    {
+      "action": "go-ordinary-listener-2",
+      "bytes": 380,
+      "sha256": "715babd868c0d9fe18441b04104aabc46c420dca0936974daa28bc90c89fd335"
+    },
+    {
+      "action": "go-ordinary-client-2",
+      "bytes": 378,
+      "sha256": "96c2cb14c6c59323d8a72395dccfaca6c89a7e0d5e8bf8656367a32e84bd526a"
+    },
+    {
+      "action": "label-restore",
+      "bytes": 371,
+      "sha256": "6133dac0f7271488ff3933eb0a74409d86e654e85ae754010800b1f7dbbafde9"
+    },
+    {
+      "action": "acl-remove",
+      "bytes": 368,
+      "sha256": "1f5037cb84ba4f3190fda8e32734d6ad3d5b95bfc5650ea238a39f9563387ffa"
+    },
+    {
+      "action": "spawn-remove",
+      "bytes": 370,
+      "sha256": "ff9a9d12276d778e4693d47f8ca682dd2fc26e3be70c27adb82b155f1008659a"
+    },
+    {
+      "action": "profile-delete",
+      "bytes": 372,
+      "sha256": "e99f92cd0f1ce84ed8c4f3bf3c0dd963f9b15376b84e4ef7155312277217ddfe"
+    }
+  ],
+  "label_state": [
+    {
+      "attempted": true,
+      "before": null,
+      "lowered": true,
+      "name": "front-report",
+      "restored": true
+    },
+    {
+      "attempted": true,
+      "before": null,
+      "lowered": true,
+      "name": "selected-report",
+      "restored": true
+    }
+  ],
+  "labels_scope": "only two fresh owned output subtrees; absence restored after held workload cleanup; no ancestor label changes inferred",
+  "limitations": [
+    "Native network_tested means connect-attempt/accepted-flow, not whether socket/bind/listen APIs were called.",
+    "Unreferenced/forensic originals are hash-only, not qualification fallback.",
+    "Natural zero, source-bound typed exit5 and suspended cleanup exit1 are separate; nonzero alone never proves Job termination.",
+    "This fixed trusted-actor cell proves no same-SID tamper, injection, pipe theft, proxy or product boundary."
+  ],
+  "manifest": {
+    "bytes": 387,
+    "sha256": "0c371e646873d3970bb3aea2e05ba05a10bb1b3e0b4c02c84963f7f265537a52"
+  },
+  "native_reports": [
+    {
+      "bytes": 801,
+      "facts": {
+        "failure": null,
+        "network_tested": false,
+        "product_acceptance": false,
+        "socket_held": true,
+        "token_close_confirmed": true,
+        "wsa_started": true
+      },
+      "kind": "ready",
+      "name": "ready.json",
+      "role": "ordinary-listener",
+      "sequence": null,
+      "sha256": "bd33ded9f24088e998fa896879b3befb16b63ef67285f16c44b560a30c58c36f"
+    },
+    {
+      "bytes": 801,
+      "facts": {
+        "failure": null,
+        "network_tested": false,
+        "product_acceptance": false,
+        "socket_held": false,
+        "token_close_confirmed": true,
+        "wsa_started": false
+      },
+      "kind": "ready",
+      "name": "ready.json",
+      "role": "ordinary-client",
+      "sequence": null,
+      "sha256": "6c3d14501c6b5ba9acf2a4eb5b711090ce551bbd0e498b064cd2c032310cf54f"
+    },
+    {
+      "bytes": 1001,
+      "facts": {
+        "connect_attempted": true,
+        "connect_completed": true,
+        "control_close_verified": true,
+        "failure": null,
+        "network_tested": true,
+        "product_acceptance": false,
+        "request_bytes": 64,
+        "request_exact": true,
+        "response_bytes": 64,
+        "response_eof": true,
+        "response_exact": true,
+        "send_attempted": true,
+        "send_shutdown": true,
+        "socket_close": "confirmed",
+        "win32_error": null,
+        "within_deadline": true,
+        "wsa_cleanup": "confirmed",
+        "wsa_error": null
+      },
+      "kind": "phase",
+      "name": "phase-01.json",
+      "role": "ordinary-client",
+      "sequence": 1,
+      "sha256": "4aa3cfda2430f9d871f52e52d405cb57e8b176331d27ac7afe069e2cb009a226"
+    },
+    {
+      "bytes": 995,
+      "facts": {
+        "connection_close": "confirmed",
+        "control_close_verified": true,
+        "failure": null,
+        "network_tested": true,
+        "product_acceptance": false,
+        "release_verified": false,
+        "request_bytes": 64,
+        "request_eof": true,
+        "request_exact": true,
+        "response_bytes": 64,
+        "response_complete": true,
+        "response_withheld": false,
+        "send_shutdown": true,
+        "socket_held": false,
+        "win32_error": null,
+        "within_deadline": true,
+        "wsa_error": null
+      },
+      "kind": "receipt",
+      "name": "receipt-01.json",
+      "role": "ordinary-listener",
+      "sequence": 1,
+      "sha256": "be96d41d1b430c3dbdac6286e26e4cb75120d2a2b298f2879e9c13678c3c2802"
+    },
+    {
+      "bytes": 797,
+      "facts": {
+        "failure": null,
+        "network_tested": false,
+        "product_acceptance": false,
+        "socket_held": true,
+        "token_close_confirmed": true,
+        "wsa_started": true
+      },
+      "kind": "ready",
+      "name": "ready.json",
+      "role": "front-listener",
+      "sequence": null,
+      "sha256": "379111ecb4cb1e4456d98016b9bee763915097d1562f98fe967382417bd97c37"
+    },
+    {
+      "bytes": 800,
+      "facts": {
+        "failure": null,
+        "network_tested": false,
+        "product_acceptance": false,
+        "socket_held": false,
+        "token_close_confirmed": true,
+        "wsa_started": false
+      },
+      "kind": "ready",
+      "name": "ready.json",
+      "role": "selected-client",
+      "sequence": null,
+      "sha256": "a579049dadc9c29aefc1cee00d710854d7bed31151f22e82e66fb425181de99c"
+    },
+    {
+      "bytes": 1001,
+      "facts": {
+        "connect_attempted": true,
+        "connect_completed": true,
+        "control_close_verified": true,
+        "failure": null,
+        "network_tested": true,
+        "product_acceptance": false,
+        "request_bytes": 64,
+        "request_exact": true,
+        "response_bytes": 64,
+        "response_eof": true,
+        "response_exact": true,
+        "send_attempted": true,
+        "send_shutdown": true,
+        "socket_close": "confirmed",
+        "win32_error": null,
+        "within_deadline": true,
+        "wsa_cleanup": "confirmed",
+        "wsa_error": null
+      },
+      "kind": "phase",
+      "name": "phase-02.json",
+      "role": "ordinary-client",
+      "sequence": 2,
+      "sha256": "0e4103ab7d80ab39612a15cc4dd8bc3a7cb2f57129514d598af1a4bcc10df527"
+    },
+    {
+      "bytes": 995,
+      "facts": {
+        "connection_close": "confirmed",
+        "control_close_verified": true,
+        "failure": null,
+        "network_tested": true,
+        "product_acceptance": false,
+        "release_verified": false,
+        "request_bytes": 64,
+        "request_eof": true,
+        "request_exact": true,
+        "response_bytes": 64,
+        "response_complete": true,
+        "response_withheld": false,
+        "send_shutdown": true,
+        "socket_held": false,
+        "win32_error": null,
+        "within_deadline": true,
+        "wsa_error": null
+      },
+      "kind": "receipt",
+      "name": "receipt-02.json",
+      "role": "ordinary-listener",
+      "sequence": 2,
+      "sha256": "a81d5dd06843c0b4f2f82bf5af20cc4628495ff0c35ce86a8975a2c101b7013f"
+    },
+    {
+      "bytes": 1042,
+      "facts": {
+        "accepted_count": 0,
+        "control_close_verified": true,
+        "failure": "deadline",
+        "listen_close": "confirmed",
+        "listening_verified": true,
+        "network_tested": false,
+        "phase_count": 0,
+        "product_acceptance": false,
+        "receipt_count": 1,
+        "socket_resources_closed": true,
+        "token_close_confirmed": true,
+        "win32_error": null,
+        "within_deadline": false,
+        "wsa_cleanup": "confirmed",
+        "wsa_error": null,
+        "wsa_started": true
+      },
+      "kind": "final",
+      "name": "final.json",
+      "role": "front-listener",
+      "sequence": null,
+      "sha256": "42033d030aa061bac541367dc4438b6571d739322f911b3684be61fa28238fc6"
+    },
+    {
+      "bytes": 1051,
+      "facts": {
+        "accepted_count": 0,
+        "control_close_verified": true,
+        "failure": "wsa-startup",
+        "listen_close": "not-created",
+        "listening_verified": false,
+        "network_tested": false,
+        "phase_count": 1,
+        "product_acceptance": false,
+        "receipt_count": 0,
+        "socket_resources_closed": true,
+        "token_close_confirmed": true,
+        "win32_error": null,
+        "within_deadline": true,
+        "wsa_cleanup": "not-started",
+        "wsa_error": 10107,
+        "wsa_started": false
+      },
+      "kind": "final",
+      "name": "final.json",
+      "role": "selected-client",
+      "sequence": null,
+      "sha256": "de32283add2912528f8df2e21bfd65ee1337756370d358c16411ea15883347ea"
+    },
+    {
+      "bytes": 1038,
+      "facts": {
+        "accepted_count": 2,
+        "control_close_verified": true,
+        "failure": null,
+        "listen_close": "confirmed",
+        "listening_verified": true,
+        "network_tested": true,
+        "phase_count": 0,
+        "product_acceptance": false,
+        "receipt_count": 2,
+        "socket_resources_closed": true,
+        "token_close_confirmed": true,
+        "win32_error": null,
+        "within_deadline": true,
+        "wsa_cleanup": "confirmed",
+        "wsa_error": null,
+        "wsa_started": true
+      },
+      "kind": "final",
+      "name": "final.json",
+      "role": "ordinary-listener",
+      "sequence": null,
+      "sha256": "563d0280f6aab8f7ebfe3c63fb68ec52e6b267e9d0b964cf151b896fa76967b0"
+    },
+    {
+      "bytes": 1038,
+      "facts": {
+        "accepted_count": 0,
+        "control_close_verified": true,
+        "failure": null,
+        "listen_close": "not-created",
+        "listening_verified": false,
+        "network_tested": true,
+        "phase_count": 2,
+        "product_acceptance": false,
+        "receipt_count": 0,
+        "socket_resources_closed": true,
+        "token_close_confirmed": true,
+        "win32_error": null,
+        "within_deadline": true,
+        "wsa_cleanup": "confirmed",
+        "wsa_error": null,
+        "wsa_started": true
+      },
+      "kind": "final",
+      "name": "final.json",
+      "role": "ordinary-client",
+      "sequence": null,
+      "sha256": "3a92528a7a4e7c9f717208d070f9a8c287ea36b13507c8321020b307c473d332"
+    },
+    {
+      "bytes": 980,
+      "facts": {
+        "connection_close": "not-created",
+        "control_close_verified": true,
+        "failure": "deadline",
+        "network_tested": false,
+        "product_acceptance": false,
+        "release_verified": false,
+        "request_bytes": 0,
+        "request_eof": false,
+        "request_exact": false,
+        "response_bytes": 0,
+        "response_complete": false,
+        "response_withheld": false,
+        "send_shutdown": false,
+        "socket_held": false,
+        "win32_error": null,
+        "within_deadline": false,
+        "wsa_error": null
+      },
+      "kind": "receipt",
+      "name": "receipt-01.json",
+      "role": "front-listener",
+      "sequence": 1,
+      "sha256": "79ca24dea1e935aea5d25b7561bad1c167cb2dc33934dec85b8fee0e73795582"
+    },
+    {
+      "bytes": 1019,
+      "facts": {
+        "connect_attempted": false,
+        "connect_completed": false,
+        "control_close_verified": true,
+        "failure": "wsa-startup",
+        "network_tested": false,
+        "product_acceptance": false,
+        "request_bytes": 0,
+        "request_exact": false,
+        "response_bytes": 0,
+        "response_eof": false,
+        "response_exact": false,
+        "send_attempted": false,
+        "send_shutdown": false,
+        "socket_close": "not-created",
+        "win32_error": null,
+        "within_deadline": true,
+        "wsa_cleanup": "not-started",
+        "wsa_error": 10107
+      },
+      "kind": "phase",
+      "name": "phase-01.json",
+      "role": "selected-client",
+      "sequence": 1,
+      "sha256": "e4b9a209ddf1bb8fc068fc53a9b3fbc13e59fea78b4a61d0a6044d20098a8d0b"
+    }
+  ],
+  "native_source_count": 2,
+  "original_observation_complete": false,
+  "original_recovery_required": false,
+  "outer_facts": {
+    "cleanup": {
+      "close_uncertain": false,
+      "errors": [],
+      "handles_closed": true,
+      "job_closed": true,
+      "job_empty": true,
+      "process_exit_confirmed": true
+    },
+    "exit_code": 0,
+    "resumed": true,
+    "started": true,
+    "timed_out": false
+  },
+  "outer_launch": {
+    "bytes": 619,
+    "sha256": "521f6aadf8d267221a4bd32ec334c1deb3d296d0cdae30ddafa7bd5659fc7b05"
+  },
+  "plan": {
+    "bytes": 1645,
+    "sha256": "7ad67ad044359e20a0808441e1a95eaee263c1d829af3e98eb34c11c1d330f38"
+  },
+  "preflight": {
+    "bytes": 1325,
+    "sha256": "dd31b5b0f60fb8250eceb535b777bad1213d54d08808e37fb0ea46bc4f345e9f"
+  },
+  "private_commitments": {
+    "config": {
+      "bytes": 5456,
+      "sha256": "81da4fe826aae9660f4af06d1688ceaa82964130293ac04df4ffab5fefbaed45"
+    },
+    "driver": {
+      "bytes": 5500,
+      "sha256": "ab8317011d5cadd65697e5672f8a27579e0b90eb4b1a3fcfeb0a782c6389716e"
+    },
+    "forensic": {
+      "bytes": 80737,
+      "sha256": "ec4b97a60c1d76fad9111142fb8b425ad86591d435a79db59e89221e4685d25e"
+    },
+    "outer_launch": {
+      "bytes": 619,
+      "sha256": "521f6aadf8d267221a4bd32ec334c1deb3d296d0cdae30ddafa7bd5659fc7b05"
+    },
+    "plan": {
+      "bytes": 1645,
+      "sha256": "7ad67ad044359e20a0808441e1a95eaee263c1d829af3e98eb34c11c1d330f38"
+    },
+    "stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "stdout": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "worker_report": {
+      "bytes": 80737,
+      "sha256": "ec4b97a60c1d76fad9111142fb8b425ad86591d435a79db59e89221e4685d25e"
+    }
+  },
+  "public": {
+    "bytes": 2731,
+    "sha256": "457c26fdf13707807a5412ff81951bba7b4112129c472c6f09804c073a6813ed"
+  },
+  "public_failure": "loopback",
+  "public_observation": {
+    "DNS_isolation_tested": false,
+    "WFP_policy_tested": false,
+    "ac_accesscheck_verified": true,
+    "ac_granted_access": [
+      3,
+      0,
+      1,
+      2
+    ],
+    "acl_removed": true,
+    "cleanup_tools": true,
+    "default_resolver_tested": false,
+    "direct_isolation_tested": false,
+    "failure": "loopback",
+    "front_held_verified": true,
+    "front_listener_verified": true,
+    "frontend_setup": {
+      "failure": "deadline",
+      "listen_close": "confirmed",
+      "listening_verified": true,
+      "observed": true,
+      "socket_resources_closed": true,
+      "win32_error": null,
+      "wsa_cleanup": "confirmed",
+      "wsa_error": null,
+      "wsa_started": true
+    },
+    "injection_resistance_verified": false,
+    "ipv6_tested": false,
+    "labels_restored": true,
+    "linux_equivalence_proven": false,
+    "lpac_accesscheck_verified": true,
+    "lpac_granted_access": [
+      2,
+      0,
+      0,
+      2
+    ],
+    "main_connect_observed": false,
+    "main_request_observed": false,
+    "main_response_verified": false,
+    "main_tuple_verified": false,
+    "natural_exits": false,
+    "network_tested": true,
+    "observer_resources_cleanup_verified": true,
+    "ordinary_after": true,
+    "ordinary_before": true,
+    "ordinary_held_verified": true,
+    "pipe_theft_resistance_verified": false,
+    "product_acceptance": false,
+    "profile_deleted": true,
+    "proxy_qualified": false,
+    "reachability_verified": false,
+    "release_published": false,
+    "same_sid_tamper_boundary_verified": false,
+    "selected_held_verified": true,
+    "service_brokers_tested": false,
+    "sid_released": true,
+    "udp_tested": false,
+    "workload_cleanup": true,
+    "workload_job_empty": true
+  },
+  "public_projection_exact": true,
+  "public_status": "inconclusive",
+  "reader_scope": {
+    "acl_or_label_changed": false,
+    "actor_executed": false,
+    "backend_constructed": false,
+    "cleanup_called": false,
+    "file_only": true,
+    "network_called": false
+  },
+  "result_validation_error": null,
+  "schema_version": 1,
+  "source_commit": "c7145b9d50dc99c14f11764a03ad23f31ce3e638",
+  "source_count": 37,
+  "source_sha256": "b726d48d6dddfed2533168ac0921add834488f333931f08b75dc6195cd9fc4ac",
+  "sources": [
+    {
+      "bytes": 31002,
+      "path": ".github/native/windows_identity_actor.cpp",
+      "sha256": "530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553"
+    },
+    {
+      "bytes": 8847,
+      "path": ".github/native/windows_identity_dns_raw_udp.hpp",
+      "sha256": "43b8cc7afce3acd91cdd4f23ae7d7075a996f98860447c3e9791e298d33a8a78"
+    },
+    {
+      "bytes": 6678,
+      "path": ".github/native/windows_identity_dns_standard_probe.hpp",
+      "sha256": "bce69ff57a173525a9cff2731f4d05fe34b5144daeaa465b0d8bb5181432d28c"
+    },
+    {
+      "bytes": 30053,
+      "path": ".github/native/windows_identity_lpac_loopback_actor.cpp",
+      "sha256": "c3744801ef26fd42a3f1b1712a7d0b7c8e49369ae7e4d655ab46d8eb3f188985"
+    },
+    {
+      "bytes": 4650,
+      "path": ".github/native/windows_identity_lpac_loopback_contract.hpp",
+      "sha256": "a5e46a18c25211d34fd33c21a6e640dd7a6a3e3e02ec67fe03c30f010f9f9dce"
+    },
+    {
+      "bytes": 16902,
+      "path": ".github/native/windows_identity_proxy_bridge_core.hpp",
+      "sha256": "f03e45166265f02a65abc12930efd73634a332596d22aa78cadc1267a80b6356"
+    },
+    {
+      "bytes": 49690,
+      "path": ".github/native/windows_identity_proxy_c_actor.cpp",
+      "sha256": "17f8a816028f71667513586b2efd57fc1c46b369e1d7171e74a2cef6e9c543a3"
+    },
+    {
+      "bytes": 4313,
+      "path": ".github/native/windows_identity_proxy_c_contract.hpp",
+      "sha256": "150efbbccdbcb9064eb6d43ddd25608a4a3655c5a408402779dae6216269ff1c"
+    },
+    {
+      "bytes": 25762,
+      "path": ".github/native/windows_identity_proxy_origin_actor.cpp",
+      "sha256": "3d079e77e387ba77545c27f5b5c260f591657ef3a44384426cd2039fa8c04010"
+    },
+    {
+      "bytes": 6338,
+      "path": ".github/native/windows_identity_proxy_origin_transport.hpp",
+      "sha256": "bed113e5e20064722cbb2c6d3e71b4d3ca6c4769ebd694c86997abec0af661c4"
+    },
+    {
+      "bytes": 16095,
+      "path": ".github/native/windows_identity_proxy_pipe_actor.cpp",
+      "sha256": "26636a6b9979e91452cf6e7d2049d6fbbfa43639a35708ee18d4a71e67fb8dd0"
+    },
+    {
+      "bytes": 9913,
+      "path": ".github/windows_dns_fixture.py",
+      "sha256": "5a330ae54ec887742ed14c0d2fd1135e486790b686fbc850c3681f04e674273a"
+    },
+    {
+      "bytes": 11174,
+      "path": ".github/windows_identity_dns_cases_fixture.py",
+      "sha256": "28b3035e570ef57fbb3a12f9b8034c71be3d9280712a811fdb636fdb388c9d91"
+    },
+    {
+      "bytes": 3083,
+      "path": ".github/windows_identity_dns_standard_inventory.ps1",
+      "sha256": "87d98b0463e031376b6c6d29f1a0db375f74639904d34023ee8bcffa8893dbf1"
+    },
+    {
+      "bytes": 34465,
+      "path": ".github/windows_identity_lpac_accesscheck.py",
+      "sha256": "19c0d626e653147276cab9a97c5a0071f1c37b2eeb097c55fbacb39f262ade15"
+    },
+    {
+      "bytes": 64394,
+      "path": ".github/windows_identity_lpac_dns_local.py",
+      "sha256": "aff8bd5d2a6b1dd688934f9f98fe66146d74a5365caf2ca2c53f6b934f10fd53"
+    },
+    {
+      "bytes": 46637,
+      "path": ".github/windows_identity_lpac_identity_cell.py",
+      "sha256": "b7ffce514f00fbd44ce2e4bc77cd93dfe8285e90c608f5f1a82f30b025798105"
+    },
+    {
+      "bytes": 101306,
+      "path": ".github/windows_identity_lpac_loopback.py",
+      "sha256": "3c65e68a9ab975126ece6042100a17897ac099d04efb6d7d8f52d8a1dc847a67"
+    },
+    {
+      "bytes": 17938,
+      "path": ".github/windows_identity_lpac_loopback_local.py",
+      "sha256": "2830e42bee7cf0ebcfbb07eeea3c7c2aa33abf1f0112889759c1adcff26bdfc7"
+    },
+    {
+      "bytes": 183555,
+      "path": ".github/windows_identity_model2_controller.py",
+      "sha256": "9ecc846082f03fcbb206e5610e86d9f2af06250f2f1b165187229ea5582cc2c1"
+    },
+    {
+      "bytes": 15307,
+      "path": ".github/windows_identity_model2_dns.py",
+      "sha256": "748b2e7e4adc7008e83d17e184659e7d428fa41a06958f738190b75133b02847"
+    },
+    {
+      "bytes": 6974,
+      "path": ".github/windows_identity_model2_dns_raw.py",
+      "sha256": "e0d06ceed384433597a47dfa839043ff4572774a8425b842f38f5fa69fc405c0"
+    },
+    {
+      "bytes": 10870,
+      "path": ".github/windows_identity_model2_firewall.ps1",
+      "sha256": "0c78f295fe0a5a6ec2d7a04d58dcfb888767a9231928121493853519f1613cdb"
+    },
+    {
+      "bytes": 63254,
+      "path": ".github/windows_identity_model2_live.py",
+      "sha256": "c27260065808dd9f180918b49ba907897a963ff360da9ca72dd9a735c36029fd"
+    },
+    {
+      "bytes": 33250,
+      "path": ".github/windows_identity_model2_local.py",
+      "sha256": "e8aa1c1072469bfbf48cafc29ee1d8f09de228aa37ca0734187c9b1af98c6d45"
+    },
+    {
+      "bytes": 21567,
+      "path": ".github/windows_identity_model2_local_probe.py",
+      "sha256": "ec14c0d1b185da1deed651bb27726fdc114b4641181cfc29d998f2eac14e56bf"
+    },
+    {
+      "bytes": 25117,
+      "path": ".github/windows_identity_model2_maintenance.py",
+      "sha256": "68b6ce894d0dd544a61e19faf4d52f8388af9973a4f86f4dad35868842e38788"
+    },
+    {
+      "bytes": 67809,
+      "path": ".github/windows_identity_ordinary_launcher.py",
+      "sha256": "a890f4740bc2869586278158edad65dd8c649e09afed8c7aab355d842301d4a0"
+    },
+    {
+      "bytes": 40122,
+      "path": ".github/windows_identity_pipe_probe.py",
+      "sha256": "4dc8567d8a64e544d7a4baa873ff08900720320e26c8d6a6fd43ae3e5744dc74"
+    },
+    {
+      "bytes": 52976,
+      "path": ".github/windows_identity_proof.py",
+      "sha256": "aada68c3a0c309dffe422cd6271cf80a728e05a3c4a52a6a81293b47b74d2386"
+    },
+    {
+      "bytes": 42871,
+      "path": ".github/windows_identity_proxy_origin_probe.py",
+      "sha256": "33cfddf58caa8877bbe3f6b97132dfa45e9803c88df7c34f17a8501b1b560095"
+    },
+    {
+      "bytes": 14243,
+      "path": ".github/windows_identity_proxy_pipe_ac_guest.py",
+      "sha256": "78777d3a6b210a9e27494fc35f9dc53782adda0594b4f4705dee2c008d8d02e1"
+    },
+    {
+      "bytes": 35656,
+      "path": ".github/windows_identity_proxy_pipe_ac_local.py",
+      "sha256": "f5ce0fbc20a727f1c78a513bdac816dc49ae43fb1b24e4f8d7eefcd0b252163b"
+    },
+    {
+      "bytes": 75569,
+      "path": ".github/windows_identity_proxy_pipe_probe.py",
+      "sha256": "e6bb37aa6f2c5a98dde44d63d097f7921775fd0d7858b95053f33565602df15b"
+    },
+    {
+      "bytes": 46167,
+      "path": ".github/windows_psec_compartment_smoke.py",
+      "sha256": "6602471c0cf08f977879caef5c34bab20db9b84208f5cdae0a00b7a1f802d019"
+    },
+    {
+      "bytes": 20927,
+      "path": "ruleproxy/windows_app_process.py",
+      "sha256": "8e62820f98d9dbe352d988501d211565aceecce84657200c2793b69404cbee33"
+    },
+    {
+      "bytes": 2080,
+      "path": "ruleproxy/windows_runtime_pins.py",
+      "sha256": "2854702df1f2f7bfefce2b772920394033aaefaadf7b45de7b7d4a3fd1d73e65"
+    }
+  ],
+  "stage": "zero-cap-loopback-actual-02-file-review",
+  "tcp_observations": [
+    {
+      "both_held_pid_tuple_exact": false,
+      "bytes": 3276,
+      "client_state": null,
+      "kind": "listen",
+      "listener_exact": true,
+      "server_state": null,
+      "sha256": "cca8d03df2a28db383c894da731216e8cf245285879a6acd70bc32057dbd8d80"
+    }
+  ],
+  "unreferenced_raw_evidence": [],
+  "worker_report": {
+    "bytes": 80737,
+    "sha256": "ec4b97a60c1d76fad9111142fb8b425ad86591d435a79db59e89221e4685d25e"
+  },
+  "worker_report_present": true,
+  "worker_result_valid": true,
+  "workload_stop": false
+}

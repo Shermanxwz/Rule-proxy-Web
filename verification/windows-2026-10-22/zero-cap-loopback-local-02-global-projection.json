@@ -1,0 +1,29 @@
+{
+  "all_recorded_objects_equal": true,
+  "nrpt_included": false,
+  "objects_equal": {
+    "dns": true,
+    "firewall_profiles": true,
+    "routes": true,
+    "user_proxy": true
+  },
+  "raw_addresses_routes_proxy_values_not_published": true,
+  "raw_bytes_equal": true,
+  "raw_snapshots": {
+    "after": {
+      "bytes": 7378,
+      "sha256": "f05d91ee76ee8a97ae5ab3bfa092167a8ee560c083255f142e6c453f2edf7ab3"
+    },
+    "before": {
+      "bytes": 7378,
+      "sha256": "f05d91ee76ee8a97ae5ab3bfa092167a8ee560c083255f142e6c453f2edf7ab3"
+    },
+    "original": {
+      "bytes": 7378,
+      "sha256": "f05d91ee76ee8a97ae5ab3bfa092167a8ee560c083255f142e6c453f2edf7ab3"
+    }
+  },
+  "schema_version": 1,
+  "scope": "Only the four recorded objects; no assertion about all machine configuration or orphan broker state.",
+  "stage": "zero-cap-loopback-four-object-global-comparison"
+}

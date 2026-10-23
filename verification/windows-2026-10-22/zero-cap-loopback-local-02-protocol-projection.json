@@ -1,0 +1,80 @@
+{
+  "command_128_bytes": true,
+  "commands": [
+    {
+      "bytes": 128,
+      "original_phase_deadline_retained": true,
+      "phase_ticks": 80000000,
+      "release": false,
+      "role": "ordinary-listener",
+      "sequence": 1,
+      "sha256": "8ef137504634fae11f5296a6a5ef610faf2a5b0e5106c9e31791e32894fec15f"
+    },
+    {
+      "bytes": 128,
+      "original_phase_deadline_retained": true,
+      "phase_ticks": 80000000,
+      "release": false,
+      "role": "ordinary-client",
+      "sequence": 1,
+      "sha256": "09fbdec4cdde00bc7f6c474744e8c70da866aa84c3a3f62bc24a70e7d0f34825"
+    },
+    {
+      "bytes": 128,
+      "original_phase_deadline_retained": true,
+      "phase_ticks": 80000000,
+      "release": false,
+      "role": "front-listener",
+      "sequence": 1,
+      "sha256": "a4efe41906001ae3538de3e2056607381d83335c76ba4ff475ea10a086d2f5fb"
+    },
+    {
+      "bytes": 128,
+      "original_phase_deadline_retained": true,
+      "phase_ticks": 80000000,
+      "release": false,
+      "role": "selected-client",
+      "sequence": 1,
+      "sha256": "5b62f2c5d6b130d72da3a569d2df5ccd3fb9444e73d6330eae7b90d27764b103"
+    },
+    {
+      "bytes": 128,
+      "original_phase_deadline_retained": true,
+      "phase_ticks": 80000000,
+      "release": false,
+      "role": "ordinary-listener",
+      "sequence": 2,
+      "sha256": "6067709bb54fb59730cb9a4065de5771784766f09fb3d8222f3b77e890c63a9e"
+    },
+    {
+      "bytes": 128,
+      "original_phase_deadline_retained": true,
+      "phase_ticks": 80000000,
+      "release": false,
+      "role": "ordinary-client",
+      "sequence": 2,
+      "sha256": "9a2fa8d769b28f5ac2e8df2e51418bd0ba00c6ba3978167d1eacd4a11b0836cf"
+    }
+  ],
+  "nonce_payload_64_bytes": true,
+  "phase_start_after_go_source_validator": true,
+  "raw_control_nonces_not_published": true,
+  "raw_tcp_tables_not_published": true,
+  "release_response_causality_source_validator": true,
+  "same_absolute_phase_deadline_no_renewal": true,
+  "schema_version": 1,
+  "scope": "one-local-zero-cap-same-sid-loopback-v1",
+  "stage": "zero-cap-loopback-safe-protocol",
+  "tcp_observations": [
+    {
+      "bytes": 3276,
+      "client_state": null,
+      "exact_halfclosed_pair_verified": false,
+      "exact_listener_pid_tuple_verified": true,
+      "kind": "listen",
+      "physical_original_redecoded": true,
+      "server_state": null,
+      "sha256": "cca8d03df2a28db383c894da731216e8cf245285879a6acd70bc32057dbd8d80"
+    }
+  ]
+}

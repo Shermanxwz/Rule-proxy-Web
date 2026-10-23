@@ -1,0 +1,175 @@
+{
+  "actor_or_network_run_by_publication": false,
+  "historical_handoff_1016_suite_is_not_this_suite": true,
+  "product_acceptance": false,
+  "runs": [
+    {
+      "conclusion": "success",
+      "event": "push",
+      "input_kind": "connector-decoded UTF-8 BOM/CRLF job text and API-decoded JSON metadata; not ZIP bytes",
+      "inputs": [
+        {
+          "original": {
+            "bytes": 235158,
+            "sha256": "443ccf7d86ae3fcb60f0134492156a2ccde5f99b5f750a1ccdab32c6f705d588"
+          },
+          "source": "ci-lpac-loopback-39893448693-full.txt",
+          "view": {
+            "bytes": 233806,
+            "path": "verification/windows-2026-10-22/zero-cap-loopback-source-review-01-02/ci-lpac-loopback-39893448693-full.txt",
+            "sha256": "8b74f7251c1afafc8f7e77dfb0392fe7165740818a784cd063747a878c1d2d61"
+          }
+        },
+        {
+          "original": {
+            "bytes": 12730,
+            "sha256": "3edc5f2ad2532f322802bb5cf9b410bf6732c00972857b73dd6e82a3d3fc7e87"
+          },
+          "source": "ci-lpac-loopback-39893448693-runs-metadata.json",
+          "view": {
+            "bytes": 12730,
+            "path": "verification/windows-2026-10-22/zero-cap-loopback-source-review-01-02/ci-lpac-loopback-39893448693-runs-metadata.json",
+            "sha256": "3edc5f2ad2532f322802bb5cf9b410bf6732c00972857b73dd6e82a3d3fc7e87"
+          }
+        },
+        {
+          "original": {
+            "bytes": 3951,
+            "sha256": "28c07d153287b7c304af6a40d0c0f3ee11ebcfbc05caa0eb873d0ebc4ffe3d36"
+          },
+          "source": "ci-lpac-loopback-39893448693-jobs-metadata.json",
+          "view": {
+            "bytes": 3951,
+            "path": "verification/windows-2026-10-22/zero-cap-loopback-source-review-01-02/ci-lpac-loopback-39893448693-jobs-metadata.json",
+            "sha256": "28c07d153287b7c304af6a40d0c0f3ee11ebcfbc05caa0eb873d0ebc4ffe3d36"
+          }
+        }
+      ],
+      "job_id": 120218292888,
+      "job_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39893448693/job/120218292888",
+      "manually_dispatched_or_rerun": false,
+      "pure_errors": 0,
+      "pure_failures": 0,
+      "pure_seconds": "122.903",
+      "pure_skips": 0,
+      "pure_tests": 986,
+      "run_attempt": 1,
+      "run_id": 39893448693,
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39893448693",
+      "runtime_acceptance": false,
+      "runtime_steps": [
+        {
+          "conclusion": "skipped",
+          "name": "Read-only current and existing linked token ABI preflight",
+          "number": 5
+        },
+        {
+          "conclusion": "skipped",
+          "name": "Approved Stage 0b inherited-pipe proof in a verified ordinary token",
+          "number": 6
+        },
+        {
+          "conclusion": "skipped",
+          "name": "Read-only R0 source token field and ABI diagnostics",
+          "number": 7
+        },
+        {
+          "conclusion": "skipped",
+          "name": "Restricted-caller R0 identity diagnostic, not ordinary-user acceptance",
+          "number": 8
+        },
+        {
+          "conclusion": "skipped",
+          "name": "Four-cell trusted-actor startup controls, no isolation acceptance",
+          "number": 9
+        }
+      ],
+      "source_commit": "07146b7118c345e4a1046fe9066ba2f26b37cf3a"
+    },
+    {
+      "conclusion": "success",
+      "event": "push",
+      "input_kind": "connector-decoded UTF-8 BOM/CRLF job text and API-decoded JSON metadata; not ZIP bytes",
+      "inputs": [
+        {
+          "original": {
+            "bytes": 235595,
+            "sha256": "fc1e87b44993c1724f7386dd44ce080f0b6e0bcb98b7580438463d020ceab271"
+          },
+          "source": "ci-lpac-loopback-39895061571-full.txt",
+          "view": {
+            "bytes": 234241,
+            "path": "verification/windows-2026-10-22/zero-cap-loopback-source-review-01-02/ci-lpac-loopback-39895061571-full.txt",
+            "sha256": "a0d75897867cc906beed5ae4db75e1d82c65ecb25f0999512f55a649c55c84e8"
+          }
+        },
+        {
+          "original": {
+            "bytes": 12752,
+            "sha256": "266912092889b5a9463c90209d6ee0e18f5553a091f520aab37e29bb50d01c45"
+          },
+          "source": "ci-lpac-loopback-39895061571-runs-metadata.json",
+          "view": {
+            "bytes": 12752,
+            "path": "verification/windows-2026-10-22/zero-cap-loopback-source-review-01-02/ci-lpac-loopback-39895061571-runs-metadata.json",
+            "sha256": "266912092889b5a9463c90209d6ee0e18f5553a091f520aab37e29bb50d01c45"
+          }
+        },
+        {
+          "original": {
+            "bytes": 3951,
+            "sha256": "172ea62b99e0b5541bdd1c63e7131d309b60f033166bb0d4c28195c9bd6e73ca"
+          },
+          "source": "ci-lpac-loopback-39895061571-jobs-metadata.json",
+          "view": {
+            "bytes": 3951,
+            "path": "verification/windows-2026-10-22/zero-cap-loopback-source-review-01-02/ci-lpac-loopback-39895061571-jobs-metadata.json",
+            "sha256": "172ea62b99e0b5541bdd1c63e7131d309b60f033166bb0d4c28195c9bd6e73ca"
+          }
+        }
+      ],
+      "job_id": 120223460816,
+      "job_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39895061571/job/120223460816",
+      "manually_dispatched_or_rerun": false,
+      "pure_errors": 0,
+      "pure_failures": 0,
+      "pure_seconds": "105.194",
+      "pure_skips": 0,
+      "pure_tests": 988,
+      "run_attempt": 1,
+      "run_id": 39895061571,
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39895061571",
+      "runtime_acceptance": false,
+      "runtime_steps": [
+        {
+          "conclusion": "skipped",
+          "name": "Read-only current and existing linked token ABI preflight",
+          "number": 5
+        },
+        {
+          "conclusion": "skipped",
+          "name": "Approved Stage 0b inherited-pipe proof in a verified ordinary token",
+          "number": 6
+        },
+        {
+          "conclusion": "skipped",
+          "name": "Read-only R0 source token field and ABI diagnostics",
+          "number": 7
+        },
+        {
+          "conclusion": "skipped",
+          "name": "Restricted-caller R0 identity diagnostic, not ordinary-user acceptance",
+          "number": 8
+        },
+        {
+          "conclusion": "skipped",
+          "name": "Four-cell trusted-actor startup controls, no isolation acceptance",
+          "number": 9
+        }
+      ],
+      "source_commit": "c7145b9d50dc99c14f11764a03ad23f31ce3e638"
+    }
+  ],
+  "schema_version": 1,
+  "stage": "zero-cap-loopback-source-push-ci-only"
+}

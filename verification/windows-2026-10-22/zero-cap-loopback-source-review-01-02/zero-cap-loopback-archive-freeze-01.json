@@ -1,0 +1,43 @@
+{
+  "actual_public": {
+    "bytes": 2731,
+    "sha256": "a4502dda11fbc39567e53c909ca2e4d8b9c5b5825e92e056fea46fd8cb396b18"
+  },
+  "actual_source_commit": "07146b7118c345e4a1046fe9066ba2f26b37cf3a",
+  "actual_source_sha256": "3df55cdbc317522d74a3f6cc8f0f68258aa73da0b1d5cd8ae811aebf7ab9342f",
+  "archive_builder_called": false,
+  "archive_written": false,
+  "current_result": "inconclusive mechanical control-open Win32 32 before selected Winsock; not a network rejection",
+  "files": {
+    "archive_zero_cap_loopback_01.py": {
+      "bytes": 29531,
+      "sha256": "53deeefeca8c2056a6a7a9867f51eb06d9f72ea5e2e34c2f371e3b050b9e5125"
+    },
+    "archive_zero_cap_loopback_01_command.ps1": {
+      "bytes": 849,
+      "sha256": "044c8f6a767e1e5c9fb10a0fc266758f79c2db1168e61d3b88078635f6d71aa3"
+    },
+    "draft_zero_cap_loopback_publication_01.py": {
+      "bytes": 4386,
+      "sha256": "c5b186c9ff7078c339dcd2cbeca57774161196f425c11502e8dfd3ad27b7945f"
+    }
+  },
+  "independent_actual_review": {
+    "bytes": 39309,
+    "sha256": "93cebeb25a1fcea5c2766bb02dacaf4ef43f5c46207c134181d048d8d6bf500e"
+  },
+  "main_docs_or_outputs_modified": false,
+  "native_API_or_actor_or_network_or_cleanup_invoked": false,
+  "old_unknown_and_dns_leak_preserved": true,
+  "project_product_linux_proxy_or_same_sid_adversarial_qualification": false,
+  "publication_written": false,
+  "raw_actual_identity_nonces_paths_tcp_tables_or_logs_not_for_publication": true,
+  "root_next_steps": [
+    "Run command.ps1 without switches for file-only dry validation",
+    "Review planned safe files",
+    "Run command.ps1 -Archive only after dry validation succeeds"
+  ],
+  "schema_version": 1,
+  "stage": "zero-cap-loopback-actual-01-archive-preparation",
+  "validation_performed": "Python AST parsing and exact already-root-run independent review commitment check only"
+}

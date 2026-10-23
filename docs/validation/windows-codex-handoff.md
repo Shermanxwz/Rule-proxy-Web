@@ -1,3 +1,5 @@
+**零cap同SID loopback01/02（2026-10-23）**：[独立两轮实测](2026-10-23-zero-cap-same-sid-loopback-01-02.md)均为inconclusive：01控制文件Win32 32；02已读GO但WSAStartup10107，尚无socket/connect/send。两矩阵、front监听、普通前后控制与已知清理通过；未证明主连通、direct隔离、共享SID对抗边界或Linux等效，旧unknown/DNS泄漏保留。
+
 **PSEC matchedcaps01（2026-10-23，新scope）**：[三held与相同SC输入实测](2026-10-23-psec-lpac-matchedcaps-identity-01.md)记录三次assignment、24次后置双Job和相同SC输入通过创建；AC四项通过，LPAC仅combined grant3（预期2）即停，后三项未执行，仍inconclusive/accesscheck。未Resume/网络测试，PSEC网络保留与Linux等价均未证明；旧unknown、postassign和DNS历史保留。
 
 **PSEC postassign01（2026-10-23，新scope）**：[真实转移及部分身份proof](2026-10-23-psec-lpac-postassign-identity-01.md)记录两臂一次assignment、13次后置双Job通过；AC四项通过，LPAC仅combined grant3（预期2）即停，后三项未执行，仍为inconclusive/accesscheck。未恢复actor/测试网络；正常已知清理不证明连续监督或崩溃等价，旧01 unknown及原DNS泄漏保留。

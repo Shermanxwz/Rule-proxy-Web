@@ -1,0 +1,199 @@
+{
+  "DNS_isolation_tested": false,
+  "WFP_policy_tested": false,
+  "capability_absence_is_not_blanket_direct_egress_isolation": true,
+  "command_count": 6,
+  "default_resolver_tested": false,
+  "direct_isolation_tested": false,
+  "failure_interpretation": "A control-open Win32 32 sharing violation was observed before selected Winsock initialization. The source has a parent post-rename readback racing the native exclusive control read; this is a source-based explanation, not an independently traced scheduler event or a network rejection.",
+  "forensic_is_not_qualification_fallback": true,
+  "global_four_recorded_objects_equal": true,
+  "global_snapshot_bytes_equal": true,
+  "held_task_count": 11,
+  "hostile_same_sid_peer_boundary_tested": false,
+  "independent_file_review": {
+    "bytes": 39309,
+    "sha256": "93cebeb25a1fcea5c2766bb02dacaf4ef43f5c46207c134181d048d8d6bf500e"
+  },
+  "injection_resistance_verified": false,
+  "ipv6_tested": false,
+  "linux_equivalence_proven": false,
+  "loopback_observation": {
+    "DNS_isolation_tested": false,
+    "WFP_policy_tested": false,
+    "ac_accesscheck_verified": true,
+    "ac_granted_access": [
+      3,
+      0,
+      1,
+      2
+    ],
+    "acl_removed": true,
+    "cleanup_tools": true,
+    "default_resolver_tested": false,
+    "direct_isolation_tested": false,
+    "failure": "loopback",
+    "front_held_verified": true,
+    "front_listener_verified": true,
+    "frontend_setup": {
+      "failure": "deadline",
+      "listen_close": "confirmed",
+      "listening_verified": true,
+      "observed": true,
+      "socket_resources_closed": true,
+      "win32_error": null,
+      "wsa_cleanup": "confirmed",
+      "wsa_error": null,
+      "wsa_started": true
+    },
+    "injection_resistance_verified": false,
+    "ipv6_tested": false,
+    "labels_restored": true,
+    "linux_equivalence_proven": false,
+    "lpac_accesscheck_verified": true,
+    "lpac_granted_access": [
+      2,
+      0,
+      0,
+      2
+    ],
+    "main_connect_observed": false,
+    "main_request_observed": false,
+    "main_response_verified": false,
+    "main_tuple_verified": false,
+    "natural_exits": false,
+    "network_tested": true,
+    "observer_resources_cleanup_verified": true,
+    "ordinary_after": true,
+    "ordinary_before": true,
+    "ordinary_held_verified": true,
+    "pipe_theft_resistance_verified": false,
+    "product_acceptance": false,
+    "profile_deleted": true,
+    "proxy_qualified": false,
+    "reachability_verified": false,
+    "release_published": false,
+    "same_sid_tamper_boundary_verified": false,
+    "selected_held_verified": true,
+    "service_brokers_tested": false,
+    "sid_released": true,
+    "udp_tested": false,
+    "workload_cleanup": true,
+    "workload_job_empty": true
+  },
+  "native_report_count": 13,
+  "observed_accesscheck_call_count": 8,
+  "old_atomic01_unknown_and_recovery_required_preserved": true,
+  "old_dns_leak_not_reinterpreted": true,
+  "original_failure": "loopback",
+  "original_observation_complete": false,
+  "original_preflight": {
+    "bytes": 1325,
+    "sha256": "34e3dec7c96b21a75aecddd95a9b2d663bc549a85222c19af73001c7e75b7eff"
+  },
+  "original_public": {
+    "bytes": 2731,
+    "sha256": "a4502dda11fbc39567e53c909ca2e4d8b9c5b5825e92e056fea46fd8cb396b18"
+  },
+  "original_recovery_required": false,
+  "original_status": "inconclusive",
+  "pipe_theft_resistance_verified": false,
+  "prior_evidence": [
+    {
+      "bytes": 1660,
+      "original_fields": {
+        "broker_outcome_unknown": {
+          "present": true,
+          "recorded_value": true
+        },
+        "product_acceptance": {
+          "present": true,
+          "recorded_value": false
+        },
+        "recovery_required": {
+          "present": true,
+          "recorded_value": true
+        }
+      },
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-local-01-public.json",
+      "qualification_field_location": "top",
+      "sha256": "cc562d1b045fea336c4257051faa52e63aa415d91556a4ea84f18aa363652f9c",
+      "this_attempt_does_not_reinterpret_or_recover_prior_state": true
+    },
+    {
+      "bytes": 3060,
+      "original_fields": {
+        "broker_outcome_unknown": {
+          "present": false,
+          "recorded_value": null
+        },
+        "product_acceptance": {
+          "present": true,
+          "recorded_value": false
+        },
+        "recovery_required": {
+          "present": false,
+          "recorded_value": null
+        }
+      },
+      "path": "verification/windows-2026-10-22/model2-dns-01-public.json",
+      "qualification_field_location": "result",
+      "sha256": "51d8c38a9acd79c8dee629782b1e091a56bb7ccd6d2209cf28852396401b08b5",
+      "this_attempt_does_not_reinterpret_or_recover_prior_state": true
+    },
+    {
+      "bytes": 3498,
+      "original_fields": {
+        "broker_outcome_unknown": {
+          "present": false,
+          "recorded_value": null
+        },
+        "product_acceptance": {
+          "present": true,
+          "recorded_value": false
+        },
+        "recovery_required": {
+          "present": false,
+          "recorded_value": null
+        }
+      },
+      "path": "verification/windows-2026-10-22/model2-raw-dns-02-public.json",
+      "qualification_field_location": "result",
+      "sha256": "50e9142854e8738fafa768a4c72d4a6b489c2710f269ca4bac6e73efd2302d40",
+      "this_attempt_does_not_reinterpret_or_recover_prior_state": true
+    }
+  ],
+  "product_acceptance": false,
+  "profile": "same-sid-zero-cap-loopback-mechanism-v1",
+  "proxy_qualified": false,
+  "same_sid_tamper_boundary_verified": false,
+  "schema_version": 1,
+  "scope": "one-local-zero-cap-same-sid-loopback-v1",
+  "selected_control_sharing_failure_before_winsock": true,
+  "selected_final": {
+    "accepted_count": 0,
+    "control_close_verified": true,
+    "failure": "control-open",
+    "listen_close": "not-created",
+    "listening_verified": false,
+    "network_tested": false,
+    "phase_count": 0,
+    "product_acceptance": false,
+    "receipt_count": 0,
+    "socket_resources_closed": true,
+    "win32_error": 32,
+    "within_deadline": true,
+    "wsa_cleanup": "not-started",
+    "wsa_error": null,
+    "wsa_started": false
+  },
+  "service_brokers_tested": false,
+  "sharing_failure_is_network_denial": false,
+  "source_commit": "07146b7118c345e4a1046fe9066ba2f26b37cf3a",
+  "source_sha256": "3df55cdbc317522d74a3f6cc8f0f68258aa73da0b1d5cd8ae811aebf7ab9342f",
+  "stage": "zero-cap-same-sid-loopback-actual-summary",
+  "tcp_table_count": 1,
+  "udp_tested": false,
+  "validated_worker_result_available": true,
+  "worker_zero_exit_is_not_reachability_success": true
+}

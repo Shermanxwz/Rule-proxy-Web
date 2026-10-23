@@ -1,0 +1,243 @@
+{
+  "abi_document": {
+    "bytes": 11517,
+    "path": "zero-cap-same-sid-loopback-native-abi-02.json",
+    "sha256": "d55a880640c02f7e5ca2b6ae9bb9c6a2ddb24f9d322af9660186f010e0c900e3"
+  },
+  "actor_or_DLL_loaded": false,
+  "actual_ready": false,
+  "author_pure": {
+    "errors": 0,
+    "failures": 0,
+    "log": {
+      "bytes": 808,
+      "sha256": "7f0cbed08586ad8f73fe87e9e4871463c3f57ec5f9dcc049b60dc0881dc49b6c"
+    },
+    "method": "two compiled portable production-contract fake harnesses and one source-scope check; actor never run",
+    "rerun_by_reviewer": false,
+    "seconds": 1.307,
+    "skips": 0,
+    "tests": 3
+  },
+  "candidate_or_main_or_outputs_modified": false,
+  "compile_binding": {
+    "actor": {
+      "bytes": 298496,
+      "sha256": "5015367a6edeaefd1830f5a6584024894070926ea5012c343534e43054b0461d"
+    },
+    "input_snapshot": {
+      "bytes": 590,
+      "sha256": "a92d15a257efcfd85dc5069d7cadba2c7406204c6a9fb3fef3ec1ec26911796a"
+    },
+    "manifest": {
+      "bytes": 387,
+      "sha256": "0c371e646873d3970bb3aea2e05ba05a10bb1b3e0b4c02c84963f7f265537a52"
+    },
+    "original_helper": {
+      "bytes": 3655,
+      "sha256": "f0465d3b1fa64a160e6ceb3f4534a2ede25ae1a578be04b8b37b15529787f029"
+    },
+    "original_helper_not_executed": true,
+    "root_executed_helper": {
+      "bytes": 3790,
+      "sha256": "2373db25c06e080105f19ea32037879f5e251403b4392e787e93c94d624b8d21"
+    },
+    "root_helper_change_exactly_automatic_variable_rename": true,
+    "snapshot_two_sources_exact": true,
+    "static_review": {
+      "bytes": 1402,
+      "sha256": "12bfefdbb3bf6370650ef6b1c4920df35e1d085cd499469756f31752e1527bc7"
+    }
+  },
+  "compiler_or_portable_tests_repeated": false,
+  "freeze": {
+    "bytes": 3375,
+    "path": "zero-cap-loopback-native-freeze-01.json",
+    "sha256": "f5553c70716112a3ff2338b3c6a3a755c9b261b56ecddbe0198ebea2d474f7fd"
+  },
+  "frozen_files": {
+    ".github/native/windows_identity_lpac_loopback_actor.cpp": {
+      "bytes": 30053,
+      "sha256": "c3744801ef26fd42a3f1b1712a7d0b7c8e49369ae7e4d655ab46d8eb3f188985"
+    },
+    ".github/native/windows_identity_lpac_loopback_contract.hpp": {
+      "bytes": 4650,
+      "sha256": "a5e46a18c25211d34fd33c21a6e640dd7a6a3e3e02ec67fe03c30f010f9f9dce"
+    },
+    "tests/test_windows_identity_lpac_loopback_native.py": {
+      "bytes": 7600,
+      "sha256": "b97083a9089f5a9384febf8c09bab6c2dec38ce0f24be19ab3e6d97bacde0343"
+    }
+  },
+  "independent_pe": {
+    "delay_imports": [],
+    "dll": false,
+    "entrypoint_nonzero": true,
+    "imported_names": {
+      "ADVAPI32.dll": [
+        "GetTokenInformation",
+        "GetSidSubAuthority",
+        "GetLengthSid",
+        "OpenProcessToken",
+        "IsValidSid"
+      ],
+      "KERNEL32.dll": [
+        "SetFilePointerEx",
+        "GetProcessHeap",
+        "SetStdHandle",
+        "FreeEnvironmentStringsW",
+        "GetEnvironmentStringsW",
+        "GetCommandLineA",
+        "HeapSize",
+        "GetACP",
+        "IsValidCodePage",
+        "FindNextFileW",
+        "FindFirstFileExW",
+        "FindClose",
+        "GetConsoleOutputCP",
+        "GetConsoleMode",
+        "WriteConsoleW",
+        "GetOEMCP",
+        "GetCurrentThreadId",
+        "GetCommandLineW",
+        "CreateFileW",
+        "FlushFileBuffers",
+        "GetFileSizeEx",
+        "ReadFile",
+        "WriteFile",
+        "CloseHandle",
+        "GetHandleInformation",
+        "SetHandleInformation",
+        "GetLastError",
+        "QueryPerformanceCounter",
+        "QueryPerformanceFrequency",
+        "Sleep",
+        "GetCurrentProcess",
+        "GetCurrentProcessId",
+        "IsProcessInJob",
+        "GetFileInformationByHandleEx",
+        "WideCharToMultiByte",
+        "EnterCriticalSection",
+        "LeaveCriticalSection",
+        "InitializeCriticalSectionEx",
+        "DeleteCriticalSection",
+        "EncodePointer",
+        "DecodePointer",
+        "MultiByteToWideChar",
+        "LCMapStringEx",
+        "GetStringTypeW",
+        "GetCPInfo",
+        "RtlCaptureContext",
+        "RtlLookupFunctionEntry",
+        "RtlVirtualUnwind",
+        "UnhandledExceptionFilter",
+        "SetUnhandledExceptionFilter",
+        "TerminateProcess",
+        "IsProcessorFeaturePresent",
+        "GetSystemTimeAsFileTime",
+        "InitializeSListHead",
+        "IsDebuggerPresent",
+        "GetStartupInfoW",
+        "GetModuleHandleW",
+        "HeapReAlloc",
+        "RtlPcToFileHeader",
+        "RaiseException",
+        "RtlUnwindEx",
+        "SetLastError",
+        "InitializeCriticalSectionAndSpinCount",
+        "TlsAlloc",
+        "TlsGetValue",
+        "TlsSetValue",
+        "TlsFree",
+        "FreeLibrary",
+        "GetProcAddress",
+        "LoadLibraryExW",
+        "GetStdHandle",
+        "GetModuleFileNameW",
+        "ExitProcess",
+        "GetModuleHandleExW",
+        "HeapAlloc",
+        "HeapFree",
+        "GetFileType",
+        "FlsAlloc",
+        "FlsGetValue",
+        "FlsSetValue",
+        "FlsFree",
+        "VirtualProtect",
+        "LCMapStringW",
+        "GetLocaleInfoW",
+        "IsValidLocale",
+        "GetUserDefaultLCID",
+        "EnumSystemLocalesW"
+      ],
+      "WS2_32.dll": [
+        "#2",
+        "WSASocketW",
+        "#111",
+        "#116",
+        "#115",
+        "#22",
+        "#21",
+        "#19",
+        "#18",
+        "#16",
+        "#15",
+        "#13",
+        "#9",
+        "#8",
+        "#7",
+        "#6",
+        "#5",
+        "#10",
+        "#4",
+        "#3",
+        "#1"
+      ]
+    },
+    "imports": [
+      "WS2_32.dll",
+      "ADVAPI32.dll",
+      "KERNEL32.dll"
+    ],
+    "machine": "AMD64",
+    "no_shell32_or_user32_or_dnsapi_import": true,
+    "section_count": 6,
+    "subsystem": "WINDOWS_GUI"
+  },
+  "interface_version": 1,
+  "interpretation_limits": [
+    "The candidate actor was not executed by this reviewer. Compile and contract tests do not prove reachability.",
+    "Native zero-cap self-facts must still be compared with external held primary, real AccessCheck matrices and exact owner Jobs before Resume.",
+    "network_tested describes connect attempts or accepted flows; bind10013 can leave it false without meaning no network API ran.",
+    "A failed native final/report or timeout cannot establish access denial; Python owner predicates and cleanup require final independent review.",
+    "Only trusted fixed actors are in scope; same SID is not an adversarial authentication/tamper boundary.",
+    "No direct/DNS/IPv6/UDP/service-broker/proxy/product/Linux qualification follows; no synchronous Win32 API cancellation is asserted."
+  ],
+  "native_API_or_network_or_profile_or_ACL_changed": false,
+  "profile": "same-sid-zero-cap-loopback-mechanism-v1",
+  "python_owner_final_review_pending": true,
+  "reviewed_checks": {
+    "connect_SO_ERROR_and_immediate_error_source_preserved": true,
+    "consumed_once_socket_file_token_and_WSA_cleanup_uncertainty": true,
+    "control128_role_boot_sequence_case_F_rootD_ports_reserved_and_issued_bound": true,
+    "first_failure_error_kind_no_fake_error0_or_timeout_deny": true,
+    "fixed_argc15_four_roles_high_distinct_numeric_loopback_ports": true,
+    "front_receives64_EOF_writes_held_zero_response_before_release": true,
+    "native_self_token_facts_not_external_identity_authority": true,
+    "no_new_connection_retry_PNCS_fallback_exemption_or_global_network_rule": true,
+    "no_socket_data_operations_while_waiting_release": true,
+    "noninherit_nonblocking_exclusive_loopback_listener_and_exact_peer": true,
+    "overflow65_byte_or_wrong_packet_report_is_failure_not_denial": true,
+    "packet64_exact_all_reserved_bytes_and_direction_run_case_bound": true,
+    "phase_final_reports_no_product_acceptance_claim": true,
+    "root_duration_at_most120_work_reserve35_cleanup_reserve5": true,
+    "same_original_release_phase_deadline_no_new_8_second_window": true,
+    "selected_and_ordinary_clients_no_WSA_before_valid_GO": true,
+    "sticky_positive_byte_connect_accepted_facts_before_postclock": true,
+    "zero_capabilities_4byte_header_before_any_group_array_access": true
+  },
+  "schema_version": 1,
+  "scope": "one-local-zero-cap-same-sid-loopback-v1",
+  "stage": "zero-cap-loopback-native-final-independent-file-review",
+  "verdict": "GO-no-native-source-or-compile-evidence-blocker"
+}
