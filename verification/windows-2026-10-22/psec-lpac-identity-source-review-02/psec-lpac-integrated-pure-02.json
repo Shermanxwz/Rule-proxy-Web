@@ -1,0 +1,40 @@
+{
+  "dll_rebuilt": false,
+  "original01_broker_outcome_unknown": true,
+  "original01_public_sha256": "cc562d1b045fea336c4257051faa52e63aa415d91556a4ea84f18aa363652f9c",
+  "original01_recovery_required": true,
+  "runtime_source_count": 36,
+  "runtime_source_sha256": "7de9968d0984cc7304951ba220d806fea74e998c0a623beddd870a0eb1e0f0ba",
+  "schema_version": 1,
+  "source02_experiment_executed": false,
+  "stage": "psec-lpac-source02-integrated-pure-receipt",
+  "staged_files": {
+    ".github/windows_identity_psec_lpac_bridge.py": "6181a07bb4e212a83f30d212b08701f16d52653c97b4b9b50b38d451c014f31d",
+    ".github/windows_identity_psec_lpac_bridge_local.py": "0b67875afc0cd9a6579eb74438d87607c6282c4375cbb9261ac930d4b1d273f3",
+    "tests/test_windows_identity_psec_lpac_bridge.py": "b0cc421e56fc498555e4eca6949d30241cf47d8bceed96dfac799e57bf78712f",
+    "tests/test_windows_identity_psec_lpac_bridge_local.py": "980ad1d51af8b7ce69e3e42b181690e8f4a3edb1576d2ae66fabc597d79a31d2",
+    "verification/windows-2026-10-22/psec-lpac-identity-local-01-actor-manifest.json": "657c88ef59f8ba9d4c24f5e407696b27615f50c63d58adc5d8dd64f942104e92",
+    "verification/windows-2026-10-22/psec-lpac-identity-local-01-after-global-capture.ps1": "6c50726dd283a235200780a9b7aae019ddaf42e9919ce48e6881f31d94599c52",
+    "verification/windows-2026-10-22/psec-lpac-identity-local-01-after-global-expanded.ps1": "d4c1d1851d6ff3df4f5543110a2e2b9d898ae88ad9b61a25ad0257d55603e69d",
+    "verification/windows-2026-10-22/psec-lpac-identity-local-01-archive.py": "f089d635ac47a5f49c7ff9352f1f99cb942da921ee3642df724ea01267b3bb1f",
+    "verification/windows-2026-10-22/psec-lpac-identity-local-01-bridge-manifest.json": "9b9ab93826c99bbde32c18cca3a32389d75086c3b1f7abbc453a2dda98d09209",
+    "verification/windows-2026-10-22/psec-lpac-identity-local-01-compile-input-snapshot.json": "08fcfc4c1bf651983dea3080924f0ab1e7694df2ed171e4dfae11c84baa2cde1",
+    "verification/windows-2026-10-22/psec-lpac-identity-local-01-component-projection.json": "582a42571ab8ef65595c3036970a2dbace62fd33fc3bf309c20a79778b2b7d13",
+    "verification/windows-2026-10-22/psec-lpac-identity-local-01-evidence-index.json": "8c3d27d35e2082a8506ebb096635ebb4fd1b74df7c80b528e97f32fa475417e2",
+    "verification/windows-2026-10-22/psec-lpac-identity-local-01-global-projection.json": "f6b610c5005d9324f2c509401095f08fee8465b48e6cfcd57119b3de03cd372f",
+    "verification/windows-2026-10-22/psec-lpac-identity-local-01-preflight.json": "b9268b76fe00df3a061e272775412efdd57fb83242f7961e1e44d8dea9f4c022",
+    "verification/windows-2026-10-22/psec-lpac-identity-local-01-public.json": "cc562d1b045fea336c4257051faa52e63aa415d91556a4ea84f18aa363652f9c",
+    "verification/windows-2026-10-22/psec-lpac-identity-local-01-runner.py": "398d2d2d14cc66e2cc4b273d65912822fb732b053a1a93973e428bdc6f46a116",
+    "verification/windows-2026-10-22/psec-lpac-identity-local-01-summary.json": "8939d300f585ea61360d4c4e6f9bf4e5c5cda52635de3314d73950b4b88f2077"
+  },
+  "tests": {
+    "duration_seconds": 49.893,
+    "errors": 0,
+    "failures": 0,
+    "linux_executed": false,
+    "log_bytes": 159607,
+    "log_sha256": "94557a1a3d618b1d03f82ca0a98628339d0e5959e3e9a7260aa39431c8784e6e",
+    "skipped": 2,
+    "tests": 863
+  }
+}

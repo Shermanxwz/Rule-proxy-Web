@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "stage": "psec-lpac-source02-diagnostics-frozen",
+  "baseline_commit": "1c83029245e889b2c950ca5dbaa0da675a287c09",
+  "actual_executed": false,
+  "network_executed": false,
+  "source_count": 36,
+  "source_sha256": "7de9968d0984cc7304951ba220d806fea74e998c0a623beddd870a0eb1e0f0ba",
+  "files": {
+    ".github/windows_identity_psec_lpac_bridge.py": {
+      "bytes": 48048,
+      "sha256": "6181a07bb4e212a83f30d212b08701f16d52653c97b4b9b50b38d451c014f31d"
+    },
+    ".github/windows_identity_psec_lpac_bridge_local.py": {
+      "bytes": 19510,
+      "sha256": "0b67875afc0cd9a6579eb74438d87607c6282c4375cbb9261ac930d4b1d273f3"
+    },
+    "tests/test_windows_identity_psec_lpac_bridge.py": {
+      "bytes": 20913,
+      "sha256": "b0cc421e56fc498555e4eca6949d30241cf47d8bceed96dfac799e57bf78712f"
+    },
+    "tests/test_windows_identity_psec_lpac_bridge_local.py": {
+      "bytes": 16883,
+      "sha256": "980ad1d51af8b7ce69e3e42b181690e8f4a3edb1576d2ae66fabc597d79a31d2"
+    }
+  },
+  "patch": {
+    "name": "psec-lpac-python-candidate-02.patch",
+    "bytes": 29970,
+    "sha256": "b51897eff725c22f84e0863988936099d581462cb0dd16bf31d56a594ab39842",
+    "git_apply_check": true
+  },
+  "pure": {
+    "tests": 33,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "wall_seconds": 7.421,
+    "log": "psec-lpac-python-pure-03.log",
+    "log_bytes": 6788,
+    "log_sha256": "8ddd49b49f8c343681da56181099c43a232c5c5005b0a73d761dde26af805417"
+  },
+  "native_unchanged": true,
+  "old01_source_and_actual_untouched": true,
+  "changes": [
+    "FILETIME and kernel handle fields u64; process/thread IDs and exitcodes u32",
+    "Original returned function status/native snapshot/PI persist with original intent/config/F/D before semantic validation",
+    "Unvalidated worker-result-forensic persists before final validator; no public or acceptance fallback",
+    "Known returned ownership retains cleanup authority on record-write error; true unknown remains sticky"
+  ],
+  "forensic_paths": [
+    "receipts/<intent-name>-returned.json",
+    "worker-result-forensic.json"
+  ],
+  "original_actual01_failure": "final cpse_task_number validator; inner AC-admission reason unavailable because no original worker result survived"
+}

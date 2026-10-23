@@ -1,0 +1,39 @@
+{
+  "actual02_result_is_separate_and_inconclusive": true,
+  "conclusion": "success",
+  "cpse_experiment_executed": false,
+  "decoded_original": {
+    "bytes": 205350,
+    "kept_in_work": true,
+    "sha256": "04d6f0af7799e61e52364256272bc56e5c20095fdab589bc085680a048f9b034"
+  },
+  "errors": 0,
+  "event": "push",
+  "failures": 0,
+  "gated_runtime_steps_skipped": [
+    5,
+    6,
+    7,
+    8,
+    9
+  ],
+  "job_id": 120153800366,
+  "native_actor_executed": false,
+  "published_view": {
+    "bytes": 204270,
+    "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-02/ci-39873635408-decoded-public-view.log",
+    "sha256": "522977aa02d4013495cf22a8c241b7c02742aa2d0b8813e5a0329e7343571547"
+  },
+  "pure_or_ci_success_is_not_runtime_acceptance": true,
+  "run_id": 39873635408,
+  "schema_version": 1,
+  "seconds": 55.383,
+  "skips": 0,
+  "source_commit": "b269c78eef15b6f71bdae5a5ee631a4e8a34ce9e",
+  "stage": "read-only-psec-identity-source02-auto-ci-summary",
+  "status": "completed",
+  "tests_run": 863,
+  "url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39873635408",
+  "workflow_dispatched": false,
+  "workflow_rerun": false
+}

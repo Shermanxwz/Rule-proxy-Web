@@ -1,0 +1,126 @@
+{
+  "actions": {
+    "cleanup_or_recovery_executed": false,
+    "cpse_called": false,
+    "file_hashes_git_reads_and_pure_snapshot_only": true,
+    "main_or_original_evidence_modified": false,
+    "native_actor_or_network_executed": false,
+    "native_dll_loaded": false,
+    "tests_rerun": false,
+    "wrapper_or_preflight_run": false
+  },
+  "actual_executed": false,
+  "actual_wrapper": {
+    "bytes": 5245,
+    "executed": false,
+    "reviewed_file_only": true,
+    "sha256": "712bec04919b475aec0d1d73e4cdad4e13224e4b8b0f768e34ccda90eae74adc"
+  },
+  "author_pure": {
+    "log": {
+      "bytes": 6788,
+      "sha256": "8ddd49b49f8c343681da56181099c43a232c5c5005b0a73d761dde26af805417"
+    },
+    "reported_errors": 0,
+    "reported_failures": 0,
+    "reported_skips": 0,
+    "reported_tests": 33,
+    "rerun_by_reviewer": false
+  },
+  "baseline_commit": "1c83029245e889b2c950ca5dbaa0da675a287c09",
+  "checks": {
+    "complete_result_requires_all_six_durable_receipts_without_exception": true,
+    "deadline_failure_never_promoted": true,
+    "filetime_created_and_process_thread_job_handles_u64": true,
+    "final_unvalidated_forensic_saved_before_final_validator": true,
+    "forensic_material_not_an_acceptance_fallback": true,
+    "known_returned_ownership_cleanup_authority_retained_on_write_error": true,
+    "native37_and_dll_unchanged": true,
+    "new_wrapper_has_fresh_nonces_stage_spec_plan_artifact_and_public_names": true,
+    "no_second_close_or_old_opaque_replay": true,
+    "original_actual01_public_unknown_recovery_true_unchanged": true,
+    "original_clock_jobs_identity_capability_and_never_resume_gates_unchanged": true,
+    "original_return_status_native_snapshot_and_pi_preserved_before_validation": true,
+    "pid_tid_exitcode_u32": true,
+    "returned_receipt_binds_intent_sha_config_sha_original_f_and_d": true,
+    "true_unknown_output_sticky_in_call_and_validator": true
+  },
+  "conclusion": "No remaining blocker found in the frozen four-file increment. Parent owns integrated regression, commit and a single independent fresh diagnostic.",
+  "files": [
+    {
+      "bytes": 48048,
+      "path": ".github/windows_identity_psec_lpac_bridge.py",
+      "sha256": "6181a07bb4e212a83f30d212b08701f16d52653c97b4b9b50b38d451c014f31d"
+    },
+    {
+      "bytes": 19510,
+      "path": ".github/windows_identity_psec_lpac_bridge_local.py",
+      "sha256": "0b67875afc0cd9a6579eb74438d87607c6282c4375cbb9261ac930d4b1d273f3"
+    },
+    {
+      "bytes": 20913,
+      "path": "tests/test_windows_identity_psec_lpac_bridge.py",
+      "sha256": "b0cc421e56fc498555e4eca6949d30241cf47d8bceed96dfac799e57bf78712f"
+    },
+    {
+      "bytes": 16883,
+      "path": "tests/test_windows_identity_psec_lpac_bridge_local.py",
+      "sha256": "980ad1d51af8b7ce69e3e42b181690e8f4a3edb1576d2ae66fabc597d79a31d2"
+    }
+  ],
+  "freeze": {
+    "bytes": 2246,
+    "sha256": "41b431c5001fe393a395c18024f2fc15dd89458b07e9d1c038d62d763e9fe96e"
+  },
+  "native": {
+    "dependency_count": 31,
+    "dll": {
+      "bytes": 214016,
+      "sha256": "9574f93eb562a858b207412f9f538b15bfbf329b1df284b3266496b4c2cf2ba5"
+    },
+    "manifest": {
+      "bytes": 5671,
+      "sha256": "9b9ab93826c99bbde32c18cca3a32389d75086c3b1f7abbc453a2dda98d09209"
+    },
+    "source_count": 6,
+    "unchanged_from_baseline_and_immutable_compile02": true
+  },
+  "original_actual01": {
+    "broker_outcome_unknown": true,
+    "external_environment_absence_verified": false,
+    "independent_partial_audit": {
+      "bytes": 29404,
+      "sha256": "94836bd02cb67e2082ac1f00c1b600fc933c2dc464a125bc19cf9c79b99f6165"
+    },
+    "old_unknown_cleared": false,
+    "public": {
+      "bytes": 1660,
+      "sha256": "cc562d1b045fea336c4257051faa52e63aa415d91556a4ea84f18aa363652f9c"
+    },
+    "recovery_required": true
+  },
+  "patch": {
+    "bytes": 29970,
+    "sha256": "b51897eff725c22f84e0863988936099d581462cb0dd16bf31d56a594ab39842"
+  },
+  "policy": [
+    "Source02 repairs reporting widths and durable evidence. It does not prove the earlier AC admission failure was solely the reporter defect or that CPSE plus LPAC is supported.",
+    "The next run is a fresh independent diagnostic with exactly one new environment and fresh plan/nonces/stage/spec; original01 unknown/recovery remains separate and retained.",
+    "No original opaque environment reuse, reopen, numerical replay or retry-close; no native/spec/capability fallback.",
+    "Known returned S_OK-owned or normal VOID-return observations may support conservative cleanup even if a subsequent receipt write fails; they never qualify a failed/late observation.",
+    "Raw receipts and worker-result-forensic are explicitly unvalidated material until their normal validators succeed; there is no qualification fallback.",
+    "No environment absence, broker cancellation, network/DNS/proxy test or Model2 policy comparison is claimed."
+  ],
+  "remaining_blockers": [],
+  "review_complete": true,
+  "runtime_acceptance": false,
+  "schema_version": 1,
+  "scope": "one-local-cpse-deny-all-matched-aap-identity-v1",
+  "source": {
+    "count": 36,
+    "sha256": "7de9968d0984cc7304951ba220d806fea74e998c0a623beddd870a0eb1e0f0ba",
+    "unchanged_source_files_equal_baseline_git": 34
+  },
+  "stage": "cpse-lpac-source02-independent-incremental-review",
+  "variant": "identity-only-deny-all-v1"
+}

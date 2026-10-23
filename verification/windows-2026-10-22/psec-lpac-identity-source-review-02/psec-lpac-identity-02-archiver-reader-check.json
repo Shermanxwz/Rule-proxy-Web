@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "stage": "psec-lpac-identity-02-file-only-archiver-reader-check",
+  "archiver": {
+    "bytes": 48167,
+    "sha256": "cb0d9b5db67094b57462535df2a13a17b973769b21c0d024887ef394bf5f1119"
+  },
+  "old01_unchanged": true,
+  "source_commit": "b269c78eef15b6f71bdae5a5ee631a4e8a34ce9e",
+  "original_public_sha256": "100dc78f9af83445829a9f8ddf03ebe1f6bb5fc3af8f1a694e43bb78229daba2",
+  "reader_only": true,
+  "archive_written": false,
+  "native_api_or_experiment_run": false,
+  "worker_result_validated": true,
+  "runtime_sources_verified": 36,
+  "bridge_pins_verified": 37,
+  "returned_receipt_files": 5,
+  "forensic_equals_original_validated_result": true,
+  "forensic_used_for_qualification": false,
+  "original_status": "inconclusive",
+  "original_failure": "admission",
+  "original_recovery_required": false,
+  "original_broker_outcome_unknown": false,
+  "proof_count": 0,
+  "globals_before_after_bytes_identical": true,
+  "global_snapshot_object_count": 4,
+  "nrpt_in_snapshot": false
+}
