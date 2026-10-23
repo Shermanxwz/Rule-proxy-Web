@@ -1,0 +1,92 @@
+{
+  "content": {
+    "actions": {
+      "actor_or_network_executed": false,
+      "candidate_or_main_modified": false,
+      "existing_full_suite_repeated": false,
+      "native_API_called": false,
+      "temporary_pure_files_only": true
+    },
+    "freeze_sha256": "64451dbbca7d3d932df2b3c05eaba35959d7c27b5c56f9397a147efca087f918",
+    "frozen_files": {
+      ".github/windows_identity_lpac_pipe_origin.py": {
+        "bytes": 66680,
+        "sha256": "3d2698dea777b240cff90b5166de642a095d538404027bef4d46ec6abc7d0123"
+      },
+      ".github/windows_identity_lpac_pipe_origin_local.py": {
+        "bytes": 17255,
+        "sha256": "a69fec199a9c7252ed733f3f71e4408afabd0c6f9e7ac36612105ba431e71ce6"
+      },
+      "tests/test_windows_identity_lpac_pipe_origin.py": {
+        "bytes": 24823,
+        "sha256": "fe431b66a2000da337238bf6e30fddad0cb8f0c35d339c5aad8b20d0a7e55a41"
+      },
+      "tests/test_windows_identity_lpac_pipe_origin_local.py": {
+        "bytes": 10315,
+        "sha256": "e813cb0866c4ab1e8f1fdc8ed586cb9c53c4fa402f5e2d09c23157bb8fa396a3"
+      }
+    },
+    "results": [
+      {
+        "mechanism_verified": true,
+        "probe": "unchanged_inert_coordinator_positive",
+        "result": "ACCEPTED"
+      },
+      {
+        "exception_type": "ValueError",
+        "probe": "complete_but_profile_not_created",
+        "result": "REJECTED"
+      },
+      {
+        "exception_type": "ValueError",
+        "probe": "complete_but_label_ledger_absent",
+        "result": "REJECTED"
+      },
+      {
+        "exception_type": "ValueError",
+        "probe": "complete_but_selected_raw_return_receipt_absent",
+        "result": "REJECTED"
+      },
+      {
+        "exception_type": "ValueError",
+        "probe": "physical_raw_PI_PID_differs_from_held_row",
+        "result": "REJECTED"
+      },
+      {
+        "exception_type": "ValueError",
+        "probe": "physical_relay_final_before_resume_authorized",
+        "result": "REJECTED"
+      },
+      {
+        "exception_type": "ValueError",
+        "probe": "completion_before_proof_and_native_finals",
+        "result": "REJECTED"
+      },
+      {
+        "exception_type": "ValueError",
+        "probe": "complete_but_cleanup_tool_ledger_absent",
+        "result": "REJECTED"
+      },
+      {
+        "exception_type": "ValueError",
+        "probe": "complete_but_grant_tool_ledgers_absent",
+        "result": "REJECTED"
+      },
+      {
+        "exception_type": "ValueError",
+        "probe": "selected_resume_return_after_pair_deadline",
+        "result": "REJECTED"
+      }
+    ],
+    "schema_version": 1,
+    "stage": "independent-inert-LPAC-IPC-false02-report-gate-probes"
+  },
+  "raw_commitment": {
+    "bytes": 2479,
+    "sha256": "f2694071f962901b0e067113f0cf16835b4b277e5a985b4cc0a2ef6c14087136"
+  },
+  "schema_version": 1,
+  "stage": "source-evidence-safe-view",
+  "temporal_scope": "Original preparation/review snapshot: its pending/false runtime fields are historical snapshot fields, not the current result.",
+  "transformation": "JSON value projection; account identifiers/user paths redacted if present; no runtime inference"
+}

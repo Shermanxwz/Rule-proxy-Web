@@ -1,0 +1,103 @@
+{
+  "content": {
+    "actual_assay_executed": false,
+    "actual_reader_executed": false,
+    "all_native_artifact_and_actual01_output_paths_unchanged": true,
+    "ast_ok": true,
+    "capture": {
+      "bytes": 2686,
+      "path": "lpac_pipe_origin_capture_01.ps1",
+      "sha256": "18284114b1b8890f5ab30bb01543e12e8f334dd5aeb6fa16c820de7a23fb0dd1",
+      "unchanged": true
+    },
+    "capture_executed": false,
+    "default_preview": {
+      "executions": 1,
+      "exit_code": 0,
+      "final_actual_paths_after": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "final_actual_paths_before": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "result": {
+        "actual_ready": false,
+        "files_written": false,
+        "final_ready_pins_present": true,
+        "mode": "file-only-preview",
+        "native_api_called": false,
+        "ordinary_B_actor_sha256": "042562a096a9f488b7a52ee8eb894af0b26dc679a05dc8948a9ae159b71cf161",
+        "ordinary_B_manifest_sha256": "5b3660539e70bc53d004b2ee3b7b13bfa7fe6418042e57bbd0263b03cef4a456",
+        "profile": "zero-cap-lpac-fixed-pipe-origin-mechanism-v1",
+        "repo_imported": false,
+        "scope": "one-local-semantic-lpac-held-ipc-relay-origin-v1",
+        "selected_actor_sha256": "8d4f0628b9f254ba868753342e0b4d06a472de38912c12fe3b44d873823488e6",
+        "selected_manifest_sha256": "9a1a77084d987e663a72cb076035de802f55f04ff536087ebb387662045cdbeb",
+        "single_attempt_only": true,
+        "source_commit_parameter": null
+      },
+      "stderr": {
+        "bytes": 0,
+        "path": "lpac-pipe-origin-final-driver02-preview.stderr",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "stdout": {
+        "bytes": 728,
+        "path": "lpac-pipe-origin-final-driver02-preview.stdout",
+        "sha256": "6a3927daa9b5ff4a3fb5cba186daa79cb0b02e692a7eb227733722e975a3c730"
+      }
+    },
+    "driver": {
+      "bytes": 12676,
+      "path": "run_lpac_pipe_origin_02.py",
+      "sha256": "5a9986b5c8cda7b5fbf685738ebc246b2b01ff3112f7e54e9a54cd927046aba4"
+    },
+    "explicit_native_backend_called": false,
+    "final_source_commit_pending_root": true,
+    "full_suite_or_tests_repeated": false,
+    "historical_inner_gate_failure": {
+      "bytes": 828,
+      "path": "lpac-pipe-origin-driver-inner-bom-failure-01.json",
+      "preserved": true,
+      "sha256": "2fd429b8eee6b539eefedf817a071022c24c3f2a55d5eba267285c76881752b9"
+    },
+    "main_modified": false,
+    "only_source_ready_name_and_ready_hash_changed": true,
+    "prior_driver": {
+      "bytes": 12676,
+      "path": "run_lpac_pipe_origin_01.py",
+      "preserved": true,
+      "sha256": "02989dcfec7add635f88d862c875b197b41305ce19d7525b1a1916bd729518e7"
+    },
+    "reader": {
+      "bytes": 21960,
+      "path": "verify_lpac_pipe_origin_actual_01.py",
+      "sha256": "faae99c4bebafd4a54d41ae607d9b895a4ee60cee3bcffbf0c2de32436c231bb",
+      "unchanged": true
+    },
+    "ready_freeze": {
+      "bytes": 7014,
+      "path": "lpac-pipe-origin-ready-source-freeze-02.json",
+      "sha256": "99719b7d6a22a03b59f639fd4cb06a9588701e744d47a1f98c1e9df0b5fd329d"
+    },
+    "repo_imported_by_preview": false,
+    "schema_version": 1,
+    "source_count": 40,
+    "source_sha256": "d136e22b2dfbdb991cfbef06d5dd7a54d687135bedbff653ada5e4d01ab88a61",
+    "stage": "root-authorized-lpac-pipe-driver-finalization-02"
+  },
+  "raw_commitment": {
+    "bytes": 3244,
+    "sha256": "318c161daced05f295e77e5fa5c65ef3a2e578e0fff1bad91b0d61549cbf9a42"
+  },
+  "schema_version": 1,
+  "stage": "source-evidence-safe-view",
+  "temporal_scope": "Original preparation/review snapshot: its pending/false runtime fields are historical snapshot fields, not the current result.",
+  "transformation": "JSON value projection; account identifiers/user paths redacted if present; no runtime inference"
+}

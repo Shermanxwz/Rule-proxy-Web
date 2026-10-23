@@ -1,0 +1,104 @@
+{
+  "content": {
+    "actual_ready": false,
+    "ast_ok": true,
+    "candidate": {
+      "bytes": 12525,
+      "path": "run_lpac_pipe_origin_01_candidate02.py",
+      "sha256": "8397934b9ad32567acbdd19c6dd75585f0f624d9e16c0f6f95174871767fc5d4"
+    },
+    "capture": {
+      "bytes": 2686,
+      "executed": false,
+      "path": "lpac_pipe_origin_capture_01_candidate.ps1",
+      "sha256": "18284114b1b8890f5ab30bb01543e12e8f334dd5aeb6fa16c820de7a23fb0dd1",
+      "unchanged": true
+    },
+    "default_preview": {
+      "actual_switch_passed": false,
+      "command": "python -I -S -B work/run_lpac_pipe_origin_01_candidate02.py",
+      "executions": 1,
+      "exit_code": 0,
+      "final_destinations_after": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "final_destinations_before": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "repo_imported": false,
+      "result": {
+        "actual_ready": false,
+        "files_written": false,
+        "final_ready_pins_present": false,
+        "mode": "file-only-preview",
+        "native_api_called": false,
+        "ordinary_B_actor_sha256": "042562a096a9f488b7a52ee8eb894af0b26dc679a05dc8948a9ae159b71cf161",
+        "ordinary_B_manifest_sha256": "5b3660539e70bc53d004b2ee3b7b13bfa7fe6418042e57bbd0263b03cef4a456",
+        "profile": "zero-cap-lpac-fixed-pipe-origin-mechanism-v1",
+        "repo_imported": false,
+        "scope": "one-local-semantic-lpac-held-ipc-relay-origin-v1",
+        "selected_actor_sha256": "8d4f0628b9f254ba868753342e0b4d06a472de38912c12fe3b44d873823488e6",
+        "selected_manifest_sha256": "9a1a77084d987e663a72cb076035de802f55f04ff536087ebb387662045cdbeb",
+        "single_attempt_only": true,
+        "source_commit_parameter": null
+      },
+      "stderr": {
+        "bytes": 0,
+        "path": "lpac-pipe-origin-driver-default-preview-02.stderr",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "stdout": {
+        "bytes": 729,
+        "path": "lpac-pipe-origin-driver-default-preview-02.stdout",
+        "sha256": "ddfd464781f86e3bdfaf7d847bc57b4249be05c5a8d25adc10274326b9990263"
+      }
+    },
+    "final_source_ready_pins_still_pending": true,
+    "fixes": [
+      "Strict UTF-8-sig decoder accepts BOM without stripping/re-encoding or changing original manifest hashes.",
+      "Construction comment distinguishes explicit LocalNativeAPI entry from possible library initialization during imported modules."
+    ],
+    "manifest_original_byte_commitments": {
+      "lpac-pipe-front-compile-01/identity-lpac-pipe-front-manifest.json": {
+        "bytes": 592,
+        "sha256": "9a1a77084d987e663a72cb076035de802f55f04ff536087ebb387662045cdbeb",
+        "utf8_bom": true
+      },
+      "proxy-origin-compile-03/identity-proxy-origin-manifest.json": {
+        "bytes": 633,
+        "sha256": "5b3660539e70bc53d004b2ee3b7b13bfa7fe6418042e57bbd0263b03cef4a456",
+        "utf8_bom": false
+      }
+    },
+    "no_actor_execution": true,
+    "no_security_or_network_mutation": true,
+    "old_candidate": {
+      "bytes": 12441,
+      "path": "run_lpac_pipe_origin_01_candidate.py",
+      "preserved": true,
+      "sha256": "460f268a05d33136098499da6b26fa26ae9392ae75be8dd9d80cd2929501d813"
+    },
+    "only_two_replacements_verified": true,
+    "preparation_failure": {
+      "bytes": 459,
+      "path": "lpac-pipe-origin-driver-prepare-rejected-01.json",
+      "sha256": "45d880ca21dc51eba13f0ac38888ddd6bfa177a14193ffe57be91ac2f7ac6e98"
+    },
+    "schema_version": 1,
+    "stage": "root-only-lpac-pipe-driver-candidate-revision"
+  },
+  "raw_commitment": {
+    "bytes": 3423,
+    "sha256": "0f0b486aad73aa4704747f7929358de1d74ca23b515ec22f2dc052e4bf3145ca"
+  },
+  "schema_version": 1,
+  "stage": "source-evidence-safe-view",
+  "temporal_scope": "Original preparation/review snapshot: its pending/false runtime fields are historical snapshot fields, not the current result.",
+  "transformation": "JSON value projection; account identifiers/user paths redacted if present; no runtime inference"
+}

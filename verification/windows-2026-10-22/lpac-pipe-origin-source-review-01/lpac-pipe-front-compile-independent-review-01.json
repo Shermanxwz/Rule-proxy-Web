@@ -1,0 +1,210 @@
+{
+  "content": {
+    "LPAC_IPC_mechanism_verified": false,
+    "actions": {
+      "actor_or_DLL_loaded": false,
+      "candidate_or_main_modified": false,
+      "compiler_or_pure_tests_repeated": false,
+      "file_only": true,
+      "native_API_or_network_called": false,
+      "token_profile_ACL_label_or_policy_changed": false
+    },
+    "actual_ready": false,
+    "compile": {
+      "actor": {
+        "bytes": 180224,
+        "name": "windows_identity_lpac_pipe_front_actor.exe",
+        "sha256": "8d4f0628b9f254ba868753342e0b4d06a472de38912c12fe3b44d873823488e6"
+      },
+      "architecture": "amd64",
+      "compile_log": {
+        "bytes": 90,
+        "name": "compile.log",
+        "sha256": "ab8cc588214bd8f497b509e6192849eceece2f93895365cf7048f036ae5939c5"
+      },
+      "compiler_file_version": "19.44.35229.0",
+      "helper": {
+        "bytes": 5122,
+        "name": "compile_lpac_pipe_front_native_01.ps1",
+        "sha256": "f730416866134d2876a43b8b68c2bed5c02b879e60ebed0cb3c71e7e557b64d0"
+      },
+      "immutable_snapshot_sources_match_before_and_after_compile_helper": true,
+      "manifest": {
+        "bytes": 592,
+        "name": "identity-lpac-pipe-front-manifest.json",
+        "sha256": "9a1a77084d987e663a72cb076035de802f55f04ff536087ebb387662045cdbeb"
+      },
+      "manifest_exact_keys": 9,
+      "manifest_written_only_after_compiler_exit0_branch": true,
+      "precompile_input_snapshot": {
+        "bytes": 4418,
+        "name": "input-snapshot.json",
+        "sha256": "e84fd2d705e089f0f1d30938f687068db3b4ea58d833b4f273fac365809f12ae"
+      },
+      "runtime": "MT",
+      "snapshot_equals_original_freeze": true,
+      "toolchain": {
+        "bytes": 454,
+        "name": "toolchain.json",
+        "sha256": "69471c8dfe91067914c7b7ad8bac7d9490aaf9e42ec5be063891ccbdc2831446"
+      },
+      "vc_tools_version": "14.44.35207",
+      "windows_sdk_version": "10.0.26100.0\\"
+    },
+    "decision": "GO-compile-and-static-PE-only",
+    "independent_PE": {
+      "ASLR": true,
+      "NX": true,
+      "delay_imports": [],
+      "dll": false,
+      "entrypoint_in_executable_section": true,
+      "entrypoint_nonzero": true,
+      "guard_CF_flag": true,
+      "imported_symbols": {
+        "ADVAPI32.dll": [
+          "GetTokenInformation",
+          "IsValidSid",
+          "ConvertSidToStringSidW",
+          "OpenProcessToken"
+        ],
+        "KERNEL32.dll": [
+          "GetCommandLineW",
+          "CreateFileW",
+          "FlushFileBuffers",
+          "GetFileType",
+          "ReadFile",
+          "WriteFile",
+          "CloseHandle",
+          "GetHandleInformation",
+          "SetHandleInformation",
+          "GetLastError",
+          "SetLastError",
+          "QueryPerformanceCounter",
+          "QueryPerformanceFrequency",
+          "GetCurrentProcess",
+          "GetCurrentProcessId",
+          "IsProcessInJob",
+          "LocalFree",
+          "RtlCaptureContext",
+          "RtlLookupFunctionEntry",
+          "RtlVirtualUnwind",
+          "UnhandledExceptionFilter",
+          "SetUnhandledExceptionFilter",
+          "TerminateProcess",
+          "IsProcessorFeaturePresent",
+          "GetCurrentThreadId",
+          "GetSystemTimeAsFileTime",
+          "InitializeSListHead",
+          "IsDebuggerPresent",
+          "GetStartupInfoW",
+          "GetModuleHandleW",
+          "WriteConsoleW",
+          "RtlPcToFileHeader",
+          "RaiseException",
+          "RtlUnwindEx",
+          "EncodePointer",
+          "EnterCriticalSection",
+          "LeaveCriticalSection",
+          "DeleteCriticalSection",
+          "InitializeCriticalSectionAndSpinCount",
+          "TlsAlloc",
+          "TlsGetValue",
+          "TlsSetValue",
+          "TlsFree",
+          "FreeLibrary",
+          "GetProcAddress",
+          "LoadLibraryExW",
+          "GetStdHandle",
+          "GetModuleFileNameW",
+          "ExitProcess",
+          "GetModuleHandleExW",
+          "HeapAlloc",
+          "HeapFree",
+          "FindClose",
+          "FindFirstFileExW",
+          "FindNextFileW",
+          "IsValidCodePage",
+          "GetACP",
+          "GetOEMCP",
+          "GetCPInfo",
+          "GetCommandLineA",
+          "MultiByteToWideChar",
+          "WideCharToMultiByte",
+          "GetEnvironmentStringsW",
+          "FreeEnvironmentStringsW",
+          "SetStdHandle",
+          "GetStringTypeW",
+          "FlsAlloc",
+          "FlsGetValue",
+          "FlsSetValue",
+          "FlsFree",
+          "InitializeCriticalSectionEx",
+          "VirtualProtect",
+          "LCMapStringW",
+          "GetProcessHeap",
+          "HeapSize",
+          "HeapReAlloc",
+          "GetConsoleOutputCP",
+          "GetConsoleMode",
+          "SetFilePointerEx"
+        ]
+      },
+      "imports": [
+        "ADVAPI32.dll",
+        "KERNEL32.dll"
+      ],
+      "machine": "AMD64",
+      "no_Winsock_DNS_WinHTTP_WinINet_Shell32_User32_or_dynamic_CRT_direct_import": true,
+      "pe_magic": "PE32+",
+      "section_count": 6,
+      "subsystem": "WINDOWS_GUI"
+    },
+    "limits": [
+      "This reader does not load, map, import or execute the actor.",
+      "Exact imports and compilation do not establish LPAC pipe/HTTP success, selected network denial, arbitrary application compatibility or product qualification.",
+      "Final frozen Python owner/guard review and root-controlled source promotion/runtime remain separate."
+    ],
+    "linux_equivalence_proven": false,
+    "native_freeze": {
+      "bytes": 4418,
+      "name": "lpac-pipe-front-native-freeze-01.json",
+      "sha256": "e84fd2d705e089f0f1d30938f687068db3b4ea58d833b4f273fac365809f12ae"
+    },
+    "native_source_count": 4,
+    "native_sources": {
+      ".github/native/windows_identity_actor.cpp": {
+        "bytes": 31002,
+        "sha256": "530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553"
+      },
+      ".github/native/windows_identity_lpac_pipe_front_actor.cpp": {
+        "bytes": 6869,
+        "sha256": "ecc4a793fa1afc33a5c9407486ee9f463bd68132b8090eb259270a89d19ca48d"
+      },
+      ".github/native/windows_identity_proxy_bridge_core.hpp": {
+        "bytes": 16902,
+        "sha256": "f03e45166265f02a65abc12930efd73634a332596d22aa78cadc1267a80b6356"
+      },
+      ".github/native/windows_identity_proxy_pipe_actor.cpp": {
+        "bytes": 16095,
+        "sha256": "26636a6b9979e91452cf6e7d2049d6fbbfa43639a35708ee18d4a71e67fb8dd0"
+      }
+    },
+    "product_acceptance": false,
+    "proxy_qualified": false,
+    "schema_version": 1,
+    "source_independent_review": {
+      "bytes": 4329,
+      "name": "lpac-pipe-front-native-independent-review-01.json",
+      "sha256": "f98d3f2939f6e6739fd6d4552567f568baebdbf53633603db8cfdadcb434a9d4"
+    },
+    "stage": "lpac-pipe-front-compile-independent-file-review"
+  },
+  "raw_commitment": {
+    "bytes": 6338,
+    "sha256": "6859172be6bf1b40e2dcb6b1fa38738390e64430cb600dc67182e330dcd48dd9"
+  },
+  "schema_version": 1,
+  "stage": "source-evidence-safe-view",
+  "temporal_scope": "Original preparation/review snapshot: its pending/false runtime fields are historical snapshot fields, not the current result.",
+  "transformation": "JSON value projection; account identifiers/user paths redacted if present; no runtime inference"
+}

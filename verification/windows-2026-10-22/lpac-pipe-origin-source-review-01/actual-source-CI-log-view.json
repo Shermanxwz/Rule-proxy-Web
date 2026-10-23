@@ -1,0 +1,141 @@
+{
+  "CI_or_actor_executed_by_this_reader": false,
+  "conclusion": "success",
+  "event": "push",
+  "job_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39910769791/job/120273003513",
+  "manual_dispatch_or_rerun": false,
+  "pure": {
+    "count": 1062,
+    "errors": 0,
+    "failures": 0,
+    "seconds": 190.98,
+    "skips": 0
+  },
+  "raw_commitments": {
+    "full.txt": {
+      "bytes": 252674,
+      "sha256": "06ddbca44d9e62b1ac3e6626a26d74be0a26d2433681781abc011b2037513e35"
+    },
+    "jobs.json": {
+      "bytes": 3058,
+      "sha256": "8c3caf334459a04f4fedce4cbe50358e7399c21c3af566a68efa12796cd0f45b"
+    },
+    "runs.json": {
+      "bytes": 12730,
+      "sha256": "e5c0f01498ecdf9a7894e1beb31bf2ab2934265a5368125227388c5a90f73690"
+    }
+  },
+  "representations": {
+    "jobs": "normalized summary; not raw HTTP response",
+    "log": "Exact connector-decoded UTF-8 BOM/CRLF text retained; not original ZIP bytes",
+    "runs": "connector-decoded JSON"
+  },
+  "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39910769791",
+  "runtime_acceptance": false,
+  "runtime_steps_5_through_9": "skipped",
+  "schema_version": 1,
+  "selected_original_log_lines": [
+    "2026-10-23T06:23:41.8636661Z Ran 1062 tests in 190.980s",
+    "2026-10-23T06:23:41.8637062Z OK"
+  ],
+  "source_commit": "42064e8cbfc3263cb1352f923ab8e269d490b078",
+  "stage": "automatic-actual-source-CI-safe-view",
+  "steps": [
+    {
+      "conclusion": "success",
+      "name": "Set up job",
+      "number": 1,
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "name": "Run actions/checkout@v5",
+      "number": 2,
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "name": "Load installed MSVC and compile without executing the actor",
+      "number": 3,
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "name": "Pure Python identity proof unit tests only",
+      "number": 4,
+      "status": "completed"
+    },
+    {
+      "conclusion": "skipped",
+      "name": "Read-only current and existing linked token ABI preflight",
+      "number": 5,
+      "status": "completed"
+    },
+    {
+      "conclusion": "skipped",
+      "name": "Approved Stage 0b inherited-pipe proof in a verified ordinary token",
+      "number": 6,
+      "status": "completed"
+    },
+    {
+      "conclusion": "skipped",
+      "name": "Read-only R0 source token field and ABI diagnostics",
+      "number": 7,
+      "status": "completed"
+    },
+    {
+      "conclusion": "skipped",
+      "name": "Restricted-caller R0 identity diagnostic, not ordinary-user acceptance",
+      "number": 8,
+      "status": "completed"
+    },
+    {
+      "conclusion": "skipped",
+      "name": "Four-cell trusted-actor startup controls, no isolation acceptance",
+      "number": 9,
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "name": "Create closed publication projections without machine identities or paths",
+      "number": 10,
+      "status": "completed"
+    },
+    {
+      "conclusion": "skipped",
+      "name": "Run actions/upload-artifact@v7",
+      "number": 11,
+      "status": "completed"
+    },
+    {
+      "conclusion": "skipped",
+      "name": "Run actions/upload-artifact@v7",
+      "number": 12,
+      "status": "completed"
+    },
+    {
+      "conclusion": "skipped",
+      "name": "Run actions/upload-artifact@v7",
+      "number": 13,
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "name": "Run actions/upload-artifact@v7",
+      "number": 14,
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "name": "Post Run actions/checkout@v5",
+      "number": 28,
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "name": "Complete job",
+      "number": 29,
+      "status": "completed"
+    }
+  ]
+}

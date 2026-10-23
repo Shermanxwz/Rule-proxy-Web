@@ -1,0 +1,138 @@
+{
+  "content": {
+    "actions": {
+      "explicit_native_API_or_backend_or_actor_or_network_called": false,
+      "full_suite_repeated": false,
+      "main_or_candidate_modified": false,
+      "pure_file_parsing_and_inert_tests_only": true
+    },
+    "actual_ready": false,
+    "author_original_artifact_receipt": {
+      "bytes": 1574,
+      "name": "lpac-pipe-origin-verify-actor-artifact-file-only-04.json",
+      "sha256": "1a631b6aba688c30be46cd31468bd61a1404cf9ca40373ae9cfa5e8cf52b22f3"
+    },
+    "author_pure": {
+      "AST_test_method_counts": {
+        "tests/test_windows_identity_lpac_pipe_origin.py": 22,
+        "tests/test_windows_identity_lpac_pipe_origin_local.py": 12
+      },
+      "count": 34,
+      "errors": 0,
+      "failures": 0,
+      "log": {
+        "bytes": 6574,
+        "name": "lpac-pipe-origin-python-pure-05.log",
+        "sha256": "668692771835bd95e8c71d28974e2881bcf6ed3c3d49ac8e1cc2fe9e74f14636"
+      },
+      "seconds": 9.345,
+      "skips": 0
+    },
+    "blockers": [],
+    "current_main_commit": "bf4dcc2ab3913ae46056d34ef76892ec266f596e",
+    "decision": "GO-frozen-python-source-only",
+    "independent_original_artifact_file_only": {
+      "actor_executed": false,
+      "backend_constructed": false,
+      "original_actor": {
+        "bytes": 180224,
+        "name": "windows_identity_lpac_pipe_front_actor.exe",
+        "sha256": "8d4f0628b9f254ba868753342e0b4d06a472de38912c12fe3b44d873823488e6"
+      },
+      "original_manifest": {
+        "bytes": 592,
+        "name": "identity-lpac-pipe-front-manifest.json",
+        "sha256": "9a1a77084d987e663a72cb076035de802f55f04ff536087ebb387662045cdbeb"
+      },
+      "production_verify_actor_calls": 1,
+      "raw_bytes_and_hashes_unchanged": true,
+      "single_BOM": true,
+      "source_pins_verified": 4,
+      "success": true
+    },
+    "independent_targeted_pure": {
+      "author_full34_repeated": false,
+      "count": 2,
+      "errors": 0,
+      "failures": 0,
+      "log": {
+        "bytes": 456,
+        "name": "lpac-pipe-origin-python-independent-pure-05.log",
+        "sha256": "b728d4c54e7f6b005098540bfa8a6fd5774fd998782d4d1d968b3db42bb42d31"
+      },
+      "old13_mutation_probes_repeated": false,
+      "skips": 0
+    },
+    "limitations": [
+      "This is a frozen-source delta review, not runtime acceptance.",
+      "Original B artifact still has no reconstructed precompile source snapshot.",
+      "Old13 report mutation gates and fixed false product/isolation claims are byte unchanged and were not retested.",
+      "Python imports may initialize ordinary CPython libraries; no explicit native backend/API/actor/network experiment was invoked."
+    ],
+    "native_protocol_and_artifacts_unchanged": true,
+    "old37_candidate_main_currentGit_baselineGit_byte_exact": true,
+    "previous_independent_review": {
+      "bytes": 5775,
+      "name": "lpac-pipe-origin-python-independent-review-03.json",
+      "sha256": "19a96c47252596f02e6ea25fedb903de2c8eb5b684ec00d59042969d06292970"
+    },
+    "prior04_freeze_preserved": {
+      "bytes": 18354,
+      "name": "lpac-pipe-origin-python-candidate-freeze-04.json",
+      "sha256": "8c9d26a505affc13609f1d03e68382a763cd9458728e1f6dcb6cc27dd759340e"
+    },
+    "product_acceptance": false,
+    "retained_failures": {
+      "automatic_CI_error": {
+        "bytes": 1073,
+        "name": "lpac-pipe-origin-source-ci-failure-01.json",
+        "sha256": "9373eb495bdef8f64d6dfb8d4b5641bc192eadb71df68f54493f07d8baa451ea"
+      },
+      "old_CI_error_not_runtime_experiment": true,
+      "original_01_02_03_04_freezes_and_prior_actuals_unchanged": true,
+      "original_driver_input_gate": {
+        "bytes": 828,
+        "name": "lpac-pipe-origin-driver-inner-bom-failure-01.json",
+        "sha256": "2fd429b8eee6b539eefedf817a071022c24c3f2a55d5eba267285c76881752b9"
+      }
+    },
+    "reviewed_candidate_freeze": {
+      "bytes": 18707,
+      "name": "lpac-pipe-origin-python-candidate-freeze-05.json",
+      "sha256": "f1dad2816a3e81890173bbd2f764b38f95acfebe876e2cf781459304b2d5abf7"
+    },
+    "reviewed_candidate_freeze_sha256": "f1dad2816a3e81890173bbd2f764b38f95acfebe876e2cf781459304b2d5abf7",
+    "reviewed_files": {
+      ".github/windows_identity_lpac_pipe_origin.py": {
+        "bytes": 67006,
+        "sha256": "d7be85a0db6b28e1df43658e879aeec8bd802c67cb4f677a3872d2fffaab1882"
+      },
+      ".github/windows_identity_lpac_pipe_origin_local.py": {
+        "bytes": 17255,
+        "sha256": "a69fec199a9c7252ed733f3f71e4408afabd0c6f9e7ac36612105ba431e71ce6"
+      },
+      "tests/test_windows_identity_lpac_pipe_origin.py": {
+        "bytes": 27151,
+        "sha256": "a7b137ca11d7a55e983b403d35a36876c22de3a39e04b6be4bb441e020c4ab23"
+      },
+      "tests/test_windows_identity_lpac_pipe_origin_local.py": {
+        "bytes": 10358,
+        "sha256": "ac99a2f6513bef1b2208e2b9bb42e2b0fa3862ee50d3911070fe0ae8b52659a4"
+      }
+    },
+    "reviewed_runtime_source_count": 40,
+    "reviewed_runtime_source_sha256": "607f3c513195c4b208b456661786840c5202691d23f2883c649af74ac4836e8a",
+    "runtime_delta": "Only verify_actor decodes raw.removeprefix(single UTF-8 BOM); original raw bytes remain the hash input and every prior strict JSON/schema/source pin gate is unchanged.",
+    "schema_version": 1,
+    "stage": "independent-LPAC-IPC-python-frozen-review",
+    "tests_only_delta": "One BOM manifest test with positive no-BOM/single-BOM and stale raw hash/repeated BOM/extra/wrong pin/duplicate/nonfinite negatives; hidden-worker fake temporary base resolved and exact readiness ValueError asserted."
+  },
+  "raw_commitment": {
+    "bytes": 5305,
+    "sha256": "1e7747454c47e9f54e79ba3f11a39bfcd9edbdef65325978ca20aef2a91f83c9"
+  },
+  "schema_version": 1,
+  "stage": "source-evidence-safe-view",
+  "temporal_scope": "Original preparation/review snapshot: its pending/false runtime fields are historical snapshot fields, not the current result.",
+  "transformation": "JSON value projection; account identifiers/user paths redacted if present; no runtime inference"
+}

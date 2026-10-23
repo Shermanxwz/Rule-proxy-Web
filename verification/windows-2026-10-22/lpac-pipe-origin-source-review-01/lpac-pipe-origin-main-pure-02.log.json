@@ -1,0 +1,17 @@
+{
+  "full_original_retained_in_work": true,
+  "raw_commitment": {
+    "bytes": 200837,
+    "sha256": "e2b8d1daaca25d0cd7062c130dda59780100673ad18e6ea974e27a981e64e06c"
+  },
+  "raw_file_empty": false,
+  "schema_version": 1,
+  "selected_lines": [
+    "Ran 1061 tests in 155.245s",
+    "OK (skipped=2)",
+    "LPAC_PIPE_PORTABLE_ASSERTIONS 2656",
+    "IMMUTABLE_CAPS_PRODUCTION_ASSERTIONS 27"
+  ],
+  "stage": "pure-log-bounded-safe-view",
+  "transformation": "Selected test/result/assertion lines from captured text; paths redacted. Original text is not recopied or described as packet/runtime proof."
+}

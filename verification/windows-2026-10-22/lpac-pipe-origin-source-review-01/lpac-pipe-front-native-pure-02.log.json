@@ -1,0 +1,18 @@
+{
+  "full_original_retained_in_work": true,
+  "raw_commitment": {
+    "bytes": 867,
+    "sha256": "cf5b7b57486a2141a2595f0cfc2e3dab1a72036b9acf90e87ba0f7f42371ba49"
+  },
+  "raw_file_empty": false,
+  "schema_version": 1,
+  "selected_lines": [
+    "test_compiled_production_frontend_plan_readback_qpc_and_rpb1_split_mutations (test_windows_identity_lpac_pipe_front_native.NativeLPACPipeTests.test_compiled_production_frontend_plan_readback_qpc_and_rpb1_split_mutations) ... LPAC_PIPE_PORTABLE_ASSERTIONS 2656",
+    "test_immutable_observe_capabilities_exact_production_body_handles_four_byte_zero (test_windows_identity_lpac_pipe_front_native.NativeLPACPipeTests.test_immutable_observe_capabilities_exact_production_body_handles_four_byte_zero) ... IMMUTABLE_CAPS_PRODUCTION_ASSERTIONS 27",
+    "test_selected_only_four_source_composition_closed_report_and_no_network_entry (test_windows_identity_lpac_pipe_front_native.NativeLPACPipeTests.test_selected_only_four_source_composition_closed_report_and_no_network_entry) ... ok",
+    "Ran 3 tests in 1.875s",
+    "OK"
+  ],
+  "stage": "pure-log-bounded-safe-view",
+  "transformation": "Selected test/result/assertion lines from captured text; paths redacted. Original text is not recopied or described as packet/runtime proof."
+}

@@ -1,0 +1,45 @@
+{
+  "content": {
+    "actor_executed": false,
+    "base_commit": "bf4dcc2ab3913ae46056d34ef76892ec266f596e",
+    "files": {
+      ".github/windows_identity_lpac_pipe_origin.py": {
+        "bytes": 67005,
+        "sha256": "452f00595a2d717443a978aa6c9012294598bef3d53fe5ddca212d36599dc1f0"
+      },
+      "tests/test_windows_identity_lpac_pipe_origin.py": {
+        "bytes": 27151,
+        "sha256": "a7b137ca11d7a55e983b403d35a36876c22de3a39e04b6be4bb441e020c4ab23"
+      },
+      "tests/test_windows_identity_lpac_pipe_origin_local.py": {
+        "bytes": 10358,
+        "sha256": "ac99a2f6513bef1b2208e2b9bb42e2b0fa3862ee50d3911070fe0ae8b52659a4"
+      }
+    },
+    "full_pure": {
+      "count": 1062,
+      "errors": 0,
+      "failures": 0,
+      "log": {
+        "bytes": 201045,
+        "sha256": "a688963e5dcd5b9fbe608fd571d392d9c689717d47a98ea7871edf583ddb6ae0"
+      },
+      "seconds": "157.802",
+      "skips": 2
+    },
+    "index_bytes_verified": true,
+    "ready_freeze_sha256": "99719b7d6a22a03b59f639fd4cb06a9588701e744d47a1f98c1e9df0b5fd329d",
+    "schema_version": 1,
+    "source_count": 40,
+    "source_sha256": "d136e22b2dfbdb991cfbef06d5dd7a54d687135bedbff653ada5e4d01ab88a61",
+    "stage": "lpac-pipe-origin-BOM-test-source-stage"
+  },
+  "raw_commitment": {
+    "bytes": 1172,
+    "sha256": "332ec2637068febe605b6e0c2c47ee644b001126b36dcdf0924bea6465f16a24"
+  },
+  "schema_version": 1,
+  "stage": "source-evidence-safe-view",
+  "temporal_scope": "Original preparation/review snapshot: its pending/false runtime fields are historical snapshot fields, not the current result.",
+  "transformation": "JSON value projection; account identifiers/user paths redacted if present; no runtime inference"
+}

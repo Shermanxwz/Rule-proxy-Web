@@ -1,0 +1,33 @@
+{
+  "artifacts": {
+    "ordinary_B": {
+      "executable": {
+        "bytes": 217088,
+        "sha256": "042562a096a9f488b7a52ee8eb894af0b26dc679a05dc8948a9ae159b71cf161"
+      },
+      "manifest": {
+        "bytes": 633,
+        "sha256": "5b3660539e70bc53d004b2ee3b7b13bfa7fe6418042e57bbd0263b03cef4a456"
+      },
+      "native_source_count": 5,
+      "original_precompile_snapshot_present": false
+    },
+    "selected": {
+      "executable": {
+        "bytes": 180224,
+        "sha256": "8d4f0628b9f254ba868753342e0b4d06a472de38912c12fe3b44d873823488e6"
+      },
+      "manifest": {
+        "bytes": 592,
+        "sha256": "9a1a77084d987e663a72cb076035de802f55f04ff536087ebb387662045cdbeb"
+      },
+      "native_source_count": 4,
+      "original_precompile_snapshot_present": true
+    }
+  },
+  "ordinary_B_binding": "Previously compiled original artifact/manifest and old published compile record plus current five-source equality; no retrospective original src snapshot.",
+  "ordinary_B_original_src_snapshot_present": false,
+  "schema_version": 1,
+  "selected_never_imports_B_Winsock_translation_unit": true,
+  "selected_precompile_inputs_count4": true
+}

@@ -1,0 +1,19 @@
+{
+  "full_original_retained_in_work": true,
+  "raw_commitment": {
+    "bytes": 833,
+    "sha256": "c9d4d4573d7aa065662afffdc5e23af181c5849bd8979dbcd4ae83531fe1c561"
+  },
+  "raw_file_empty": false,
+  "schema_version": 1,
+  "selected_lines": [
+    "test_committed_malformed_selected_json_keeps_valid_partial_worker_and_origin_facts (__main__.ReaderComponents.test_committed_malformed_selected_json_keeps_valid_partial_worker_and_origin_facts) ... ok",
+    "test_missing_worker_remains_unknown_without_forensic_fallback (__main__.ReaderComponents.test_missing_worker_remains_unknown_without_forensic_fallback) ... ok",
+    "test_physical_pi_receipt_tamper_rejects_worker_before_projection (__main__.ReaderComponents.test_physical_pi_receipt_tamper_rejects_worker_before_projection) ... ok",
+    "test_valid_worker_projects_and_optional_projection_error_keeps_validation_separate (__main__.ReaderComponents.test_valid_worker_projects_and_optional_projection_error_keeps_validation_separate) ... ok",
+    "Ran 4 tests in 2.884s",
+    "OK"
+  ],
+  "stage": "pure-log-bounded-safe-view",
+  "transformation": "Selected test/result/assertion lines from captured text; paths redacted. Original text is not recopied or described as packet/runtime proof."
+}

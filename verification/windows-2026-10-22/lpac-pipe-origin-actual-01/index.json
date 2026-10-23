@@ -1,0 +1,93 @@
+{
+  "all_broad_qualification_false": true,
+  "files": [
+    {
+      "bytes": 20207,
+      "path": "verification/windows-2026-10-22/lpac-pipe-origin-actual-01/summary.json",
+      "sha256": "5e1ecc7e5e315d5de1b212af787a02ee538231afd8bbc39df10b370984dd06c7"
+    },
+    {
+      "bytes": 24859,
+      "path": "verification/windows-2026-10-22/lpac-pipe-origin-actual-01/independent-review.json",
+      "sha256": "f7069d3ff5ecfd754cd419a247f877d4e9746b933d0eb5a35a32800e6c18c2e0"
+    },
+    {
+      "bytes": 8893,
+      "path": "verification/windows-2026-10-22/lpac-pipe-origin-actual-01/source-manifest.json",
+      "sha256": "8fd0cd0d53c605101220219a6bcb4d22bd634fe0d34988615d1d0027dd4e1f02"
+    },
+    {
+      "bytes": 17091,
+      "path": "verification/windows-2026-10-22/lpac-pipe-origin-actual-01/ownership-independent-review.json",
+      "sha256": "743ae0ab4b2fed6288b35c6a0c29c637e0f1147145589ed2c13d0078395a7823"
+    },
+    {
+      "bytes": 1233,
+      "path": "verification/windows-2026-10-22/lpac-pipe-origin-actual-01/private-original-commitments.json",
+      "sha256": "90f34424ce38c9647ecc0aaaa4ee340f2f0387f3b5c92f5b2952b778a8530c0e"
+    },
+    {
+      "bytes": 3106,
+      "path": "verification/windows-2026-10-22/lpac-pipe-origin-actual-01/global-comparison.json",
+      "sha256": "4aa550dbce93ff21f70a75180dc3d6aebab24dee091dd5d5721616b35bc5f3a1"
+    },
+    {
+      "bytes": 2432,
+      "path": "verification/windows-2026-10-22/lpac-pipe-origin-actual-01/route-difference-review.json",
+      "sha256": "ce9fefc47efba6c0f9d57ffae7a36bdb8c00c06e5fed011c7f778e5d058d6752"
+    },
+    {
+      "bytes": 1317,
+      "path": "verification/windows-2026-10-22/lpac-pipe-origin-actual-01/route-address-followup.json",
+      "sha256": "95619499c2ae7d725ea40ce8a75c318ec7682277e5f7bad0d371f3ea6376d87c"
+    },
+    {
+      "bytes": 2990,
+      "path": "verification/windows-2026-10-22/lpac-pipe-origin-actual-01/route-address-query-source.ps1",
+      "sha256": "9720c4a6748901ab9949964d756e82697a21cd828f4189621a86c6f22cac25d5"
+    },
+    {
+      "bytes": 706,
+      "path": "verification/windows-2026-10-22/lpac-pipe-origin-actual-01/route-protocol-SDK-anchor.json",
+      "sha256": "ebe4e3bde61ab40d557c9496c80807ccf6a5f193ee98c81d143a1d277dcb5bf1"
+    },
+    {
+      "bytes": 12676,
+      "path": "verification/windows-2026-10-22/lpac-pipe-origin-actual-01/driver.py",
+      "sha256": "5a9986b5c8cda7b5fbf685738ebc246b2b01ff3112f7e54e9a54cd927046aba4"
+    },
+    {
+      "bytes": 325,
+      "path": "verification/windows-2026-10-22/lpac-pipe-origin-actual-01/route-query-source-metadata.json",
+      "sha256": "ad8c85e441d537c16b97e8e04b944f4d0dac3c4dfaff5c2191ac219eb71d909b"
+    },
+    {
+      "bytes": 345,
+      "path": "verification/windows-2026-10-22/lpac-pipe-origin-actual-01/driver-view-metadata.json",
+      "sha256": "340f9571f6dd49a319bb3eb9ab7979cbe449d1df9a18773648a56df085422cc8"
+    },
+    {
+      "bytes": 1161,
+      "path": "verification/windows-2026-10-22/lpac-pipe-origin-actual-01/native-compile-relation.json",
+      "sha256": "97fd7c7850441acf72f2bfad14359603711d62037e11a34f2523a3de30460e8d"
+    }
+  ],
+  "independent_review": {
+    "bytes": 22995,
+    "sha256": "3f6a406d2e41962be9fb4a5057c2e0b0dab04b06433e53f1bfcee74c304bce08"
+  },
+  "original_failures_not_modified": true,
+  "original_public": {
+    "bytes": 3215,
+    "sha256": "6812bbfe2f0e113b1c8c11b68e28c0fc0b16ec3cc635ecc7dd998025071a3165"
+  },
+  "reader_script": {
+    "bytes": 21960,
+    "sha256": "faae99c4bebafd4a54d41ae607d9b895a4ee60cee3bcffbf0c2de32436c231bb"
+  },
+  "schema_version": 1,
+  "source_bound_valid_worker": true,
+  "source_commit": "42064e8cbfc3263cb1352f923ab8e269d490b078",
+  "source_sha256": "d136e22b2dfbdb991cfbef06d5dd7a54d687135bedbff653ada5e4d01ab88a61",
+  "stage": "lpac-pipe-origin-actual-archive-index"
+}

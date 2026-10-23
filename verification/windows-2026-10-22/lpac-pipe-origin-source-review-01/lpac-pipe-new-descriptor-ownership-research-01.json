@@ -1,0 +1,33 @@
+{
+  "content": {
+    "actor_or_api_executed": false,
+    "documented": [
+      "Each function specifies an output allocation and LocalFree after use.",
+      "Convert functions report nonzero success; GetSecurityInfo reports ERROR_SUCCESS.",
+      "These pages do not provide a guarantee that nonnull output numbers after failed or exceptional calls are valid owned allocations."
+    ],
+    "engineering_inference": "Adopt an output allocation only after observed API success and valid nonnull output. A nonnull failed/exceptional output is uncertainty, not authority to dereference or LocalFree it. Successful previously adopted allocations retain once-free obligations after later failure.",
+    "limitations": [
+      "This review does not establish that Windows actually returns garbage in any observed call.",
+      "No failure was injected into Windows itself and no native API was called for this research.",
+      "No claim is made that unchanged legacy constructors or all imported helpers were hardened by this new seam."
+    ],
+    "policy_or_permission_mutated": false,
+    "schema_version": 1,
+    "scope": "three-new-pipe-descriptor-methods-only",
+    "sources": [
+      "https://learn.microsoft.com/en-us/windows/win32/api/sddl/nf-sddl-convertstringsecuritydescriptortosecuritydescriptorw",
+      "https://learn.microsoft.com/en-us/windows/win32/api/aclapi/nf-aclapi-getsecurityinfo",
+      "https://learn.microsoft.com/en-us/windows/win32/api/sddl/nf-sddl-convertsecuritydescriptortostringsecuritydescriptorw"
+    ],
+    "stage": "bounded-primary-api-contract-review"
+  },
+  "raw_commitment": {
+    "bytes": 1529,
+    "sha256": "9745392e667a383c892940d84fc39c68ea1ebfbb9f5a9fdd0fa0bf6acc19f36a"
+  },
+  "schema_version": 1,
+  "stage": "source-evidence-safe-view",
+  "temporal_scope": "Original preparation/review snapshot: its pending/false runtime fields are historical snapshot fields, not the current result.",
+  "transformation": "JSON value projection; account identifiers/user paths redacted if present; no runtime inference"
+}

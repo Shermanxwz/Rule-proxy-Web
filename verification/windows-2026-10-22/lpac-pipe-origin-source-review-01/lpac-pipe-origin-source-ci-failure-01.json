@@ -1,0 +1,28 @@
+{
+  "content": {
+    "CI_manually_dispatched_or_rerun": false,
+    "duration_seconds": 106.854,
+    "errors": 1,
+    "evidence_kind": "Root-reported metadata/log finding; original decoded job log is retained separately by root, not synthesized here",
+    "failure_summary": "hidden-worker False-ready test used an unresolved temporary base; the production path-containment gate stopped before the expected readiness ValueError on hosted Windows.",
+    "job_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39909353692/job/120268486898",
+    "production_path_gate_weakened": false,
+    "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39909353692",
+    "runtime_or_network_acceptance": false,
+    "runtime_steps_5_through_9_skipped": true,
+    "schema_version": 1,
+    "skips": 0,
+    "source_commit": "bf4dcc2ab3913ae46056d34ef76892ec266f596e",
+    "stage": "root-reported-automatic-source-CI-failure",
+    "test_count": 1061,
+    "test_only_correction": "Resolve the existing temporary base before deriving the stage, and require the specific ipc_worker_source_ready ValueError."
+  },
+  "raw_commitment": {
+    "bytes": 1073,
+    "sha256": "9373eb495bdef8f64d6dfb8d4b5641bc192eadb71df68f54493f07d8baa451ea"
+  },
+  "schema_version": 1,
+  "stage": "source-evidence-safe-view",
+  "temporal_scope": "Original preparation/review snapshot: its pending/false runtime fields are historical snapshot fields, not the current result.",
+  "transformation": "JSON value projection; account identifiers/user paths redacted if present; no runtime inference"
+}

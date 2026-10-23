@@ -1,0 +1,130 @@
+{
+  "content": {
+    "actions": {
+      "actor_or_network_executed": false,
+      "candidate_or_main_modified": false,
+      "existing_full_suite_repeated": false,
+      "native_API_called": false,
+      "temporary_pure_files_only": true
+    },
+    "freeze_sha256": "986aa220427ee48dad5b26da740066a573b0316e61b41bea7e9fa9a08d9186f0",
+    "frozen_files": {
+      ".github/windows_identity_lpac_pipe_origin.py": {
+        "bytes": 66976,
+        "sha256": "4b1c5001b5e8b71a5df9893392747de623cb921c7fe5bed8ca524516cca5e072"
+      },
+      ".github/windows_identity_lpac_pipe_origin_local.py": {
+        "bytes": 17255,
+        "sha256": "a69fec199a9c7252ed733f3f71e4408afabd0c6f9e7ac36612105ba431e71ce6"
+      },
+      "tests/test_windows_identity_lpac_pipe_origin.py": {
+        "bytes": 25701,
+        "sha256": "cc7e00b425eeb5b7aa60cd958f02d35d78804209ddb3c3685d2807bab7fa8152"
+      },
+      "tests/test_windows_identity_lpac_pipe_origin_local.py": {
+        "bytes": 10315,
+        "sha256": "e813cb0866c4ab1e8f1fdc8ed586cb9c53c4fa402f5e2d09c23157bb8fa396a3"
+      }
+    },
+    "partial_results": [
+      {
+        "case": "pipe-false",
+        "cleanup_known": false,
+        "independent_origin_positive_retained": false,
+        "mechanism_verified": false,
+        "profile_deleted": false,
+        "valid_partial_report": true
+      },
+      {
+        "case": "selected-malformed",
+        "cleanup_known": true,
+        "independent_origin_positive_retained": true,
+        "mechanism_verified": false,
+        "profile_deleted": true,
+        "valid_partial_report": true
+      }
+    ],
+    "results": [
+      {
+        "mechanism_verified": true,
+        "probe": "unchanged_inert_coordinator_positive",
+        "result": "ACCEPTED"
+      },
+      {
+        "exception_type": "ValueError",
+        "probe": "complete_but_profile_not_created",
+        "result": "REJECTED"
+      },
+      {
+        "exception_type": "ValueError",
+        "probe": "complete_but_label_ledger_absent",
+        "result": "REJECTED"
+      },
+      {
+        "exception_type": "ValueError",
+        "probe": "complete_but_selected_raw_return_receipt_absent",
+        "result": "REJECTED"
+      },
+      {
+        "exception_type": "ValueError",
+        "probe": "physical_raw_PI_PID_differs_from_held_row",
+        "result": "REJECTED"
+      },
+      {
+        "exception_type": "ValueError",
+        "probe": "physical_relay_final_before_resume_authorized",
+        "result": "REJECTED"
+      },
+      {
+        "exception_type": "ValueError",
+        "probe": "completion_before_proof_and_native_finals",
+        "result": "REJECTED"
+      },
+      {
+        "exception_type": "ValueError",
+        "probe": "complete_but_cleanup_tool_ledger_absent",
+        "result": "REJECTED"
+      },
+      {
+        "exception_type": "ValueError",
+        "probe": "complete_but_grant_tool_ledgers_absent",
+        "result": "REJECTED"
+      },
+      {
+        "exception_type": "ValueError",
+        "probe": "selected_resume_return_after_pair_deadline",
+        "result": "REJECTED"
+      },
+      {
+        "exception_type": "ValueError",
+        "probe": "physical_selected_final_after_own_held_exit_before_completion",
+        "result": "REJECTED"
+      },
+      {
+        "exception_type": "ValueError",
+        "probe": "physical_relay_final_after_own_held_exit_before_completion",
+        "result": "REJECTED"
+      },
+      {
+        "exception_type": "ValueError",
+        "probe": "physical_origin_final_after_own_held_exit_before_completion",
+        "result": "REJECTED"
+      },
+      {
+        "exception_type": "ValueError",
+        "probe": "held_exit_before_owner_post_Resume_sample",
+        "result": "REJECTED"
+      }
+    ],
+    "schema_version": 1,
+    "stage": "independent-inert-LPAC-IPC-false03-report-gate-probes"
+  },
+  "raw_commitment": {
+    "bytes": 3570,
+    "sha256": "98d2e500376052006913e8961cf90dea82c8dce9ae0074d3a746938363a28df5"
+  },
+  "schema_version": 1,
+  "stage": "source-evidence-safe-view",
+  "temporal_scope": "Original preparation/review snapshot: its pending/false runtime fields are historical snapshot fields, not the current result.",
+  "transformation": "JSON value projection; account identifiers/user paths redacted if present; no runtime inference"
+}

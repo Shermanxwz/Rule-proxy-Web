@@ -1,0 +1,146 @@
+{
+  "content": {
+    "actions": {
+      "all_tests_repeated": false,
+      "candidate_or_main_modified": false,
+      "explicit_native_API_or_actor_or_network_called": false,
+      "inert_coordinator_and_report_mutations_only": true,
+      "ordinary_import_chain_may_initialize_CPython_WSA": true
+    },
+    "actual_ready": false,
+    "author_pure": {
+      "AST_test_method_counts": {
+        "tests/test_windows_identity_lpac_pipe_origin.py": 21,
+        "tests/test_windows_identity_lpac_pipe_origin_local.py": 12
+      },
+      "author_suite_repeated": false,
+      "errors": 0,
+      "failures": 0,
+      "log": {
+        "bytes": 6367,
+        "name": "lpac-pipe-origin-python-pure-03.log",
+        "sha256": "5580bf7b7151eb0b670c10e896bfee4ddf20112046488ea1501b90b16ec74637"
+      },
+      "seconds": 10.578,
+      "skips": 0,
+      "test_count": 33
+    },
+    "baseline_commit": "277c112f81fb4e3b70305d9e881beada4758b115",
+    "blockers": [],
+    "decision": "GO-frozen-python-source-only",
+    "independent_probes": {
+      "invalid_mutations_rejected": 13,
+      "legal_partial_reports_retained": 2,
+      "old_full_suite_repeated": false,
+      "receipt": {
+        "bytes": 3570,
+        "name": "lpac-pipe-origin-false03-independent-gate-probes.json",
+        "sha256": "98d2e500376052006913e8961cf90dea82c8dce9ae0074d3a746938363a28df5"
+      },
+      "runner": {
+        "bytes": 6445,
+        "name": "review_lpac_pipe_origin_false03_probes.py",
+        "sha256": "612406a7dba560648632326b187935951ca001fdb86513e11a7f8af63921447b"
+      },
+      "unchanged_positive_accepted": true
+    },
+    "inherited_source_and_native_reviews": {
+      "native_compile_static_PE": {
+        "bytes": 6338,
+        "name": "lpac-pipe-front-compile-independent-review-01.json",
+        "sha256": "6859172be6bf1b40e2dcb6b1fa38738390e64430cb600dc67182e330dcd48dd9"
+      },
+      "native_source": {
+        "bytes": 4329,
+        "name": "lpac-pipe-front-native-independent-review-01.json",
+        "sha256": "f98d3f2939f6e6739fd6d4552567f568baebdbf53633603db8cfdadcb434a9d4"
+      },
+      "original_B_build_snapshot_present": false,
+      "original_B_limit": "Exact existing manifest/current five source pins and original compile record; no reconstructed precompile source snapshot."
+    },
+    "old37_candidate_main_baseline_and_current_git_byte_exact": true,
+    "preserved_boundaries": [
+      "Failed CreatePipe including zero outputs stays unknown; no profile deletion while unknown.",
+      "Native or raw report faults retain independent origin and relay facts without qualification.",
+      "Late complete successful creation retains known once-cleanup authority while admission and Resume fail.",
+      "No child-entry requirement relative to the owner post-Resume sample; no invented old-B first-I/O timestamps.",
+      "Original root120/worker115 and pair10s consume the same epoch; cleanup once and LowMIC restoration unchanged.",
+      "Only cooperative fixed-frame LPAC IPC to ordinary relay/origin; no application adapter, selected network denial, DNS, PSEC network preservation, Linux or product qualification."
+    ],
+    "prior_evidence": {
+      "false01_bad_probes": {
+        "bytes": 2443,
+        "name": "lpac-pipe-origin-false01-independent-gate-probes.json",
+        "sha256": "d5ba49d44247b8b8d7a00a54fb0b0c36563e7f38143cbb2720dbfd7a63a02f5c"
+      },
+      "false01_review": {
+        "bytes": 4407,
+        "name": "lpac-pipe-origin-python-independent-review-01.json",
+        "sha256": "18b12264baeac16c03ee8b9c8bf0210402cab39dfb74df19847f5de76f3ab2d3"
+      },
+      "false02_blocked_review": {
+        "bytes": 1825,
+        "name": "lpac-pipe-origin-python-independent-review-02.json",
+        "sha256": "e88df7b44f98e5b74ac2e57b35e9b1496c5118cdf50282921dbc345e633bdbb0"
+      },
+      "false02_exit_probe": {
+        "bytes": 1054,
+        "name": "lpac-pipe-origin-false02-independent-exit-probe.json",
+        "sha256": "4608c6e45f8b9aab7d70b5b9ae09109674a8f88d4b34a9cba6272141bd1248fe"
+      },
+      "false02_fixed_original9": {
+        "bytes": 2479,
+        "name": "lpac-pipe-origin-false02-independent-gate-probes.json",
+        "sha256": "f2694071f962901b0e067113f0cf16835b4b277e5a985b4cc0a2ef6c14087136"
+      }
+    },
+    "product_acceptance": false,
+    "reviewed_candidate_freeze": {
+      "bytes": 17728,
+      "sha256": "986aa220427ee48dad5b26da740066a573b0316e61b41bea7e9fa9a08d9186f0"
+    },
+    "reviewed_candidate_freeze_sha256": "986aa220427ee48dad5b26da740066a573b0316e61b41bea7e9fa9a08d9186f0",
+    "reviewed_current_main_commit": "eda726acca449b9e8b21c8ec3bc061d77165a964",
+    "reviewed_files": {
+      ".github/windows_identity_lpac_pipe_origin.py": {
+        "bytes": 66976,
+        "sha256": "4b1c5001b5e8b71a5df9893392747de623cb921c7fe5bed8ca524516cca5e072"
+      },
+      ".github/windows_identity_lpac_pipe_origin_local.py": {
+        "bytes": 17255,
+        "sha256": "a69fec199a9c7252ed733f3f71e4408afabd0c6f9e7ac36612105ba431e71ce6"
+      },
+      "tests/test_windows_identity_lpac_pipe_origin.py": {
+        "bytes": 25701,
+        "sha256": "cc7e00b425eeb5b7aa60cd958f02d35d78804209ddb3c3685d2807bab7fa8152"
+      },
+      "tests/test_windows_identity_lpac_pipe_origin_local.py": {
+        "bytes": 10315,
+        "sha256": "e813cb0866c4ab1e8f1fdc8ed586cb9c53c4fa402f5e2d09c23157bb8fa396a3"
+      }
+    },
+    "reviewed_runtime_source_count": 40,
+    "reviewed_runtime_source_sha256": "aa7d03ab09e54a00d0ba2313ce05d7835ecf710b7019aff25badcf30ed0ad028",
+    "revision02_to03": {
+      "local_and_local_test_byte_unchanged": true,
+      "native_and_original_epoch_unchanged": true,
+      "only_runtime_addition": "Own native final and post-Resume sample are no later than that role held-exit observation.",
+      "runtime_changed_paths": [
+        ".github/windows_identity_lpac_pipe_origin.py"
+      ],
+      "test_changed_paths": [
+        "tests/test_windows_identity_lpac_pipe_origin.py"
+      ]
+    },
+    "schema_version": 1,
+    "stage": "independent-LPAC-IPC-python-frozen-review"
+  },
+  "raw_commitment": {
+    "bytes": 5775,
+    "sha256": "19a96c47252596f02e6ea25fedb903de2c8eb5b684ec00d59042969d06292970"
+  },
+  "schema_version": 1,
+  "stage": "source-evidence-safe-view",
+  "temporal_scope": "Original preparation/review snapshot: its pending/false runtime fields are historical snapshot fields, not the current result.",
+  "transformation": "JSON value projection; account identifiers/user paths redacted if present; no runtime inference"
+}

@@ -1,0 +1,49 @@
+{
+  "content": {
+    "actor_runtime_acceptance": false,
+    "conclusion": "success",
+    "count": 1062,
+    "errors": 0,
+    "event": "push",
+    "failures": 0,
+    "job_id": 120273003513,
+    "jobs": {
+      "bytes": 3058,
+      "name": "ci-lpac-pipe-420-39910769791-jobs.json",
+      "representation": "connector normalized job summaries",
+      "sha256": "8c3caf334459a04f4fedce4cbe50358e7399c21c3af566a68efa12796cd0f45b"
+    },
+    "linux_equivalence": false,
+    "log": {
+      "bytes": 252674,
+      "name": "ci-lpac-pipe-420-39910769791-full.txt",
+      "representation": "exact connector-decoded UTF-8 text bytes including original BOM/CRLF; not raw GitHub ZIP",
+      "sha256": "06ddbca44d9e62b1ac3e6626a26d74be0a26d2433681781abc011b2037513e35"
+    },
+    "manual_dispatch_or_rerun_performed": false,
+    "native_compile_step_success": true,
+    "prior_bf4_failed_CI_preserved": true,
+    "product_acceptance": false,
+    "run_id": 39910769791,
+    "runs": {
+      "bytes": 12730,
+      "name": "ci-lpac-pipe-420-39910769791-runs.json",
+      "sha256": "e5c0f01498ecdf9a7894e1beb31bf2ab2934265a5368125227388c5a90f73690"
+    },
+    "runtime_steps_5_through_9_skipped": true,
+    "schema_version": 1,
+    "seconds": 190.98,
+    "skips": 0,
+    "source_commit": "42064e8cbfc3263cb1352f923ab8e269d490b078",
+    "source_sha256": "d136e22b2dfbdb991cfbef06d5dd7a54d687135bedbff653ada5e4d01ab88a61",
+    "stage": "automatic-actual-source-CI-pure-receipt",
+    "status": "completed"
+  },
+  "manual_dispatch_or_runtime_acceptance_inferred": false,
+  "raw_commitment": {
+    "bytes": 1394,
+    "name": "lpac-pipe-origin-actual-source-CI-receipt-01.json",
+    "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39910769791",
+    "sha256": "8340511598dca3815bfd2ffc38062719636c190ed4ce3d02263bccf39254f10a"
+  }
+}

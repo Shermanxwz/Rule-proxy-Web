@@ -1,0 +1,99 @@
+{
+  "content": {
+    "actions": {
+      "all_tests_repeated": false,
+      "candidate_or_main_modified": false,
+      "explicit_native_API_or_actor_or_network_called": false,
+      "inert_coordinator_and_report_mutations_only": true,
+      "ordinary_import_chain_may_initialize_CPython_WSA": true
+    },
+    "actual_ready": false,
+    "author_pure_log": {
+      "bytes": 5936,
+      "sha256": "9096a115edcf51a409559c936fde2dc7a2bc025f97142b4056e3925362dd8714"
+    },
+    "author_pure_seconds": 7.839,
+    "author_pure_test_count": 31,
+    "author_suite_repeated": false,
+    "baseline_commit": "277c112f81fb4e3b70305d9e881beada4758b115",
+    "blockers": [
+      {
+        "facts": [
+          "Complete mechanism accepted when profile_state.created=false.",
+          "Complete mechanism accepted when the required selected-report LowMIC ledger is absent.",
+          "Complete mechanism accepted when selected raw return receipt, grant tool ledgers or cleanup remove-tool ledger is absent."
+        ],
+        "group": "owned-lifecycle-evidence",
+        "repair_scope": "Require owned profile/ACL/label/tool/return commitments only on admitted/full claimed paths; preserve legitimate pre-action partial failures."
+      },
+      {
+        "facts": [
+          "A physically rewritten selected raw PI PID can differ from the held row PID after recomputing its receipt SHA and still pass."
+        ],
+        "group": "raw-return-to-held-generation",
+        "repair_scope": "Bind raw PI process ID to the held task PID on trusted returned/admitted paths. TID is only a raw receipt field today; do not invent an independently held TID."
+      },
+      {
+        "facts": [
+          "A physically rewritten relay native final can predate its resume authorization.",
+          "completion_qpc can predate proof and native finals.",
+          "selected post-Resume return QPC can lie after pairE."
+        ],
+        "group": "original-epoch-causality",
+        "repair_scope": "Bind final samples to pre-Resume authorization, require completion after qualified proof/native/resume observations, and all Resume returns before the original pairE. Do not require child entry after the owner post-Resume sample because of the legitimate race."
+      }
+    ],
+    "decision": "BLOCKED",
+    "independent_probes": {
+      "bytes": 2443,
+      "invalid_mutations_accepted": 9,
+      "name": "lpac-pipe-origin-false01-independent-gate-probes.json",
+      "sha256": "d5ba49d44247b8b8d7a00a54fb0b0c36563e7f38143cbb2720dbfd7a63a02f5c",
+      "unchanged_positive_accepted": true
+    },
+    "observed_backend_positive_seams": [
+      "New failed or exceptional descriptor outputs are not dereferenced/freed; earlier successful allocations retain once-free obligations.",
+      "New pair constructor records raw return before interpretation and separates timely admission from known late-success ownership.",
+      "Failed CreatePipe outputs including both zeros remain unknown; parent attempts all four closes before both pair resumes.",
+      "Held exact empty-cap LPAC four-descriptor qualification and observer resource closure precede selected Resume.",
+      "Only selected-report is lowered and restored after workload closure; old B single-request artifact remains a distinct input."
+    ],
+    "old37_candidate_main_git_byte_exact": true,
+    "product_acceptance": false,
+    "reviewed_candidate_freeze": {
+      "bytes": 16693,
+      "sha256": "6b6c0d1dc8e887e3e5e32e1fa504c4e6df70d9432e26ff730d1fbbc755128ddc"
+    },
+    "reviewed_candidate_freeze_sha256": "6b6c0d1dc8e887e3e5e32e1fa504c4e6df70d9432e26ff730d1fbbc755128ddc",
+    "reviewed_files": {
+      ".github/windows_identity_lpac_pipe_origin.py": {
+        "bytes": 62681,
+        "sha256": "adb0d9051b7fdb45add356ee64e002595112bdf34bb015d7babfa747b15daaa1"
+      },
+      ".github/windows_identity_lpac_pipe_origin_local.py": {
+        "bytes": 17255,
+        "sha256": "a69fec199a9c7252ed733f3f71e4408afabd0c6f9e7ac36612105ba431e71ce6"
+      },
+      "tests/test_windows_identity_lpac_pipe_origin.py": {
+        "bytes": 22718,
+        "sha256": "454afebc2e5ebdb6d10e22bed69d757307b9a950264f01dd224cd8fd79630283"
+      },
+      "tests/test_windows_identity_lpac_pipe_origin_local.py": {
+        "bytes": 10315,
+        "sha256": "e813cb0866c4ab1e8f1fdc8ed586cb9c53c4fa402f5e2d09c23157bb8fa396a3"
+      }
+    },
+    "reviewed_runtime_source_count": 40,
+    "reviewed_runtime_source_sha256": "4123bbd1331fb2f9a04fd603deaa6c5ce7fa0dc2356c508215f9cf685568fe64",
+    "schema_version": 1,
+    "stage": "independent-LPAC-IPC-python-frozen-review"
+  },
+  "raw_commitment": {
+    "bytes": 4407,
+    "sha256": "18b12264baeac16c03ee8b9c8bf0210402cab39dfb74df19847f5de76f3ab2d3"
+  },
+  "schema_version": 1,
+  "stage": "source-evidence-safe-view",
+  "temporal_scope": "Original preparation/review snapshot: its pending/false runtime fields are historical snapshot fields, not the current result.",
+  "transformation": "JSON value projection; account identifiers/user paths redacted if present; no runtime inference"
+}

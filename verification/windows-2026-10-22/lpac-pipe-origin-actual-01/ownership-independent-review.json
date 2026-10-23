@@ -1,0 +1,459 @@
+{
+  "content": {
+    "LPAC": {
+      "class46_queried": false,
+      "confirmed_observer_closes": 6,
+      "exact_four_descriptor_matrix": [
+        2,
+        0,
+        0,
+        2
+      ],
+      "observer_resource_count": 6,
+      "proof_qualified_and_before_both_pair_resumes": true,
+      "zero_capabilities": true
+    },
+    "acceptance_note": "Observed a zero-cap semantic LPAC cooperative fixed 48-byte frame request/sink through two inherited pipe ends to a held ordinary relay and owned real HTTP origin. This is positive transport, not arbitrary application adaptation, a transparent proxy, selected socket/DNS denial, hostile same-SID authentication, PSEC network preservation, Linux equivalence or product acceptance.",
+    "actions": {
+      "cleanup_or_security_or_route_mutation_called": false,
+      "explicit_native_API_backend_actor_or_network_called": false,
+      "file_only": true,
+      "live_queries_repeated": false,
+      "main_or_candidate_modified": false,
+      "ordinary_import_chain_may_initialize_CPython_libraries": true,
+      "pure_source_validators_only": true,
+      "pure_tests_repeated": false
+    },
+    "artifacts": {
+      "ordinary_B": {
+        "actor": {
+          "bytes": 217088,
+          "sha256": "042562a096a9f488b7a52ee8eb894af0b26dc679a05dc8948a9ae159b71cf161"
+        },
+        "manifest": {
+          "bytes": 633,
+          "sha256": "5b3660539e70bc53d004b2ee3b7b13bfa7fe6418042e57bbd0263b03cef4a456"
+        },
+        "native_pin_count": 5,
+        "original_precompile_source_snapshot_present": false
+      },
+      "selected": {
+        "actor": {
+          "bytes": 180224,
+          "sha256": "8d4f0628b9f254ba868753342e0b4d06a472de38912c12fe3b44d873823488e6"
+        },
+        "manifest": {
+          "bytes": 592,
+          "sha256": "9a1a77084d987e663a72cb076035de802f55f04ff536087ebb387662045cdbeb"
+        },
+        "native_pin_count": 4,
+        "original_precompile_source_snapshot_present": true
+      }
+    },
+    "blockers": [],
+    "bounded_native_static": {
+      "explicit_named_route_write_loader_shell_tokens_absent_in_six_compiled_sources": true,
+      "scanned_source_pins": {
+        ".github/native/windows_identity_actor.cpp": "530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553",
+        ".github/native/windows_identity_lpac_pipe_front_actor.cpp": "ecc4a793fa1afc33a5c9407486ee9f463bd68132b8090eb259270a89d19ca48d",
+        ".github/native/windows_identity_proxy_bridge_core.hpp": "f03e45166265f02a65abc12930efd73634a332596d22aa78cadc1267a80b6356",
+        ".github/native/windows_identity_proxy_origin_actor.cpp": "3d079e77e387ba77545c27f5b5c260f591657ef3a44384426cd2039fa8c04010",
+        ".github/native/windows_identity_proxy_origin_transport.hpp": "bed113e5e20064722cbb2c6d3e71b4d3ca6c4769ebd694c86997abec0af661c4",
+        ".github/native/windows_identity_proxy_pipe_actor.cpp": "26636a6b9979e91452cf6e7d2049d6fbbfa43639a35708ee18d4a71e67fb8dd0"
+      },
+      "selected_delay_imports": [],
+      "selected_direct_imports": [
+        "ADVAPI32.dll",
+        "KERNEL32.dll"
+      ],
+      "selected_route_write_direct_imports": [],
+      "whole40_behavior_or_route_writer_proven": false
+    },
+    "decision": "ACCEPT-finite-LPAC-IPC-origin-mechanism-only",
+    "fixed_false_claims": {
+      "all_protocol_isolation": false,
+      "arbitrary_application_adapter": false,
+      "browser_integration": false,
+      "class46_queried": false,
+      "direct_network_denial": false,
+      "dns_isolation": false,
+      "hostile_same_sid_authentication": false,
+      "ipv6_tested": false,
+      "kernel_tcp_snapshot_observed": false,
+      "linux_equivalence": false,
+      "product_acceptance": false,
+      "psec_network_preservation_proven": false,
+      "psec_or_g_support": false,
+      "selected_dns_api_tested": false,
+      "selected_proxy_qualification": false,
+      "selected_socket_api_tested": false,
+      "service_broker_isolation": false,
+      "udp_tested": false
+    },
+    "global_snapshots": {
+      "added_routes": [
+        {
+          "address_family": 6,
+          "next_hop_unspecified": true,
+          "prefix_length": 128,
+          "protocol": 2,
+          "record_sha256": "45c8f0616f5c86819d1d4efdcb922dba2d28595da4d1811595c1c60dac0a9b26",
+          "route_metric": 256
+        },
+        {
+          "address_family": 6,
+          "next_hop_unspecified": true,
+          "prefix_length": 128,
+          "protocol": 2,
+          "record_sha256": "0777d941d60c2f776da24a4e4074d5876236c522ffd43dfd1c5aca94a2f8e612",
+          "route_metric": 256
+        }
+      ],
+      "after": {
+        "bytes": 7645,
+        "sha256": "96ba4618bdcee58d28de676038b661681b955502799cdce7aae5fa24d61e8f95"
+      },
+      "all_bytes_equal": false,
+      "before": {
+        "bytes": 7378,
+        "sha256": "f05d91ee76ee8a97ae5ab3bfa092167a8ee560c083255f142e6c453f2edf7ab3"
+      },
+      "creator_and_creation_time": "UNPROVED",
+      "four_objects_equal": {
+        "dns": true,
+        "firewall_profiles": true,
+        "routes": false,
+        "user_proxy": true
+      },
+      "later_query_reports": "Each newly added destination matched one current local RouterAdvertisement/Random/Preferred/Unicast address.",
+      "live_route_or_address_query_repeated": false,
+      "nrpt_snapshotted": false,
+      "removed_routes": 0,
+      "saved_difference_receipt": {
+        "bytes": 2063,
+        "name": "lpac-pipe-origin-route-difference-review-01.json",
+        "sha256": "23c331088c3eda490ea45e59d209f8001ed6dd873eaa9fe35a9cafc9ade576f8"
+      },
+      "saved_later_readonly_local_address_query": {
+        "bytes": 1305,
+        "name": "lpac-pipe-origin-added-local-ipv6-query-01.json",
+        "sha256": "16240bffc48757f07846cc85199c2ef9861493c561d0b458c627cf07f5a684eb"
+      },
+      "unchanged_routes": 50
+    },
+    "held_roles": [
+      {
+        "held_generation_image_primary_and_two_jobs_verified": true,
+        "held_snapshot_count": 5,
+        "natural_exit_code": 0,
+        "original_return_receipt": {
+          "bytes": 427,
+          "sha256": "4921eb09b24de5f9abaef8c2801f42dc4d2d730d8646ca71655269c25be5479b"
+        },
+        "role": "ordinary-origin-fixture",
+        "zero_capabilities": true
+      },
+      {
+        "held_generation_image_primary_and_two_jobs_verified": true,
+        "held_snapshot_count": 4,
+        "natural_exit_code": 0,
+        "original_return_receipt": {
+          "bytes": 416,
+          "sha256": "b9aa65233500dc97c68454a88e1fc4d520e04499d101b57b7e511a348ac50d1d"
+        },
+        "role": "lpac-pipe-front",
+        "zero_capabilities": true
+      },
+      {
+        "held_generation_image_primary_and_two_jobs_verified": true,
+        "held_snapshot_count": 4,
+        "natural_exit_code": 0,
+        "original_return_receipt": {
+          "bytes": 420,
+          "sha256": "716641a410920d989f8a4a209c6fe000b5ffb4182c82541e4b6d419d97e7dd1c"
+        },
+        "role": "ordinary-pipe-relay",
+        "zero_capabilities": true
+      }
+    ],
+    "limitations": [
+      "Global route preservation is false for these snapshots: two IPv6 /128 routes were added. The route writer and event times remain unproved; this review performs no route recovery.",
+      "Scoped once-cleanup is source-bound historical evidence, not a new live absence/crash-safety check or whole-system unchanged claim.",
+      "Tuple comparison uses held native reports, not an independent kernel TCP snapshot.",
+      "Original B manifest/source pins and compile record are bound, with no invented immutable precompile snapshot.",
+      "The bounded native source/import check neither audits all 40 runtime behavior nor identifies the route-change cause.",
+      "Existing original unknown/recovery and DNS failure/leak histories remain unchanged."
+    ],
+    "origin": {
+      "canonical_request_bytes": 95,
+      "exact_response_bytes": 90,
+      "independent_origin_accepted": true,
+      "kernel_live_TCP_snapshot": false,
+      "native_peer_tuple_bound": true,
+      "nonce_and_held_PID_bound_without_public_identifiers": true,
+      "relay_connect_completed": true,
+      "request_and_response_EOF": true
+    },
+    "original_failure": null,
+    "original_preflight": {
+      "bytes": 1662,
+      "sha256": "c9621a33a493285fe520ce150f7cc7216ef9557677ba3ab5a8cd1ebd07947ab8"
+    },
+    "original_public": {
+      "bytes": 3215,
+      "sha256": "6812bbfe2f0e113b1c8c11b68e28c0fc0b16ec3cc635ecc7dd998025071a3165"
+    },
+    "original_recovery_required": false,
+    "original_status": "observed",
+    "physical": {
+      "journal": [
+        {
+          "action": "profile-create",
+          "bytes": 309,
+          "sha256": "516241b457ee56eed94e80531a8ce18922a1ce24d37c05f3d9896bd0290a4db6"
+        },
+        {
+          "action": "acl-grant",
+          "bytes": 304,
+          "sha256": "c278627067a81001847c4bffffbd0c5042b6632e8e7dee6742d824252feb0d48"
+        },
+        {
+          "action": "spawn-grant-root",
+          "bytes": 311,
+          "sha256": "c79d515cc8b3da481e17bb4916a31a84ea6792b973a1c76b499bca12d3fd7eae"
+        },
+        {
+          "action": "spawn-grant-inputs",
+          "bytes": 313,
+          "sha256": "0166095f99b4b592474d603adc59996ff30bb3e78d87b8f77e9c4c058d2ed259"
+        },
+        {
+          "action": "spawn-grant-selected-report",
+          "bytes": 322,
+          "sha256": "775a30a9c13626ed4d31e00764ff65cadaaba879397a9a8ee0f298dba78833ea"
+        },
+        {
+          "action": "label-lower",
+          "bytes": 306,
+          "sha256": "284a9bb476460962523fc753d2cf5abaaa1e4228d3ffdaab5d11883d2a9e1a95"
+        },
+        {
+          "action": "spawn-ordinary-origin-fixture",
+          "bytes": 324,
+          "sha256": "0de9fd359aa5c81609b851d19147746de2a69d62df8fea441456718d32026ad9"
+        },
+        {
+          "action": "resume-authorized",
+          "bytes": 344,
+          "sha256": "eab909a48979ef54b6d6375c7b96967dd5aa4d3083a6aaebd1317119b407f16c"
+        },
+        {
+          "action": "pair-epoch",
+          "bytes": 344,
+          "sha256": "c54c2261eae6916c42bb17a34c5c8e126af77cba88bec54271303f37e19c5fa8"
+        },
+        {
+          "action": "allocate-response",
+          "bytes": 312,
+          "sha256": "ca6e42383d0568e6f4b0ea4e38a9f48d7c49fd88ded6776eb78bdf59c1a3437b"
+        },
+        {
+          "action": "allocate-request",
+          "bytes": 311,
+          "sha256": "bce9c4877c66cba4384b261a348ba5aad07793cf31853cf24c6428108896746d"
+        },
+        {
+          "action": "spawn-lpac-pipe-front",
+          "bytes": 316,
+          "sha256": "ec81ff7deb9931a1a08c45fadd8f747195bdc31cce460331c072b9cf4e26491f"
+        },
+        {
+          "action": "spawn-ordinary-pipe-relay",
+          "bytes": 320,
+          "sha256": "f06396cb11175254b6586dbea5fd2641ea1ebf20f9c197cc6c5be029e58de001"
+        },
+        {
+          "action": "observe-lpac",
+          "bytes": 307,
+          "sha256": "edf9d5c85b8a2ee68058707f7189870f62c552fbfb9d4f81e34776ed7f7e57bc"
+        },
+        {
+          "action": "parent-pipe-close",
+          "bytes": 312,
+          "sha256": "1804d57bb458591d8b7cddd0012c2a6027efa88b8f8ad8f3a4d2dc19c83e087e"
+        },
+        {
+          "action": "resume-authorized",
+          "bytes": 340,
+          "sha256": "beb1683af29e23de7c0fa11720b3fce8bcc5a8afce17af61894bbb92b01aea0b"
+        },
+        {
+          "action": "resume-authorized",
+          "bytes": 336,
+          "sha256": "296925f75310b965d1bc1eb5b02f78bd32eed37fca641daec98bceca48022973"
+        },
+        {
+          "action": "label-restore",
+          "bytes": 308,
+          "sha256": "1cda03405018a6a71ae3b96315f49d2e64bbfd3ae765f5b369cfb1932e83165d"
+        },
+        {
+          "action": "acl-remove",
+          "bytes": 305,
+          "sha256": "6e446ec4e59e66aa019de5543061588dcae6e9fcf16f6f3ad19f4230b9a717ec"
+        },
+        {
+          "action": "spawn-remove",
+          "bytes": 307,
+          "sha256": "8325bb6f657f1e03d72f4875c8e1bffd0eaafbdce1a30be78b5bdb034e5c944d"
+        },
+        {
+          "action": "profile-delete",
+          "bytes": 309,
+          "sha256": "a215175a1ed0a2209af92a75e24d4f26a3b83e64f45417d313b5e3daccd3f3e7"
+        }
+      ],
+      "journal_count": 21,
+      "label_restored": true,
+      "native_report_commitments": {
+        "origin": {
+          "bytes": 1091,
+          "sha256": "471d020c66ed4282f966e783df55f28cc9593097b2af07c24df53f26e284919a"
+        },
+        "ready": {
+          "bytes": 238,
+          "sha256": "776c8edfbcf219ea7a30366304a47cabbbbe4bdbe25139dece2d237b64e53aaa"
+        },
+        "relay": {
+          "bytes": 1772,
+          "sha256": "e96b825d929f2a1445a108864e002e0e355a578f769b3a36f7946e91decbdc3a"
+        },
+        "selected": {
+          "bytes": 1544,
+          "sha256": "00634ac198c44ac4f33e562c5a5c4221693aa138770ef204955eef706ad590a3"
+        }
+      },
+      "ordinary_tool_count": 4,
+      "ordinary_tools_natural_exit0": true,
+      "return_commitments": [
+        {
+          "bytes": 427,
+          "sha256": "4921eb09b24de5f9abaef8c2801f42dc4d2d730d8646ca71655269c25be5479b"
+        },
+        {
+          "bytes": 416,
+          "sha256": "b9aa65233500dc97c68454a88e1fc4d520e04499d101b57b7e511a348ac50d1d"
+        },
+        {
+          "bytes": 420,
+          "sha256": "716641a410920d989f8a4a209c6fe000b5ffb4182c82541e4b6d419d97e7dd1c"
+        },
+        {
+          "bytes": 361,
+          "sha256": "a30ff1d2e648f27fcfbde7646a39706afbe18f2386573384654e0465b4f456b9"
+        },
+        {
+          "bytes": 360,
+          "sha256": "fb6fd3cdb582874e9b4b8a8cc6b950c45be581061dcb9f9f5f94cfd14de11650"
+        }
+      ],
+      "single_fresh_LowMIC_subtree": "selected-report"
+    },
+    "pipe": {
+      "allocations": 2,
+      "each_child_exact_two_inherited_direction_bound": true,
+      "parent_close_confirmed": 4,
+      "parent_handles": 4,
+      "raw_return_receipts": 5,
+      "selected_EOF": true,
+      "selected_ends_noninheritable_before_protocol": true,
+      "selected_read_bytes": 96,
+      "selected_read_frames": 2,
+      "selected_write_bytes": 144,
+      "selected_write_frames": 3
+    },
+    "prior_unknown_public": {
+      "commitment": {
+        "bytes": 1660,
+        "sha256": "cc562d1b045fea336c4257051faa52e63aa415d91556a4ea84f18aa363652f9c"
+      },
+      "not_amended": true,
+      "recovery_required_still_true": true
+    },
+    "private_commitments": {
+      "config": {
+        "bytes": 5645,
+        "sha256": "52d8c54d76f101468adb2a2245fafc52450d9f0c29d401278075b25de4b4b8aa"
+      },
+      "outer": {
+        "bytes": 620,
+        "sha256": "937d68045b58755f164c13d2ca3d7cb0f87c79d617e03af248430b9511d058b2"
+      },
+      "plan": {
+        "bytes": 1535,
+        "sha256": "3c3c3435d8489c6182d5d6e5d6eeec0b69d0e5abf54b99f2c8546645ed8b9d1d"
+      },
+      "worker": {
+        "bytes": 48796,
+        "sha256": "cec337a8c9c028c87c948fbf12ee52804d9ac83fbc580f91b9552931ada0b5f6"
+      }
+    },
+    "public_full_reprojection_exact": true,
+    "ready_freeze": {
+      "bytes": 7014,
+      "sha256": "99719b7d6a22a03b59f639fd4cb06a9588701e744d47a1f98c1e9df0b5fd329d"
+    },
+    "root_integrated_pure": {
+      "count": 1062,
+      "log": {
+        "bytes": 201045,
+        "name": "lpac-pipe-origin-main-pure-03.log",
+        "sha256": "a688963e5dcd5b9fbe608fd571d392d9c689717d47a98ea7871edf583ddb6ae0"
+      },
+      "repeated": false,
+      "seconds": 157.802,
+      "skips": 2,
+      "source_CI_result": "not checked by this review"
+    },
+    "root_reader": {
+      "bytes": 22995,
+      "name": "lpac-pipe-origin-actual-01-independent-review.json",
+      "sha256": "3f6a406d2e41962be9fb4a5057c2e0b0dab04b06433e53f1bfcee74c304bce08"
+    },
+    "schema_version": 1,
+    "scoped_cleanup": {
+      "acl_removed": true,
+      "cleanup_tools": true,
+      "labels_restored": true,
+      "observer_resources_cleanup_verified": true,
+      "parent_pipe_handles_closed": true,
+      "pipe_allocation_known": true,
+      "profile_deleted": true,
+      "sid_released": true,
+      "workload_cleanup": true,
+      "workload_job_empty": true
+    },
+    "source_commit": "42064e8cbfc3263cb1352f923ab8e269d490b078",
+    "source_count": 40,
+    "source_sha256": "d136e22b2dfbdb991cfbef06d5dd7a54d687135bedbff653ada5e4d01ab88a61",
+    "stage": "independent-LPAC-IPC-actual01-physical-bindings-review",
+    "staged40_Git_blob_hash_LF_before_pure_import": true,
+    "time": {
+      "completion_before_original_pair_end": true,
+      "held_exits_after_own_native_final_and_Resume_sample": true,
+      "original_pair10": true,
+      "original_root120_worker115": true
+    },
+    "worker_forensic_valid_report_byte_exact": true
+  },
+  "original_commitment": {
+    "bytes": 15768,
+    "sha256": "b84034665d977479e3a2f83298bd4d764a5c26e7c9c5ba74baa5a066dfe6f9a4"
+  },
+  "reader_source": {
+    "bytes": 21338,
+    "name": "review_lpac_pipe_origin_actual_bindings_01.py",
+    "sha256": "afbe3e5a2278dd8ff5b3b1e4194624dba0f95ec8adaa67db532c70d5b3a44ef2"
+  },
+  "representation": "safe JSON projection of the separate read-only physical binding audit"
+}

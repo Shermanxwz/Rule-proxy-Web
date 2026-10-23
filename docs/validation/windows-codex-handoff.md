@@ -1,3 +1,5 @@
+最新 LPAC IPC 有限机制试次：observed；项目及 Linux 等效验收仍为 false。见 [专门记录](2026-10-23-lpac-pipe-origin-mechanism.md)。
+以下交接正文保留此前检查点原字节；既有 DNS 泄漏、atomic 未知状态和历史失败不因本轮覆盖。
 **registryRead LPAC同SID loopback01（2026-10-23）**：[独立实测](2026-10-23-registry-read-same-sid-loopback-01.md)仍inconclusive：WSAStartup成功，socket创建10013，未connect/send；前端零cap AC监听、两身份矩阵、普通前后控制与已知清理通过。不是peer/端口连接拒绝、matchedcaps或AAP-only比较；旧零cap32/10107、atomic unknown与DNS泄漏保留。
 
 **零cap同SID loopback01/02（2026-10-23）**：[独立两轮实测](2026-10-23-zero-cap-same-sid-loopback-01-02.md)均为inconclusive：01控制文件Win32 32；02已读GO但WSAStartup10107，尚无socket/connect/send。两矩阵、front监听、普通前后控制与已知清理通过；未证明主连通、direct隔离、共享SID对抗边界或Linux等效，旧unknown/DNS泄漏保留。

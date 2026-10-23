@@ -1,0 +1,31 @@
+{
+  "content": {
+    "actor_or_backend_executed": false,
+    "count": 1062,
+    "errors": 0,
+    "failures": 0,
+    "linux_equivalence": false,
+    "previous_full1061_pass_retained": true,
+    "prior_harness_interruption_retained": true,
+    "product_acceptance": false,
+    "raw_log": {
+      "bytes": 201045,
+      "name": "lpac-pipe-origin-main-pure-03.log",
+      "sha256": "a688963e5dcd5b9fbe608fd571d392d9c689717d47a98ea7871edf583ddb6ae0"
+    },
+    "schema_version": 1,
+    "seconds": 157.802,
+    "skips": 2,
+    "skips_scope": "two preexisting Windows symlink tests",
+    "source_commit": "42064e8cbfc3263cb1352f923ab8e269d490b078",
+    "source_count": 40,
+    "source_sha256": "d136e22b2dfbdb991cfbef06d5dd7a54d687135bedbff653ada5e4d01ab88a61",
+    "stage": "source-bound-full-pure-suite",
+    "tested_worktree_equals_commit": true
+  },
+  "raw_commitment": {
+    "bytes": 785,
+    "sha256": "c21a924967811dff17b04f1ceac4c89843419e84389f182be278a9ae3ad125cb"
+  },
+  "representation": "safe JSON view; pure testing only"
+}

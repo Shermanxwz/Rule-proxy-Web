@@ -1,0 +1,78 @@
+{
+  "content": {
+    "actions": {
+      "actor_or_windows_resource_api_called": false,
+      "install_executed": false,
+      "main_modified": false,
+      "promotion_script_executed": false,
+      "repo_imported": false
+    },
+    "all_old_dependencies_git_byte_identical": true,
+    "all_other_new_files_byte_identical": true,
+    "baseline_head": "eda726acca449b9e8b21c8ec3bc061d77165a964",
+    "decision": "CONDITIONAL-install-review-gate",
+    "default_preview_returns_before_writes": true,
+    "false_map_independently_bound_to_actual_sources": true,
+    "false_native_freeze": {
+      "bytes": 4418,
+      "sha256": "e84fd2d705e089f0f1d30938f687068db3b4ea58d833b4f273fac365809f12ae"
+    },
+    "false_python_freeze": {
+      "bytes": 16693,
+      "sha256": "6b6c0d1dc8e887e3e5e32e1fa504c4e6df70d9432e26ff730d1fbbc755128ddc"
+    },
+    "false_source_sha256": "4123bbd1331fb2f9a04fd603deaa6c5ce7fa0dc2356c508215f9cf685568fe64",
+    "files": {
+      ".github/native/windows_identity_lpac_pipe_front_actor.cpp": {
+        "bytes": 6869,
+        "sha256": "ecc4a793fa1afc33a5c9407486ee9f463bd68132b8090eb259270a89d19ca48d"
+      },
+      ".github/windows_identity_lpac_pipe_origin.py": {
+        "bytes": 62681,
+        "sha256": "adb0d9051b7fdb45add356ee64e002595112bdf34bb015d7babfa747b15daaa1"
+      },
+      ".github/windows_identity_lpac_pipe_origin_local.py": {
+        "bytes": 17255,
+        "sha256": "a69fec199a9c7252ed733f3f71e4408afabd0c6f9e7ac36612105ba431e71ce6"
+      },
+      "tests/test_windows_identity_lpac_pipe_front_native.py": {
+        "bytes": 12628,
+        "sha256": "9557ab2e2376c8c08f91dba67245fa43328cb187a4f74b7f0f695ede3ac52444"
+      },
+      "tests/test_windows_identity_lpac_pipe_origin.py": {
+        "bytes": 22718,
+        "sha256": "454afebc2e5ebdb6d10e22bed69d757307b9a950264f01dd224cd8fd79630283"
+      },
+      "tests/test_windows_identity_lpac_pipe_origin_local.py": {
+        "bytes": 10315,
+        "sha256": "e813cb0866c4ab1e8f1fdc8ed586cb9c53c4fa402f5e2d09c23157bb8fa396a3"
+      }
+    },
+    "new_file_count": 6,
+    "old_dependency_count": 37,
+    "only_core_ready_flag_changed": true,
+    "pending": [
+      "Install currently checks only review is not None; require exact final GO and reviewed freeze/file commitments after the independent Python receipt arrives."
+    ],
+    "promotion_script": {
+      "bytes": 5398,
+      "path": "promote_lpac_pipe_origin_source_01.py",
+      "sha256": "ec972c1708b7d41c9c980b08027e13021f6c105072d1282d01305c6b592b54f7"
+    },
+    "proposed_ready_source_sha256": "fd49d638ef6aef92e8ddc0d85cf535a9697861d14837ce4bce1e687d48682474",
+    "recommendations": [
+      "Explicitly require original CORE SHA equal frozen False runtime map before replacing, though these exact pinned inputs independently match."
+    ],
+    "runtime_count": 40,
+    "schema_version": 1,
+    "stage": "independent-file-only-lpac-pipe-promotion-review"
+  },
+  "raw_commitment": {
+    "bytes": 2769,
+    "sha256": "77f798833d27d2d21b5379a3cf6cbcc60350cd756ef25000d061aae3be457cc2"
+  },
+  "schema_version": 1,
+  "stage": "source-evidence-safe-view",
+  "temporal_scope": "Original preparation/review snapshot: its pending/false runtime fields are historical snapshot fields, not the current result.",
+  "transformation": "JSON value projection; account identifiers/user paths redacted if present; no runtime inference"
+}

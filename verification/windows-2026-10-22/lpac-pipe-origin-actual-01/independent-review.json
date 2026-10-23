@@ -1,0 +1,760 @@
+{
+  "content": {
+    "artifacts": {
+      "ordinary_B": {
+        "actor": {
+          "bytes": 217088,
+          "sha256": "042562a096a9f488b7a52ee8eb894af0b26dc679a05dc8948a9ae159b71cf161"
+        },
+        "manifest": {
+          "bytes": 633,
+          "sha256": "5b3660539e70bc53d004b2ee3b7b13bfa7fe6418042e57bbd0263b03cef4a456"
+        },
+        "native_pin_count": 5,
+        "original_immutable_source_snapshot_present": false
+      },
+      "selected": {
+        "actor": {
+          "bytes": 180224,
+          "sha256": "8d4f0628b9f254ba868753342e0b4d06a472de38912c12fe3b44d873823488e6"
+        },
+        "manifest": {
+          "bytes": 592,
+          "sha256": "9a1a77084d987e663a72cb076035de802f55f04ff536087ebb387662045cdbeb"
+        },
+        "native_pin_count": 4,
+        "original_immutable_source_snapshot_present": true
+      }
+    },
+    "fixed_false_claims": {
+      "all_protocol_isolation": false,
+      "arbitrary_application_adapter": false,
+      "browser_integration": false,
+      "class46_queried": false,
+      "direct_network_denial": false,
+      "dns_isolation": false,
+      "hostile_same_sid_authentication": false,
+      "ipv6_tested": false,
+      "kernel_tcp_snapshot_observed": false,
+      "linux_equivalence": false,
+      "product_acceptance": false,
+      "psec_network_preservation_proven": false,
+      "psec_or_g_support": false,
+      "selected_dns_api_tested": false,
+      "selected_proxy_qualification": false,
+      "selected_socket_api_tested": false,
+      "service_broker_isolation": false,
+      "udp_tested": false
+    },
+    "globals": {
+      "all_bytes_equal": false,
+      "all_four_objects_equal": false,
+      "all_json_objects_equal": false,
+      "capture": {
+        "bytes": 2686,
+        "sha256": "18284114b1b8890f5ab30bb01543e12e8f334dd5aeb6fa16c820de7a23fb0dd1"
+      },
+      "expanded_script_commitments": [
+        {
+          "bytes": 2007,
+          "sha256": "a73d61c79b5320b2d7f58866123ee80e39e1ef57cee60f6bb55eaf85d1e0418d"
+        },
+        {
+          "bytes": 2006,
+          "sha256": "42ae4729c3b2290b73dda959f29f122ba536a270ad1fd9a4c61eba183b42d809"
+        }
+      ],
+      "four_objects_equal": {
+        "dns": true,
+        "firewall_profiles": true,
+        "routes": false,
+        "user_proxy": true
+      },
+      "nrpt_included": false,
+      "snapshot_commitments": [
+        {
+          "bytes": 7378,
+          "sha256": "f05d91ee76ee8a97ae5ab3bfa092167a8ee560c083255f142e6c453f2edf7ab3"
+        },
+        {
+          "bytes": 7378,
+          "sha256": "f05d91ee76ee8a97ae5ab3bfa092167a8ee560c083255f142e6c453f2edf7ab3"
+        },
+        {
+          "bytes": 7645,
+          "sha256": "96ba4618bdcee58d28de676038b661681b955502799cdce7aae5fa24d61e8f95"
+        }
+      ]
+    },
+    "limitations": [
+      "Partial or invalid worker/native reports are unknown and do not prove denial.",
+      "Forensic/unreferenced originals are hash-only and never qualification fallback.",
+      "Exact port relation compares bound native reports, not independent kernel live TCP observations.",
+      "Inherited pipe authority and generated request/sink require a cooperative application adapter; no arbitrary-app/PSEC/proxy/isolation acceptance.",
+      "Outer binding uses the exact source-retained outer report physical bytes; no separate raw outer PI ledger is invented.",
+      "Known cleanup flags are the exact historical ledger claims/validated physical evidence, not a new live absence check."
+    ],
+    "original_failure": null,
+    "original_observation_complete": true,
+    "original_preflight": {
+      "bytes": 1662,
+      "sha256": "c9621a33a493285fe520ce150f7cc7216ef9557677ba3ab5a8cd1ebd07947ab8"
+    },
+    "original_public": {
+      "bytes": 3215,
+      "sha256": "6812bbfe2f0e113b1c8c11b68e28c0fc0b16ec3cc635ecc7dd998025071a3165"
+    },
+    "original_recovery_required": false,
+    "original_safe_observation": {
+      "acl_removed": true,
+      "all_protocol_isolation": false,
+      "arbitrary_application_adapter": false,
+      "browser_integration": false,
+      "class46_queried": false,
+      "cleanup_known": true,
+      "cleanup_tools": true,
+      "direct_network_denial": false,
+      "dns_isolation": false,
+      "failure": null,
+      "hostile_same_sid_authentication": false,
+      "http_boundary": "generated-lpac-request-and-sink-fixed-frame-mapping-ordinary-relay-real-owned-origin",
+      "ipv6_tested": false,
+      "kernel_tcp_snapshot_observed": false,
+      "labels_restored": true,
+      "linux_equivalence": false,
+      "mechanism_verified": true,
+      "native_report_status": {
+        "origin": "valid",
+        "ready": "valid",
+        "relay": "valid",
+        "selected": "valid"
+      },
+      "network_scope": "ordinary-relay-to-owned-origin-only",
+      "network_tested": true,
+      "observer_resources_cleanup_verified": true,
+      "origin_accepted_observed": true,
+      "origin_request_observed": true,
+      "origin_response_observed": true,
+      "parent_pipe_handles_closed": true,
+      "pipe_allocation_known": true,
+      "product_acceptance": false,
+      "profile": "zero-cap-lpac-fixed-pipe-origin-mechanism-v1",
+      "profile_deleted": true,
+      "psec_network_preservation_proven": false,
+      "psec_or_g_support": false,
+      "relay_connect_observed": true,
+      "schema_version": 1,
+      "scope": "one-local-semantic-lpac-held-ipc-relay-origin-v1",
+      "selected_dns_api_tested": false,
+      "selected_ipc_observed": true,
+      "selected_proxy_qualification": false,
+      "selected_socket_api_tested": false,
+      "semantic_lpac_verified": true,
+      "service_broker_isolation": false,
+      "sid_released": true,
+      "stage": "lpac-pipe-origin-observation",
+      "udp_tested": false,
+      "workload_cleanup": true,
+      "workload_job_empty": true
+    },
+    "original_status": "observed",
+    "physical_evidence_commitments": {
+      "journal": [
+        {
+          "bytes": 309,
+          "sha256": "516241b457ee56eed94e80531a8ce18922a1ce24d37c05f3d9896bd0290a4db6"
+        },
+        {
+          "bytes": 304,
+          "sha256": "c278627067a81001847c4bffffbd0c5042b6632e8e7dee6742d824252feb0d48"
+        },
+        {
+          "bytes": 311,
+          "sha256": "c79d515cc8b3da481e17bb4916a31a84ea6792b973a1c76b499bca12d3fd7eae"
+        },
+        {
+          "bytes": 313,
+          "sha256": "0166095f99b4b592474d603adc59996ff30bb3e78d87b8f77e9c4c058d2ed259"
+        },
+        {
+          "bytes": 322,
+          "sha256": "775a30a9c13626ed4d31e00764ff65cadaaba879397a9a8ee0f298dba78833ea"
+        },
+        {
+          "bytes": 306,
+          "sha256": "284a9bb476460962523fc753d2cf5abaaa1e4228d3ffdaab5d11883d2a9e1a95"
+        },
+        {
+          "bytes": 324,
+          "sha256": "0de9fd359aa5c81609b851d19147746de2a69d62df8fea441456718d32026ad9"
+        },
+        {
+          "bytes": 344,
+          "sha256": "eab909a48979ef54b6d6375c7b96967dd5aa4d3083a6aaebd1317119b407f16c"
+        },
+        {
+          "bytes": 344,
+          "sha256": "c54c2261eae6916c42bb17a34c5c8e126af77cba88bec54271303f37e19c5fa8"
+        },
+        {
+          "bytes": 312,
+          "sha256": "ca6e42383d0568e6f4b0ea4e38a9f48d7c49fd88ded6776eb78bdf59c1a3437b"
+        },
+        {
+          "bytes": 311,
+          "sha256": "bce9c4877c66cba4384b261a348ba5aad07793cf31853cf24c6428108896746d"
+        },
+        {
+          "bytes": 316,
+          "sha256": "ec81ff7deb9931a1a08c45fadd8f747195bdc31cce460331c072b9cf4e26491f"
+        },
+        {
+          "bytes": 320,
+          "sha256": "f06396cb11175254b6586dbea5fd2641ea1ebf20f9c197cc6c5be029e58de001"
+        },
+        {
+          "bytes": 307,
+          "sha256": "edf9d5c85b8a2ee68058707f7189870f62c552fbfb9d4f81e34776ed7f7e57bc"
+        },
+        {
+          "bytes": 312,
+          "sha256": "1804d57bb458591d8b7cddd0012c2a6027efa88b8f8ad8f3a4d2dc19c83e087e"
+        },
+        {
+          "bytes": 340,
+          "sha256": "beb1683af29e23de7c0fa11720b3fce8bcc5a8afce17af61894bbb92b01aea0b"
+        },
+        {
+          "bytes": 336,
+          "sha256": "296925f75310b965d1bc1eb5b02f78bd32eed37fca641daec98bceca48022973"
+        },
+        {
+          "bytes": 308,
+          "sha256": "1cda03405018a6a71ae3b96315f49d2e64bbfd3ae765f5b369cfb1932e83165d"
+        },
+        {
+          "bytes": 305,
+          "sha256": "6e446ec4e59e66aa019de5543061588dcae6e9fcf16f6f3ad19f4230b9a717ec"
+        },
+        {
+          "bytes": 307,
+          "sha256": "8325bb6f657f1e03d72f4875c8e1bffd0eaafbdce1a30be78b5bdb034e5c944d"
+        },
+        {
+          "bytes": 309,
+          "sha256": "a215175a1ed0a2209af92a75e24d4f26a3b83e64f45417d313b5e3daccd3f3e7"
+        }
+      ],
+      "returns": [
+        {
+          "bytes": 416,
+          "sha256": "b9aa65233500dc97c68454a88e1fc4d520e04499d101b57b7e511a348ac50d1d"
+        },
+        {
+          "bytes": 427,
+          "sha256": "4921eb09b24de5f9abaef8c2801f42dc4d2d730d8646ca71655269c25be5479b"
+        },
+        {
+          "bytes": 420,
+          "sha256": "716641a410920d989f8a4a209c6fe000b5ffb4182c82541e4b6d419d97e7dd1c"
+        },
+        {
+          "bytes": 360,
+          "sha256": "fb6fd3cdb582874e9b4b8a8cc6b950c45be581061dcb9f9f5f94cfd14de11650"
+        },
+        {
+          "bytes": 361,
+          "sha256": "a30ff1d2e648f27fcfbde7646a39706afbe18f2386573384654e0465b4f456b9"
+        }
+      ]
+    },
+    "private_commitments": {
+      "config": {
+        "bytes": 5645,
+        "sha256": "52d8c54d76f101468adb2a2245fafc52450d9f0c29d401278075b25de4b4b8aa"
+      },
+      "driver": {
+        "bytes": 12676,
+        "sha256": "5a9986b5c8cda7b5fbf685738ebc246b2b01ff3112f7e54e9a54cd927046aba4"
+      },
+      "forensic": {
+        "bytes": 48796,
+        "sha256": "cec337a8c9c028c87c948fbf12ee52804d9ac83fbc580f91b9552931ada0b5f6"
+      },
+      "outer_report": {
+        "bytes": 620,
+        "sha256": "937d68045b58755f164c13d2ca3d7cb0f87c79d617e03af248430b9511d058b2"
+      },
+      "plan": {
+        "bytes": 1535,
+        "sha256": "3c3c3435d8489c6182d5d6e5d6eeec0b69d0e5abf54b99f2c8546645ed8b9d1d"
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "stdout": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "worker_report": {
+        "bytes": 48796,
+        "sha256": "cec337a8c9c028c87c948fbf12ee52804d9ac83fbc580f91b9552931ada0b5f6"
+      }
+    },
+    "profile": "zero-cap-lpac-fixed-pipe-origin-mechanism-v1",
+    "reader_actions": {
+      "actor_or_cleanup_called": false,
+      "backend_constructed": false,
+      "file_only": true,
+      "security_or_network_configuration_changed": false
+    },
+    "ready_freeze": {
+      "bytes": 7014,
+      "sha256": "99719b7d6a22a03b59f639fd4cb06a9588701e744d47a1f98c1e9df0b5fd329d"
+    },
+    "result_review": {
+      "binding_error": null,
+      "cleanup": {
+        "acl_removed": true,
+        "cleanup_tools": true,
+        "labels_restored": true,
+        "observer_resources_cleanup_verified": true,
+        "parent_pipe_handles_closed": true,
+        "pipe_allocation_known": true,
+        "profile_deleted": true,
+        "sid_released": true,
+        "workload_cleanup": true,
+        "workload_job_empty": true
+      },
+      "cleanup_tool_ledger": [
+        {
+          "admitted": true,
+          "exit_code": 0,
+          "exited": true,
+          "operation": "grant-root",
+          "resumed": true
+        },
+        {
+          "admitted": true,
+          "exit_code": 0,
+          "exited": true,
+          "operation": "grant-inputs",
+          "resumed": true
+        },
+        {
+          "admitted": true,
+          "exit_code": 0,
+          "exited": true,
+          "operation": "grant-selected-report",
+          "resumed": true
+        },
+        {
+          "admitted": true,
+          "exit_code": 0,
+          "exited": true,
+          "operation": "remove",
+          "resumed": true
+        }
+      ],
+      "held_tasks": [
+        {
+          "admitted": true,
+          "all_held_generation_image_both_jobs": true,
+          "attempted": true,
+          "capabilities_empty": true,
+          "created": true,
+          "exit_code": 0,
+          "exit_observed": true,
+          "held_snapshot_count": 5,
+          "resumed": true,
+          "return_receipt": {
+            "bytes": 427,
+            "sha256": "4921eb09b24de5f9abaef8c2801f42dc4d2d730d8646ca71655269c25be5479b"
+          },
+          "role": "ordinary-origin-fixture"
+        },
+        {
+          "admitted": true,
+          "all_held_generation_image_both_jobs": true,
+          "attempted": true,
+          "capabilities_empty": true,
+          "created": true,
+          "exit_code": 0,
+          "exit_observed": true,
+          "held_snapshot_count": 4,
+          "resumed": true,
+          "return_receipt": {
+            "bytes": 416,
+            "sha256": "b9aa65233500dc97c68454a88e1fc4d520e04499d101b57b7e511a348ac50d1d"
+          },
+          "role": "lpac-pipe-front"
+        },
+        {
+          "admitted": true,
+          "all_held_generation_image_both_jobs": true,
+          "attempted": true,
+          "capabilities_empty": true,
+          "created": true,
+          "exit_code": 0,
+          "exit_observed": true,
+          "held_snapshot_count": 4,
+          "resumed": true,
+          "return_receipt": {
+            "bytes": 420,
+            "sha256": "716641a410920d989f8a4a209c6fe000b5ffb4182c82541e4b6d419d97e7dd1c"
+          },
+          "role": "ordinary-pipe-relay"
+        }
+      ],
+      "journal": {
+        "count": 21,
+        "records": [
+          {
+            "action": "profile-create",
+            "commitment": {
+              "bytes": 309,
+              "sha256": "516241b457ee56eed94e80531a8ce18922a1ce24d37c05f3d9896bd0290a4db6"
+            }
+          },
+          {
+            "action": "acl-grant",
+            "commitment": {
+              "bytes": 304,
+              "sha256": "c278627067a81001847c4bffffbd0c5042b6632e8e7dee6742d824252feb0d48"
+            }
+          },
+          {
+            "action": "spawn-grant-root",
+            "commitment": {
+              "bytes": 311,
+              "sha256": "c79d515cc8b3da481e17bb4916a31a84ea6792b973a1c76b499bca12d3fd7eae"
+            }
+          },
+          {
+            "action": "spawn-grant-inputs",
+            "commitment": {
+              "bytes": 313,
+              "sha256": "0166095f99b4b592474d603adc59996ff30bb3e78d87b8f77e9c4c058d2ed259"
+            }
+          },
+          {
+            "action": "spawn-grant-selected-report",
+            "commitment": {
+              "bytes": 322,
+              "sha256": "775a30a9c13626ed4d31e00764ff65cadaaba879397a9a8ee0f298dba78833ea"
+            }
+          },
+          {
+            "action": "label-lower",
+            "commitment": {
+              "bytes": 306,
+              "sha256": "284a9bb476460962523fc753d2cf5abaaa1e4228d3ffdaab5d11883d2a9e1a95"
+            }
+          },
+          {
+            "action": "spawn-ordinary-origin-fixture",
+            "commitment": {
+              "bytes": 324,
+              "sha256": "0de9fd359aa5c81609b851d19147746de2a69d62df8fea441456718d32026ad9"
+            }
+          },
+          {
+            "action": "resume-authorized",
+            "commitment": {
+              "bytes": 344,
+              "sha256": "eab909a48979ef54b6d6375c7b96967dd5aa4d3083a6aaebd1317119b407f16c"
+            }
+          },
+          {
+            "action": "pair-epoch",
+            "commitment": {
+              "bytes": 344,
+              "sha256": "c54c2261eae6916c42bb17a34c5c8e126af77cba88bec54271303f37e19c5fa8"
+            }
+          },
+          {
+            "action": "allocate-response",
+            "commitment": {
+              "bytes": 312,
+              "sha256": "ca6e42383d0568e6f4b0ea4e38a9f48d7c49fd88ded6776eb78bdf59c1a3437b"
+            }
+          },
+          {
+            "action": "allocate-request",
+            "commitment": {
+              "bytes": 311,
+              "sha256": "bce9c4877c66cba4384b261a348ba5aad07793cf31853cf24c6428108896746d"
+            }
+          },
+          {
+            "action": "spawn-lpac-pipe-front",
+            "commitment": {
+              "bytes": 316,
+              "sha256": "ec81ff7deb9931a1a08c45fadd8f747195bdc31cce460331c072b9cf4e26491f"
+            }
+          },
+          {
+            "action": "spawn-ordinary-pipe-relay",
+            "commitment": {
+              "bytes": 320,
+              "sha256": "f06396cb11175254b6586dbea5fd2641ea1ebf20f9c197cc6c5be029e58de001"
+            }
+          },
+          {
+            "action": "observe-lpac",
+            "commitment": {
+              "bytes": 307,
+              "sha256": "edf9d5c85b8a2ee68058707f7189870f62c552fbfb9d4f81e34776ed7f7e57bc"
+            }
+          },
+          {
+            "action": "parent-pipe-close",
+            "commitment": {
+              "bytes": 312,
+              "sha256": "1804d57bb458591d8b7cddd0012c2a6027efa88b8f8ad8f3a4d2dc19c83e087e"
+            }
+          },
+          {
+            "action": "resume-authorized",
+            "commitment": {
+              "bytes": 340,
+              "sha256": "beb1683af29e23de7c0fa11720b3fce8bcc5a8afce17af61894bbb92b01aea0b"
+            }
+          },
+          {
+            "action": "resume-authorized",
+            "commitment": {
+              "bytes": 336,
+              "sha256": "296925f75310b965d1bc1eb5b02f78bd32eed37fca641daec98bceca48022973"
+            }
+          },
+          {
+            "action": "label-restore",
+            "commitment": {
+              "bytes": 308,
+              "sha256": "1cda03405018a6a71ae3b96315f49d2e64bbfd3ae765f5b369cfb1932e83165d"
+            }
+          },
+          {
+            "action": "acl-remove",
+            "commitment": {
+              "bytes": 305,
+              "sha256": "6e446ec4e59e66aa019de5543061588dcae6e9fcf16f6f3ad19f4230b9a717ec"
+            }
+          },
+          {
+            "action": "spawn-remove",
+            "commitment": {
+              "bytes": 307,
+              "sha256": "8325bb6f657f1e03d72f4875c8e1bffd0eaafbdce1a30be78b5bdb034e5c944d"
+            }
+          },
+          {
+            "action": "profile-delete",
+            "commitment": {
+              "bytes": 309,
+              "sha256": "a215175a1ed0a2209af92a75e24d4f26a3b83e64f45417d313b5e3daccd3f3e7"
+            }
+          }
+        ]
+      },
+      "native_reports": [
+        {
+          "commitment": {
+            "bytes": 238,
+            "sha256": "776c8edfbcf219ea7a30366304a47cabbbbe4bdbe25139dece2d237b64e53aaa"
+          },
+          "embedded_equals_physical": true,
+          "slot": "ready",
+          "status": "valid"
+        },
+        {
+          "admitted_tick_present": true,
+          "commitment": {
+            "bytes": 1544,
+            "sha256": "00634ac198c44ac4f33e562c5a5c4221693aa138770ef204955eef706ad590a3"
+          },
+          "embedded_equals_physical": true,
+          "failure": null,
+          "pipe": {
+            "eof_observed": true,
+            "read_bytes": 96,
+            "read_frames": 2,
+            "reader_close": "confirmed",
+            "write_bytes": 144,
+            "write_frames": 3,
+            "writer_close": "confirmed"
+          },
+          "read_handle_inherit_cleared": true,
+          "slot": "selected",
+          "status": "valid",
+          "win32_error": null,
+          "write_handle_inherit_cleared": true
+        },
+        {
+          "commitment": {
+            "bytes": 1772,
+            "sha256": "e96b825d929f2a1445a108864e002e0e355a578f769b3a36f7946e91decbdc3a"
+          },
+          "embedded_equals_physical": true,
+          "failure": null,
+          "slot": "relay",
+          "status": "valid",
+          "transport": {
+            "connect_attempted": true,
+            "connect_completed": true,
+            "request_bytes": 95,
+            "response_bytes": 90,
+            "response_eof": true
+          }
+        },
+        {
+          "commitment": {
+            "bytes": 1091,
+            "sha256": "471d020c66ed4282f966e783df55f28cc9593097b2af07c24df53f26e284919a"
+          },
+          "embedded_equals_physical": true,
+          "failure": null,
+          "slot": "origin",
+          "status": "valid",
+          "transport": {
+            "accepted": true,
+            "request_bytes": 95,
+            "request_eof": true,
+            "request_exact": true,
+            "response_bytes": 90,
+            "response_complete": true
+          },
+          "wsa_error": null
+        }
+      ],
+      "pair": {
+        "complete_before_pair_end": true,
+        "fixed_pair10_verified": true,
+        "kernel_tcp_snapshot_observed": false,
+        "native_peer_tuple_bound": true,
+        "natural_exits": true,
+        "original_root120_worker115_verified": true,
+        "present": true,
+        "workload_stop": false
+      },
+      "pipe": {
+        "allocation_count": 2,
+        "allocation_unknown": false,
+        "inherited_exact_two_each_direction": true,
+        "parent_close_count": 4,
+        "parent_exact_four_closed": true,
+        "return_receipts": [
+          {
+            "bytes": 361,
+            "sha256": "a30ff1d2e648f27fcfbde7646a39706afbe18f2386573384654e0465b4f456b9"
+          },
+          {
+            "bytes": 360,
+            "sha256": "fb6fd3cdb582874e9b4b8a8cc6b950c45be581061dcb9f9f5f94cfd14de11650"
+          }
+        ]
+      },
+      "projection_error": null,
+      "proof": {
+        "call_count": 4,
+        "calls": [
+          {
+            "access_status": true,
+            "api_success": true,
+            "attempted": true,
+            "descriptor_commitment": {
+              "bytes": 120,
+              "sha256": "ee3c86d1f6cfc1dc651629670b2789f4da64b1b138ad964ad7ac5844c94c8129"
+            },
+            "granted_access": 2,
+            "label": "combined",
+            "privilege_count": 0,
+            "win32_error": null,
+            "within_deadline": true
+          },
+          {
+            "access_status": false,
+            "api_success": true,
+            "attempted": true,
+            "descriptor_commitment": {
+              "bytes": 72,
+              "sha256": "9be942e409861151bb93da9abaf0d8033c2e3a7df4577f8d6d3b929bd44e0bea"
+            },
+            "granted_access": 0,
+            "label": "world",
+            "privilege_count": 0,
+            "win32_error": null,
+            "within_deadline": true
+          },
+          {
+            "access_status": false,
+            "api_success": true,
+            "attempted": true,
+            "descriptor_commitment": {
+              "bytes": 96,
+              "sha256": "39e5fce56dc10aa4c1e55cbb35d1207042d6617608db16da8ac308a9861c2314"
+            },
+            "granted_access": 0,
+            "label": "aap",
+            "privilege_count": 0,
+            "win32_error": null,
+            "within_deadline": true
+          },
+          {
+            "access_status": true,
+            "api_success": true,
+            "attempted": true,
+            "descriptor_commitment": {
+              "bytes": 96,
+              "sha256": "15166e6015903b018e6c5d49ee7f2527f3d1f3768309fd473be49d1e3814e21a"
+            },
+            "granted_access": 2,
+            "label": "arap",
+            "privilege_count": 0,
+            "win32_error": null,
+            "within_deadline": true
+          }
+        ],
+        "confirmed_resource_close_count": 6,
+        "duplicate_identity_bound": true,
+        "exact_LPAC_matrix_verified": true,
+        "generation_after": true,
+        "generation_before": true,
+        "granted_access": [
+          2,
+          0,
+          0,
+          2
+        ],
+        "observation_complete": true,
+        "qualified": true,
+        "resource_cleanup_verified": true,
+        "resource_count": 6,
+        "source_identity_bound": true
+      },
+      "public_projection_exact": true,
+      "safe_projection_complete": true,
+      "validation_error": null,
+      "worker_binding_valid": true,
+      "worker_report_present": true,
+      "worker_result_valid": true
+    },
+    "schema_version": 1,
+    "scope": "one-local-semantic-lpac-held-ipc-relay-origin-v1",
+    "source_commit": "42064e8cbfc3263cb1352f923ab8e269d490b078",
+    "source_count": 40,
+    "source_sha256": "d136e22b2dfbdb991cfbef06d5dd7a54d687135bedbff653ada5e4d01ab88a61",
+    "stage": "lpac-pipe-origin-actual-01-file-review"
+  },
+  "raw_review": {
+    "bytes": 22995,
+    "sha256": "3f6a406d2e41962be9fb4a5057c2e0b0dab04b06433e53f1bfcee74c304bce08"
+  },
+  "reader_script": {
+    "bytes": 21960,
+    "sha256": "faae99c4bebafd4a54d41ae607d9b895a4ee60cee3bcffbf0c2de32436c231bb"
+  },
+  "transformation": "safe JSON projection of separately executed file review; not a new actor run"
+}

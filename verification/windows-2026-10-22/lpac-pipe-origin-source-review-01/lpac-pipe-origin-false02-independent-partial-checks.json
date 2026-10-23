@@ -1,0 +1,31 @@
+{
+  "content": {
+    "no_explicit_native_API_actor_network_or_full_suite": true,
+    "results": [
+      {
+        "case": "pipe-false",
+        "cleanup_known": false,
+        "independent_origin_positive_retained": false,
+        "mechanism_verified": false,
+        "valid_partial_report": true
+      },
+      {
+        "case": "selected-malformed",
+        "cleanup_known": true,
+        "independent_origin_positive_retained": true,
+        "mechanism_verified": false,
+        "valid_partial_report": true
+      }
+    ],
+    "schema_version": 1,
+    "stage": "independent-inert-partial-report-preservation-02"
+  },
+  "raw_commitment": {
+    "bytes": 564,
+    "sha256": "77fc315725b2aeaaf184bf820208abb1722109f66e2b0358c61ee01ad1e18352"
+  },
+  "schema_version": 1,
+  "stage": "source-evidence-safe-view",
+  "temporal_scope": "Original preparation/review snapshot: its pending/false runtime fields are historical snapshot fields, not the current result.",
+  "transformation": "JSON value projection; account identifiers/user paths redacted if present; no runtime inference"
+}
