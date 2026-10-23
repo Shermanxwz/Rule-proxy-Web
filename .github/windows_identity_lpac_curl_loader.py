@@ -8,7 +8,7 @@ import ctypes as C
 import datetime
 import importlib.util
 import os
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 import re
 import struct
 import subprocess
@@ -62,6 +62,18 @@ def work_cutoff(c):return c['root_deadline_qpc']-35*c['frequency']
 def artifact_paths(root):
     return dict(wrapper=root/'owner-inputs'/WRAPPER,marker=root/'package'/MARKER,manifest=root/'owner-inputs'/MANIFEST)
 def argv(c):return [c['curl_path'],'--disable','--version']
+
+def curl_command_matches_system(command,system_path):
+    # GetSystemDirectoryW may spell the same already pinned Windows path with
+    # different casing. Compare Windows paths, not case-sensitive strings;
+    # preserve the original requested argv bytes for CreateProcessW.
+    if type(command) is not list or len(command)!=3 or any(type(v) is not str for v in command):return False
+    if command[1:]!=['--disable','--version']:return False
+    try:requested,expected=PureWindowsPath(command[0]),PureWindowsPath(system_path)
+    except (TypeError,ValueError):return False
+    dos_paths=all(p.is_absolute() and len(p.drive)==2 and p.drive[1]==':'
+        and 'A'<=p.drive[0].upper()<='Z' and p.root=='\\' and '..' not in p.parts for p in (requested,expected))
+    return dos_paths and requested==expected
 
 def validate_artifact_pins(value):
     require(type(value) is dict and set(value)==set(ARTIFACT_KEYS),'loader_artifact_set')
@@ -316,7 +328,7 @@ class NativeAPI(zero.API):
             if uncertain:self.controls_uncertain=True;raise ValueError('loader_kernel_SD_close')
     def create_curl(self,info,command,cwd,environment,job,owners,state,*,handles,stdio,profile_pointer,parent_sid,budget,end,on_return,other_owned=()):
         selected=profile_pointer is not None;expected_handles=5 if selected else 3
-        require(command==[str(self.system_curl()),'--disable','--version'] and len(handles)==expected_handles
+        require(curl_command_matches_system(command,self.system_curl()) and len(handles)==expected_handles
                 and len(set(handles))==expected_handles and list(handles[-3:])==list(stdio) and len(stdio)==3,'loader_constructor_inputs')
         require(all(self.handle_flags(h)==1 for h in handles),'loader_constructor_inheritance')
         if selected:
