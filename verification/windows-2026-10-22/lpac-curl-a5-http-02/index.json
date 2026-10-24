@@ -1,0 +1,42 @@
+{
+  "DNS_isolation_qualified": false,
+  "HTTP_payload_observed": false,
+  "HTTP_transport_qualified": false,
+  "Linux_equivalence": false,
+  "diagnostic_trace_rows": 57,
+  "files": {
+    "../lpac-curl-a5-http-local-02-preflight.json": {
+      "bytes": 1677,
+      "sha256": "eba293d9ae2a60444863954c26b170005720331657f8f8e5c96b60c3e10c7534"
+    },
+    "../lpac-curl-a5-http-local-02-public.json": {
+      "bytes": 1740,
+      "sha256": "fea15757f1203420c638bf4c7a7c65bb73bd1832393d5faeb351c58e21d0b1fe"
+    },
+    "lpac-curl-A5-actual02-candidate04-root-file-replay-01.json": {
+      "bytes": 945,
+      "sha256": "673387470b995048c3f8a586f56d4dda0ad5b74860070a3bb59f322b40541403"
+    },
+    "lpac-curl-A5-actual02-independent-file-diagnosis-01.json": {
+      "bytes": 6675,
+      "sha256": "6f35c74918bca056cfc2ccbe9bf9f20ae74b26b087babec3ef8a3ddb548dc4bb"
+    },
+    "lpac-curl-A5-ci-source-proof-02.json": {
+      "bytes": 4492,
+      "sha256": "a5d6e4cf54c16ee656c19481407593972424bd48cdea1a1d16d6093f9bac80ab"
+    }
+  },
+  "first_fatal_adapter_call": "getsockname while virtual connect pending",
+  "known_owned_cleanup_file_review": true,
+  "limitation": "The new-consumer replay is separate file analysis and does not rewrite or replace the missing original worker report.",
+  "original_public_recovery_required": true,
+  "original_worker_missing": true,
+  "privacy": "Private trace, handle values, process identities, raw journals and local paths are not included.",
+  "profile_absence_independently_queried": false,
+  "real_event_create_success": true,
+  "relay_connect_completed": true,
+  "relay_socket_bytes_sent": 3,
+  "schema_version": 1,
+  "source_commit": "f2470a4e1cea391ac76dfd515418bf3d51f61e70",
+  "stage": "A5-actual02-failed-finite-HTTP-safe-archive"
+}

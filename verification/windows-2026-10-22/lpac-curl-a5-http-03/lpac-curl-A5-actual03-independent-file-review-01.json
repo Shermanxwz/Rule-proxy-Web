@@ -1,0 +1,261 @@
+{
+  "HTTP": {
+    "Mihomo_DNS_disabled": true,
+    "Mihomo_fixed_release_owned_loopback_DIRECT": true,
+    "SOCKS_handshake_wire_received": 12,
+    "SOCKS_handshake_wire_sent": 13,
+    "all_four_sinks_byte_equal_current_challenges": true,
+    "both_bodies_contain_all256_and_RPS1": true,
+    "finite_HTTP_observed": true,
+    "four_physical_sinks": {
+      "origin_request": {
+        "bytes": 8193,
+        "sha256": "aa367ad28ae9b754937eddc137c3a3f8c62a19c1fa41c9b7d87232b0bcb3c0d5"
+      },
+      "origin_response": {
+        "bytes": 12289,
+        "sha256": "18f80d6f034c1e6dd451275c841e612b3b697f87bececaacd86960e9bf59c8dd"
+      },
+      "relay_request": {
+        "bytes": 8193,
+        "sha256": "aa367ad28ae9b754937eddc137c3a3f8c62a19c1fa41c9b7d87232b0bcb3c0d5"
+      },
+      "relay_response": {
+        "bytes": 12289,
+        "sha256": "18f80d6f034c1e6dd451275c841e612b3b697f87bececaacd86960e9bf59c8dd"
+      }
+    },
+    "four_saved_kernel_TCP_rows_crossbound_to_held_roles": true,
+    "origin_socket_received": 8193,
+    "origin_socket_sent": 12289,
+    "relay_socket_received": 12301,
+    "relay_socket_sent": 8206,
+    "remote_proxy_acceptance": false,
+    "request": {
+      "body_bytes": 8065,
+      "bytes": 8193,
+      "header_bytes": 128,
+      "sha256": "aa367ad28ae9b754937eddc137c3a3f8c62a19c1fa41c9b7d87232b0bcb3c0d5"
+    },
+    "request_held_zero_response_then_TCP_capture_then_release": true,
+    "response": {
+      "body_bytes": 12176,
+      "bytes": 12289,
+      "header_bytes": 113,
+      "sha256": "18f80d6f034c1e6dd451275c841e612b3b697f87bececaacd86960e9bf59c8dd"
+    }
+  },
+  "RPS1": {
+    "all_credit_returned": true,
+    "both_FIN_and_pipe_EOF": true,
+    "credit_window": 4096,
+    "inverse_wire_counters_match": true,
+    "relay_pipe_read_bytes": 9537,
+    "relay_pipe_write_bytes": 13953,
+    "relay_rx_frames": 21,
+    "relay_tx_frames": 26,
+    "request_payload_bytes": 8193,
+    "response_payload_bytes": 12289,
+    "selected_pipe_read_bytes": 13953,
+    "selected_pipe_write_bytes": 9537
+  },
+  "actions": {
+    "API_DLL_target_executed": false,
+    "project_imported": false,
+    "reader_or_tests_rerun": false,
+    "source_or_original_evidence_modified": false,
+    "stdlib_file_JSON_struct_hash_only": true
+  },
+  "all115_staged_sources_match_Ready": true,
+  "blockers": [],
+  "cleanup": {
+    "WSACleanup_raw_zero": true,
+    "all14_true": true,
+    "core_controlled_exit1_is_separate": true,
+    "core_stopped_only_after_full_data": true,
+    "flags": {
+      "acl_removed": true,
+      "cleanup_tools": true,
+      "labels_restored": true,
+      "observer_resources_cleanup_verified": true,
+      "parent_stdio_mapping_duplicate_closed": true,
+      "profile_deleted": true,
+      "query_resources_closed": true,
+      "shim_file_closed": true,
+      "sid_released": true,
+      "target_file_closed": true,
+      "trace_mapping_closed": true,
+      "trace_view_unmapped": true,
+      "workload_cleanup": true,
+      "workload_job_empty": true
+    },
+    "independent_external_profile_absence_queried": false,
+    "known_core_stdio_closes": 6,
+    "known_parent_pipe_closes": 4,
+    "lease_socket_raw_zero_closes": 2,
+    "no_recorded_creation_or_allocation_or_control_unknown": true,
+    "outer_cleanup_known": true,
+    "profile_delete_single_normal_return_source_bound": true,
+    "recovery_required": false,
+    "removal_tool_admitted_exit_zero": true,
+    "removal_tool_admitted_natural_zero": false
+  },
+  "configuration_and_plan_bound": true,
+  "controls": {
+    "current_ordinary_HTTP_controls": false,
+    "ordinary_after_version_positive": true,
+    "ordinary_before_version_positive": true
+  },
+  "driver": {
+    "invocations": 1,
+    "receipt": {
+      "bytes": 3057,
+      "sha256": "2300e6c0ff7a33047a721c4d1e8ca9071c0693b7a364ea08ff0ef4a1b7655555"
+    },
+    "return_code": 0,
+    "seconds": 24.640999999974156
+  },
+  "false_claims": {
+    "Linux_equivalence": false,
+    "PSEC_qualified": false,
+    "all_dynamic_calls_mediated": false,
+    "application_compatibility": false,
+    "dns_isolation_qualified": false,
+    "hostile_child_trace_authenticity": false,
+    "hostile_same_sid_boundary_verified": false,
+    "network_qualified": false,
+    "product_acceptance": false,
+    "proxy_qualified": false,
+    "restoration_fully_verified": false,
+    "restore_payload_absence_verified": false,
+    "root_crash_safe": false,
+    "whole_mapped_image_integrity_verified": false
+  },
+  "forensic": {
+    "bytes": 1083965,
+    "sha256": "4725e614b4708957b021abb73264a91bc62c43ce27e071f48e884e4d00030a42"
+  },
+  "forensic_substituted_for_worker": false,
+  "globals": {
+    "after": {
+      "bytes": 8630,
+      "sha256": "b4953f85f02d4a4e309859707a26ec1a071a28a962791c46e85b3f7b36ce2e56"
+    },
+    "all_four_fresh_before_after_byte_equal": true,
+    "before": {
+      "bytes": 8630,
+      "sha256": "b4953f85f02d4a4e309859707a26ec1a071a28a962791c46e85b3f7b36ce2e56"
+    },
+    "historic_DNS_route_drift_attribution_unknown": true,
+    "historic_baseline_restored": false
+  },
+  "identity": {
+    "Resume_raw_count": 1,
+    "four_parent_pipe_copies_closed_before_both_Resume": true,
+    "fresh_current_primary_TOKEN_QUERY_opens": 37,
+    "full_held_identity_SD_dualJobs_same_generation": true,
+    "observer_resources_each6_closed": true,
+    "once_token_closes": 37,
+    "sealed_HANDLE_LIST6_and_pipe_directions": true,
+    "semantic_matrices": [
+      [
+        2,
+        0,
+        0,
+        2
+      ],
+      [
+        2,
+        0,
+        0,
+        2
+      ]
+    ],
+    "two_proofs_before_Resume": true,
+    "zero_capability_LPAC": true
+  },
+  "limits": [
+    "Only this source-bound finite fixed-curl loopback RPS1-Mihomo-owned-origin HTTP observation is confirmed.",
+    "Ordinary before/after controls are --version controls; no current ordinary HTTP control is claimed.",
+    "Four historical closed loader probes remain; full startup diagnostic and generic application compatibility remain false.",
+    "No DNS isolation, remote proxy, Linux, hostile-child authenticity, crash safety or all-dynamic-call mediation qualification.",
+    "Known process-lifetime raw views are distinct from independently proven explicit unmapping; no fresh resource API or external profile-absence query was performed."
+  ],
+  "original_public": {
+    "bytes": 3278,
+    "name": "lpac-curl-a5-http-local-03-public.json",
+    "sha256": "3b24af5695e4c28d3d0720511d3ac53256da687cdb9c95d55c3cdefcf79c7184"
+  },
+  "schema_version": 1,
+  "selected": {
+    "HTTP_body_bytes": 12176,
+    "HTTP_positive": true,
+    "application_or_general_startup_acceptance": false,
+    "exact_current_response_body": true,
+    "exit_code": 0,
+    "natural_exit": true,
+    "stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "stdout": {
+      "bytes": 12176,
+      "sha256": "6fcd66c83290654ebbaf3c571eaf9f5024c83f99ed8e301fec288b5a39038d48"
+    }
+  },
+  "source_commit": "1363b4d787d7ae6b89f3a4cb5120f227ba0bd549",
+  "source_count": 115,
+  "source_sha256": "4bd12a335e816ee15fa0498e2bf5c483b15d87e9da531b9e4a4f58a1a51ddd16",
+  "stage": "A5-actual03-independent-physical-file-review",
+  "time": {
+    "natural_selected_exit_within_original_app_window": true,
+    "no_epoch_extension": true,
+    "original_application_seconds": 8,
+    "original_relay_seconds": 10,
+    "original_root_seconds": 120,
+    "original_work_seconds": 85,
+    "original_worker_seconds": 115
+  },
+  "trace": {
+    "binary": {
+      "bytes": 557312,
+      "sha256": "f4d5becb2f3f8fcd50c0d7e262156eec666169430e76aba2bec72a7d03d6a4a6"
+    },
+    "committed_sequence": 288,
+    "four_closed_loader_probes_SDK_absent": true,
+    "full_diagnostic_candidate": false,
+    "header_and_Config2048_bound": true,
+    "independent_trace_view_unmap_not_proven": true,
+    "raw_trace_view_retained_until_process_exit": true,
+    "rows": 144,
+    "saved_double_read_stable": true,
+    "transport_candidate": true,
+    "unused_rows_zero": true,
+    "within_original_app_window": true
+  },
+  "verdict": "CONFIRMED-finite-fixed-curl-HTTP-observation",
+  "verification": {
+    "CI_receipt": {
+      "bytes": 4492,
+      "sha256": "e253a3d11b7091b6ceaf059dbd1bf684c52fa61c5f4e9de292a3ebd0bddc0aec"
+    },
+    "CI_run": 40073727632,
+    "CI_runtime_steps_skipped": true,
+    "CI_seconds": 370.425,
+    "CI_skips": 0,
+    "CI_tests": 1545,
+    "local_full_receipt": {
+      "bytes": 4374,
+      "sha256": "c6a1a93c227f22954ef369e175fc094bd360c65489bda11ce3373da61b9b667b"
+    },
+    "local_seconds": 363.836,
+    "local_skips": 2,
+    "local_tests": 1545
+  },
+  "worker_forensic_byte_equal": true,
+  "worker_report": {
+    "bytes": 1083965,
+    "sha256": "4725e614b4708957b021abb73264a91bc62c43ce27e071f48e884e4d00030a42"
+  },
+  "worker_report_present": true
+}

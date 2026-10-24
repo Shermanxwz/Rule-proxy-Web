@@ -1,0 +1,199 @@
+{
+  "DNS_isolation_qualified": false,
+  "Linux_equivalence": false,
+  "actions": {
+    "API_called": false,
+    "file_read_and_struct_JSON_hash_only": true,
+    "original_evidence_modified": false,
+    "project_imported": false,
+    "recovery_performed": false,
+    "tests_or_target_rerun": false
+  },
+  "after_global": {
+    "bytes": 8630,
+    "sha256": "b4953f85f02d4a4e309859707a26ec1a071a28a962791c46e85b3f7b36ce2e56"
+  },
+  "before_global": {
+    "bytes": 8630,
+    "sha256": "b4953f85f02d4a4e309859707a26ec1a071a28a962791c46e85b3f7b36ce2e56"
+  },
+  "cleanup_conclusion": "The independent physical graph and the Root new-consumer full-file replay support closure of known owned resources. The original worker-report is missing; its public recovery=True remains immutable.",
+  "deterministic_report_rejection": {
+    "actual_producer_filename": "a5-config.bin",
+    "code": "a5_config_extent",
+    "full_new_consumer_file_replay": {
+      "bytes": 945,
+      "name": "lpac-curl-A5-actual02-candidate04-root-file-replay-01.json",
+      "sha256": "673387470b995048c3f8a586f56d4dda0ad5b74860070a3bb59f322b40541403"
+    },
+    "full_new_consumer_valid": true,
+    "historical_consumer_required_filename": "a4-config.bin",
+    "memory_scope_agrees": true,
+    "physical_stderr": {
+      "bytes": 2663,
+      "sha256": "0b0b080da94c8d2468dac2f43dd3416a867bb1cab0150fa51f31f151f037519b"
+    },
+    "producer_source": {
+      "bytes": 25025,
+      "sha256": "ff4802cc254aa8a193f66801aee80c4bb246d9a84e50070f2da3433fb83871ac"
+    },
+    "validator_source": {
+      "bytes": 37194,
+      "sha256": "4519088aed8cbc9fa8341794c911233ecc20390a128bced1ea2e796657cdf747"
+    }
+  },
+  "forensic_substituted_for_worker": false,
+  "four_global_objects_byte_equal_before_after": true,
+  "fresh_label_or_ACL_API_readback_performed": false,
+  "historical_failure": {
+    "HTTP_transport_qualified": false,
+    "barrier_released": false,
+    "detail": {
+      "message": "qpc_expired",
+      "operation": "proxy",
+      "type": "GateFailure"
+    },
+    "phase": "proxy",
+    "relay_exit_code": 5,
+    "selected_error_text": "curl: (27) Out of memory",
+    "selected_exit_code": 27,
+    "selected_natural_exit": false,
+    "selected_stderr": {
+      "bytes": 26,
+      "sha256": "484bd45e7d1c35c1786c8488b768583c5906a094af065e6275ec60ad03ac756f"
+    },
+    "selected_stdout": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "unique_dynamic_cause_proven": false
+  },
+  "network_qualified": false,
+  "old_route_DNS_attribution_unknown": true,
+  "original_forensic": {
+    "bytes": 684967,
+    "sha256": "321adad32b7a82afd5630b912fd2e9f1d0d8050350f517afc143cd8c3e8ddef9"
+  },
+  "original_global_baseline_reestablished": false,
+  "original_public": {
+    "bytes": 1740,
+    "sha256": "fea15757f1203420c638bf4c7a7c65bb73bd1832393d5faeb351c58e21d0b1fe"
+  },
+  "original_public_recovery_required": true,
+  "private_failure_trace": {
+    "WSACreateEvent_SDK_nonnull_success_recorded": true,
+    "binary": {
+      "bytes": 557312,
+      "sha256": "da4aac4eb28fe1adfb75b70506ca6169d1aea31c941ecdb60d7276c1bceb49ac"
+    },
+    "capture": {
+      "bytes": 1143,
+      "sha256": "092a2ad3fb3032dd57778fb32c141298d6ba86cc3b27a7c8e00e1e55e773b709"
+    },
+    "diagnostic_only": true,
+    "known_exited_view_owned": true,
+    "positive_qualification": false,
+    "rows": 57,
+    "stable": true,
+    "subsequent_negative_delivery_chain": [
+      {
+        "delivery": -1,
+        "error": 10035,
+        "operation": 4,
+        "real_SDK_recorded": false,
+        "slot": 46
+      },
+      {
+        "delivery": -1,
+        "error": 10057,
+        "operation": 6,
+        "real_SDK_recorded": false,
+        "slot": 48
+      },
+      {
+        "delivery": -1,
+        "error": 10057,
+        "operation": 7,
+        "real_SDK_recorded": false,
+        "slot": 50
+      },
+      {
+        "delivery": -1,
+        "error": 10057,
+        "operation": 67,
+        "real_SDK_recorded": false,
+        "slot": 51
+      },
+      {
+        "delivery": -1,
+        "error": 10057,
+        "operation": 3,
+        "real_SDK_recorded": false,
+        "slot": 52
+      }
+    ],
+    "unique_OOM_cause_not_inferred": true,
+    "within_original_application_window": false,
+    "within_original_cleanup": true
+  },
+  "profile_absence_independently_queried": false,
+  "schema_version": 1,
+  "separate_unqualified_raw_relay": {
+    "HTTP_payload_observed": false,
+    "SOCKS_request_only": true,
+    "file": {
+      "bytes": 3545,
+      "sha256": "ea99a09551b007bc0b06b94ff873dd62c1b573b0867742822343f0458cdf3d0c"
+    },
+    "pipe_eof": true,
+    "pipe_read_bytes": 64,
+    "pipe_write_bytes": 0,
+    "socket_bytes_received": 0,
+    "socket_bytes_sent": 3,
+    "socket_connect_completed": true,
+    "worker_status": "unavailable"
+  },
+  "source_bound_file_facts": {
+    "WSACleanup_raw_zero": true,
+    "all_recorded_children_exited": true,
+    "all_staged_sources_hash_match": true,
+    "artifacts_bound": true,
+    "cleanup_flags": {
+      "acl_removed": true,
+      "cleanup_tools": true,
+      "labels_restored": true,
+      "observer_resources_cleanup_verified": true,
+      "parent_stdio_mapping_duplicate_closed": true,
+      "profile_deleted": true,
+      "query_resources_closed": true,
+      "shim_file_closed": true,
+      "sid_released": true,
+      "target_file_closed": true,
+      "trace_mapping_closed": true,
+      "trace_view_unmapped": true,
+      "workload_cleanup": true,
+      "workload_job_empty": true
+    },
+    "configuration_and_plan_bound": true,
+    "known_core_stdio_raw_closes": 6,
+    "known_parent_pipe_raw_closes": 4,
+    "known_pipe_allocations": 2,
+    "lease_socket_raw_zero_closes": 2,
+    "memory_records": 65,
+    "no_recorded_ownership_unknown": true,
+    "outer_cleanup_known": true,
+    "physical_API_returns": 85,
+    "physical_intents": 57,
+    "physical_returns": 39,
+    "removal_tool_admitted_and_exited_zero": true,
+    "single_profile_delete_intent": true,
+    "source_recorded_label_batch_restored": true,
+    "source_sets_profile_deleted_only_after_normal_API_return": true,
+    "two_LPAC_proofs_record_qualified_and_resources_closed": true
+  },
+  "source_commit": "f2470a4e1cea391ac76dfd515418bf3d51f61e70",
+  "source_count": 115,
+  "source_sha256": "fe618f6db5951c40d9122fef04bd1dd669ad79238f332eb73fabb3b2df98475a",
+  "stage": "A5-actual02-independent-file-only-diagnosis",
+  "worker_report_present": false
+}

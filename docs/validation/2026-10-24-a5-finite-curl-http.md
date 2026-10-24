@@ -1,3 +1,7 @@
+**最新状态：2026-10-24 A5 actual03 成功后按用户要求暂停。** [暂停交接与工程判断](2026-10-24-windows-pause-handoff.md) / [安全证据](../../verification/windows-2026-10-22/lpac-curl-a5-http-03/index.json)。受测源码 `1363b4d787d7ae6b89f3a4cb5120f227ba0bd549`：真实零 capability LPAC curl 完成固定数值 HTTP（8193→12289 字节，144 条 trace，exit 0），14 项已知清理及 outer 通过。路径使用 Mihomo DIRECT 到本轮 owned loopback，DNS 关闭；DNS、远端代理、通用应用及 Linux 等效仍未验收。CI 1545 项通过；本机发现 1545 项、2 项跳过。以下旧“最新”及“尚未执行”段落保留各自时间含义，不覆盖本次结果。
+
+## Earlier source and actual01 history (preserved)
+
 # A5 finite real-curl HTTP adapter: source checkpoint
 
 The first selected LPAC HTTP attempt ran from commit `324a533ca8ca4811d27a87da9340c1e5091100e5` and failed before any RPS1 OPEN or application bytes. Curl exited 27 with `Out of memory`; the ordinary relay observed pipe EOF and never attempted its endpoint connection. HTTP success, DNS isolation and Linux equivalence remain false. The ordinary HTTP calibration and A4 startup observations remain separate historical evidence.

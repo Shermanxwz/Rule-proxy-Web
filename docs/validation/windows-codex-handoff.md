@@ -1,3 +1,5 @@
+**最新状态：2026-10-24 A5 actual03 成功后按用户要求暂停。** [暂停交接与工程判断](2026-10-24-windows-pause-handoff.md) / [安全证据](../../verification/windows-2026-10-22/lpac-curl-a5-http-03/index.json)。受测源码 `1363b4d787d7ae6b89f3a4cb5120f227ba0bd549`：真实零 capability LPAC curl 完成固定数值 HTTP（8193→12289 字节，144 条 trace，exit 0），14 项已知清理及 outer 通过。路径使用 Mihomo DIRECT 到本轮 owned loopback，DNS 关闭；DNS、远端代理、通用应用及 Linux 等效仍未验收。CI 1545 项通过；本机发现 1545 项、2 项跳过。以下旧“最新”及“尚未执行”段落保留各自时间含义，不覆盖本次结果。
+
 **最新 A4 actual03（2026-10-24）**：[完整 trace 记录](2026-10-24-lpac-curl-a4-loader-03.md)与[脱敏摘要](../../verification/windows-2026-10-22/lpac-curl-a4-loader-actual-03/summary.json)。固定 curl 第二次在两份零能力 LPAC 证明后自然退出 0；trace 557312 字节、34 行、bootstrap/稳定性/绑定均通过。三次 LoadLibraryExW 与一次 wine_get_version 仍被 closed shim 拒绝，对应 SDK 未调用，原 `inconclusive/trace`、A4 完整资格 false 不变。14 项限定清理与 outer 均通过，无待恢复；本次四对象前后逐字节相同。
 下一窄 HTTP 适配尚未实际执行；不能由版本启动推 HTTP、DNS、TLS、代理、同 SID 边界或 Linux 等效。旧 actual01 失败及独立恢复、actual02 容量失败、此前 DNS/路由未归因变化和 atomic unknown 全部保留；以下原交接字节不改。
 
