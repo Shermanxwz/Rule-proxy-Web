@@ -1,0 +1,69 @@
+{
+  "acl_or_label_changed": false,
+  "actor_executed": false,
+  "algorithm_and_validation_gates_unchanged": true,
+  "capture": {
+    "bytes": 1566,
+    "sha256": "d88778caf20e680dd0d88499aa656ab6a7103d05ef991e47ed114333b7155d21"
+  },
+  "cleanup_called": false,
+  "expected_output": "zero-cap-loopback-actual-02-independent-review.json",
+  "native_api_called": false,
+  "network_called": false,
+  "only_path_label_and_capture_pin_substitutions": {
+    "PREFIX='zero-cap-loopback-local-01'": "PREFIX='zero-cap-loopback-local-02'",
+    "after-zero01": "after-zero02",
+    "before-zero01": "before-zero02",
+    "e98e50bc0afcb7bdd08a503aed9e4c0461d10e67480f5742b2e9b8d6be0d030e": "d88778caf20e680dd0d88499aa656ab6a7103d05ef991e47ed114333b7155d21",
+    "run_zero_cap_loopback_01.py": "run_zero_cap_loopback_02.py",
+    "zero-cap-loopback-actual-01-file-review": "zero-cap-loopback-actual-02-file-review",
+    "zero-cap-loopback-actual-01-independent-review.json": "zero-cap-loopback-actual-02-independent-review.json",
+    "zero-cap-loopback-recovery-plan-01.json": "zero-cap-loopback-recovery-plan-02.json",
+    "zero_cap_actual01_file_reader": "zero_cap_actual02_file_reader",
+    "zero_cap_loopback_capture_01.ps1": "zero_cap_loopback_capture_02.ps1"
+  },
+  "operator_arguments": {
+    "public_bytes": 2731,
+    "public_sha256": "457c26fdf13707807a5412ff81951bba7b4112129c472c6f09804c073a6813ed",
+    "source_commit": "c7145b9d50dc99c14f11764a03ad23f31ce3e638",
+    "source_sha256": "b726d48d6dddfed2533168ac0921add834488f333931f08b75dc6195cd9fc4ac"
+  },
+  "predecessor_reader": {
+    "bytes": 21459,
+    "path": "verify_zero_cap_loopback_actual_01.py",
+    "sha256": "7e9d40f56464976eaef9d186f4207eb3cee3c1c4a9a222f6cdb35d9d7040e670"
+  },
+  "private_commitments_keys": [
+    "config",
+    "plan",
+    "worker_report",
+    "forensic",
+    "outer_launch",
+    "stdout",
+    "stderr",
+    "driver"
+  ],
+  "reader": {
+    "bytes": 21459,
+    "path": "verify_zero_cap_loopback_actual_02.py",
+    "sha256": "e72eb4c86fb4593ca5d55730e7285631530a84afdb3c2705b727fca5889fe910"
+  },
+  "reader_audit_executed": false,
+  "revision": 2,
+  "schema_version": 1,
+  "scope_notes": [
+    "This freeze records an operator-provided actual02 commitment without executing the audit.",
+    "WSAStartup10107 is a typed initialization failure, not a connect/send attempt or WSA10013 denial.",
+    "No unique internal cause of 10107 is attributed without separate evidence.",
+    "Ordinary positive controls can make aggregate network_tested true while the selected role never attempted connect/send.",
+    "Actual01 evidence/readers remain immutable; no success or cleanup is invented for absent reports."
+  ],
+  "source_pins_from_operator_git_commit": true,
+  "stage": "zero-cap-loopback-actual-reader-freeze",
+  "syntax_checked": true,
+  "unchanged_native": {
+    "actor_sha256": "5015367a6edeaefd1830f5a6584024894070926ea5012c343534e43054b0461d",
+    "manifest_sha256": "0c371e646873d3970bb3aea2e05ba05a10bb1b3e0b4c02c84963f7f265537a52",
+    "source_count": 2
+  }
+}

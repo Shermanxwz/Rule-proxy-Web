@@ -1,0 +1,97 @@
+{
+  "schema_version": 1,
+  "stage": "native-standard-dns-compile-and-fake-api",
+  "date": "2026-10-22",
+  "server_constructor": "official-v1-zero-port",
+  "actor_argc": 4,
+  "arbitrary_port_argument": false,
+  "standard_receiver_port": 53,
+  "sources": [
+    {
+      "path": ".github/native/windows_identity_dns_standard_actor.cpp",
+      "bytes": 3187,
+      "sha256": "ebbc29bc1e06ef4a355a8af6e4e4dfda3c7baadb608f45be913c6ed102d26219"
+    },
+    {
+      "path": ".github/native/windows_identity_dns_standard_probe.hpp",
+      "bytes": 6678,
+      "sha256": "bce69ff57a173525a9cff2731f4d05fe34b5144daeaa465b0d8bb5181432d28c"
+    },
+    {
+      "path": ".github/native/windows_identity_actor.cpp",
+      "bytes": 31002,
+      "sha256": "530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553"
+    },
+    {
+      "path": ".github/build_windows_identity_dns_standard_actor.ps1",
+      "bytes": 2853,
+      "sha256": "7ef098d3ca8f40866ec79f59f833c479b50efe4f0df9ae3a0fec15ecd515a2ff"
+    },
+    {
+      "path": "tests/test_windows_identity_dns_standard_native.py",
+      "bytes": 10389,
+      "sha256": "4573ece771d5f585dd336503447452464936b94e46b0d5500c066d48f23a761d"
+    }
+  ],
+  "compile": {
+    "compiler": "MSVC 19.44.35229.0",
+    "sdk": "10.0.26100.0",
+    "architecture": "x64",
+    "warnings_as_errors": true,
+    "compile_only": true,
+    "native_actor_executed": false,
+    "artifact_bytes": 151040,
+    "artifact_sha256": "5e7cbcaaa0a7bfdfa9026898493cbf74dafaa7b875bb4749680cc5be98261299",
+    "manifest_sha256": "49f4b44a06cd6bdbc6cfb0b4b2dd2c7a5c3443e0f2b79d61040e97479a2aa648",
+    "manifest": {
+      "schemaVersion": 1,
+      "compileOnly": true,
+      "runtimeAcceptance": false,
+      "actorSourceSha256": "ebbc29bc1e06ef4a355a8af6e4e4dfda3c7baadb608f45be913c6ed102d26219",
+      "identitySourceSha256": "530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553",
+      "dnsProbeSha256": "bce69ff57a173525a9cff2731f4d05fe34b5144daeaa465b0d8bb5181432d28c",
+      "executableSha256": "5e7cbcaaa0a7bfdfa9026898493cbf74dafaa7b875bb4749680cc5be98261299"
+    }
+  },
+  "pure": {
+    "command": "python -m unittest tests.test_windows_identity_dns_standard_native -v",
+    "tests_run": 3,
+    "failures": 0,
+    "errors": 0,
+    "skips": 0,
+    "compiled_fake_scenarios": 59,
+    "windows_sdk_layout_used": true,
+    "fake_api_and_clock": true,
+    "dns_api_called": false,
+    "socket_api_called": false,
+    "elapsed_seconds": 1.042
+  },
+  "history": [
+    {
+      "attempt": "compile-01",
+      "outcome": "compile-only-passed",
+      "artifact_sha256": "86c0c6be2bfb31cac9fc6bbd15372de408b9b57e483b5daa0789fe0631373535",
+      "superseded_by": "self-contained-Unicode-header-binding"
+    },
+    {
+      "attempt": "compile-02",
+      "outcome": "compile-only-passed",
+      "current": true
+    }
+  ],
+  "primary_sources": [
+    "https://github.com/microsoft/Windows-classic-samples/blob/main/Samples/DNSAsyncQuery/cpp/DnsQueryEx.cpp",
+    "https://learn.microsoft.com/en-us/windows/win32/api/windns/nf-windns-dnsqueryex"
+  ],
+  "scope": {
+    "old_dns_v1_changed": false,
+    "c_or_b_changed": false,
+    "real_dns_query_executed": false,
+    "network_tested": false,
+    "default_resolver_tested": false,
+    "selected_application_tested": false,
+    "dns_isolation_qualified": false,
+    "high_port_fallback": false,
+    "product_acceptance": false
+  }
+}

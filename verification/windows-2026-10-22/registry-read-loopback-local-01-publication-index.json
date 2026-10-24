@@ -1,0 +1,637 @@
+{
+  "actual_archive_files_preserved": [
+    {
+      "bytes": 3535,
+      "path": "verification/windows-2026-10-22/registry-read-loopback-local-01-evidence-index.json",
+      "sha256": "9be08b4be7c9adaa83a4530391fbbd315f5298ceaef28d7caeee1e5a150f49ec"
+    },
+    {
+      "bytes": 3038,
+      "path": "verification/windows-2026-10-22/registry-read-loopback-local-01-public.json",
+      "sha256": "641ea1db8e80b19da7778ad2180c83a6d63c2c0fc421276922f36e390da5b65f"
+    },
+    {
+      "bytes": 1559,
+      "path": "verification/windows-2026-10-22/registry-read-loopback-local-01-preflight.json",
+      "sha256": "5b033275c45ef9a38754531650d1625d64310720cd153ac81db615b77f61da47"
+    },
+    {
+      "bytes": 6043,
+      "path": "verification/windows-2026-10-22/registry-read-loopback-local-01-runner.py",
+      "sha256": "49df6d13892dbc3f2a23a2d7f50525f30d2b321853c2e77d2fbacd940c8a0098"
+    },
+    {
+      "bytes": 1601,
+      "path": "verification/windows-2026-10-22/registry-read-loopback-local-01-global-capture_01.ps1",
+      "sha256": "82b03eec39203056c46fa146734e2963dc126447ee994e4159ecdf1063ab2176"
+    },
+    {
+      "bytes": 2018,
+      "path": "verification/windows-2026-10-22/registry-read-loopback-local-01-global-before-registry01_expanded.ps1",
+      "sha256": "0c0131c19d9c7eac8673981625acb73d97aa88cd6cd6e706cb2b762d8c062e24"
+    },
+    {
+      "bytes": 2017,
+      "path": "verification/windows-2026-10-22/registry-read-loopback-local-01-global-after-registry01_expanded.ps1",
+      "sha256": "7b7ae5ba0ce78dea97d50e8073c00b30ab816b522a538056c14ffc03b4f80f6e"
+    },
+    {
+      "bytes": 25913,
+      "path": "verification/windows-2026-10-22/registry-read-loopback-local-01-component-projection.json",
+      "sha256": "0fbb1206acececc3b0392a0b083634e23ec5b63fa1479f39b40834996167bfef"
+    },
+    {
+      "bytes": 9299,
+      "path": "verification/windows-2026-10-22/registry-read-loopback-local-01-accesscheck-projection.json",
+      "sha256": "6c719f8d73d43146c667bf2ba822f7523f015a376b4b96ba0ad47a4e5fdc1486"
+    },
+    {
+      "bytes": 2463,
+      "path": "verification/windows-2026-10-22/registry-read-loopback-local-01-protocol-projection.json",
+      "sha256": "7a8a353d88a72b7a67aed6ad33d490eb1fe35bc1502cbdb3728d74c272f755a9"
+    },
+    {
+      "bytes": 882,
+      "path": "verification/windows-2026-10-22/registry-read-loopback-local-01-global-projection.json",
+      "sha256": "ab2c890a00d771b9cfae01ab42432401bf5aa237dbc15f78a19373ab12e87f3b"
+    },
+    {
+      "bytes": 3548,
+      "path": "verification/windows-2026-10-22/registry-read-loopback-local-01-source-history.json",
+      "sha256": "3e4dffb0a846565f329f4046e82a3b61fbeebfe21ef39b3f7d86bf66776d6a9b"
+    },
+    {
+      "bytes": 10946,
+      "path": "verification/windows-2026-10-22/registry-read-loopback-local-01-source-review.json",
+      "sha256": "5254116bd3786053b49e08913ad4409c27ea9d7196fdb9eae777b8c333e8493d"
+    },
+    {
+      "bytes": 8983,
+      "path": "verification/windows-2026-10-22/registry-read-loopback-local-01-summary.json",
+      "sha256": "50423402a2d76ff8da3351194e6209694cbb58d19e45f81fa58c42d6035ea408"
+    }
+  ],
+  "current_HEAD_not_substituted_for_actual_source": true,
+  "files": [
+    {
+      "bytes": 242908,
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/ci-registry-read-loopback-39899744500-full.txt",
+      "sha256": "bcac2940ba96acaac7df7f909186296a71d3ce1ea1a5ef6f59faf412ac0556fb"
+    },
+    {
+      "bytes": 3951,
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/ci-registry-read-loopback-39899744500-jobs-metadata.json",
+      "sha256": "c65d5a7dad7d5af47d55d573e8bc10613cbfc527461db423156bcfa41180da37"
+    },
+    {
+      "bytes": 12726,
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/ci-registry-read-loopback-39899744500-runs-metadata.json",
+      "sha256": "253ec718161c360880e93665d8d0a3cf02b320b757d289488260918c69e8729f"
+    },
+    {
+      "bytes": 4491,
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/compile_registry_read_loopback_01.ps1",
+      "sha256": "7b2942ed3617be8e76f3bfd0cd9fec31fcb97ca93faefb86f69ea42535f22252"
+    },
+    {
+      "bytes": 4988,
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/lpac-registry-read-winsock-research-01.json",
+      "sha256": "485b023e693ac77a7e8f5ba759ba378633fb61f16934722f8bdc8dbd2535adca"
+    },
+    {
+      "bytes": 5246,
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/lpac-socket-primary-research-findings-01.json",
+      "sha256": "51891fedf622656f1d4b02a94d26cdcfb5e9bb4639dbafb22255a86ece1df9f6"
+    },
+    {
+      "bytes": 6750,
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/lpac-socket-primary-research-source-index-01.json",
+      "sha256": "9eb79763bd9ed926b3a6782a9efa37b028ccb516dd5a92c63ca2b246f292f6ad"
+    },
+    {
+      "bytes": 2627,
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/lpac-winsock-primary-sources-01.json",
+      "sha256": "5ba88644aeb2fb21b3677db9281e52dde1c9a8d0e84ab331b39c3c7abdf7056a"
+    },
+    {
+      "bytes": 8787,
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/lpac_brokered_transport_feasibility_01.json",
+      "sha256": "1b45237c45b6109e2841cae1368b3e248df1b6836be13e17c8afbfc472775ba4"
+    },
+    {
+      "bytes": 42527,
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/registry-read-loopback-actual-01-independent-review.json",
+      "sha256": "7b1606aa434d5da2d78836dce65541b566e41571efc63539bfe44b7c43332e5f"
+    },
+    {
+      "bytes": 1186,
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/registry-read-loopback-actual-reader-freeze-01.json",
+      "sha256": "1b0cfe138b4cc1beeea73ec20290f8e061a76e6566532419623507bc8ff36612"
+    },
+    {
+      "bytes": 1839,
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/registry-read-loopback-archive-freeze-01.json",
+      "sha256": "b289ffe32fb1108cf14591d772fe5c9302c58e87961fd2cfcea332f90da29df1"
+    },
+    {
+      "bytes": 9632,
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/registry-read-loopback-compile-independent-review-01.json",
+      "sha256": "ce24bade27c5369b8da0ecea18246a3f4d8873e4323f27c35aad9efbaa04d046"
+    },
+    {
+      "bytes": 1635,
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/registry-read-loopback-compile-static-review-01.json",
+      "sha256": "6a0dbcf069ab6b435b5a42d1c312bfac6f29707bcdf720fb6247d2b965727255"
+    },
+    {
+      "bytes": 2089,
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/registry-read-loopback-driver-independent-review-01.json",
+      "sha256": "8a00b259825f81e5c249da5d8d314c83d707b0763a85632c68cb0fca1a76669e"
+    },
+    {
+      "bytes": 2698,
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/registry-read-loopback-integrated-pure-01.json",
+      "sha256": "57793812a9512a88f32bbae6d13b065e803f5ab63d61a693bda0af948744b4aa"
+    },
+    {
+      "bytes": 192767,
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/registry-read-loopback-main-pure-01.log",
+      "sha256": "9dd723569edac168870f526ad1dd8b59dcc8a427f137f1658d0f59ba5475cb30"
+    },
+    {
+      "bytes": 13724,
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/registry-read-loopback-native-abi-01.json",
+      "sha256": "7194cfce1637ed778b67999e81cd2ea08e8af3097f8b6d94ae91029287247dea"
+    },
+    {
+      "bytes": 46980,
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/registry-read-loopback-native-candidate-01.patch",
+      "sha256": "4564ae694b86df91789fb0c5c0a31b20bb5569fe959a3df43dcfc8c5c756d0e2"
+    },
+    {
+      "bytes": 5447,
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/registry-read-loopback-native-freeze-01.json",
+      "sha256": "456f5c83ba8c35d9af31cedbb63c8be248ca4bab15dbce288287511580d5e5ce"
+    },
+    {
+      "bytes": 831,
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/registry-read-loopback-native-pure-01.log",
+      "sha256": "670a0571b11c8c0a11fb5e6d1e94b48cc70b03fe54e4d9d1bcd355f175b2da0d"
+    },
+    {
+      "bytes": 831,
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/registry-read-loopback-native-pure-02.log",
+      "sha256": "5741845f59a074860d7b024d23acda1ebf23035bfee4743b6ba8ffad5109ccd8"
+    },
+    {
+      "bytes": 1684,
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/registry-read-loopback-native-semantic-review-diff-01.json",
+      "sha256": "ef4f9bca356b89dd659c87ae9ee289b100e9dbc349d36e35e61cb06a6e460e10"
+    },
+    {
+      "bytes": 3888,
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/registry-read-loopback-native-semantic-review-diff-01.txt",
+      "sha256": "be8c61a8ab0d552d4f4eabe2e78a05e8b976fab0d93c53dbb7f9c1ad2732022d"
+    },
+    {
+      "bytes": 3171,
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/registry-read-loopback-native-source-independent-review-01.json",
+      "sha256": "a89d8a9c2d00d805dd2207292c545fc70e13e13a56cfd45629c6cdca54a0af0c"
+    },
+    {
+      "bytes": 168951,
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/registry-read-loopback-python-candidate-01.patch",
+      "sha256": "bc51a475c396a968c7a1f68511c7f07d31e33bf1f664bc67757f64f76366f01d"
+    },
+    {
+      "bytes": 168362,
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/registry-read-loopback-python-candidate-02.patch",
+      "sha256": "a2e9de0572f8cb153b2cfbeee429de1127bbc4adc5bce7a1ac7e25f6ed88259f"
+    },
+    {
+      "bytes": 2142,
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/registry-read-loopback-python-candidate-abi-01.json",
+      "sha256": "cbccace09f155ea1bfc27edcc8a6b10f75d337b9a20937b9cbe15ab2159545de"
+    },
+    {
+      "bytes": 12413,
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/registry-read-loopback-python-candidate-freeze-01.json",
+      "sha256": "659081e58c0f450937f76831dda62ce7fbec1c7cacadb152ef9bd6782771b61c"
+    },
+    {
+      "bytes": 13456,
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/registry-read-loopback-python-candidate-freeze-02.json",
+      "sha256": "48f4f10b020b78754511e1ba6c0db8dca59f5257aab6ce5e78288f391be46bac"
+    },
+    {
+      "bytes": 1264,
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/registry-read-loopback-python-independent-pure-01.log",
+      "sha256": "bc84b93ad2178b6bfb50933e7d4fc252ed99b179a2ed1ffdf7b5dde117cd8215"
+    },
+    {
+      "bytes": 3307,
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/registry-read-loopback-python-independent-review-01.json",
+      "sha256": "f30d26aefa40a09587c3788cb1026cf77668309edec87c04a891c4b025f93df7"
+    },
+    {
+      "bytes": 6751,
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/registry-read-loopback-python-pure-01.log",
+      "sha256": "6917d473d1b256198ed078f3bbc57c8052fd772f03c4c7f019246d09b2869f40"
+    },
+    {
+      "bytes": 6963,
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/registry-read-loopback-python-pure-02.log",
+      "sha256": "ccff5119ca9bee28d0878767d2324001125a046a98c37c37edf23b6f8ac5db4a"
+    },
+    {
+      "bytes": 2603,
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/registry-read-loopback-ready-only-independent-review-02.json",
+      "sha256": "306e5320482d1f04675711f97ed5f88c504b9098394f7249003e0212f1bddb2e"
+    },
+    {
+      "bytes": 23173,
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/verify_registry_read_loopback_actual_01.py",
+      "sha256": "d1e69c3d4fb11be49f2998ec250f749528307e46210240e3f4cac533c14591e2"
+    },
+    {
+      "bytes": 3078,
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/ci-summary.json",
+      "sha256": "d90d520f61bc5488a3d3202912db9891ea50c219151d352cd1849609c1ca8606"
+    },
+    {
+      "bytes": 23242,
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/index.json",
+      "sha256": "3b5e97af2dd889f729d514b8de64bd7a1a6d9c577b28b681e4730c95f2f40486"
+    },
+    {
+      "bytes": 10521,
+      "path": "docs/validation/2026-10-23-registry-read-same-sid-loopback-01.md",
+      "sha256": "d9e7ab83e3e6956606b3102c4e1c337f529a037e82f249737488ae482ca3691c"
+    },
+    {
+      "bytes": 46337,
+      "path": "docs/validation/windows-codex-handoff.md",
+      "sha256": "f15708a85471b69b33712a06d3ef014ee363f8e0bfa59e01aa80ae912db502e6"
+    },
+    {
+      "bytes": 5426,
+      "path": "verification/windows-2026-10-22/registry-read-loopback-local-01-checkpoint.json",
+      "sha256": "51d9ca0ab14ccedd0c4e2b5d1dde1b893e8ac93d5755d19b5ef24f2ca7a09acb"
+    }
+  ],
+  "handoff_update": {
+    "added_lines": 2,
+    "after": {
+      "bytes": 46337,
+      "sha256": "f15708a85471b69b33712a06d3ef014ee363f8e0bfa59e01aa80ae912db502e6"
+    },
+    "all_original_bytes_preserved": true,
+    "before": {
+      "bytes": 45937,
+      "sha256": "1cb979002e99aaea84aec60bf116aa373f614bf3d5b6e6742ffb263efdd17d1d"
+    },
+    "prefix": {
+      "bytes": 400,
+      "sha256": "92df502d10f58457ff606ab268392d090ba19d72bd7e927d994da3d51c9f06b5"
+    }
+  },
+  "index_self_hash_excluded": true,
+  "native_API_actor_network_or_cleanup_run": false,
+  "old_repository_indexes_and_progress_preserved": [
+    {
+      "bytes": 3411,
+      "path": "verification/windows-2026-10-22/dns-client-provider-metadata-index.json",
+      "sha256": "23e633085f86ef9710f253446508320800c31a467214fae5fd979143db4f1d5b"
+    },
+    {
+      "bytes": 4624,
+      "path": "verification/windows-2026-10-22/dns-etw-owner-candidate-index.json",
+      "sha256": "9996758d2dea5c676288b3b5f0bf45c661a01ca81b05ce1bec8696fb93a65050"
+    },
+    {
+      "bytes": 49981,
+      "path": "verification/windows-2026-10-22/dns-history-review-index.json",
+      "sha256": "722547030bd0d284e007610018baa49514ab0b81794b5cd13b6ff6f8d7f4d861"
+    },
+    {
+      "bytes": 2729,
+      "path": "verification/windows-2026-10-22/dns-standard-local-01-02-evidence-index.json",
+      "sha256": "a14d1acfa11d0fa2ae52ed6e3de962d72f7f52366c3890af521477acd4135636"
+    },
+    {
+      "bytes": 4224,
+      "path": "verification/windows-2026-10-22/lpac-accesscheck-candidates-01-02/index.json",
+      "sha256": "12580b40e948e9829105b9277bfb3bea82e60f680203a498730af533714c0fc1"
+    },
+    {
+      "bytes": 2489,
+      "path": "verification/windows-2026-10-22/lpac-dns-local-01-evidence-index.json",
+      "sha256": "967fa9ce13b4b77bb81162625e50cea24393020929cb1804fc79d5fbdeef8b64"
+    },
+    {
+      "bytes": 2746,
+      "path": "verification/windows-2026-10-22/lpac-dns-local-02-evidence-index.json",
+      "sha256": "970d03b84d85b9db870d324db735fc69fd3cf47db2cefc89bebd7df3a4f7c5ee"
+    },
+    {
+      "bytes": 2141,
+      "path": "verification/windows-2026-10-22/lpac-dns-local-03-evidence-index.json",
+      "sha256": "3354921d6fd056fc4936b07d59ee53e31966bc56ce8ef0f97b62c5e75e60c8bf"
+    },
+    {
+      "bytes": 2141,
+      "path": "verification/windows-2026-10-22/lpac-dns-local-04-evidence-index.json",
+      "sha256": "e827198958b8a2648077c7a4042402a5811489184f17b3bc1eb122355fe5586d"
+    },
+    {
+      "bytes": 1271,
+      "path": "verification/windows-2026-10-22/lpac-identity-cell-source-review-01/index.json",
+      "sha256": "97a539f10c37541bc108924f6e207415c953b468fe1e53ef13518329815e4420"
+    },
+    {
+      "bytes": 2515,
+      "path": "verification/windows-2026-10-22/lpac-identity-local-01-evidence-index.json",
+      "sha256": "9d5bf23eb14ec8d4adfb772726764bdf2b890fd030a6b05ba920750cfd8b00e5"
+    },
+    {
+      "bytes": 2553,
+      "path": "verification/windows-2026-10-22/lpac-semantic-dns-local-01-evidence-index.json",
+      "sha256": "01707d4343bbbb683824ef4220674cba5405e72fed156ba4d3e1afed3e2cbbb1"
+    },
+    {
+      "bytes": 2554,
+      "path": "verification/windows-2026-10-22/lpac-semantic-dns-local-02-evidence-index.json",
+      "sha256": "cf0c0fee30c280bb34077559efa83226f74b7681c7205d3cdaa1229d7d3b8270"
+    },
+    {
+      "bytes": 1272,
+      "path": "verification/windows-2026-10-22/lpac-semantic-dns-source-review-01/index.json",
+      "sha256": "187b01f79f49c0fbe9b7840f0eeea85c7bde1996d61a690b657a3f64265a91fd"
+    },
+    {
+      "bytes": 1572,
+      "path": "verification/windows-2026-10-22/lpac-semantic-dns-source-review-02/index.json",
+      "sha256": "656b19a2226673ee194e486134cdbe7156d9d3fa0a6687f975a02e1695fec6d7"
+    },
+    {
+      "bytes": 1138,
+      "path": "verification/windows-2026-10-22/model2-death-01-evidence-index.json",
+      "sha256": "0d5e2ac2994ce52a02df817abc67f714e1eca36266e0974ed021411370dfb96b"
+    },
+    {
+      "bytes": 788,
+      "path": "verification/windows-2026-10-22/model2-death-after01-global-evidence-index.json",
+      "sha256": "e4f79e0fa5e8e65324d1688373efc6fd7ccf0c9fd7bd854f197eac5dc4ee8526"
+    },
+    {
+      "bytes": 3497,
+      "path": "verification/windows-2026-10-22/model2-diagnostic-06-08-evidence-index.json",
+      "sha256": "e42f0853a16dcae8dfff286fb2e957432aa4411e9b110bbdb42021503660e9b5"
+    },
+    {
+      "bytes": 5700,
+      "path": "verification/windows-2026-10-22/model2-diagnostic-06-09-evidence-index.json",
+      "sha256": "36e3813a0a8019238809c338a4a15bc7564d12a43724a4a8be8f27394636c180"
+    },
+    {
+      "bytes": 1536,
+      "path": "verification/windows-2026-10-22/model2-diagnostic-06-evidence-index.json",
+      "sha256": "878a06f756ef9a736e4c24c54eae87d1cc490d5d840f046abd9f5053f47c6da3"
+    },
+    {
+      "bytes": 4792,
+      "path": "verification/windows-2026-10-22/model2-diagnostics-02-05-evidence-index.json",
+      "sha256": "ed0f354b4c6e49343df64bc67c185212bb05670b75429fe859a1aabb7eeaf56c"
+    },
+    {
+      "bytes": 2251,
+      "path": "verification/windows-2026-10-22/model2-dns-01-evidence-index.json",
+      "sha256": "3905c5fbd13e0ebe484900fb92048952633e7f9fd6c75af6c8cfba62a3d0314c"
+    },
+    {
+      "bytes": 878,
+      "path": "verification/windows-2026-10-22/model2-dns-after01-global-evidence-index.json",
+      "sha256": "131600b8c67cb4c4dffd961ca24687fc4f25656bcdfb2c94c290aaaea9d43c0a"
+    },
+    {
+      "bytes": 5801,
+      "path": "verification/windows-2026-10-22/model2-first-02-04-archive-index.json",
+      "sha256": "b342934692d982741a0043640b3620483342e001a161a857253b04fa364835da"
+    },
+    {
+      "bytes": 2129,
+      "path": "verification/windows-2026-10-22/model2-raw-dns-01-evidence-index.json",
+      "sha256": "d360f92bea4a1de5a9f8b08b3675798c988e364d249628504faad8f6582704b0"
+    },
+    {
+      "bytes": 2137,
+      "path": "verification/windows-2026-10-22/model2-raw-dns-02-evidence-index.json",
+      "sha256": "ad9793b3327a69be342b449742bea2af0195b17bffcdc923be1a93eb8f205c53"
+    },
+    {
+      "bytes": 894,
+      "path": "verification/windows-2026-10-22/model2-raw-dns-after01-global-evidence-index.json",
+      "sha256": "fa55174496f0cfc14f680e8a437840f6ef475cae464126b940e42b3a41fc3f9d"
+    },
+    {
+      "bytes": 894,
+      "path": "verification/windows-2026-10-22/model2-raw-dns-after02-global-evidence-index.json",
+      "sha256": "52a13618eadfd1a7078875f58cf3b7c0a56b98d6cabd50001f5199f851772fd6"
+    },
+    {
+      "bytes": 1094,
+      "path": "verification/windows-2026-10-22/model2-wrong-peer-01-evidence-index.json",
+      "sha256": "3f3c3797b1a6dd30bb8a7f921c99d0d99fb7e3b94967f32711d6969c5afbaa18"
+    },
+    {
+      "bytes": 1157,
+      "path": "verification/windows-2026-10-22/model2-wrong-peer-02-evidence-index.json",
+      "sha256": "fd0765b3b0afaa0d4a53fc033bf2a9d7c78316266b30d9171a6124e3ba0edc48"
+    },
+    {
+      "bytes": 1657,
+      "path": "verification/windows-2026-10-22/model2-wrong-port-01-evidence-index.json",
+      "sha256": "ab70553e933b46e9a1d9e7e78da18829b20e088242062a042c7337ece6e0bf21"
+    },
+    {
+      "bytes": 1872,
+      "path": "verification/windows-2026-10-22/model2-wrong-port-02-evidence-index.json",
+      "sha256": "9633d2e14d89f15b179ffd0a10924409fd2ee312a32d3b0a00a0b2afcf780013"
+    },
+    {
+      "bytes": 3291,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-local-01-evidence-index.json",
+      "sha256": "8c3d27d35e2082a8506ebb096635ebb4fd1b74df7c80b528e97f32fa475417e2"
+    },
+    {
+      "bytes": 11443,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-local-01-publication-index.json",
+      "sha256": "580054ceecacfa047c22e284230ef76e7a39c24056012f00c7bdf4ed7fea6c7d"
+    },
+    {
+      "bytes": 3291,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-local-02-evidence-index.json",
+      "sha256": "4a860cca17b251e6ca5a48c68eff5142ab1ae4c7d832c64fa254efffa26b35db"
+    },
+    {
+      "bytes": 22376,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-local-02-publication-index.json",
+      "sha256": "b528c281a81a150e9b28348ac4d2b71995bca5ee8730102be02059c1c215ee97"
+    },
+    {
+      "bytes": 3516,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-local-03-evidence-index.json",
+      "sha256": "6c8c9d986e0f51e609883420a7aa1c556930ffa7bbba807c269b4957b153d90e"
+    },
+    {
+      "bytes": 36407,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-local-03-publication-index.json",
+      "sha256": "2a181eba1be20abebbca979d82fb32a10747f4e429071ccaa8f5de6cbe125aa9"
+    },
+    {
+      "bytes": 35175,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-01/index.json",
+      "sha256": "a101736f5fc640981608502a73abe85fdda7975893deafb027326343fbbcb551"
+    },
+    {
+      "bytes": 16934,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-02/index.json",
+      "sha256": "fe00e3254f3c67ff4fe3cd1f488ded63bdcb4b711b9bf76681cf269b31a665fb"
+    },
+    {
+      "bytes": 18482,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-03/index.json",
+      "sha256": "44fad0f07963732e1a05025cc4ac5a7dc90bd233f1dd660da9135bb312286f1f"
+    },
+    {
+      "bytes": 4185,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-local-01-evidence-index.json",
+      "sha256": "b262ea7588476c818ae568d6bd7964cceabe4d45332ca09c50ee0d3c6f8b4f9c"
+    },
+    {
+      "bytes": 66863,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-local-01-publication-index.json",
+      "sha256": "3a47dea267eb2ef8db710a0367140473c6367a7d2955275810adde64fde39a99"
+    },
+    {
+      "bytes": 52915,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-source-review-01/index.json",
+      "sha256": "671b12df40cb5c26cbd42406a5b4f993c20dcbdef83e9d73645f9337a826a3be"
+    },
+    {
+      "bytes": 3922,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-local-01-evidence-index.json",
+      "sha256": "c3e6a187cb7549ea87c207682201c47a701651658ebb24712b97e47f571d9ea5"
+    },
+    {
+      "bytes": 49956,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-local-01-publication-index.json",
+      "sha256": "6ec1dc29e942de1e3b53e373b076eb770496d04562487d81f9d37631cf54bfb1"
+    },
+    {
+      "bytes": 32610,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/index.json",
+      "sha256": "0534177cd473e0b410e130ef5800ea110e0eab50b16b69c0002135b3bcba1bc1"
+    },
+    {
+      "bytes": 3535,
+      "path": "verification/windows-2026-10-22/registry-read-loopback-local-01-evidence-index.json",
+      "sha256": "9be08b4be7c9adaa83a4530391fbbd315f5298ceaef28d7caeee1e5a150f49ec"
+    },
+    {
+      "bytes": 44307,
+      "path": "verification/windows-2026-10-22/zero-cap-loopback-local-01-02-publication-index.json",
+      "sha256": "2123ce49e2c83195262d2e027922c4c423615096e6b45ca788928f061cfbc770"
+    },
+    {
+      "bytes": 5623,
+      "path": "verification/windows-2026-10-22/zero-cap-loopback-local-01-evidence-index.json",
+      "sha256": "fc1fbd39f9f5105aa4b8f85df5d4cdbf1d25faa8cc9d75b921010b4d8e909e46"
+    },
+    {
+      "bytes": 7667,
+      "path": "verification/windows-2026-10-22/zero-cap-loopback-local-02-evidence-index.json",
+      "sha256": "13a3142fe07bd4540d3d357e30e5e950acbf844d9b974b873f303852e3cf024f"
+    },
+    {
+      "bytes": 37342,
+      "path": "verification/windows-2026-10-22/zero-cap-loopback-source-review-01-02/index.json",
+      "sha256": "e664ee602fc3b07e7bbeec09fdbecd68f2227837454a665e2e7c31a74a45d622"
+    },
+    {
+      "bytes": 20016,
+      "path": "docs/validation/2026-10-23-local-isolation-progress.md",
+      "sha256": "50022bd65045462060134d19827d3339ab6e6f5d246e4abf91bb958b8afa230e"
+    }
+  ],
+  "outputs_update": {
+    "after": {
+      "bytes": 127738,
+      "sha256": "de3b336ca128a99349842075268e416ec57d54a7a65b878fa9b6a16325ccc329"
+    },
+    "allowed_changed_fields": [
+      "LPAC_REGISTRY_READ_LOOPBACK最新实测",
+      "当前阻断",
+      "日期",
+      "最新尝试",
+      "最新尝试归档索引",
+      "此前LPAC_LOOPBACK02实测",
+      "源码提交",
+      "状态"
+    ],
+    "before": {
+      "bytes": 111489,
+      "sha256": "b8b503d17b5c56cc0268977c43dc49e62e83cff3bcd6c6ed6e7952b257de68fb"
+    },
+    "path": "outputs/windows-isolation-progress.json",
+    "unlisted_values_preserved": true,
+    "untouched_field_sha256": {
+      "DNS原始UDP最新实测": "e38fade75e26e46db3b50d9b6365a2e3de114d4b545e0adf58a4f599ecd7f701",
+      "DNS最新实测": "ba34a8f7a9e811d0769710e605524b6373f6acdb26e321d4282e0dafe14d7ff7",
+      "DNS机制检查点": "dca6d45ea6fc9a06b646c00249ae93eed256b89ee2a58eaa39543b6d3afe5c9e",
+      "LPAC_DNS最新实测": "ba34a8f7a9e811d0769710e605524b6373f6acdb26e321d4282e0dafe14d7ff7",
+      "LPAC_LOOPBACK最新实测": "d31211d981bb908f82b4179439cf9a2b0f6298244640ee1e596ecb6e1ef0a4ee",
+      "LPAC最新尝试": "ba34a8f7a9e811d0769710e605524b6373f6acdb26e321d4282e0dafe14d7ff7",
+      "LPAC身份对照最新实测": "87f5e4f50dd25c3ad5016c218d34f10f8b8dc82f247fa40c4207a48e9e21b98d",
+      "PSEC_LPAC_MATCHEDCAPS最新实测": "7292408a64d7fb23ba7920d31e949e7c7755f2a60ad3f8453d08632887bef679",
+      "PSEC_LPAC_POSTASSIGN最新实测": "1744fdecbc35138700f1f5777990b31664886a3e1e89dd2f3ecfc4e47d523bb1",
+      "PSEC_LPAC最新实测": "10ddf5e18a71f1d5f956a1263a8360ac21f9d33c5a73e342a35e0d2eaa33e547",
+      "schema_version": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "严格隔离合格": "2ed27c1421e6928dbe13dbfdb5c59e1045b30341fe7ebe05700006bc5ac572c0",
+      "产品验收": "2ed27c1421e6928dbe13dbfdb5c59e1045b30341fe7ebe05700006bc5ac572c0",
+      "公开证据_SHA256": "c673ecf01e969817cc496f602715daf4d8bde300be5804aaf8db9f8adea742e8",
+      "尚未验证": "e8ff263776e4b2ca7a0838b57a1c17c4decb28701f2e15136f6d9f5be7917dbc",
+      "已完成诊断检查点": "4070406f307716e6084c9cc6f8b4d40d2e8bec4b0bd6a19169302cd33efb4ee1",
+      "已验证": "6a68ca74b3ede3317cd2e43247bf15e70c5c0b730d71b916c2ede6e6b8e7833a",
+      "当前验收阻断": "58d274e92bf72be9b58dcf632f9f2b99165616f5ba26443daedac72314dc4c94",
+      "待实现机制候选": "6e56b5a3201d82d0064219b04e8d49a3e249c3953794898680427a5d0420c1b3",
+      "最新尝试归档核验": "c624b95dc3fb9a7c63306d2fee1a8a89aa43812323856b1fdad2fba247cda74b",
+      "此前DNS_API尝试": "9661317b03a504d4306283188bb03ca626c701d31a1b1f369c8486bd8d5962c9",
+      "此前G_PSEC_DNS泄漏实测": "63e1b01f272c2f30e312280cc0298b8dc669c4f5eefd8cd8bcf8f2287b9f5dbb",
+      "此前LPAC02尝试": "2dc3c8413d1058744160dc68c149260ef75812097c7e1d6f7b076ad6e70c8e40",
+      "此前LPAC04尝试": "688b2875d88ce8a8c1361a19a94ba3b52035e809e64305fdd4377fa98fcfa2d9",
+      "此前LPAC04归档核验": "475415d895e77ee56a4de5fbd51de4ee81464b4465596ddaea7a1715f5f5a91d",
+      "此前LPAC_LOOPBACK01实测": "e595fc5050e5e777b591313c88f387b9daad242af36a40d0a1fd3c0c8a2695bb",
+      "此前PSEC_LPAC01实测": "69ce9425f913c0f55083480a26faf7b3aebbea3baf916079b673b4c59a83ab55",
+      "此前PSEC_LPAC02实测": "4d347b0857205a21d92b0c2be9f43f399b328fdc568b31c801e2cdd92d250c3d",
+      "此前PSEC_LPAC03实测": "10ddf5e18a71f1d5f956a1263a8360ac21f9d33c5a73e342a35e0d2eaa33e547",
+      "此前PSEC_LPAC_MATCHEDCAPS01实测": "7292408a64d7fb23ba7920d31e949e7c7755f2a60ad3f8453d08632887bef679",
+      "此前PSEC_LPAC_POSTASSIGN01实测": "1744fdecbc35138700f1f5777990b31664886a3e1e89dd2f3ecfc4e47d523bb1",
+      "此前SemanticDNS01尝试": "684a51643c02f28a6ccad48244938851ac74d41b17b2dacae700175c1c31529b",
+      "此前SemanticDNS01归档核验": "76d1ef794992d230d5f96cd4cc907fa81ad67ac6075179248dd28b0c141e491b",
+      "此前death尝试": "003ba607075842a4db79a5d653c2120aeaf5ca02774931aca4a0ff82ec58c96c",
+      "此前rawDNS02尝试": "cc99da51e9df810d368e63b19b365cd1393242fa0ec366b05cbb2e6ad26a3c5c",
+      "此前rawDNS02归档核验": "6e869643ad86a63bd285c9b7fca4cec6d5b557b9e4940b603f6166c9fd7ea328",
+      "此前wrong_peer尝试": "eeace17c25d6498f58f31fb5bc521e6947146476eb44c1c9d29da4e3a7e802a4",
+      "此前身份对照归档核验": "1491f7d1377915e2c573f7d8ceb7a9a0b6c8fea9041405560a92679fc92db197",
+      "死亡测试命题限制": "60422ac3cb167e4a5b335d57b3e5d3292fe078924125e3495209e300b4c66c6e",
+      "私有身份路径端口和机器标识已公开": "2ed27c1421e6928dbe13dbfdb5c59e1045b30341fe7ebe05700006bc5ac572c0",
+      "诊断完成": "2ed27c1421e6928dbe13dbfdb5c59e1045b30341fe7ebe05700006bc5ac572c0",
+      "首次完整诊断检查点": "a98cba13eb964233d251082a0c97231643c779527a941f038dc7ae217ab60999"
+    }
+  },
+  "schema_version": 1,
+  "scope": "one-local-registry-read-same-sid-loopback-v1",
+  "source_commit": "d309ae322cca84360923d6bc51013057991a4218",
+  "stage": "registry-read-loopback01-publication-index"
+}

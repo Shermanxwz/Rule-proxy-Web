@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "repository": "Shermanxwz/Rule-proxy-Web",
+  "repository_id": 1412843902,
+  "source_commit": "f44a3f5f874603b6015a30c2364f257d3dc5d59b",
+  "run_id": 39569189781,
+  "native_job_id": 119119256842,
+  "workflow_conclusion": "failure",
+  "original_stage0_passed": false,
+  "separate_n0a_status": "observed_connect_denial",
+  "activation_gate_run": 39568692918,
+  "activation_gate_head": "ba91f20ff086c6f0e3266afc0012e9727f5efcd9",
+  "activation_manifest_sha256": "d101bac8c659a3d1fe2199337f8bd3d1afdf39c3d93a75877342585f46161a1e",
+  "artifacts": {
+    "stage0": {
+      "id": 12331987073,
+      "zip_sha256": "d34da02df924178609fd6b115efa1de270e40452f1a46c9816b977459c059746",
+      "report_sha256": "7137bbd43c018c270502fe1f40089d446c000a0ee39f8406f98c11371106ccc6"
+    },
+    "n0a": {
+      "id": 12331553101,
+      "zip_sha256": "bb812dd5336d2d22b6e46a255722552e714167a0c5c3c76772470df1effd1e4d",
+      "report_sha256": "91310f7e381308c5e962f2eb558a6341129dc261ebef80df4c3660aa1c85523b"
+    },
+    "preparation": {
+      "id": 12332575775,
+      "zip_sha256": "a39818f72f20cf9429a2b9b56dad12d68cb5efb16e3081786d4da108426f1f34",
+      "report_sha256": "97da48e19d0497fb2486b55519ff012aaa1f035400977116b4847b46ba1cc8d5"
+    },
+    "capacity": {
+      "id": 12332002112,
+      "zip_sha256": "e4eeeff6a9c051b988df411c50a4fe140adc7ec29083fc0d99946f5f819ce6ff",
+      "report_sha256": "be431d85bbb40ac026049605aef149f93e68ac93a70296b2735654fa6626f9ee"
+    }
+  },
+  "interpretation": "On exact exploratory Windows26300.9457, each of the two fixed bound IPv4 TCP endpoints had three explicit connect denials with complete fresh ordinary before/during/after controls and matching actor profile. This is connect-level evidence only, not packet-egress denial, DNS/IPv6/UDP/proxy/child/broker coverage, product/privacy qualification, supported-build acceptance, or independent PSEC cleanup. Original Stage0 remains failed; confirmed owned VM teardown is separate.",
+  "production_actor": {
+    "artifact_id": 12330289652,
+    "zip_sha256": "105eed931b539e993fd4b44734777f0094169d6a14df9b4e11f2ac8c2e09ecdb",
+    "manifest_sha256": "db50634dd65bc087b3ecc3c2d2b4d41354ccaeadb0e4c53f4574d0a63749009d",
+    "actor_sha256": "8f63f020430472e5a3d15829de8ef0e192276b6be494087094b878b1b08cac6a",
+    "test_only": false,
+    "two_source_pins_verified": true
+  },
+  "evidence_limit": "The public verdict is a closed controller attestation validated by the reviewed source contract. Private raw QPC intervals, Winsock records and executor audit events are not preserved in these public artifacts; receiver counts are not independent PID authentication. Window overlap is not simultaneous individual syscalls or continuous availability."
+}

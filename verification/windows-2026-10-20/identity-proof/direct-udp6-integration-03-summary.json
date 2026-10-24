@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "experiment": "default-OFF UDP6 integration short gate 03",
+  "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39673143710",
+  "head": "3b54aece173af05e79d2c9a3073b87ff2e79b41e",
+  "result_sha256": "aa6acc2b3aa65ea4bcd6e58b0f9ee9968eef172238093d0585f505458349f6d8",
+  "overall": "failed Windows fixture prerequisite; Linux provenance mechanism passed",
+  "observations": [
+    "Linux 650 required tests and actual paused owned-QEMU provenance/cleanup passed. Windows builds passed; its 650-test suite had two errors and no assertion failures. Later Windows verifier/PS/ZIP/mechanics stages did not execute.",
+    "The prior metadata and recursion fixtures passed. Two package-command fixtures failed while creating temporary files: the test nofollow shim called lstat on a not-yet-existing O_CREAT destination and raised FileNotFoundError before the real open. This is an observed fixture creation-semantic regression, not a production provenance failure.",
+    "Production helper, tiny gate, identity, network parameters and workflow remained unchanged. Full forced Windows-emulation coverage is required before another short gate."
+  ],
+  "limits": [
+    "No Windows VM, guest alias, packet absence or isolation result. Runtime remains OFF.",
+    "Linux mapped backing-file hashes and local package agreement are not resident-image or upstream-source equivalence.",
+    "Earlier failed receipts remain immutable; original first-run suppressed admission predicate remains unrecovered."
+  ]
+}

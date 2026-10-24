@@ -1,0 +1,46 @@
+{
+  "actual_result_remains_inconclusive_accesscheck": true,
+  "compile_only_actor_step_executed": true,
+  "conclusion": "success",
+  "cpse_experiment_executed": false,
+  "decoded_original": {
+    "bytes": 219702,
+    "encoding": "UTF-8 BOM",
+    "kept_in_work": true,
+    "line_endings": "CRLF",
+    "not_raw_zip": true,
+    "sha256": "550479f04800ce614650f78d477a407b8fa5cd1e86e6e935f0f556b33f2dcc22"
+  },
+  "errors": 0,
+  "event": "push",
+  "failures": 0,
+  "gated_runtime_steps_skipped": [
+    5,
+    6,
+    7,
+    8,
+    9
+  ],
+  "isolated_runtime_qualified": false,
+  "job_id": 120176045759,
+  "native_actor_executed": false,
+  "network_experiment_executed": false,
+  "public_log_view": {
+    "bytes": 218560,
+    "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/ci-39880370248-decoded-public-view.log",
+    "sha256": "f2a8befb6f17bb11561c26c887e0f51f8cd98a9cdc1540b9e051742ee60ab2a1"
+  },
+  "run_id": 39880370248,
+  "schema_version": 1,
+  "seconds": 53.368,
+  "skips": 0,
+  "source_commit": "953de0a2374aff89959957da4b5641ce5aaff8a1",
+  "stage": "read-only-postassign-source953-auto-ci-summary",
+  "status": "completed",
+  "step_skip_basis": "Root independently read GitHub job metadata; skipped step bodies are absent from decoded log.",
+  "tests_run": 922,
+  "url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39880370248",
+  "verified": true,
+  "workflow_dispatched": false,
+  "workflow_rerun": false
+}

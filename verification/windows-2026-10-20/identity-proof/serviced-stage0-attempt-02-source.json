@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "repository": "Shermanxwz/Rule-proxy-Web",
+  "repository_id": 1412843902,
+  "source_commit": "04517f3d23eae686ffe8bb7754fe16a60f71fc4a",
+  "run_id": 39426075620,
+  "native_job_id": 118639328968,
+  "artifacts": [
+    {
+      "artifact_id": 12269108136,
+      "archive_sha256": "5e94747ca82ca83cc921f9d1ea3346d2b855cd62dfd5f611a4e6634b9b143662",
+      "public_file": "serviced-stage0-attempt-02-runtime-public.json"
+    },
+    {
+      "artifact_id": 12270260112,
+      "archive_sha256": "646285304ab38e0547b61034a47ac730da657ad77b10a87c659dc464904e0ab5",
+      "public_file": "serviced-stage0-attempt-02-preparation-public.json"
+    },
+    {
+      "artifact_id": 12269578097,
+      "archive_sha256": "6a0acb96c247c4a1c783526dfe719d9cab724df737f261fff118b3e65ee7badf",
+      "public_file": "serviced-stage0-attempt-02-recovery-public.json"
+    }
+  ],
+  "observed_outcome": "blocked_during_serviced_media_after_installed_stock_beacon",
+  "stage0_passed": false,
+  "vm_destroyed": true,
+  "prior_attempt_cleanup_uncertainty_unchanged": true,
+  "guest_bootstrap_seconds_approx": 1823,
+  "qemu_started_utc": "2026-10-20T13:25:12Z",
+  "installed_stock_beacon_utc": "2026-10-20T13:55:35Z",
+  "cleanup_done_utc": "2026-10-20T13:55:43Z",
+  "runtime_qmp_error_detail_not_preserved": true,
+  "servicing_not_observed": true,
+  "isolation_not_tested": true
+}

@@ -1,0 +1,55 @@
+{
+  "AFD_endpoint_SD_observed": false,
+  "IPC_WORK_candidate_implementation_in_progress": true,
+  "IPC_actor_executed": false,
+  "IPC_candidate_acceptance": false,
+  "IPC_contract": {
+    "bytes": 33381,
+    "path": "lpac-ipc-origin-scope-contract-01.json",
+    "sha256": "50c679695df76c6a1288abf7a040daf14c126187ea620e38eeb7246c5b126cd0"
+  },
+  "IPC_implementation_evidence_included": false,
+  "LPAC_pipe_origin_mechanism_verified": false,
+  "actual": "one-supervised-ordinary-readonly-control-object-query",
+  "contract_baseline_commit": "277c112f81fb4e3b70305d9e881beada4758b115",
+  "current_registryRead_socket10013_unchanged": true,
+  "direct_DNS_all_protocol_isolation_proven": false,
+  "four_basic_allow_aces": true,
+  "held_LPAC_AccessCheck_performed": false,
+  "limits": [
+    "The four known basic allow ACEs are not an AFD endpoint descriptor or effective access computation for an LPAC token.",
+    "No AAP/ARAP or fixed known network/registryRead ACE was identified in this control-object descriptor; the fourth SID remains unidentified.",
+    "The new IPC design is a future single positive cooperative mapped-byteflow scope, not arbitrary application/browser adaptation or transparent enforcement.",
+    "Existing native actual, DNS leaks, atomic unknowns and all historical conclusions are unchanged."
+  ],
+  "linux_equivalence_proven": false,
+  "no_SOCKET_or_network_IO_requested": true,
+  "no_global_security_or_network_policy_write_requested": true,
+  "observation": {
+    "bytes": 3198,
+    "path": "observation-safe.json",
+    "sha256": "e006e9eb6c7f880ba8e415dd4de5db68ca2ef8f9d1a4b4dcf7bd69188e0d767f"
+  },
+  "other_sid_unidentified": true,
+  "outcome": "ordinary-control-DACL-read-complete-known-cleanup",
+  "parent_dependency_import_may_initialize_WSA": true,
+  "product_acceptance": false,
+  "proxy_qualified": false,
+  "review_actions": {
+    "API_or_network_call": false,
+    "actor_or_helper_rerun": false,
+    "file_only": true,
+    "runtime_import": false
+  },
+  "schema_version": 1,
+  "source_count": 37,
+  "source_pin_commit": "d309ae322cca84360923d6bc51013057991a4218",
+  "source_pin_sha256": "069d9f2702e235f03603d11b5962f320fe0f077cd81ccfabafefd48cbd11dfb6",
+  "stage": "ordinary-afd-readonly-and-future-lpac-ipc-contract",
+  "supervision": {
+    "bytes": 1260,
+    "path": "supervision-safe.json",
+    "sha256": "88a6646c7b2e0b3fc715e3b2c1f945e8b1b9ea44111d49708096f432782bd6a0"
+  },
+  "unique_socket_failure_cause_proven": false
+}

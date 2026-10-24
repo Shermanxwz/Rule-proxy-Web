@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "stage": "win11-direct26300.9457-exploratory-ordinary-deny-only-stage0",
+  "status": "blocked",
+  "stage0_passed": false,
+  "product_acceptance": false,
+  "exploratory_stage0": true,
+  "documented_support_floor": "26300.9550",
+  "privacy_qualified": false,
+  "network_tested": false,
+  "vm_destroyed": true,
+  "source_commit": "7d3d07c9353a4fb047953303e3bacced63085e25",
+  "iso_sha256": "bc3f24086ebadc94489066b5ad78089e2cf5c3491e90e790bb81a2b199c10e38",
+  "actor_sha256": "23b65fdcdf42b888ea731ebce0bded5567a3ef0c50b92fb90ded434ab89c3bee",
+  "host_failure": {
+    "type": "unclassified",
+    "errno": null,
+    "winerror": null,
+    "operation": "preflight"
+  },
+  "teardown_diagnostic": {
+    "schema_version": 1,
+    "qemu_present": false,
+    "tpm_present": false,
+    "qemu_exit_before_cleanup": null,
+    "tpm_exit_before_cleanup": null,
+    "qemu_exit_after_cleanup": null,
+    "tpm_exit_after_cleanup": null,
+    "qemu_exit_confirmed": null,
+    "tpm_exit_confirmed": null,
+    "helper_count": 0,
+    "helper_exit_confirmed_count": 0,
+    "qmp_present": false,
+    "qmp_close_succeeded": null,
+    "qmp_file_closed": null,
+    "qmp_socket_closed": null,
+    "server_present": false,
+    "server_shutdown_succeeded": null,
+    "server_close_succeeded": null,
+    "server_thread_stopped": null,
+    "watcher_present": false,
+    "watcher_stopped": null,
+    "work_remove_attempted": true,
+    "work_removed": true,
+    "work_retained": false,
+    "first_failed_stage": null,
+    "error_count": 0,
+    "errors": []
+  },
+  "phase_samples": [
+    {
+      "phase": "cleanup_done",
+      "filesystem_free_bytes": 91777798144,
+      "qcow_size_bytes": null,
+      "qcow_allocated_bytes": null,
+      "remaining_work_seconds": 6479,
+      "filesystem_sample": "observed",
+      "qcow_sample": "absent"
+    }
+  ],
+  "last_phase": "preflight"
+}

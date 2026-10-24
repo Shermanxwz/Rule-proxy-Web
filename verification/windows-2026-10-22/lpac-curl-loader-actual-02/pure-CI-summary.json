@@ -1,0 +1,102 @@
+{
+  "CI": {
+    "CI_runtime_acceptance": false,
+    "decoded_not_raw_ZIP": true,
+    "independently_parsed_summary": {
+      "passed": true,
+      "raw_log": {
+        "bytes": 301286,
+        "sha256": "0ec28322ce4a0b0622b3e7b263ab50e6e7203eab5c30b63805e7dd19907c54de"
+      },
+      "seconds": 255.044,
+      "skips": 0,
+      "tests": 1265
+    },
+    "raw_log_republished": false,
+    "root_API_receipt": {
+      "basis": "Root fetched exact commit run API and completed job API, then parsed source CI logs. Runtime steps5-9 skipped.",
+      "decoded_log": {
+        "bytes": 301286,
+        "name": "lpac-curl-loader-source-ci-02.log",
+        "sha256": "0ec28322ce4a0b0622b3e7b263ab50e6e7203eab5c30b63805e7dd19907c54de"
+      },
+      "head_sha": "8d949542795540d45440afc563d80ae51dd146d4",
+      "job_conclusion": "success",
+      "job_id": 120631064642,
+      "job_status": "completed",
+      "local_actual_acceptance": false,
+      "raw_CI_log_published": false,
+      "run_conclusion": "success",
+      "run_id": 40016869400,
+      "run_status": "completed",
+      "runtime_steps_5_through_9": "skipped",
+      "schema_version": 1,
+      "source_commit": "8d949542795540d45440afc563d80ae51dd146d4",
+      "stage": "root-A3-source-only-CI-receipt",
+      "tests": {
+        "count": 1265,
+        "seconds": 255.044,
+        "skipped": 0,
+        "summary": "Ran 1265 tests in 255.044s",
+        "terminal": "OK"
+      },
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/40016869400"
+    },
+    "root_receipt": {
+      "bytes": 1001,
+      "sha256": "e9bccca21822baed669ac7e1c8e039c7638ecfaf3eac69f3a47712a84d8e69e4"
+    },
+    "source_commit": "8d949542795540d45440afc563d80ae51dd146d4",
+    "status": "completed"
+  },
+  "actual_result_separate": true,
+  "current_new_test_methods": 5,
+  "current_pure_fakes": [
+    {
+      "passed": true,
+      "raw_log": {
+        "bytes": 1019,
+        "sha256": "eb44e7cdea6c5b9bc55f79ec8739a08e3c15589c7157ddb4afefc10f871c5439"
+      },
+      "receipt": {
+        "bytes": 824,
+        "sha256": "7a68e03894c65bee4b7cc60e27af2cbb0cc11466d07389ef621b1ba296afe0a6"
+      },
+      "seconds": 0.003,
+      "skips": 0,
+      "tests": 5
+    },
+    {
+      "passed": true,
+      "raw_log": {
+        "bytes": 1019,
+        "sha256": "d42dd43037c01f5dc2c90d0b71ffd0aa5757da64ffec27399431528fb2341ad5"
+      },
+      "receipt": {
+        "bytes": 824,
+        "sha256": "04cb7b4e89d57b89cd438dd098931d479810e12a60c911bcc5bb5e7933fba068"
+      },
+      "seconds": 0.004,
+      "skips": 0,
+      "tests": 5
+    }
+  ],
+  "full03": {
+    "passed": true,
+    "raw_log": {
+      "bytes": 241578,
+      "sha256": "b88a04debd68e3f08853a34b38360dbcb9e0ccdf783de51ff29a0115b2cb4f80"
+    },
+    "receipt": {
+      "bytes": 1209,
+      "sha256": "9d9918e4c2eddec0f112462b98843fe05658623159b3298716ccda03eb1466b3"
+    },
+    "seconds": 277.114,
+    "skips": 2,
+    "tests": 1265
+  },
+  "native_assertions_not_additional_test_methods": true,
+  "schema_version": 1,
+  "source_commit": "8d949542795540d45440afc563d80ae51dd146d4",
+  "stage": "curl-loader-actual02-pure-CI-summary"
+}

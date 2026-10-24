@@ -1,0 +1,8 @@
+test_compiled_exact_registry_read_capability_and_zero_header_boundaries (test_windows_identity_lpac_registry_loopback_native.RegistryReadLoopbackNativeTests.test_compiled_exact_registry_read_capability_and_zero_header_boundaries) ... ok
+test_compiled_python_packets_commands_mutation_roles_and_original_deadline (test_windows_identity_lpac_registry_loopback_native.RegistryReadLoopbackNativeTests.test_compiled_python_packets_commands_mutation_roles_and_original_deadline) ... ok
+test_native_fixed_one_cap_selected_no_fallback_or_ui_and_bounded_sid_before_sdk (test_windows_identity_lpac_registry_loopback_native.RegistryReadLoopbackNativeTests.test_native_fixed_one_cap_selected_no_fallback_or_ui_and_bounded_sid_before_sdk) ... ok
+
+----------------------------------------------------------------------
+Ran 3 tests in 1.078s
+
+OK

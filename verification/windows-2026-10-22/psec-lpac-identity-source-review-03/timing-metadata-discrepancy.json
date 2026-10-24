@@ -1,0 +1,9 @@
+{
+  "both_originals_preserved": true,
+  "difference_seconds": 0.001,
+  "freeze_metadata_seconds": 6.218,
+  "freeze_or_log_rewritten": false,
+  "raw_log_seconds": 6.219,
+  "source_review_also_records_both": true,
+  "targeted_tests": 42
+}

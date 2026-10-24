@@ -1,0 +1,87 @@
+{
+  "conclusion": "failure",
+  "exact_result_sha256": "a59464ec37fd53675f6c1de605ae164d6f2219ae9cacd6d5140f088b3e595fb3",
+  "experiment": "Stage0b child environment variant short gate",
+  "freeze_sha256": "4d2b3bfc765ac944610ca65a7a372fd29b3a3c8453b686d083ebac401f76d34d",
+  "head": "7affbee3873d802f1794ad6725b1cb17240857b4",
+  "interpretation": [
+    "Both platforms passed 944 required tests with zero skips. Windows compiled production and TEST_ONLY actors and passed the isolated production-input verifier and preceding PowerShell checks. The Stage0b PowerShell fixture failed; later seven-mode ZIP and owned-loopback mechanics did not run. The identity sidecar passed 362 overlapping tests and compilation; its token, pipe, restricted and paired runtime steps were skipped.",
+    "The actual closed Stage0b fixture receipt reports diagnostic_parity, 24 checks and confirmed fixture cleanup. Source counting places this after both batch-size checks and before any per-case validator. The failure is localized to second-batch ingestion or total-case-count validation, not an observed Python-versus-PowerShell report-schema disagreement. The actual batch/case counts and exception were not exported.",
+    "The fixture generates 144 cases split into 70 and 74. Root-array pipeline enumeration is a source-supported fixture hypothesis, not a captured count or proven runtime branch. A correction must explicitly enumerate and validate these batches without relaxing production schemas or removing negative cases.",
+    "The new same-user known-folder/COM helper and two-key child environment were tested only through pure/mock contracts. No actual helper API execution, genuine Stage0b pipe launch, Windows guest or proxy test follows from this run. Existing source-token observations remain distinct from that unexecuted variant.",
+    "Linux independently passed the tiny paused owned-QEMU provenance and cleanup mechanism. This is not a Windows guest or packet result. Historical Stage0b failures and their unknown underlying environment cause remain unchanged."
+  ],
+  "observations": {
+    "actual_ipv6_loopback_not_run": true,
+    "actual_windows_stage0b_ps": {
+      "checks": 24,
+      "cleanup_confirmed": true,
+      "native_actor_executed": false,
+      "passed": false,
+      "phase": "diagnostic_parity",
+      "process_and_transport_mocked": true,
+      "schema_version": 1
+    },
+    "actual_zip_not_run": true,
+    "counts_overlap_not_additive": true,
+    "linux_paused_qemu_cleanup": {
+      "cleanup_confirmed": true,
+      "control_closed": true,
+      "failure": false,
+      "forced_kill": false,
+      "guest_executed": false,
+      "packet_egress_tested": false,
+      "passed": true,
+      "paused_observed": true,
+      "process_exit_observed": true,
+      "provenance": {
+        "admitted": true,
+        "close_confirmed": true,
+        "failure": false,
+        "libslirp": {
+          "architecture": "amd64",
+          "local_integrity_verified": true,
+          "name": "libslirp0",
+          "sha256": "1f71a24af59f3aa76c1e0bcf7852de08c1c21c40524479b9d5df404d903b2280",
+          "version": "4.7.0-1ubuntu3.1"
+        },
+        "pre_stop_verified": true,
+        "qemu": {
+          "architecture": "amd64",
+          "local_integrity_verified": true,
+          "name": "qemu-system-x86",
+          "sha256": "8a35ccba41582fc6c38b9df85fc9e35fa1d42f414d2d7d8090ee9b2f5e7c0854",
+          "version": "1:8.2.2+ds-0ubuntu1.18"
+        },
+        "resident_bytes_verified": false,
+        "schema_version": 1,
+        "source_equivalence_verified": false
+      },
+      "qemu_8_2_2": true,
+      "schema_version": 1,
+      "work_removed": true
+    },
+    "linux_required_passed": 944,
+    "required_skips_each": 0,
+    "sidecar_tests_passed": 362,
+    "windows_required_passed": 944
+  },
+  "privacy": {
+    "closed_counts_booleans_public_ci_and_package_digests_only": true,
+    "raw_logs_paths_nonces_sids_pids_credentials_excluded": true
+  },
+  "run_id": 39751782415,
+  "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39751782415",
+  "schema_version": 1,
+  "scope": {
+    "changed_files": 11,
+    "child_environment_variant_runtime_executed": false,
+    "knownfolder_helper_actual_api_executed": false,
+    "native_actor_unchanged": true,
+    "proxy_executed": false,
+    "runtime_workflow_unchanged": true,
+    "stage0b_pipe_executed": false,
+    "unchanged_pins": 411,
+    "windows_vm_executed": false
+  }
+}

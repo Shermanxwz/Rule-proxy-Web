@@ -1,0 +1,90 @@
+{
+  "final_recovery": {
+    "DeleteProfile_helper_returned_normally": true,
+    "all14facts": true,
+    "before_after_globals": {
+      "after": {
+        "bytes": 7655,
+        "sha256": "e2628e54697b73876c68b6ad3a055f407b8518023f42f239e1668599eba9b1e0"
+      },
+      "baseline": {
+        "bytes": 7378,
+        "sha256": "f05d91ee76ee8a97ae5ab3bfa092167a8ee560c083255f142e6c453f2edf7ab3"
+      },
+      "before": {
+        "bytes": 7655,
+        "sha256": "e2628e54697b73876c68b6ad3a055f407b8518023f42f239e1668599eba9b1e0"
+      },
+      "before_after_byte_equal": true,
+      "before_after_objects_equal": {
+        "dns": true,
+        "firewall_profiles": true,
+        "routes": true,
+        "user_proxy": true
+      },
+      "no_configuration_or_route_cleanup_by_auditor": true,
+      "original_baseline_after_objects_equal": {
+        "dns": true,
+        "firewall_profiles": true,
+        "routes": false,
+        "user_proxy": true
+      },
+      "route_writer_or_time_attribution_proven": false
+    },
+    "external_profile_absence_independently_verified": false,
+    "facts": {
+      "all_label_readbacks_empty": true,
+      "all_label_writes_returned": true,
+      "all_original_sid_ACEs_absent": true,
+      "current_ordinary_device_bound": true,
+      "exact_profile_sid_derived_and_released": true,
+      "old_exact_generations_not_live": true,
+      "original_exact_sid_ACE_scope": true,
+      "original_files_and_source_bound": true,
+      "original_known_cleanup_and_forget_bound": true,
+      "original_outer_job_absent": true,
+      "profile_delete_returned_success": true,
+      "remove_tool_held_outer_atomic": true,
+      "remove_tool_natural_exit0_cleanup": true,
+      "selected_stdio_and_label_scope_bound": true
+    },
+    "independent_review": {
+      "bytes": 13423,
+      "sha256": "12d4fd8c59517b7b0f68fb611c9d88c26340c3f4a4732582f1ab1ed28b89039d"
+    },
+    "old_unknowns_cleared": false,
+    "public": {
+      "bytes": 1312,
+      "path": "verification/windows-2026-10-22/lpac-curl-loader-local-03-recovery02-public.json",
+      "sha256": "e69d8cbd0799b8a7491226071cff1e3ef6f2c893822d5f40ec1f653181871f05"
+    },
+    "source_bound_observations_only": true,
+    "status": "resolved-by-recovery02"
+  },
+  "first_attempt": {
+    "independent_review": {
+      "bytes": 4738,
+      "sha256": "a0903463797976436d8f390797f2f730049adcdd4655e9bdcd47534df5dc6ba4"
+    },
+    "original_resource_mutation_absence_is_source_order_inference": true,
+    "public": {
+      "bytes": 1328,
+      "name": "lpac-curl-loader-local-03-recovery-public.json",
+      "sha256": "88f2b3e245741c60ccd6d2c74e697e31dc52575ee390ffe6410e574104de50a4"
+    },
+    "root_result": {
+      "bytes": 628,
+      "sha256": "3eafe516765c2e831f53f1e83a54572e32e04262bb98da31921e971810593a75"
+    },
+    "status": "worker bootstrap failed before original maintenance path; root supervision did run"
+  },
+  "original_failure_not_rewritten": true,
+  "original_public": {
+    "bytes": 2902,
+    "path": "verification/windows-2026-10-22/lpac-curl-loader-local-03-public.json",
+    "sha256": "7b5173f6560a03d7d2ab9f5a35fcb89878b0531363df32e766550f66e7963e2e"
+  },
+  "original_recovery_required": true,
+  "schema_version": 1,
+  "stage": "curl-loader-actual03-recovery-history"
+}

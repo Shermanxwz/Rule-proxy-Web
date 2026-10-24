@@ -1,0 +1,43 @@
+{
+  "freeze_sha256": "87c8f7c42834e1bd6a212a4ab529027895f636e16e91415353d352883baba2a7",
+  "interpretation": [
+    "The Windows job completed all existing build, isolated-input, PowerShell, payload and hosted IPv6 mechanics steps. The new AC fixture executed extracted PowerShell validators and mocked dispatch, not the AC native pair.",
+    "Both platforms passed 1,013 required tests with zero skips. The broader local 1,076-test regression also included 63 prior pure bridge tests; those are not added to this workflow count.",
+    "The Linux job was cancelled during the existing official Ubuntu QEMU package installation, under the unchanged five-minute job bound. Logs show delayed archive fetches and repeated Ign entries before cancellation. The final package installation and subsequent tiny paused-QEMU provenance step did not complete.",
+    "The observed stage and delayed fetches do not establish a unique mirror, network or package-manager root cause. No package-process cleanup or installed-library provenance receipt was produced by this cancelled step; checkout post-cleanup is not a substitute.",
+    "Windows hosted IPv6 mechanics remained TEST_ONLY owned-loopback calibration: 45 main verified echoes and one wrong-echo control, seven held child cleanups, two receiver cleanups and work removal. This is not a new AppContainer, guest alias, isolation or proxy result.",
+    "The sidecar passed 433 pure tests and built the existing identity actor. Its token, pipe, restricted and paired runtime steps were skipped; its original public build artifact step completed. All five other path-triggered workflows were skipped.",
+    "The AC controller flag remains false. No new AC profile, AC pair process, bridge native invocation or Windows VM was executed. Prior successful hosted pipe and Stage0b IPC results remain separate and are not substituted for this missing Linux prerequisite."
+  ],
+  "next_step": "Preserve this non-green result. Any retry or provisioning change requires separate review and authorization; no automatic replay or budget increase.",
+  "observations": {
+    "ac_execution_enabled": false,
+    "ac_powershell_checks": 135,
+    "ac_python_to_powershell_cases": 28,
+    "both_python_suites_passed": true,
+    "linux_package_install_completed": false,
+    "linux_tiny_qemu_provenance_executed": false,
+    "payload_forbidden_substitutions": 20,
+    "payload_member_counts": [
+      10,
+      14,
+      15,
+      17,
+      22,
+      17,
+      14,
+      17
+    ],
+    "payload_powershell_checks": 104,
+    "required_modules_each": 54,
+    "required_tests_each": 1013,
+    "skips_each": 0,
+    "windows_job_passed": true
+  },
+  "overall_passed": false,
+  "result_sha256": "425f65b115baa843e61e296d931ce5f806c82c1fa928f716e3196d772f99f8b2",
+  "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39772363906",
+  "schema_version": 1,
+  "source_commit": "d9ad11ee2492f51d6d54224197ea442d2c5eecfd",
+  "title": "Default-OFF AC pipe integration short gate: Windows passed; Linux package installation cancelled"
+}

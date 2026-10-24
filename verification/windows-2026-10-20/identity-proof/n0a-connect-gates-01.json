@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "repository": "Shermanxwz/Rule-proxy-Web",
+  "repository_id": 1412843902,
+  "source_commit": "5495b8adef438104566e57947adeb5200232d5bf",
+  "run_id": 39562020974,
+  "conclusion": "success",
+  "manifest_sha256": "c4e31af52a4c9197d31ec69964b3ff23fb32a5226bd7fc09889f4ba2b8439f03",
+  "jobs": {
+    "windows": {
+      "id": 119095295105,
+      "unit_tests": 43,
+      "skipped": 0
+    },
+    "linux": {
+      "id": 119095295751,
+      "unit_tests": 43,
+      "skipped": 0
+    }
+  },
+  "native_fixture": {
+    "checks": {
+      "actual_report_composition_max40": true,
+      "good": true,
+      "invalid_role_rejected_without_output": true,
+      "native_profile_contract_12_synthetic_cases": true,
+      "production_contained_guard_rejects_source_token": true,
+      "production_ordinary_guard_rejects_observed_admin": true,
+      "timeout": true,
+      "wrong": true
+    },
+    "owned_cleanup_confirmed": true,
+    "runtime_acceptance": false,
+    "schema_version": 1,
+    "token_guard_exercised_by_socket_fixture": false,
+    "wire_binding_synthetic": true
+  },
+  "vm_started": false,
+  "artifact_uploaded": false,
+  "production_adapter_enabled": false,
+  "original_stage0_acceptance_changed": false,
+  "interpretation": "Actual Windows transport mechanics and rejection controls passed. Socket fixture bypass is compiled only into the separate nondeployable fixture binary; its identity/profile binding is synthetic. These results are not genuine ordinary-token or PSEC network enforcement evidence."
+}

@@ -1,0 +1,192 @@
+{
+  "capacity": {
+    "combined_stage0b_staging_exact_bytes_exported": false,
+    "installed_plan_verified": false,
+    "peak_measured": false,
+    "preflight": {
+      "kind": "read_only_capacity_preflight",
+      "observed_free_bytes": 92108718080,
+      "provider_changes": false,
+      "provider_deletion_attempted": false,
+      "recovery_performed": false,
+      "required_free_bytes": 34896609280,
+      "same_filesystem": true,
+      "schema_version": 1,
+      "status": "admitted"
+    },
+    "preparation_allowance_bytes": 536870912,
+    "preparation_status": "observed_within_allowance",
+    "sampled_max_net_decline_bytes": 333844480
+  },
+  "cleanup": {
+    "error_count": 0,
+    "errors": [],
+    "first_failed_stage": null,
+    "helper_count": 0,
+    "helper_exit_confirmed_count": 0,
+    "qemu_exit_after_cleanup": -9,
+    "qemu_exit_before_cleanup": null,
+    "qemu_exit_confirmed": true,
+    "qemu_present": true,
+    "qmp_close_succeeded": true,
+    "qmp_file_closed": true,
+    "qmp_present": true,
+    "qmp_socket_closed": true,
+    "schema_version": 1,
+    "server_close_succeeded": true,
+    "server_present": true,
+    "server_shutdown_succeeded": true,
+    "server_thread_stopped": true,
+    "tpm_exit_after_cleanup": -9,
+    "tpm_exit_before_cleanup": null,
+    "tpm_exit_confirmed": true,
+    "tpm_present": true,
+    "watcher_present": true,
+    "watcher_stopped": true,
+    "work_remove_attempted": true,
+    "work_removed": true,
+    "work_retained": false
+  },
+  "exact_receipts": {
+    "capacity": "8d2743891b9f7daa9a31842b2c068a2fb8c729ea21ae27f688dfc1b7022cd5ff",
+    "preparation": "726f2dc67692d0260a7bb78035574f66e2498fabaf303ff23903bfe3a3f34833",
+    "stage0": "4c9ee0a0e710f85e3aa7b764391af7c9372254808371ea161bf9ae6fbc9d9075",
+    "stage0b": "c7f751e8bf9694def11b5d7c385338e9a8b4ebd1a21d9b893f8112c89fd79c20"
+  },
+  "experiment": "Genuine Windows Stage0b single child-environment variant",
+  "fixture_freeze_sha256": "b29e5271f82439137b55f737712a8261b6b478a64915d720ae2ef9cb22c07ad0",
+  "head": "024a84d5a9e87a1551ce7ecea1afa2f9dcc42d80",
+  "interpretation": [
+    "This single predeclared child-environment variant qualified the independent Stage0b inherited-anonymous-pipe prerequisite on the genuine disposable Windows ordinary-user path. Baseline PSEC Stage0 remains failed; the workflow correctly remains failure and product acceptance remains false. No network or proxy assay ran.",
+    "All three private reports were parsed and their invocation/hash/nonce bindings verified by the guest adapter. The fixed projection records current ordinary identity, fresh actor/image and zero-capability identity acceptance, exact 32-byte nonce echo, subsequent EOF, actor and launcher zero exits, nested cleanup and adapter cleanup. These are controller/guest-attested source-contract facts, not independent host reinspection of raw tokens or private reports.",
+    "The held launcher was created, resumed and observed exited with code 0, with owner cleanup confirmed. The outer adapter completed with exit 0, no timeout or budget exhaustion. Nested cleanup separately requires the owned process/Job/handle and exact ACL/profile cleanup predicates; VM destruction alone is not substituted for them.",
+    "The actual bound owned-stdout metadata reports the declared systemroot_localappdata_v1 variant: lookup ready with HRESULT 0, COM initialization HRESULT 0 with uninitialization attempted/returned, nonnull allocation release attempted/returned, exact child keyset and deadline verification. These are observed call returns and bounded private validation, not independent deallocation, directory ownership or ACL-authority proof. The private path was not published.",
+    "Only the actor child environment changed from SystemRoot-only to SystemRoot plus the current ordinary user known-folder LOCALAPPDATA value. The caller four-key environment, native actor source/build contract, token/capabilities, two inherited handles, launch flags, working directory, Jobs, single CreateProcess call and original deadlines remained unchanged. Each run freshly built and hash-bound its own actor artifact; their binary digests differ, so no cross-run byte identity or fully controlled single-variable causal comparison is claimed. The helper performs same-thread COM initialization and one known-folder query without global environment mutation, arbitrary inheritance or fallback.",
+    "Success establishes this variant's pipe transport, not that omission of LOCALAPPDATA was the unique cause of historical error 203. There was no contemporaneous same-VM baseline comparison; caller lookup, cache, order and build effects are not excluded. Historical runtime01/02 failures and the failed environment short gate remain immutable.",
+    "QEMU and TPM were force-stopped during owned cleanup, with return codes -9 confirmed, not natural zero exits. QMP file/socket, server shutdown/close/thread, watcher and work removal all completed with zero published teardown errors.",
+    "Capacity preflight admitted and sampled preparation net decline remained within allowance. This is not peak usage, installed-plan verification or a hard quota. The existing 14-member payload and stricter Stage0b compressed/expanded/Python/two-copy/report staging checks were not bypassed, but their combined exact total was not exported and is not reconstructed here.",
+    "Original Stage0 fails only the primitive capabilities_empty identity predicate on build 26300.9457, below the stated 26300.9550 support floor. This IPC result does not validate PSEC networking, a native proxy frontend, the mock 48-byte bridge protocol or proxy fail-closed behavior. Private reports/logs were removed with the VM; this audit binds sanitized receipts to reviewed source, not a retrospective raw reconstruction. No automatic next runtime follows."
+  ],
+  "observations": {
+    "child_environment": {
+      "com": [
+        true,
+        0,
+        true,
+        true
+      ],
+      "deadline_verified": true,
+      "environment_version": 1,
+      "exact_child_keyset": true,
+      "hresult": 0,
+      "lookup_state": "ready",
+      "release_attempted": true,
+      "release_returned": true,
+      "variant": "systemroot_localappdata_v1"
+    },
+    "child_environment_source": "owned_stdout",
+    "diagnostic": {
+      "bindings": [
+        "verified",
+        "verified",
+        "verified"
+      ],
+      "execution": [
+        [
+          "cleanup",
+          null,
+          "none",
+          "none",
+          null
+        ],
+        [
+          "complete",
+          null,
+          "none",
+          "none",
+          null
+        ],
+        [
+          "completed",
+          null,
+          "none",
+          "none",
+          null
+        ]
+      ],
+      "execution_sources": [
+        "owner",
+        "owned_stdout",
+        "owned_stdout"
+      ],
+      "held": {
+        "cleanup_confirmed": true,
+        "created": true,
+        "exit_code": 0,
+        "exit_observed": true,
+        "resumed": true
+      },
+      "reads": [
+        "parsed",
+        "parsed",
+        "parsed"
+      ],
+      "stdout_reads": [
+        "parsed",
+        "parsed"
+      ],
+      "v": 1
+    },
+    "guest_result_provenance_verified": true,
+    "network_tested": false,
+    "ordinary_account": true,
+    "original_stage0_passed": false,
+    "os": {
+      "architecture": "AMD64",
+      "build": 26300,
+      "product_type": "WinNT",
+      "ubr": 9457
+    },
+    "outer_adapter_lifecycle": {
+      "budget_exhausted": false,
+      "failure": "none",
+      "phase": "completed",
+      "process_exit_confirmed": true,
+      "python_exit_code": 0,
+      "timed_out": false
+    },
+    "product_acceptance": false,
+    "proxy_tested": false,
+    "report_validation": "valid",
+    "stage0b_failure": null,
+    "stage0b_ipc_qualified": true,
+    "stage0b_status": "passed",
+    "verified_facts": {
+      "actor_creation_observed": true,
+      "actor_exit_verified": true,
+      "actor_identity_verified": true,
+      "adapter_cleanup_verified": true,
+      "current_ordinary_verified": true,
+      "fresh_actor_verified": true,
+      "launcher_creation_observed": true,
+      "launcher_exit_verified": true,
+      "launcher_identity_verified": true,
+      "nested_cleanup_verified": true,
+      "pipe_echo_verified": true,
+      "pipe_eof_verified": true,
+      "probe_creation_observed": true,
+      "probe_identity_verified": true
+    }
+  },
+  "privacy": {
+    "closed_counts_booleans_public_ci_build_and_commitment_digests_only": true,
+    "raw_logs_machine_paths_account_values_sids_pids_nonce_values_credentials_excluded": true
+  },
+  "run_id": 39754568079,
+  "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39754568079",
+  "schema_version": 1,
+  "source": "258c44547f5c40121db4a2465a6186169b5957bc",
+  "source_freeze_sha256": "4d2b3bfc765ac944610ca65a7a372fd29b3a3c8453b686d083ebac401f76d34d",
+  "stage0b_ipc_conclusion": "qualified",
+  "workflow_conclusion": "failure"
+}

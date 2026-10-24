@@ -1,0 +1,37 @@
+{
+  "conclusion": "success",
+  "event": "push",
+  "job_id": 120306450755,
+  "job_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39921159655/job/120306450755",
+  "manual_dispatch_or_rerun_by_publisher": false,
+  "raw_commitments": {
+    "ci-lpac-stream-3d538-39921159655-full.txt": {
+      "bytes": 260316,
+      "sha256": "f55272bffc2ab8fa17935c3944a128331fa222ffede9d21952cf211a4b0efd4d"
+    },
+    "ci-lpac-stream-3d538-39921159655-jobs.json": {
+      "bytes": 3058,
+      "sha256": "6d03f642e4e5c57d409a7fc680f934b9b12ce7bacf77fa97511ef62de9609927"
+    },
+    "ci-lpac-stream-3d538-39921159655-run.json": {
+      "bytes": 12680,
+      "sha256": "e493b3ced2f45a101a40a8aa4122a1ab3442dfd8c8e5814974146339362442ee"
+    }
+  },
+  "representation": "connector decoded UTF8 text / decoded run JSON / normalized jobs JSON; not original ZIP or raw HTTP",
+  "run_id": 39921159655,
+  "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39921159655",
+  "runtime_or_product_acceptance": false,
+  "runtime_steps_5_to_9": "skipped",
+  "schema_version": 1,
+  "seconds": 208.633,
+  "selected_log_lines": [
+    "2026-10-23T08:00:57.4661023Z Ran 1096 tests in 208.633s",
+    "2026-10-23T08:00:57.4661511Z OK",
+    "2026-10-23T08:00:57.4662666Z RPS1_PRODUCTION_ASSERTIONS 54313"
+  ],
+  "skips": 0,
+  "source_commit": "3d538a89328072186f1db50f5fce7cc39611b44f",
+  "status": "completed",
+  "tests": 1096
+}

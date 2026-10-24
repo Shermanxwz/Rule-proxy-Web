@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "experiment": "default-OFF UDP6 integration short gate 01",
+  "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39670818820",
+  "head": "9c3b3da8046146c17923700b139006e2661912c4",
+  "result_sha256": "bb383b05ff698e96c6087e42696e7c70b45419df7c2b1959eb9608fa0483ec8b",
+  "overall": "failed Windows fixture prerequisite; Linux provenance mechanism passed",
+  "observations": [
+    "Linux required suite passed 646 tests with zero skips. The actual paused owned-QEMU gate observed mapped backing-file hashes, separate local package/version/integrity agreement, pre-stop stability and confirmed cleanup. No guest executed.",
+    "Windows production and TEST_ONLY builds succeeded. The 646-test required suite reported two fixture errors. Both fixtures observed admission false and then open-file cleanup errors; observer close was placed after the failed assertion rather than in unconditional cleanup.",
+    "Windows isolated production-input verification, PowerShell transport, six-mode ZIP and hosted IPv6 mechanics steps did not execute. No Windows VM or guest alias calibration occurred."
+  ],
+  "limits": [
+    "The exact suppressed admission predicate was not exported. A platform stat/fstat metadata mismatch is a source-supported hypothesis, not recovered runtime exception evidence.",
+    "Mapped backing-file identity/hash and installed local package integrity do not attest resident memory, upstream source equivalence or networking behavior.",
+    "The Linux gate cleanup result does not certify cleanup of the failed Windows fixture. No packet absence, isolation or production IPv6 network result follows.",
+    "Runtime remains OFF; original identity, policy, network configuration and Windows runtime workflow were unchanged."
+  ]
+}

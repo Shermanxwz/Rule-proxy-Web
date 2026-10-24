@@ -1,0 +1,45 @@
+{
+  "content": {
+    "artifacts": {
+      "front": {
+        "actor": {
+          "bytes": 195072,
+          "sha256": "b7327db1d30f4d81f7806b449d191cf7d49e22563c1da0c734f85cd478c9ae2a"
+        },
+        "immutable_snapshot_exact": true,
+        "manifest": {
+          "bytes": 481,
+          "sha256": "9a9df1de567bc4c6a9d0de334adeed4665fba2ade5ae5b62d26279d37134c4ba"
+        },
+        "source_pins": 3
+      },
+      "network": {
+        "actor": {
+          "bytes": 218624,
+          "sha256": "074440e530ec26e149c90e1575261f930fadfdeaf156c4ceaf6b6f8f5fb9d1db"
+        },
+        "immutable_snapshot_exact": true,
+        "manifest": {
+          "bytes": 481,
+          "sha256": "e7b090b9b2b24189ba5c202919a1b9fc27b1d6ecdf32b36087379f55b9d505a2"
+        },
+        "source_pins": 3
+      }
+    },
+    "input_snapshot": {
+      "bytes": 693,
+      "sha256": "1819823e18df4a58c3cb6e304f40141ad2172abd4846e97b6f63fa9365cba317"
+    },
+    "static_PE_review": {
+      "bytes": 5719,
+      "sha256": "8388a661c10036a7676fc79b3b595a141905e2a87b734a777809878456cf5d35"
+    },
+    "toolchain": {
+      "bytes": 395,
+      "sha256": "741ce52b6e75a8306e9ac036a2d22278d3db4112ab309109059237a4c59f0d55"
+    }
+  },
+  "executables_not_reexecuted_or_republished": true,
+  "schema_version": 1,
+  "static_PE_only": true
+}

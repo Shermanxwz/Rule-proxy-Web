@@ -1,0 +1,63 @@
+{
+  "content": {
+    "checks": [
+      "exact source and Git bytes before repository imports",
+      "two separately pinned artifacts and source manifests",
+      "fresh names/nonces/stage and explicit actual switch",
+      "inherited-only selected transport and source-owned absolute deadlines",
+      "read-only four-object before/after captures",
+      "physical source-bound reader preserves unknown and partial states"
+    ],
+    "decision": "GO-once-local-assay-only-after-full-suite-and-source-commit",
+    "inputs": {
+      "lpac-pipe-front-compile-independent-review-01.json": {
+        "bytes": 6338,
+        "sha256": "6859172be6bf1b40e2dcb6b1fa38738390e64430cb600dc67182e330dcd48dd9"
+      },
+      "lpac-pipe-origin-python-independent-review-03.json": {
+        "bytes": 5775,
+        "sha256": "19a96c47252596f02e6ea25fedb903de2c8eb5b684ec00d59042969d06292970"
+      },
+      "lpac-pipe-origin-ready-source-freeze-01.json": {
+        "bytes": 6945,
+        "sha256": "0358797358a256495b50885698bebddecb53369f25be05755da80ad240e4be83"
+      },
+      "lpac-pipe-origin-ready-source-independent-review-01.json": {
+        "bytes": 3574,
+        "sha256": "e5b103fa62615e1307768fbea60bf2e5e0f48f4b5ee9958e81b4b72de8b20857"
+      },
+      "lpac_pipe_origin_capture_01.ps1": {
+        "bytes": 2686,
+        "sha256": "18284114b1b8890f5ab30bb01543e12e8f334dd5aeb6fa16c820de7a23fb0dd1"
+      },
+      "run_lpac_pipe_origin_01.py": {
+        "bytes": 12676,
+        "sha256": "02989dcfec7add635f88d862c875b197b41305ce19d7525b1a1916bd729518e7"
+      },
+      "verify_lpac_pipe_origin_actual_01.py": {
+        "bytes": 21960,
+        "sha256": "faae99c4bebafd4a54d41ae607d9b895a4ee60cee3bcffbf0c2de32436c231bb"
+      }
+    },
+    "linux_equivalence": false,
+    "native_actor_executed": false,
+    "pending": [
+      "root full integrated pure suite must pass",
+      "root exact six-file source commit must be present",
+      "before capture must match preserved baseline"
+    ],
+    "product_acceptance": false,
+    "schema_version": 1,
+    "security_or_network_mutation": false,
+    "source_sha256": "0844e0bb4900ea0146094f4abf3ed4c564eae0825379950e4e9b87ec2961f146",
+    "stage": "root-lpac-pipe-origin-actual-entry-file-review"
+  },
+  "raw_commitment": {
+    "bytes": 2122,
+    "sha256": "987adbff931b6498c05e4e61b79e7875d86fe79493ea53d1548170b34a8d1b0a"
+  },
+  "schema_version": 1,
+  "stage": "source-evidence-safe-view",
+  "temporal_scope": "Original preparation/review snapshot: its pending/false runtime fields are historical snapshot fields, not the current result.",
+  "transformation": "JSON value projection; account identifiers/user paths redacted if present; no runtime inference"
+}

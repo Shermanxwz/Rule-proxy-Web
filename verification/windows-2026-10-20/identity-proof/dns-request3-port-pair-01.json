@@ -1,0 +1,32 @@
+{
+  "broker_cancellation_proven": false,
+  "cases": {},
+  "children_cleanup": [
+    {
+      "cleanup_confirmed": true,
+      "exited": true,
+      "handles_closed": true,
+      "killed": false
+    },
+    {
+      "cleanup_confirmed": true,
+      "exited": true,
+      "handles_closed": true,
+      "killed": false
+    }
+  ],
+  "cleanup_confirmed": true,
+  "failure": "preflight",
+  "fixtures": {},
+  "mechanism_positive": false,
+  "mode": "port_pair",
+  "nrpt_empty": true,
+  "pair_complete": false,
+  "port53_empty": false,
+  "port53_owned": false,
+  "query_observed": false,
+  "receiver_attribution": "temporal_shared_nonce_cross_endpoint_observed",
+  "runtime_acceptance": false,
+  "schema": 1,
+  "work_removed": true
+}

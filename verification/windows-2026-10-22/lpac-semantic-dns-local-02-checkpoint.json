@@ -1,0 +1,124 @@
+{
+  "access_denial_observed": true,
+  "actual_inventory_effective_nrpt_count": 0,
+  "all_eight_child_tasks_natural_exit_zero": true,
+  "automatic_cleanup_confirmed": true,
+  "broker_cancellation_proven": false,
+  "broker_pid_attributed": false,
+  "default_resolver_tested": false,
+  "dns_isolation_qualified": false,
+  "document": {
+    "bytes": 5207,
+    "path": "docs/validation/2026-10-23-lpac-semantic-dns-02.md",
+    "sha256": "a4c4ca167fab7bf2e5071f0b676d45b2eaf68380146d5ce22ccce26c9306b759"
+  },
+  "evidence_index": {
+    "bytes": 2554,
+    "path": "verification/windows-2026-10-22/lpac-semantic-dns-local-02-evidence-index.json",
+    "sha256": "cf0c0fee30c280bb34077559efa83226f74b7681c7205d3cdaa1229d7d3b8270"
+  },
+  "existing_g_psec_dns_api_leak_remains_true": true,
+  "g_psec_tested": false,
+  "global_snapshot_bytes_equal_initial": true,
+  "go_count": 5,
+  "included_in_historical_audit_counts": false,
+  "inventory_ages_seconds": [
+    0.066918,
+    0.1024355,
+    0.1787631,
+    0.2336346
+  ],
+  "native_report_count": 7,
+  "nrpt_in_snapshot": false,
+  "observation_complete": true,
+  "observer_resources_once_closed": 66,
+  "ordinary_after_api_query": [
+    0,
+    0
+  ],
+  "ordinary_after_receiver_queries_answers": [
+    1,
+    1
+  ],
+  "ordinary_before_api_query": [
+    0,
+    0
+  ],
+  "ordinary_before_receiver_queries_answers": [
+    1,
+    1
+  ],
+  "ordinary_ownership_intents": 17,
+  "original_public": {
+    "bytes": 1805,
+    "sha256": "757ad3b8c48f7f4d6e4d6aab9feaef4915dc54b39cf1977484eed6119fcc744f"
+  },
+  "original_status": "observed",
+  "product_acceptance": false,
+  "proxy_tested": false,
+  "recovery_required": false,
+  "schema_version": 1,
+  "selected_api": {
+    "answer_match": false,
+    "api_status": 5,
+    "called": true,
+    "completed": true,
+    "context_retained": false,
+    "pending": false,
+    "query_status": 5,
+    "query_status_success_verified": false,
+    "record_count": 0,
+    "records_released": true,
+    "timely_verified": true,
+    "within_deadline": true
+  },
+  "selected_receiver_queries": 0,
+  "semantic_checks": 11,
+  "source_automatic_ci": {
+    "base_identity_actor_compiled_only": true,
+    "conclusion": "success",
+    "decoded_log": {
+      "bytes": 196765,
+      "kept_in_work": true,
+      "raw_github_log_zip": false,
+      "sha256": "ef0810959d4ccc237a408cf4d29b743d2bca37f8eee2be627d2c3e1dc7260f71"
+    },
+    "errors": 0,
+    "event": "push",
+    "failures": 0,
+    "gated_runtime_steps_skipped": [
+      5,
+      6,
+      7,
+      8,
+      9
+    ],
+    "job_id": 120130093584,
+    "local_dns_actual_is_separate_evidence": true,
+    "native_actor_executed": false,
+    "proxy_c07_actor_compiled": false,
+    "run_attempt": 1,
+    "run_id": 39866557169,
+    "seconds": 47.929,
+    "skips": 0,
+    "source_commit": "9c5e56ace7e4f2a039d3e078bcb81082e44b60df",
+    "status": "completed",
+    "tests_run": 827,
+    "url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39866557169",
+    "workflow_dispatched": false,
+    "workflow_rerun": false
+  },
+  "source_commit": "9c5e56ace7e4f2a039d3e078bcb81082e44b60df",
+  "source_review_index": {
+    "bytes": 1572,
+    "path": "verification/windows-2026-10-22/lpac-semantic-dns-source-review-02/index.json",
+    "sha256": "656b19a2226673ee194e486134cdbe7156d9d3fa0a6687f975a02e1695fec6d7"
+  },
+  "source_sha256": "a0859d431fe25f8cb93f7d4c4381785770670087f857604073c4b80c92641081",
+  "stage": "semantic-dns02-finite-explicit-rejection-checkpoint",
+  "summary": {
+    "bytes": 4469,
+    "path": "verification/windows-2026-10-22/lpac-semantic-dns-local-02-summary.json",
+    "sha256": "33b9efdbc65dc25f004ecb5f5a038a520176e7b5bc51e767193258459fb635ae"
+  }
+}

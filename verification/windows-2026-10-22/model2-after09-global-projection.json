@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "stage": "model2-after09-global-readonly-safe-projection",
+  "date": "2026-10-23",
+  "before": {
+    "bytes": 7378,
+    "sha256": "f05d91ee76ee8a97ae5ab3bfa092167a8ee560c083255f142e6c453f2edf7ab3"
+  },
+  "after": {
+    "bytes": 7388,
+    "sha256": "38927e65d3b1fb8ef5d9b4a9741b547a2b673352fabb09f5495f7f8a42f40c5f"
+  },
+  "whole_json_objects_equal": true,
+  "raw_bytes_identical": false,
+  "firewall_profiles_unchanged": true,
+  "dns_unchanged": true,
+  "routes_unchanged": true,
+  "user_proxy_unchanged": true,
+  "snapshot_scope": "point-in-time read-only structured comparison; formatting bytes differ",
+  "raw_snapshots_published": false,
+  "private_identifiers_addresses_and_network_configuration_published": false,
+  "capture_runner": {
+    "path": "verification/windows-2026-10-22/model2-after09-capture.ps1",
+    "bytes": 985,
+    "sha256": "b528713ae3dbee1809667cfa1b158318f02d88a8c699d8532bbe30cff59f7842"
+  },
+  "expanded_runner": {
+    "path": "verification/windows-2026-10-22/model2-after09-expanded.ps1",
+    "bytes": 1992,
+    "sha256": "708957bd99657867b62b9a33a61f8c7ddbcb9508f58f8252020b6a0cc49e9ab5"
+  },
+  "capture_powershell_file_entrypoint": "work/c_after09_capture.ps1",
+  "initial_scriptblock_wrapper_failed_before_repository_read": true,
+  "initial_wrapper_produced_snapshot": false,
+  "initial_wrapper_changed_global_state": false,
+  "physical_expanded_script_supplied_psscriptroot": true,
+  "comparison_is_runtime_isolation_qualification": false
+}

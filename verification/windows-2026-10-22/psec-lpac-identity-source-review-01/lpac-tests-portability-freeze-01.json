@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "stage": "lpac-pure-tests-portability-work-candidate",
+  "base_commit": "25f30cf26982fd3658706bc0bd9e9a55e5c164a6",
+  "main_modified": false,
+  "production_modified": false,
+  "native_api_called": false,
+  "linux_executed": false,
+  "scope": "Only three tests files; scoped per-case fake Win32 last-error slot via patch.object(create=True).",
+  "finding": {
+    "direct_set_last_error_calls": 9,
+    "files": 3,
+    "hosts_missing_ctypes_helpers": [
+      "Linux"
+    ],
+    "baseline_simulation": {
+      "host": "Windows",
+      "removed_ctypes_helpers": [
+        "get_last_error",
+        "set_last_error"
+      ],
+      "tests": 68,
+      "failures": 1,
+      "errors": 8,
+      "duration_seconds": 10.327
+    },
+    "fixed_simulation": {
+      "host": "Windows",
+      "removed_ctypes_helpers": [
+        "get_last_error",
+        "set_last_error"
+      ],
+      "tests": 68,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "duration_seconds": 12.524
+    },
+    "fixed_windows_host": {
+      "tests": 107,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "duration_seconds": 15.644
+    }
+  },
+  "not_claimed": [
+    "No Linux run occurred.",
+    "No claim that all cross-platform issues in the complete repository are fixed.",
+    "No production fallback, capability/identity/source/cleanup change, or new test skip."
+  ],
+  "remaining_known_scope": "Existing Windows-SDK-only compiled fake tests and generic workflow compiler PATH configuration are outside this patch.",
+  "files": {
+    "tests/test_windows_identity_lpac_accesscheck.py": {
+      "before_sha256": "e19eea5329501b535a2b8317a6829350cc95a87c3b9ecce67642a6d2427f358a",
+      "after_sha256": "7498def66658e97ca7cd93af41f094c24ea56ca4817d21889a2a0fa1812821d6"
+    },
+    "tests/test_windows_identity_lpac_dns_local.py": {
+      "before_sha256": "8a3f7acfa0849870341c556dd8c6273f64e9c657bb335a5b64b661a9107f6ce8",
+      "after_sha256": "cb68e8af57463edb260b48b135bc9d4afd4afc0e2ddd662cbb5c1f164f1365d4"
+    },
+    "tests/test_windows_identity_lpac_semantic_dns.py": {
+      "before_sha256": "d81b4cfad882a7cb2434c673a8b588f8e331c23e58753963bc41495247eda86d",
+      "after_sha256": "9908e781ad3bdd484d3d9c7dec76e7c5f7995db6266bdc296265c812923e730e"
+    }
+  },
+  "patch": {
+    "path": "work/lpac-tests-portability-01.patch",
+    "bytes": 4626,
+    "sha256": "e4b8c71eceb10c07e14c9ea8ebfd094ed447281e15a718ef4d9be22ecd4eadd7"
+  },
+  "logs": {
+    "work/lpac-tests-portability-baseline-01.log": {
+      "bytes": 31134,
+      "sha256": "6e8f61079d4530599e1132e5767caa16ee921f75e9711c0450571534d1e06234"
+    },
+    "work/lpac-tests-portability-missing-helpers-02.log": {
+      "bytes": 14267,
+      "sha256": "de4b221cfaaf0ada19301aa87f7961ce4cdf51fd3b84610b335f718cce0e6ec0"
+    },
+    "work/lpac-tests-portability-native-host-02.log": {
+      "bytes": 22847,
+      "sha256": "c85c74e7fcd83b94d601df381fb24f0cf913f0ebee54735403fbf6be634adf8a"
+    }
+  }
+}

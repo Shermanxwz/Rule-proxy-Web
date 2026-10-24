@@ -1,0 +1,24 @@
+{
+  "automatic_run": true,
+  "command": "python -B -m unittest discover -s tests -p \"test_windows_identity*.py\" -v",
+  "decoded_full_log": {
+    "bytes": 176489,
+    "sha256": "f95a9cefb1debd2297e7717ee8d3d7f5fbbd4fdabd89375a02bea76102770663"
+  },
+  "dispatch_triggered_by_archiver": false,
+  "errors": 0,
+  "failures": 0,
+  "job_id": 120093399204,
+  "job_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39855754660/job/120093399204",
+  "pure_seconds": 36.71,
+  "pure_tests": 744,
+  "raw_log_published": false,
+  "run_id": 39855754660,
+  "runtime_acceptance": false,
+  "runtime_steps_5_through_9_skipped": true,
+  "schema_version": 1,
+  "skipped": 0,
+  "source_commit": "524638057f1b60a3292964162fe70305fbea8e3e",
+  "stage": "standalone-lpac02-source-auto-pure-ci",
+  "workflow_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39855754660"
+}

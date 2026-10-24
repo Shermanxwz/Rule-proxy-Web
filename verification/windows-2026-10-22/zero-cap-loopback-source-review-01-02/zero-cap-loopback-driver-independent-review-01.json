@@ -1,0 +1,49 @@
+{
+  "acl_or_label_changed": false,
+  "actor_executed": false,
+  "actor_sha256": "5015367a6edeaefd1830f5a6584024894070926ea5012c343534e43054b0461d",
+  "actual_acceptance": false,
+  "backend_constructed": false,
+  "checks": {
+    "all37_hash_git_lf_before_import": true,
+    "eight_fresh_nonces": true,
+    "explicit_plan_acknowledgments": true,
+    "explicit_source_HEAD_required": true,
+    "fresh_artifact_plan_public_files": true,
+    "frozen_native_two_matches_compile_snapshot": true,
+    "manifest_seven_keys_revalidated": true,
+    "no_retry_or_fallback": true,
+    "postimport_source_set_and_snapshot_rechecked": true,
+    "preflight_ready_required": true,
+    "reference_characters": 491,
+    "single_approved_runtime_call": true,
+    "two_distinct_ports_in_49153_to_65535": true
+  },
+  "driver": {
+    "bytes": 5498,
+    "sha256": "f7eb1c445b0567b84e90db05b797885ee2bc5f51b33272c5256e4a4dd9e2cbb5"
+  },
+  "driver_executed": false,
+  "limitations": [
+    "GO is for the bounded reviewed attempt, not a reachability or isolation result.",
+    "Native network_tested is connect/accept flow; frontend setup failure remains separately typed.",
+    "No same-SID tamper, injection, pipe theft, proxy, DNS or product acceptance is inferred."
+  ],
+  "manifest_sha256": "0c371e646873d3970bb3aea2e05ba05a10bb1b3e0b4c02c84963f7f265537a52",
+  "method": "File/AST inspection only; no driver import/main or suite rerun.",
+  "network_called": false,
+  "original_clock_and_ownership": "Unchanged True03 owner/core: root120s, worker115s, atomic outer/inner held supervision, matrix before resume, once cleanup.",
+  "ready_freeze": {
+    "bytes": 17875,
+    "sha256": "42dc85fff24fcf952458a3aae14a6ee31da6ebbcd9cf943e5bf53a03c7d8efc9"
+  },
+  "ready_literal_review": {
+    "bytes": 2511,
+    "sha256": "35a73fa8cb6ddd4aa5a2bdcf6d997a7b236a60743b4a1559069450c6f62dd64b"
+  },
+  "schema_version": 1,
+  "source_count": 37,
+  "source_sha256": "3df55cdbc317522d74a3f6cc8f0f68258aa73da0b1d5cd8ae811aebf7ab9342f",
+  "stage": "zero-cap-loopback-driver-independent-review",
+  "verdict": "GO"
+}

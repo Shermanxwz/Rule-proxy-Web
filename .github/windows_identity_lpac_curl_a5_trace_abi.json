@@ -1,0 +1,343 @@
+{
+  "schema_version": 1,
+  "payload_guid": "a5193b72-5ad3-4f4b-ae3a-706564727073",
+  "status": "source-only-unfrozen-A5-reader-candidate",
+  "scope": "local-lpac-curl-a5-http",
+  "base_A4_reader_sha256": "6655184e42e5039c037ad29380cdd7b0a98e36d72ba4ba632ed3f424f65846da",
+  "config_native_source_freeze_sha256": "62f38cb0b7811ba4c2e9d86eca683179d2ef185f1951a747531281ccf1535942",
+  "config_tail_offsets": {
+    "pipe_read": 1800,
+    "pipe_write": 1808,
+    "case_id": 1816,
+    "origin_port": 1832,
+    "http_profile": 1834,
+    "request_total": 1836,
+    "response_total": 1840,
+    "request_header_bytes": 1844,
+    "response_header_bytes": 1846,
+    "request_body": 1848,
+    "response_body": 1852,
+    "virtual_local_port": 1856,
+    "reserved1": 1858,
+    "reserved": 1860
+  },
+  "transport_export_ordinals": [
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    15,
+    16,
+    18,
+    19,
+    21,
+    23,
+    151
+  ],
+  "pipe_summary_operation": 400,
+  "pipe_summary": {
+    "input_kind": 10,
+    "bytes": 128,
+    "magic": "A5PF",
+    "version": 1,
+    "u64_offsets": [
+      8,
+      16,
+      24,
+      32,
+      40,
+      48,
+      56
+    ],
+    "u32_offsets": [
+      64,
+      68,
+      72,
+      76,
+      80,
+      84,
+      88,
+      92
+    ],
+    "reserved_offset": 96,
+    "flags_mask": 2047,
+    "success_flags": 255,
+    "read_max": 1024,
+    "write_max": 1088,
+    "candidate_epoch": "original_window_end_exclusive"
+  },
+  "sizes": [
+    2048,
+    256,
+    2176,
+    256,
+    557312
+  ],
+  "internal_operations": [
+    [
+      300,
+      "QueryPerformanceFrequency",
+      8
+    ],
+    [
+      301,
+      "bounded_scan_summary",
+      72
+    ],
+    [
+      302,
+      "selected_payload_framing",
+      456
+    ],
+    [
+      303,
+      "selected_configuration",
+      2048
+    ],
+    [
+      304,
+      "GetCurrentProcessId",
+      0
+    ],
+    [
+      305,
+      "GetProcessTimes",
+      32
+    ],
+    [
+      306,
+      "GetHandleInformation_before",
+      4
+    ],
+    [
+      307,
+      "SetHandleInformation_clear",
+      0
+    ],
+    [
+      308,
+      "GetHandleInformation_after",
+      4
+    ],
+    [
+      309,
+      "MapViewOfFile",
+      0
+    ],
+    [
+      310,
+      "CloseHandle_trace",
+      0
+    ],
+    [
+      311,
+      "GetModuleFileNameW_self",
+      2048
+    ],
+    [
+      312,
+      "GetModuleHandleW_kernel32",
+      0
+    ],
+    [
+      313,
+      "GetModuleFileNameW_kernel32",
+      2048
+    ],
+    [
+      314,
+      "GetModuleHandleW_kernelbase",
+      0
+    ],
+    [
+      315,
+      "GetModuleFileNameW_kernelbase",
+      2048
+    ],
+    [
+      316,
+      "GetModuleHandleW_ntdll",
+      0
+    ],
+    [
+      317,
+      "GetModuleFileNameW_ntdll",
+      2048
+    ],
+    [
+      318,
+      "GetProcAddress_filename",
+      0
+    ],
+    [
+      319,
+      "GetProcAddress_version",
+      0
+    ],
+    [
+      320,
+      "GetModuleFileNameW_after_acquire",
+      2048
+    ],
+    [
+      321,
+      "GetModuleHandleW_main",
+      0
+    ],
+    [
+      322,
+      "GetSystemDirectoryW",
+      520
+    ],
+    [
+      330,
+      "CreateEventExW_A5",
+      0
+    ],
+    [
+      331,
+      "SetEvent_A5",
+      0
+    ],
+    [
+      332,
+      "ResetEvent_A5",
+      0
+    ],
+    [
+      333,
+      "WaitForSingleObject_A5",
+      0
+    ],
+    [
+      334,
+      "CloseHandle_event_A5",
+      0
+    ],
+    [
+      400,
+      "A5_pipe_transport_summary",
+      128
+    ]
+  ],
+  "SDK_flags": [
+    1,
+    2,
+    4,
+    8,
+    16,
+    32
+  ],
+  "delivery_flags": [
+    1,
+    2,
+    4,
+    8,
+    16,
+    32,
+    64,
+    128,
+    256,
+    512,
+    1024,
+    2048
+  ],
+  "header_state_flags": [
+    1,
+    2,
+    4,
+    8,
+    16,
+    32,
+    64
+  ],
+  "event_exports": [
+    45,
+    50,
+    64,
+    67,
+    95,
+    124
+  ],
+  "event_primary_SDK": [
+    [
+      45,
+      334
+    ],
+    [
+      50,
+      330
+    ],
+    [
+      64,
+      332
+    ],
+    [
+      95,
+      332
+    ],
+    [
+      124,
+      333
+    ]
+  ],
+  "event_contract": {
+    "SDK_domain": "kernel32_event_not_Winsock_provider",
+    "primary_and_internal_SDK_not_duplicated": true,
+    "one_live_generation": true,
+    "same_handle_reuse_only_after_confirmed_close": true,
+    "maximum_generations": 16,
+    "trace_handle_reuse_requires_exact_prior_CloseHandle_310": true,
+    "other_five_inherited_handles_remain_live": true,
+    "create_flags": 1,
+    "create_access": 1048578,
+    "network_events_kind": 11,
+    "network_events_bytes": 44,
+    "wait_input_kind": 12,
+    "wait_input_bytes": 24,
+    "wait_count": 1,
+    "wait_all": 0,
+    "alertable": 0,
+    "maximum_wait_ms": 8000,
+    "subscription_mask": 63,
+    "generated_network_mask": 51,
+    "candidate_epoch": "original_window_end_exclusive"
+  },
+  "IPv6_capability_probe": {
+    "arguments": [
+      23,
+      2,
+      0
+    ],
+    "return": -1,
+    "error": 10047,
+    "SDK_absent": true,
+    "maximum_count": 1,
+    "OS_denial_observed": false,
+    "IPv6_isolation_qualified": false
+  },
+  "ideal_send_backlog_query": {
+    "operation": 78,
+    "code": 1074033787,
+    "input_kind": 13,
+    "bytes": 48,
+    "format": "<QIIQQQQ",
+    "input_pointer": 0,
+    "input_bytes": 0,
+    "output_bytes": 4,
+    "output_pointer_required": true,
+    "bytes_returned_pointer_required": true,
+    "overlapped": 0,
+    "completion": 0,
+    "return": -1,
+    "error": 10045,
+    "SDK_absent": true,
+    "after_successful_send_before_close": true,
+    "output_value_captured": false,
+    "OS_denial_observed": false
+  }
+}

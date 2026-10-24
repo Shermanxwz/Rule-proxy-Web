@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "run_id": 39379467154,
+  "commit": "cf255ba30ce9bf37861c03e3236d688bd477cd6e",
+  "native_job_id": 118485256752,
+  "artifact_id": 12244203376,
+  "artifact_zip_sha256": "ac376cc89c8e7b77a03002cb129d78d80049c25f55da5d5d71a4b8bbb906ea48",
+  "artifact_member": "public.json",
+  "report_is_original_closed_projection": true,
+  "windows_build_and_tests_passed": true,
+  "native_checkout_started": false,
+  "vm_created": false,
+  "classification": "provider_mode_validation_design_inconsistency"
+}

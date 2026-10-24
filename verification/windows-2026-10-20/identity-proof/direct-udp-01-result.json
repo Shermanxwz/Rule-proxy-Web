@@ -1,0 +1,134 @@
+{
+  "schema_version": 1,
+  "experiment": "N0a-UDP",
+  "receipt_verified": true,
+  "reason": "none",
+  "result": {
+    "all_selected_sendto_invoked": true,
+    "ordinary_controls_verified": true,
+    "explicit_send_denial": false,
+    "selected_send_accepted_count": 3,
+    "selected_echo_observed": false,
+    "sockets_cleanup_confirmed": true,
+    "profile_flags_verified": true,
+    "runtime_acceptance": false,
+    "schema_version": 1,
+    "experiment": "N0a-UDP",
+    "profile_verified": {
+      "before": true,
+      "sample": true,
+      "contained": true,
+      "after": true
+    },
+    "provenance_verified": {
+      "before": true,
+      "sample": true,
+      "contained": true,
+      "after": true
+    },
+    "stage0_passed": false,
+    "product_acceptance": false,
+    "privacy_qualified": false,
+    "psec_cleanup_independently_verified": false
+  },
+  "execution": {
+    "phase": "completed",
+    "failed": false,
+    "cleanup_confirmed": true
+  },
+  "launcher": {
+    "phase": "completed",
+    "failure": "none",
+    "python_exit_code": 0,
+    "process_exit_confirmed": true,
+    "timed_out": false,
+    "budget_exhausted": false
+  },
+  "original_stage0_receipt_verified": true,
+  "host_receiver": {
+    "cleanup_confirmed": true,
+    "thread_stopped": true,
+    "socket_closed": true,
+    "error": false,
+    "datagram_observed": true,
+    "contained_observed": false,
+    "counts": {
+      "datagrams": 42,
+      "observed_bytes": 2045,
+      "verified": 42,
+      "echoed": 42,
+      "rejected": 0,
+      "oversized": 0,
+      "send_errors": 0
+    },
+    "verified_indices": {
+      "before": [
+        0
+      ],
+      "sample": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39
+      ],
+      "contained": [],
+      "after": [
+        0
+      ]
+    },
+    "socket_cleanup_confirmed": true,
+    "endpoint_error": false
+  },
+  "vm_destroyed": true,
+  "host_wait_state": "received",
+  "packet": {
+    "schema_version": 1,
+    "scope": "runner_ipv4_udp_payload",
+    "status": "inconclusive",
+    "packet_egress_tested": false,
+    "packet": null,
+    "reason": "flow",
+    "capture_read_cleanup_confirmed": true,
+    "selected_payload_observed": null,
+    "actor_attribution_established": false,
+    "isolation_acceptance": false,
+    "host_prerequisites_verified": true,
+    "receiver_selected_observed": false
+  }
+}

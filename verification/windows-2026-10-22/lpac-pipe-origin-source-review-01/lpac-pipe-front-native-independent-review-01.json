@@ -1,0 +1,111 @@
+{
+  "content": {
+    "abi": {
+      "bytes": 4348,
+      "sha256": "16593f0635ccb649ffb44b69c5f4043a32bf0bf2e7474d3a511acb45bea22718"
+    },
+    "author_pure_evidence": {
+      "Win32_actor_branch_compiled_by_those_tests": false,
+      "errors": 0,
+      "failures": 0,
+      "immutable_capability_function_assertions": 27,
+      "log": {
+        "bytes": 867,
+        "sha256": "cf5b7b57486a2141a2595f0cfc2e3dab1a72036b9acf90e87ba0f7f42371ba49"
+      },
+      "portable_production_assertions": 2656,
+      "reviewer_reran_tests": false,
+      "seconds": "1.875",
+      "skipped": 0,
+      "tests": 3
+    },
+    "baseline_commit": "277c112f81fb4e3b70305d9e881beada4758b115",
+    "checks": {
+      "WINDOWS_wWinMain_avoids_Shell32_argv_parser": true,
+      "admitted_tick_after_readbacks_before_first_protocol_IO": true,
+      "both_SetHandleInformation_before_both_GetHandleInformation_readbacks": true,
+      "consumed_once_pipe_and_report_closes": true,
+      "exact_two_distinct_handles_no_third_inherited_handle_in_native_interface": true,
+      "four_immutable_native_snapshot_inputs_compile_only": true,
+      "helper_does_not_invoke_actor_or_install_toolchain": true,
+      "new_14_key_wrapper_report_and_old_closed_mechanics": true,
+      "no_explicit_Winsock_DNS_process_spawn_or_policy_write_in_selected_translation_unit": true,
+      "no_old_source_or_manifest_changes": true,
+      "original_RPB1_48_byte_fixed_mapping_and_EOF": true,
+      "original_frequency_start_exact_ten_second_end_no_reset": true,
+      "selected_frontend_only_argc14": true,
+      "self_identity_does_not_replace_external_LPAC_proof": true,
+      "source_bound_self_token_zero_capabilities_including_four_byte_empty_header": true
+    },
+    "compile_helper": {
+      "bytes": 5122,
+      "sha256": "f730416866134d2876a43b8b68c2bed5c02b879e60ebed0cb3c71e7e557b64d0"
+    },
+    "contract": {
+      "bytes": 33381,
+      "sha256": "50c679695df76c6a1288abf7a040daf14c126187ea620e38eeb7246c5b126cd0"
+    },
+    "decision": "GO-source-and-single-compile-only-helper-review",
+    "native_freeze": {
+      "bytes": 4418,
+      "sha256": "e84fd2d705e089f0f1d30938f687068db3b4ea58d833b4f273fac365809f12ae"
+    },
+    "old_three_sources_candidate_main_git_byte_exact": true,
+    "qualification": {
+      "LPAC_pipe_origin_verified": false,
+      "PSEC_network_preservation_proven": false,
+      "actor_executed": false,
+      "actual_ready": false,
+      "application_adapter_verified": false,
+      "direct_or_DNS_isolation_proven": false,
+      "hostile_same_sid_boundary_verified": false,
+      "linux_equivalence_proven": false,
+      "product_acceptance": false
+    },
+    "remaining_gates": [
+      "Root full Win32 compile must succeed; portable branch tests do not compile the Win32 actor entry/report code.",
+      "Independent PE import audit must confirm exact direct imports and no forbidden/delay imports before runtime promotion.",
+      "Python owner/guard closed report, raw partial return ownership, parent-four-close, semantic proof and original deadline gates remain pending final frozen review.",
+      "Only root may promote, compile and perform any real run. This review is not LPAC IPC byteflow or network/product acceptance."
+    ],
+    "review_actions": {
+      "actor_or_native_API_executed": false,
+      "file_read_hash_Git_and_Python_AST_only": true,
+      "native_or_candidate_module_imported": false,
+      "profile_ACL_label_network_or_main_changed": false,
+      "test_or_compile_rerun": false
+    },
+    "reviewed_files": {
+      ".github/native/windows_identity_actor.cpp": {
+        "bytes": 31002,
+        "sha256": "530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553"
+      },
+      ".github/native/windows_identity_lpac_pipe_front_actor.cpp": {
+        "bytes": 6869,
+        "sha256": "ecc4a793fa1afc33a5c9407486ee9f463bd68132b8090eb259270a89d19ca48d"
+      },
+      ".github/native/windows_identity_proxy_bridge_core.hpp": {
+        "bytes": 16902,
+        "sha256": "f03e45166265f02a65abc12930efd73634a332596d22aa78cadc1267a80b6356"
+      },
+      ".github/native/windows_identity_proxy_pipe_actor.cpp": {
+        "bytes": 16095,
+        "sha256": "26636a6b9979e91452cf6e7d2049d6fbbfa43639a35708ee18d4a71e67fb8dd0"
+      },
+      "tests/test_windows_identity_lpac_pipe_front_native.py": {
+        "bytes": 12628,
+        "sha256": "9557ab2e2376c8c08f91dba67245fa43328cb187a4f74b7f0f695ede3ac52444"
+      }
+    },
+    "schema_version": 1,
+    "stage": "independent-file-only-lpac-pipe-frontend-native-review"
+  },
+  "raw_commitment": {
+    "bytes": 4329,
+    "sha256": "f98d3f2939f6e6739fd6d4552567f568baebdbf53633603db8cfdadcb434a9d4"
+  },
+  "schema_version": 1,
+  "stage": "source-evidence-safe-view",
+  "temporal_scope": "Original preparation/review snapshot: its pending/false runtime fields are historical snapshot fields, not the current result.",
+  "transformation": "JSON value projection; account identifiers/user paths redacted if present; no runtime inference"
+}

@@ -1,0 +1,59 @@
+{
+  "acl_or_label_changed": false,
+  "actor_executed": false,
+  "actual_acceptance": false,
+  "author_eight_tests_not_repeated": true,
+  "checks": {
+    "all36_other_runtime_sources_unchanged": true,
+    "all_go_and_release_use_same_seam": true,
+    "closed_pending_exactbytes_before_rename": true,
+    "native_two_and_wire_protocol_unchanged": true,
+    "no_permission_or_network_policy_changes": true,
+    "no_published_go_or_release_reopen": true,
+    "old_test_methods_unchanged": true,
+    "only_atomic_publish_order_and_ready_false_changed": true,
+    "original_budget_checks_and_deadlines_unchanged": true,
+    "root_postcleanup_physical_go_revalidation_kept": true
+  },
+  "files": {
+    ".github/windows_identity_lpac_loopback.py": {
+      "bytes": 101307,
+      "sha256": "3772f8bd01958d766d0da76ffea711b291fe6b4fcf1f0cfc06c064d8c254bba3"
+    },
+    "tests/test_windows_identity_lpac_loopback.py": {
+      "bytes": 27390,
+      "sha256": "012df8878d859b9f766630001d7321588a31ab33b332480af27ad040908f3e6d"
+    }
+  },
+  "freeze": {
+    "bytes": 7642,
+    "sha256": "78eb9d8d55fb6e0df800461d1826d00ae10fe8306038fd41e8454a91d040de9b"
+  },
+  "independent_tests": {
+    "count": 2,
+    "errors": 0,
+    "failures": 0,
+    "log": {
+      "bytes": 460,
+      "sha256": "70ce05ec1f848edf0f0a4ecf0b310f88bc826dca8d891000f9aa99b15eef185d"
+    },
+    "skipped": 0
+  },
+  "limitations": [
+    "False candidate blocks runtime; root must separately promote/freeze/source-commit before another bounded actual.",
+    "The fix removes the known publisher/native self-contention; it does not prove future network reachability or rule out unrelated file sharing conflicts.",
+    "Actual01 remains control-open32/inconclusive and is not a network rejection."
+  ],
+  "native_api_called": false,
+  "network_called": false,
+  "original_actual01_not_reclassified": true,
+  "patch": {
+    "bytes": 4533,
+    "sha256": "53d3461f91ef6244201a516f92c34fdbbf2aa467479e6438bb304ecdb22fdd21"
+  },
+  "schema_version": 1,
+  "source_count": 37,
+  "source_sha256": "ddd72d0c32f0810da6ace37bcb7dde4cfb7fb4db0f20dd6f0da2d446498fcdbc",
+  "stage": "zero-cap-loopback02-pending-publish-independent-review",
+  "verdict": "GO-for-reviewed-promotion-only"
+}

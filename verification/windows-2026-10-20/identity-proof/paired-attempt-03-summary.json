@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "sanitized": true,
+  "byte_exact": false,
+  "source_commit": "8901787f2ccda7413033bd7dacc1ea318c5d70a3",
+  "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39372510124",
+  "both_native_variants_compiled": true,
+  "dependency_metadata_gate_passed": true,
+  "unit_tests_run": 151,
+  "unit_test_failures": 1,
+  "failed_test": "MatrixTests.test_all_four_cells_keep_source_control_distinct_and_clean_each_before_next",
+  "runtime_skipped": true,
+  "token_preflight_skipped": true,
+  "ordinary_user_acceptance": false,
+  "psec_acceptance": false,
+  "product_acceptance": false
+}

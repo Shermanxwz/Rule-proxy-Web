@@ -1,0 +1,138 @@
+{
+  "content": {
+    "actor": "windows_identity_lpac_pipe_front_actor.exe",
+    "actual_ready": false,
+    "admitted_qpc": "null until identity/SetHandleInformation and both GetHandleInformation readbacks qualify; then first sampled tick after both readbacks, before any protocol I/O. Bind to owner's pre-Resume authorization intent, not post-Resume return tick.",
+    "argc": 14,
+    "argv": [
+      "exe",
+      "pipe-front",
+      "run_id",
+      "case_id",
+      "report_path",
+      "read_handle",
+      "write_handle",
+      "pair_start_qpc",
+      "frequency",
+      "pair_end_qpc",
+      "expected_user_sid",
+      "expected_package_sid",
+      "0",
+      "owned_origin_port"
+    ],
+    "argv_rules": [
+      "Frontend only, role pipe-relay rejected before handle adoption",
+      "Two positive distinct handles no greater than INT64_MAX",
+      "Canonical lowerhex32 IDs and non-none expected package SID",
+      "Expected elevation is literal0; no capability or role override",
+      "F in1..1000000000; pairE=pairS+10F without signed overflow",
+      "Origin port49153..65535 and core LocalLoopback authority",
+      "Old strict DOS report-path parser remains unchanged",
+      "GUI command line parser accepts only14 bounded whole quoted/unquoted arguments; no escapes or embedded quotes"
+    ],
+    "build": {
+      "entry": "wWinMain",
+      "expected_direct_imports_pending_PE_review": [
+        "KERNEL32.dll",
+        "ADVAPI32.dll"
+      ],
+      "forbidden_imports": [
+        "WS2_32.dll",
+        "DNSAPI.dll",
+        "WINHTTP.dll",
+        "WININET.dll",
+        "SHELL32.dll",
+        "USER32.dll"
+      ],
+      "old_pipe_library_guard": "RULEPROXY_PROXY_PIPE_LIBRARY",
+      "portable_only_test_guard": "RULEPROXY_LPAC_PIPE_FRONT_PORTABLE",
+      "static_crt": true,
+      "subsystem": "WINDOWS"
+    },
+    "exit_codes": {
+      "0": "Complete successful mechanics report",
+      "2": "Rejected arguments before I/O",
+      "3": "Report create/write/close failed",
+      "5": "Closed report with typed mechanics failure",
+      "6": "Top-level exception; no success inferred"
+    },
+    "fixed_false": [
+      "selected_socket_api_tested",
+      "network_tested",
+      "proxy_tested",
+      "product_acceptance",
+      "class46_queried",
+      "transparent_arbitrary_application_adapter",
+      "psec_or_g_support",
+      "direct_or_dns_isolation",
+      "hostile_same_sid_authentication",
+      "kernel_live_tcp_snapshot",
+      "linux_equivalence"
+    ],
+    "identity_basis": "external-held-four-descriptor-required",
+    "inheritance_flags": "Each strict bool means successful GetHandleInformation with HANDLE_FLAG_INHERIT clear, not SetHandleInformation success alone.",
+    "interface_version": 1,
+    "ipc_mechanics": "Unmodified bridge_pipe::report(front=true) closed bridge-pipe-test shape. Self identity contains exact empty capabilities; external held observer proves actual LPAC semantics.",
+    "manifest": "identity-lpac-pipe-front-manifest.json",
+    "manifest_keys": [
+      "schemaVersion",
+      "compileOnly",
+      "runtimeAcceptance",
+      "interfaceVersion",
+      "executableSha256",
+      "actorSourceSha256",
+      "pipeActorSha256",
+      "identitySourceSha256",
+      "coreSha256"
+    ],
+    "native_actor_executed": false,
+    "ordinary_backend": "Distinct immutable B actor/manifest performs pipe-relay/origin-fixture. It is not included or linked into this selected executable.",
+    "profile": "zero-cap-lpac-fixed-pipe-origin-mechanism-v1",
+    "report_keys": [
+      "schema_version",
+      "stage",
+      "role",
+      "run_id",
+      "case_id",
+      "pid",
+      "ipc_mechanics",
+      "admitted_qpc",
+      "read_handle_inherit_cleared",
+      "write_handle_inherit_cleared",
+      "identity_basis",
+      "network_tested",
+      "proxy_tested",
+      "product_acceptance"
+    ],
+    "report_role": "lpac-pipe-front",
+    "report_stage": "lpac-ipc-origin-selected",
+    "schema_version": 1,
+    "scope": "one-local-semantic-lpac-held-ipc-relay-origin-v1",
+    "selected_positive_totals": {
+      "eof_observed": true,
+      "read_bytes": 96,
+      "read_frames": 2,
+      "reader_close": "confirmed",
+      "write_bytes": 144,
+      "write_frames": 3,
+      "writer_close": "confirmed"
+    },
+    "source_pins": {
+      "actorSourceSha256": ".github/native/windows_identity_lpac_pipe_front_actor.cpp",
+      "coreSha256": ".github/native/windows_identity_proxy_bridge_core.hpp",
+      "identitySourceSha256": ".github/native/windows_identity_actor.cpp",
+      "pipeActorSha256": ".github/native/windows_identity_proxy_pipe_actor.cpp"
+    },
+    "stage": "new-lpac-pipe-frontend-native-interface",
+    "synchronous_io_boundary": "ReadFile/WriteFile can block. Absolute Job watchdog bounds process lifetime, not cancellation/absence/broker cleanup. No retries/fallbacks.",
+    "wire": "Unchanged RPB1 48bytes, HELLO1/READY2/REQUEST3/RESPONSE4/DONE5 with original seq/status/nonces. Generated request/sink only, not arbitrary HTTP transport."
+  },
+  "raw_commitment": {
+    "bytes": 4348,
+    "sha256": "16593f0635ccb649ffb44b69c5f4043a32bf0bf2e7474d3a511acb45bea22718"
+  },
+  "schema_version": 1,
+  "stage": "source-evidence-safe-view",
+  "temporal_scope": "Original preparation/review snapshot: its pending/false runtime fields are historical snapshot fields, not the current result.",
+  "transformation": "JSON value projection; account identifiers/user paths redacted if present; no runtime inference"
+}

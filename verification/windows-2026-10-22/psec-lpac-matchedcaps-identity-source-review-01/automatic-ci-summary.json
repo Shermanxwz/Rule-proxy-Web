@@ -1,0 +1,24 @@
+{
+  "actual_runtime_qualification": false,
+  "compile_and_pure_only": true,
+  "conclusion": "success",
+  "decoded_log_original": {
+    "bytes": 228205,
+    "sha256": "5f3f4413c8c45bbdaea90becfe18024ef6ddf58db07b090474ed48ea91d60539"
+  },
+  "decoded_text_encoding": "UTF-8 BOM / CRLF",
+  "dispatch_or_rerun": false,
+  "errors": 0,
+  "failures": 0,
+  "gated_runtime_steps_5_to_9": "skipped",
+  "job_id": 120193628680,
+  "raw_zip": false,
+  "run_id": 39885821454,
+  "runtime_skip_basis": "Root separately inspected GitHub job metadata; gated steps have no execution log.",
+  "seconds": 76.405,
+  "skips": 0,
+  "source_commit": "ec45dffb66cc88bb48578101afb93ce7044a6521",
+  "status": "completed",
+  "tests": 955,
+  "url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39885821454"
+}

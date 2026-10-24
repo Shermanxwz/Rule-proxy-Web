@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "stage": "readonly-primary-research-lpac-socket-after-registryread",
+  "runtime_executed": false,
+  "native_api_called": false,
+  "configuration_changed": false,
+  "source_edited": false,
+  "conclusions": [
+    {
+      "classification": "source_fact",
+      "claim": "Microsoft documents internetClient, internetClientServer and privateNetworkClientServer as network capabilities. PNCS covers home/work network inbound and outbound, not a single loopback endpoint; it avoids requesting InternetClient but is broader than the proposed loopback-only authority.",
+      "source": "https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/app-capability-declarations"
+    },
+    {
+      "classification": "source_fact",
+      "claim": "The reviewed Chromium Network LPAC setup adds registryRead plus PNCS, InternetClient, EnterpriseAuthentication, identity/crypto services and application file capabilities. This is an operational bundle, not evidence that any one is the minimal AFD/socket prerequisite.",
+      "source": "https://api.github.com/repos/chromium/chromium/git/blobs/b6eccdade4f4d6d72acc975b097843e7f64b003a"
+    },
+    {
+      "classification": "research_boundary",
+      "claim": "No reviewed Microsoft contract or Chromium source establishes a loopback-only LPAC socket-creation capability or that lpacNetwork/lpacNetworking/lpacWebPlatform is the missing AFD authorization. Deriving an arbitrary capability SID does not establish such semantics. The precise AFD/device/provider access check causing this socket10013 remains unobserved.",
+      "source": "https://learn.microsoft.com/en-us/windows/win32/api/securitybaseapi/nf-securitybaseapi-derivecapabilitysidsfromname"
+    },
+    {
+      "classification": "source_fact",
+      "claim": "Current Chromium has a Windows browser SocketBroker which creates unconnected TCP/UDP sockets and transfers them using WSADuplicateSocketW; the target reconstructs with WSASocketW(FROM_PROTOCOL_INFO). BrokerHelperWin selects non-publicly-routable destinations including loopback for brokering. This does not expose a narrow fixed-peer authority contract.",
+      "sources": [
+        "https://api.github.com/repos/chromium/chromium/git/blobs/c8be5ef7ed380565cadffe2f736cb821fcf35cad",
+        "https://api.github.com/repos/chromium/chromium/git/blobs/c3c0892ebd80a834f4cd9d1e1b21d0ca5b5fd0d7",
+        "https://api.github.com/repos/chromium/chromium/git/blobs/489064d83e5127c036377780a4527a942e9ee327",
+        "https://api.github.com/repos/chromium/chromium/git/blobs/c1c2ac7d6d491aaeb2d6e717f526ae9deda1bf79"
+      ]
+    },
+    {
+      "classification": "source_fact",
+      "claim": "Microsoft documents a one-use WSAPROTOCOL_INFO targeted at a process and independently usable descriptors sharing socket state, with no Winsock-interface access control. Preconnected handoff is therefore not automatically immutable-peer confinement. DisconnectEx(TF_REUSE_SOCKET) permits reuse by AcceptEx/ConnectEx.",
+      "sources": [
+        "https://learn.microsoft.com/en-us/windows/win32/api/winsock2/nf-winsock2-wsaduplicatesocketw",
+        "https://learn.microsoft.com/en-us/windows/win32/api/mswsock/nc-mswsock-lpfn_disconnectex"
+      ]
+    },
+    {
+      "classification": "inference",
+      "claim": "Observed socket(AF_INET,SOCK_STREAM,IPPROTO_TCP)10013 occurs before a target address is supplied. It supports a typed socket-creation denial for this token/API, not denial specifically to P, a missing-capability diagnosis, AFD attribution or a tested WFP destination policy. Successful WSAStartup after registryRead does not uniquely prove why the prior10107 disappeared."
+    }
+  ],
+  "bounded_next_steps_not_implemented": [
+    "Do not add another named capability based on successful SID derivation alone. A PNCS-only extension would be an explicit broader-LAN hypothesis and must not be presented as loopback confinement or silently substituted into this scope.",
+    "Before any capability variant, seek a supervised read-only trace/access-observation of the exact failed provider/device operation and its policy, or acknowledge this OS-internal gate remains unknown.",
+    "If a broker route is chosen, retain ordinary socket ownership and expose only a fixed framed data channel whose broker independently validates held caller identity and immutable target. Do not hand the untrusted client a general unconnected socket or claim preconnected transfer is immutable.",
+    "A fixed IPC adapter requires application/protocol integration and is not transparent support for arbitrary applications, a repaired G/PSEC DNS boundary, Linux parity or product acceptance.",
+    "Real socket use under a broader capability would require separately approved and independently verified OS enforcement plus direct/UDP/DNS/broker negative controls; existing DNS API leakage remains a blocker."
+  ],
+  "explicitly_unproven": [
+    "exact AFD object and ACE causing10013",
+    "minimal sufficient socket capability on this host",
+    "same-SID loopback reachability after a broader network capability",
+    "fixed-peer confinement of a transferred socket",
+    "transparent arbitrary-application support",
+    "selected DNS isolation and product acceptance"
+  ]
+}

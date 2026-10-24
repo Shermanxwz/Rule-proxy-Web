@@ -1,0 +1,188 @@
+{
+  "ac_accesscheck_qualified": true,
+  "ac_observed_call_count": 4,
+  "ac_observed_matrix": [
+    3,
+    0,
+    1,
+    2
+  ],
+  "actor_never_resumed": true,
+  "assign_process_once_per_arm": true,
+  "assign_return_values": [
+    1,
+    1
+  ],
+  "assign_win32_errors": [
+    0,
+    0
+  ],
+  "assignment_intent_and_return_receipt_count": 4,
+  "assignments_within_original_deadline": true,
+  "atomic_inner_creation_proven": false,
+  "author_promotion_pure": {
+    "errors": 0,
+    "failures": 0,
+    "seconds": 12.045,
+    "skips": 0,
+    "tests": 50
+  },
+  "both_arm_held_exit_codes": [
+    1,
+    1
+  ],
+  "both_arm_primary_admitted": true,
+  "broker_cancellation_proven": false,
+  "broker_outcome_unknown": false,
+  "caller_intent_count": 9,
+  "constructor_policy": "outer-guarded-held-explicit-inner-assignment-v1",
+  "continuous_outer_supervision_proven": false,
+  "creation_transfer_crash_gap_resolved": false,
+  "dns_tested": false,
+  "document": {
+    "bytes": 7668,
+    "path": "docs/validation/2026-10-23-psec-lpac-postassign-identity-01.md",
+    "sha256": "66204f0b35a2967a1e6a22f1d7fdda628e8c5ae30cec80feed7c63061e4a1246"
+  },
+  "evidence_index": {
+    "bytes": 3922,
+    "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-local-01-evidence-index.json",
+    "sha256": "c3e6a187cb7549ea87c207682201c47a701651658ebb24712b97e47f571d9ea5"
+  },
+  "existing_g_psec_api_dns_leak_remains_true": true,
+  "external_environment_absence_verified": false,
+  "failure": "accesscheck",
+  "global_before_after_byte_equal": true,
+  "global_snapshot_bytes": 7378,
+  "global_snapshot_sha256": "f05d91ee76ee8a97ae5ab3bfa092167a8ee560c083255f142e6c453f2edf7ab3",
+  "independent_deny_all_scope_not_proxy_policy_comparison": true,
+  "known_caller_resource_cleanup_confirmed": true,
+  "linux_equivalence_qualified": false,
+  "lpac_accesscheck_qualified": false,
+  "lpac_complete_observed_matrix": null,
+  "lpac_failure": "mask",
+  "lpac_first_call": {
+    "access_status": true,
+    "api_success": true,
+    "expected_granted_access": 2,
+    "granted_access": 3,
+    "label": "combined",
+    "privilege_count": 0,
+    "win32_error": null
+  },
+  "lpac_observed_access_prefix": [
+    3
+  ],
+  "lpac_observed_call_count": 1,
+  "lpac_semantic_identity_qualified": false,
+  "lpac_unattempted_labels": [
+    "world",
+    "aap",
+    "arap"
+  ],
+  "model2_policy_compared": false,
+  "module_unbind_confirmed": true,
+  "network_tested": false,
+  "nrpt_in_snapshot": false,
+  "observation_complete": false,
+  "old_atomic03_checkpoint": {
+    "bytes": 7104,
+    "path": "verification/windows-2026-10-22/psec-lpac-identity-local-03-checkpoint.json",
+    "sha256": "b476892a1009f0752e872a1e28fd61c985cc570889b4d3a39b5d5c64c99c56f5"
+  },
+  "old_atomic03_result_not_rewritten": true,
+  "original_atomic01_broker_unknown_preserved": true,
+  "original_atomic01_recovery_required_preserved": true,
+  "original_native_returned_receipt_count": 6,
+  "original_public": {
+    "bytes": 2408,
+    "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-local-01-public.json",
+    "sha256": "3862644d9d75b0e44a52c4bf2e0be063314dd6418e9e2fff6d5acca1fdaf0bd0"
+  },
+  "post_assignment_all_inner_and_outer_true": true,
+  "post_assignment_exact_job_observation_count": 13,
+  "pretransfer_outer_only_guards_verified": 2,
+  "pretransfer_physical_receipt_count": 2,
+  "product_acceptance": false,
+  "proxy_tested": false,
+  "recovery_required": false,
+  "root_full_pure": {
+    "duration_seconds": 68.7,
+    "errors": 0,
+    "failures": 0,
+    "linux_executed": false,
+    "log_bytes": 172246,
+    "log_sha256": "aee3aae8e1da63c1366eae6e84f4ddd864e29d475a8f0eb5d6e1f836bf574d24",
+    "skipped": 2,
+    "tests": 922
+  },
+  "schema_version": 1,
+  "scope": "one-local-cpse-deny-all-outer-guarded-postassign-identity-v1",
+  "snapshot_objects": [
+    "firewall_profiles",
+    "dns",
+    "routes",
+    "user_proxy"
+  ],
+  "source_automatic_ci": {
+    "actual_result_remains_inconclusive_accesscheck": true,
+    "compile_only_actor_step_executed": true,
+    "conclusion": "success",
+    "cpse_experiment_executed": false,
+    "decoded_original": {
+      "bytes": 219702,
+      "encoding": "UTF-8 BOM",
+      "kept_in_work": true,
+      "line_endings": "CRLF",
+      "not_raw_zip": true,
+      "sha256": "550479f04800ce614650f78d477a407b8fa5cd1e86e6e935f0f556b33f2dcc22"
+    },
+    "errors": 0,
+    "event": "push",
+    "failures": 0,
+    "gated_runtime_steps_skipped": [
+      5,
+      6,
+      7,
+      8,
+      9
+    ],
+    "isolated_runtime_qualified": false,
+    "job_id": 120176045759,
+    "native_actor_executed": false,
+    "network_experiment_executed": false,
+    "public_log_view": {
+      "bytes": 218560,
+      "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/ci-39880370248-decoded-public-view.log",
+      "sha256": "f2a8befb6f17bb11561c26c887e0f51f8cd98a9cdc1540b9e051742ee60ab2a1"
+    },
+    "run_id": 39880370248,
+    "schema_version": 1,
+    "seconds": 53.368,
+    "skips": 0,
+    "source_commit": "953de0a2374aff89959957da4b5641ce5aaff8a1",
+    "stage": "read-only-postassign-source953-auto-ci-summary",
+    "status": "completed",
+    "step_skip_basis": "Root independently read GitHub job metadata; skipped step bodies are absent from decoded log.",
+    "tests_run": 922,
+    "url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39880370248",
+    "verified": true,
+    "workflow_dispatched": false,
+    "workflow_rerun": false
+  },
+  "source_commit": "953de0a2374aff89959957da4b5641ce5aaff8a1",
+  "source_review_index": {
+    "bytes": 32610,
+    "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-source-review-01/index.json",
+    "sha256": "0534177cd473e0b410e130ef5800ea110e0eab50b16b69c0002135b3bcba1bc1"
+  },
+  "source_sha256": "d625a45670dc4b544c73e7dfb0acb55f483064dca23495e5e12f9dcbf8705f9f",
+  "stage": "postassign01-partial-lpac-mask-observation-checkpoint",
+  "standalone_semantic_dns02_api_query5_5_preserved": true,
+  "status": "inconclusive",
+  "unattempted_calls_not_filled": true,
+  "void_close_invoked_once": true,
+  "void_close_returned_normally": true,
+  "worker_bound": true,
+  "worker_exit_code": 0
+}

@@ -1,0 +1,32 @@
+{
+  "content": {
+    "actual_native_assay_count": 0,
+    "decision": "GO-once-first-native-assay-after-full1062-pass-and-fixed-source-commit",
+    "driver_sha256": "5a9986b5c8cda7b5fbf685738ebc246b2b01ff3112f7e54e9a54cd927046aba4",
+    "input_pins": {
+      "lpac-pipe-origin-python-independent-review-05.json": "1e7747454c47e9f54e79ba3f11a39bfcd9edbdef65325978ca20aef2a91f83c9",
+      "lpac-pipe-origin-ready-source-freeze-02.json": "99719b7d6a22a03b59f639fd4cb06a9588701e744d47a1f98c1e9df0b5fd329d",
+      "lpac-pipe-origin-ready-source-independent-review-02.json": "b23d1942a9d2114b8a944c4d31d5e51a7161c61df83d0c3e2cb6284b5f2f3bbe",
+      "lpac_pipe_origin_capture_01.ps1": "18284114b1b8890f5ab30bb01543e12e8f334dd5aeb6fa16c820de7a23fb0dd1",
+      "verify_lpac_pipe_origin_actual_01.py": "faae99c4bebafd4a54d41ae607d9b895a4ee60cee3bcffbf0c2de32436c231bb"
+    },
+    "linux_equivalence": false,
+    "native_actor_executed": false,
+    "only_three_constants_changed": true,
+    "prior_driver_entry_failed_before_native_assay": true,
+    "product_acceptance": false,
+    "schema_version": 1,
+    "source_count": 40,
+    "source_sha256": "d136e22b2dfbdb991cfbef06d5dd7a54d687135bedbff653ada5e4d01ab88a61",
+    "stage": "root-lpac-pipe-origin-actual-driver02-review",
+    "unchanged_capture_and_reader": true
+  },
+  "raw_commitment": {
+    "bytes": 1254,
+    "sha256": "46c3234ffc69ebc46a425135b12a6b357d50aea3e19edc9112ca033f435ad692"
+  },
+  "schema_version": 1,
+  "stage": "source-evidence-safe-view",
+  "temporal_scope": "Original preparation/review snapshot: its pending/false runtime fields are historical snapshot fields, not the current result.",
+  "transformation": "JSON value projection; account identifiers/user paths redacted if present; no runtime inference"
+}

@@ -1,0 +1,58 @@
+{
+  "freeze_sha256": "eb58e512feee511533e936689457e474488ba5e88ea88b485dd87c36c952f36b",
+  "handoff_files": [
+    "docs/validation/windows-codex-handoff.md",
+    "docs/validation/windows-isolation-source-manifest.json",
+    "docs/validation/windows-isolation-evidence-index.json",
+    "docs/validation/windows-isolation-evidence-index.md",
+    "docs/validation/windows-isolation-public-archive-inventory.json"
+  ],
+  "interpretation": [
+    "This exact activation and handoff source passed the final Linux and Windows short gate. The 54 required modules ran 1,016 tests on each platform without skips. The local extended 1,079-test suite includes 63 prior pure bridge tests and is not added to the CI count.",
+    "Windows executed extracted AC PowerShell validators and inert mocked dispatch, all eight payload modes and exact 17-member AC payload checks. It did not invoke the new AC controller or create the AC frontend profile.",
+    "Existing Windows UDP6 TEST_ONLY loopback mechanics retained 45 main echoes and one wrong-echo control, seven held-child and two receiver cleanup observations. These are unrelated hosted calibration facts, not new AC or proxy acceptance.",
+    "Linux completed official package installation and the tiny paused owned-QEMU mapped-backing/local-package agreement mechanism with cleanup. It did not run a guest and did not verify resident bytes or upstream-source equivalence.",
+    "The sidecar separately passed 433 pure tests and built the existing identity actor; its token, pipe, restricted and paired runtime steps were skipped. The direct Windows runtime and other path-triggered mechanism workflows were skipped.",
+    "The sole AC feature flag is enabled, but the actual workflow remains guarded by the exclusive explicit runtime marker and source/identity/capacity/deadline checks. No real AC-pair or Windows VM experiment was started by this final handoff validation. The new runtime bridge build/upload path itself was structurally tested, not executed in this short gate.",
+    "Original Stage0 failures and all archived failures remain unchanged. The requested full application-and-descendant proxy/DNS/broker/fail-closed objective remains incomplete. A narrow outer UDP absence result is not the product goal.",
+    "The receiving Windows Codex must first inspect its actual environment and permissions and implement/review a minimal local owned adapter. The existing CI guest fixed path/QPC entry is not a turnkey local runtime; bypassing outer Job supervision is not an acceptable shortcut."
+  ],
+  "limits": {
+    "linux_reinstallation_performed": false,
+    "local_device_accessed": false,
+    "new_ac_pair_runtime_proven": false,
+    "product_acceptance": false,
+    "proxy_positive_proven": false
+  },
+  "next_action": "Documentation-only final handoff links. No additional feature development, VM launch or automatic retry by the handing-off session.",
+  "observations": {
+    "ac_pair_executed": false,
+    "ac_powershell_cases": 28,
+    "ac_powershell_checks": 135,
+    "activation_flag_enabled": true,
+    "linux_paused_qemu_provenance_and_cleanup": true,
+    "local_extended_tests": 1079,
+    "payload_members": [
+      10,
+      14,
+      15,
+      17,
+      22,
+      17,
+      14,
+      17
+    ],
+    "payload_negative_cases": 20,
+    "payload_powershell_checks": 104,
+    "required_modules_each_platform": 54,
+    "skips_each_platform": 0,
+    "tests_each_platform": 1016,
+    "windows_existing_ipv6_mechanics_and_cleanup": true
+  },
+  "result_sha256": "9a209caddae71cb92abd895205476a824441743460631f39ca034e4b002118e8",
+  "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39777404738",
+  "schema_version": 1,
+  "short_gate_passed": true,
+  "source_commit": "7c7a839a8acef8a92fbc0bbd0505c0342065bda5",
+  "title": "Windows Codex handoff source: final short gate verified; AC pair not executed"
+}

@@ -1,0 +1,241 @@
+{
+  "schema_version": 1,
+  "experiment": "direct UDP flow-loader correction, short gates only",
+  "repository": "Shermanxwz/Rule-proxy-Web",
+  "branch": "dot/windows-isolation-proof",
+  "head": "b197909d0bae3cdb9e7f0ddc85aa7abeab278858",
+  "workflow_run_id": 39617432060,
+  "workflow_conclusion": "success",
+  "reviewed_freeze_sha256": "3a3d8177ac58c148eecbea8e929e06052861d00325eb48a3c0314205a2d43209",
+  "changed_files": 10,
+  "unchanged_pins": 46,
+  "closed_results": {
+    "schema_version": 1,
+    "run_id": 39617432060,
+    "head": "b197909d0bae3cdb9e7f0ddc85aa7abeab278858",
+    "conclusion": "success",
+    "linux_tests": 354,
+    "windows_tests": 354,
+    "skipped": 0,
+    "pinned_yaml_installed_both": true,
+    "composed_flow_test_passed_both": true,
+    "yaml_structure_test_passed_both": true,
+    "closed_windows_results": [
+      {
+        "schema_version": 1,
+        "checks": 72,
+        "empty_configuration_rejected": true,
+        "guest_entrypoint_executed": false,
+        "network_executed": false,
+        "native_acceptance": false
+      },
+      {
+        "schema_version": 1,
+        "passed": true,
+        "checks": 48,
+        "process_and_transport_mocked": true,
+        "udp_guest_execution": false,
+        "runtime_acceptance": false
+      },
+      {
+        "schema_version": 1,
+        "members": [
+          10,
+          14,
+          15,
+          17
+        ],
+        "negative_cases": 4,
+        "inert_boundary_mocks": true,
+        "runtime_artifact": false
+      },
+      {
+        "schema_version": 1,
+        "passed": true,
+        "stage": "forbidden",
+        "checks": 31,
+        "cleanup_confirmed": true,
+        "inert_boundary_mocks": true,
+        "guest_entrypoint_executed": false,
+        "runtime_artifact": false
+      },
+      {
+        "actual_admin_profile_rejected": true,
+        "children_cleanup": [
+          {
+            "cleanup_confirmed": true,
+            "handles_closed": true,
+            "killed": false,
+            "process_exited": true
+          },
+          {
+            "cleanup_confirmed": true,
+            "handles_closed": true,
+            "killed": false,
+            "process_exited": true
+          },
+          {
+            "cleanup_confirmed": true,
+            "handles_closed": true,
+            "killed": false,
+            "process_exited": true
+          },
+          {
+            "cleanup_confirmed": true,
+            "handles_closed": true,
+            "killed": false,
+            "process_exited": true
+          },
+          {
+            "cleanup_confirmed": true,
+            "handles_closed": true,
+            "killed": false,
+            "process_exited": true
+          },
+          {
+            "cleanup_confirmed": true,
+            "handles_closed": true,
+            "killed": false,
+            "process_exited": true
+          },
+          {
+            "cleanup_confirmed": true,
+            "handles_closed": true,
+            "killed": false,
+            "process_exited": true
+          }
+        ],
+        "cleanup_confirmed": true,
+        "dns_tested": false,
+        "failure": "none",
+        "fixture_echo_controls": true,
+        "fixture_send_accepted_count": 3,
+        "hosted_mechanics_complete": true,
+        "ordinary_nonadmin_tested": false,
+        "packet_egress_tested": false,
+        "production_invalid_cli_rejected": true,
+        "production_network_guard_executed": false,
+        "receivers": [
+          {
+            "cleanup_confirmed": true,
+            "contained_observed": true,
+            "counts": {
+              "datagrams": 45,
+              "echoed": 45,
+              "observed_bytes": 2198,
+              "oversized": 0,
+              "rejected": 0,
+              "send_errors": 0,
+              "verified": 45
+            },
+            "datagram_observed": true,
+            "error": false,
+            "socket_closed": true,
+            "thread_stopped": true,
+            "verified_indices": {
+              "after": [
+                0
+              ],
+              "before": [
+                0
+              ],
+              "contained": [
+                0,
+                1,
+                2
+              ],
+              "sample": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11,
+                12,
+                13,
+                14,
+                15,
+                16,
+                17,
+                18,
+                19,
+                20,
+                21,
+                22,
+                23,
+                24,
+                25,
+                26,
+                27,
+                28,
+                29,
+                30,
+                31,
+                32,
+                33,
+                34,
+                35,
+                36,
+                37,
+                38,
+                39
+              ]
+            }
+          },
+          {
+            "cleanup_confirmed": true,
+            "contained_observed": false,
+            "counts": {
+              "datagrams": 1,
+              "echoed": 1,
+              "observed_bytes": 48,
+              "oversized": 0,
+              "rejected": 0,
+              "send_errors": 0,
+              "verified": 1
+            },
+            "datagram_observed": true,
+            "error": false,
+            "socket_closed": true,
+            "thread_stopped": true,
+            "verified_indices": {
+              "after": [],
+              "before": [
+                0
+              ],
+              "contained": [],
+              "sample": []
+            }
+          }
+        ],
+        "runtime_acceptance": false,
+        "schema": 1,
+        "work_removed": true,
+        "wrong_echo_rejected": true,
+        "wrong_echo_send_accepted": true
+      }
+    ]
+  },
+  "source_correction": {
+    "canonical_engine": "Guest and private-flow producer share the same exact-path/source-checked cached engine module; nominal UDPBinding isinstance checks remain strict.",
+    "composed_regression": "Actual guest loader to binding, owned flow file, commitment, private-body admission and host normalization; accepted-send/no-echo input. Native provenance/network observations are synthetic fixtures, not a PSEC execution.",
+    "cache_negatives": "Wrong path/spec/name/source digest/class and altered binding fail closed.",
+    "diagnostics": "Host-only fixed flow transport/stage labels; body_verified means matching bounded length and digest, not independent authentication.",
+    "workflow_correction": "Independent review caught malformed unpublished YAML; fixed before publication. Actual YAML string-key parsing and exact reversal to published runtime workflow now guard event/job nesting, native permissions and budgets. Pinned test dependency failure checks are immediate.",
+    "production_unchanged": "Native actor, identity, policy, attempt counts, guest wire, work/report/cleanup budgets and strict Stage0 acceptance unchanged."
+  },
+  "limits": {
+    "original_udp01": "Original UDP01 remains pre-decoder flow-inconclusive; private runtime state was deleted on confirmed cleanup. This source counterexample and fixture correction do not reconstruct that lost state or prove packet absence.",
+    "hosted_mechanics": "TEST_ONLY owned loopback, not an actual contained actor. No valid production network CLI is exercised.",
+    "powershell": "Transport/process seam fixtures use explicit mocks; ZIP fixtures use inert pin-boundary inputs.",
+    "runtime": "No new full guest or UDP packet runtime was launched by this short-gate commit. Direct and prior-connect jobs were marker-skipped.",
+    "claims": "No DNS, broker, general UDP isolation, Linux equivalence or product acceptance claim.",
+    "test_scope": "354 required tests per platform; not full repository discovery."
+  }
+}

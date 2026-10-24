@@ -1,0 +1,1375 @@
+"""Bounded Stage 0b launcher for an explicitly approved disposable Windows CI.
+
+This does not manufacture an ordinary user. An elevated runner can use only its
+existing, same-user/same-session linked limited token. Unsupported hosts stop:
+no credentials, accounts, UAC changes, privilege adjustment, alternate logon
+API, desktop ACL changes, token restriction, or integrity-level changes.
+
+Only the checked-in Stage 0b script can be launched, using this Python runtime.
+The linked-token path uses CreateProcessAsUserW. In particular, error 1314 is a
+recorded blocker, NOT a reason to try a different process-creation API.
+"""
+from __future__ import annotations
+
+import argparse
+import ctypes as C
+import hashlib
+import importlib.util
+import json
+import os
+from pathlib import Path
+import re
+import stat
+import subprocess
+import sys
+
+ROOT = Path(__file__).resolve().parents[1]
+PROBE = ROOT / ".github/windows_identity_pipe_probe.py"
+MAX_REPORT = 128 * 1024
+# Covers Stage 0b's independently bounded ACL/echo/exit/cleanup phases. The
+# process job is not evidence that AppContainer profile/ACL cleanup completed.
+RUN_MILLISECONDS = 120_000
+H, D, P = C.c_void_p, C.c_uint32, C.c_wchar_p
+TOKEN_QUERY = 0x0008
+TOKEN_ELEVATION_TYPE_DEFAULT = 1
+TOKEN_ELEVATION_TYPE_FULL = 2
+TOKEN_ELEVATION_TYPE_LIMITED = 3
+MEDIUM_INTEGRITY = 8192
+ADMIN_SID = "S-1-5-32-544"
+GROUP_ENABLED = 0x00000004
+GROUP_DENY_ONLY = 0x00000010
+KILL_ON_JOB_CLOSE = 0x00002000
+SID_PATTERN = re.compile(r"S-1-(?:[0-9]+-)*[0-9]+\Z")
+DIGEST_PATTERN = re.compile(r"[0-9a-f]{64}\Z")
+OBSERVATION_NAMES = ("sid", "session_id", "token_type", "elevation_type", "elevated",
+                     "integrity_rid", "groups", "appcontainer", "appcontainer_sid",
+                     "capabilities", "ui_access")
+
+
+class NativeFailure(OSError):
+    def __init__(self, operation, code):
+        super().__init__(code, operation)
+        self.operation = operation
+        self.winerror = code
+
+
+class GateFailure(RuntimeError):
+    """A closed invariant name, never an unfiltered native diagnostic."""
+
+
+def failure(exc):
+    if isinstance(exc, NativeFailure):
+        return {"operation": exc.operation, "winerror": exc.winerror}
+    if isinstance(exc, GateFailure):
+        return {"operation": "invariant", "reason": str(exc)}
+    return {"operation": "launcher", "type": type(exc).__name__}
+
+
+# Closed observations only; never an additional acceptance predicate.
+DIAGNOSTIC_STAGES = ('not_started','arguments','inputs','qpc','identity','job','stdio','create','assign','image','token','resume','wait','copy','profile','acl','pipes','echo','native_report','eof','cleanup','report','complete','initial_token','input_validation','input_copy','profile_create','acl_grant','sid','echo_write','echo_read','exit','native_parse','completed','known_folder')
+DIAGNOSTIC_CATEGORIES = ('none','configuration','deadline','identity','hash','io','parser','schema','native','invariant','cleanup','other')
+DIAGNOSTIC_OPERATIONS = ('none','qpc','token','image','job_create','job_assign','job_query','job_terminate','process_create','process_wait','process_exit','process_terminate','resume','stdio','attribute','pipe','profile','acl','close','other')
+_DIAGNOSTIC_NATIVE_OPERATIONS = {
+    'QueryPerformanceCounter':'qpc', 'QueryPerformanceFrequency':'qpc',
+    'OpenProcessToken':'token', 'QueryFullProcessImageNameW':'image',
+    'CreateJobObjectW':'job_create', 'SetInformationJobObject':'job_create',
+    'AssignProcessToJobObject':'job_assign', 'IsProcessInJob':'job_query',
+    'QueryInformationJobObject':'job_query', 'TerminateJobObject':'job_terminate',
+    'CreateProcessW':'process_create', 'WaitForSingleObject':'process_wait',
+    'GetExitCodeProcess':'process_exit', 'TerminateProcess':'process_terminate',
+    'ResumeThread':'resume', 'CreateFileW(owned_stdio)':'stdio',
+    'InitializeProcThreadAttributeList':'attribute',
+    'UpdateProcThreadAttribute(handle_list)':'attribute', 'CloseHandle':'close',
+}
+
+
+def diagnostic_new():
+    return ['not_started', None, 'none', 'none', None]
+
+
+def validate_execution(value):
+    if (type(value) is not list or len(value) != 5
+            or type(value[0]) is not str or value[0] not in DIAGNOSTIC_STAGES
+            or value[1] is not None and (type(value[1]) is not str or value[1] not in DIAGNOSTIC_STAGES)
+            or type(value[2]) is not str or value[2] not in DIAGNOSTIC_CATEGORIES
+            or type(value[3]) is not str or value[3] not in DIAGNOSTIC_OPERATIONS
+            or value[4] is not None and (type(value[4]) is not int or not 0 <= value[4] <= 0xffffffff)):
+        raise GateFailure('diagnostic_shape')
+    if ((value[2] == 'none') != (value[1] is None)
+            or value[2] == 'none' and (value[3] != 'none' or value[4] is not None)
+            or value[4] is not None and (value[2] != 'native' or value[3] in ('none','other','profile'))):
+        raise GateFailure('diagnostic_consistency')
+    return list(value)
+
+
+def diagnostic_stage(record, stage):
+    if record is not None and stage in DIAGNOSTIC_STAGES:
+        record[0] = stage
+
+
+def diagnostic_error(record, exc, operation=None):
+    if record is None or record[1] is not None:
+        return
+    category, op, code = 'other', 'other', None
+    if isinstance(exc, NativeFailure):
+        op = _DIAGNOSTIC_NATIVE_OPERATIONS.get(exc.operation, 'other')
+        if op != 'other' and type(exc.winerror) is int and 0 <= exc.winerror <= 0xffffffff:
+            category, code = 'native', exc.winerror
+    elif isinstance(exc, OSError):
+        category = 'io'
+        if operation in DIAGNOSTIC_OPERATIONS and operation not in ('none','other','profile'):
+            candidate = getattr(exc, 'winerror', None)
+            if type(candidate) is int and 0 <= candidate <= 0xffffffff:
+                category, op, code = 'native', operation, candidate
+    elif isinstance(exc, GateFailure):
+        reason = str(exc)
+        category = ('deadline' if reason.startswith('qpc_') or reason == 'bounded_probe_deadline'
+                    else 'hash' if 'digest' in reason else 'identity' if 'token' in reason or 'identity' in reason
+                    else 'parser' if reason.startswith('private_report_') else 'invariant')
+        op = 'none'
+    record[1:] = [record[0], category, op, code]
+
+
+CHILD_ENVIRONMENT_VARIANT = 'systemroot_localappdata_v1'
+CHILD_ENVIRONMENT_STATES = ('not_attempted','api_failed','path_rejected','ready')
+
+
+def default_child_environment():
+    return dict(environment_version=1,variant=CHILD_ENVIRONMENT_VARIANT,
+                lookup_state='not_attempted',hresult=None,release_attempted=False,
+                release_returned=False,exact_child_keyset=None,
+                com=[False,None,False,False],deadline_verified=False)
+
+
+def validate_child_environment(value):
+    if type(value) is not dict or set(value) != set(default_child_environment()):
+        raise GateFailure('environment_shape')
+    if (type(value['environment_version']) is not int or value['environment_version'] != 1
+            or type(value['variant']) is not str or value['variant'] != CHILD_ENVIRONMENT_VARIANT
+            or type(value['lookup_state']) is not str or value['lookup_state'] not in CHILD_ENVIRONMENT_STATES):
+        raise GateFailure('environment_shape')
+    for key in ('release_attempted','release_returned','deadline_verified'):
+        if type(value[key]) is not bool:raise GateFailure('environment_shape')
+    if value['exact_child_keyset'] is not None and type(value['exact_child_keyset']) is not bool:
+        raise GateFailure('environment_shape')
+    hr=value['hresult'];com=value['com']
+    if hr is not None and (type(hr) is not int or not 0 <= hr <= 0xffffffff):
+        raise GateFailure('environment_shape')
+    if (type(com) is not list or len(com)!=4 or any(type(com[i]) is not bool for i in (0,2,3))
+            or com[1] is not None and (type(com[1]) is not int or not 0 <= com[1] <= 0xffffffff)):
+        raise GateFailure('environment_shape')
+    if (com[1] is not None and not com[0] or com[2] and not (com[0] and type(com[1]) is int and com[1] in (0,1))
+            or com[3] and not com[2] or value['release_returned'] and not value['release_attempted']):
+        raise GateFailure('environment_consistency')
+    state=value['lookup_state']
+    if state=='not_attempted':
+        if hr is not None or value['release_attempted'] or value['release_returned'] or value['exact_child_keyset'] is not None:
+            raise GateFailure('environment_consistency')
+    else:
+        if not (com[0] and type(com[1]) is int and com[1] in (0,1)):
+            raise GateFailure('environment_consistency')
+        if state in ('ready','path_rejected') and hr != 0:
+            raise GateFailure('environment_consistency')
+        if state=='api_failed' and hr == 0:
+            raise GateFailure('environment_consistency')
+    if value['exact_child_keyset'] is not None and state != 'ready':
+        raise GateFailure('environment_consistency')
+    return dict(value,com=list(com))
+
+
+def child_environment_admitted(value):
+    try:value=validate_child_environment(value)
+    except Exception:return False
+    return (value['lookup_state']=='ready' and value['hresult']==0
+            and value['release_attempted'] and value['release_returned']
+            and value['exact_child_keyset'] is True and value['deadline_verified']
+            and value['com'][0] and value['com'][1] in (0,1)
+            and value['com'][2] and value['com'][3])
+
+
+def emit_scoped_diagnostic(args, record, child_environment=None):
+    """Best effort on existing owned stdout; never changes return/raise."""
+    try:
+        nonce, digest = args.case_nonce, args.actor_sha256
+        deadline, frequency = args.deadline_qpc, args.qpc_frequency
+        if (type(nonce) is not str or re.fullmatch('[0-9a-f]{32}',nonce) is None
+                or type(digest) is not str or DIGEST_PATTERN.fullmatch(digest) is None
+                or type(deadline) is not int or not 0 < deadline < 2**63
+                or type(frequency) is not int or not 0 < frequency <= 10**9):
+            return
+        value = dict(schema_version=2, stage='stage0b-diagnostic', actor_sha256=digest,
+                     case_nonce_sha256=hashlib.sha256(nonce.encode('ascii')).hexdigest(),
+                     deadline_qpc=deadline, qpc_frequency=frequency,
+                     execution=validate_execution(record),
+                     child_environment=None if child_environment is None else validate_child_environment(child_environment))
+        raw = json.dumps(value,ensure_ascii=True,separators=(',',':'))+'\n'
+        if len(raw.encode('ascii')) <= 1024:
+            sys.stdout.write(raw); sys.stdout.flush()
+    except BaseException:
+        pass
+
+
+def token_is_ordinary(identity, *, require_limited=False):
+    """Pure fail-closed gate over observations made by native token queries."""
+    required = {"sid", "session_id", "token_type", "elevation_type", "elevated",
+                "integrity_rid", "admin_attributes", "appcontainer", "appcontainer_sid",
+                "capability_count", "ui_access"}
+    if not isinstance(identity, dict) or not required.issubset(identity):
+        return False
+    user = identity.get("sid")
+    admin = identity.get("admin_attributes")
+    if not (isinstance(user, str) and SID_PATTERN.fullmatch(user)
+            and type(identity.get("session_id")) is int and identity["session_id"] >= 0
+            and identity.get("token_type") == 1 and type(identity.get("token_type")) is int
+            and identity.get("elevated") is False
+            and identity.get("appcontainer") is False
+            and identity.get("appcontainer_sid") is None
+            and type(identity.get("capability_count")) is int and identity["capability_count"] == 0
+            and identity.get("ui_access") is False
+            and type(identity.get("integrity_rid")) is int and identity["integrity_rid"] == MEDIUM_INTEGRITY
+            and type(identity.get("elevation_type")) is int
+            and identity["elevation_type"] in (TOKEN_ELEVATION_TYPE_DEFAULT, TOKEN_ELEVATION_TYPE_LIMITED)):
+        return False
+    if require_limited and identity["elevation_type"] != TOKEN_ELEVATION_TYPE_LIMITED:
+        return False
+    # A normal standard account need not contain the Administrators SID. A
+    # linked limited administrator token MUST contain it as deny-only.
+    if admin is None:
+        return not require_limited
+    return (type(admin) is int and admin >= 0
+            and bool(admin & GROUP_DENY_ONLY) and not bool(admin & GROUP_ENABLED))
+
+
+def same_identity(candidate, parent):
+    return (candidate.get("sid") == parent.get("sid")
+            and candidate.get("session_id") == parent.get("session_id"))
+
+
+def choose_mode(parent, compartment):
+    if type(compartment) is not int or compartment != 1:
+        raise GateFailure("parent_not_default_compartment")
+    if token_is_ordinary(parent):
+        return "current_ordinary_token"
+    if (parent.get("elevated") is True
+            and type(parent.get("elevation_type")) is int
+            and parent["elevation_type"] in (TOKEN_ELEVATION_TYPE_DEFAULT, TOKEN_ELEVATION_TYPE_FULL)
+            and parent.get("appcontainer") is False and parent.get("appcontainer_sid") is None
+            and type(parent.get("token_type")) is int and parent["token_type"] == 1):
+        return "existing_linked_limited_token"
+    raise GateFailure("parent_neither_ordinary_nor_split_token_elevated")
+
+
+def validate_linked(linked, parent):
+    if not token_is_ordinary(linked, require_limited=True):
+        raise GateFailure("linked_token_not_ordinary_limited")
+    if not same_identity(linked, parent):
+        raise GateFailure("linked_token_user_or_session_mismatch")
+
+
+def safe_identity(identity, parent=None):
+    """Exclude account SIDs, usernames, local paths, and arbitrary strings."""
+    fields = ("session_id", "token_type", "elevation_type", "elevated", "integrity_rid",
+              "admin_attributes", "appcontainer", "capability_count", "ui_access")
+    result = {key: identity[key] for key in fields}
+    result["appcontainer_sid_absent"] = identity["appcontainer_sid"] is None
+    if parent is not None:
+        result["same_user"] = identity["sid"] == parent["sid"]
+        result["same_session"] = identity["session_id"] == parent["session_id"]
+    return result
+
+
+def admin_attributes(groups):
+    administrators = [attributes for sid, attributes in groups if sid == ADMIN_SID]
+    if len(administrators) > 1:
+        raise GateFailure("duplicate_administrators_group")
+    return administrators[0] if administrators else None
+
+
+def identity_from_observations(values):
+    # Index required fields instead of substituting defaults for missing data.
+    names = ("sid", "session_id", "token_type", "elevation_type", "elevated",
+             "integrity_rid", "appcontainer", "appcontainer_sid", "ui_access")
+    result = {name: values[name] for name in names}
+    result["admin_attributes"] = admin_attributes(values["groups"])
+    result["capability_count"] = len(values["capabilities"])
+    return result
+
+
+def safe_observation(name, value):
+    if name in ("sid", "appcontainer_sid"):
+        return {"sid_present": value is not None}
+    if name == "groups":
+        return {"count": len(value), "admin_attributes": admin_attributes(value)}
+    if name == "capabilities":
+        return {"count": len(value)}
+    if name in ("session_id", "token_type", "elevation_type", "elevated",
+                "integrity_rid", "appcontainer", "ui_access"):
+        return value
+    raise GateFailure("unexpected_preflight_observation")
+
+
+def collect_observations(api, token):
+    """Independent diagnostic records, without defaulting failed observations."""
+    records, values = {}, {}
+    readers = api.observation_readers(token)
+    for name in OBSERVATION_NAMES:
+        try:
+            value = readers[name]()
+            public = safe_observation(name, value)
+            values[name] = value
+            records[name] = {"ok": True, "value": public}
+        except Exception as exc:
+            records[name] = {"ok": False, "error": failure(exc)}
+    return records, values
+
+
+def token_preflight(api):
+    """Read-only native work: token/compartment queries and handle closure only."""
+    report = {"schema_version": 1, "stage": "ordinary-token-preflight",
+              "preflight_only": True, "process_created": False, "profile_created": False,
+              "network_tested": False, "product_acceptance": False,
+              "linked_token": {"attempted": False},
+              "cleanup": {"token_handles_closed": False, "errors": []}}
+    current, linked = None, None
+    try:
+        try:
+            report["compartment"] = {"ok": True, "value": api.compartment()}
+        except Exception as exc:
+            report["compartment"] = {"ok": False, "error": failure(exc)}
+        current = api.current_token()
+        observations, values = collect_observations(api, current)
+        report["current"] = observations
+        if (values.get("elevated") is True and type(values.get("elevation_type")) is int
+                and values["elevation_type"] in (TOKEN_ELEVATION_TYPE_DEFAULT, TOKEN_ELEVATION_TYPE_FULL)):
+            report["linked_token"]["attempted"] = True
+            try:
+                linked = api.linked_token(current)
+                linked_observations, linked_values = collect_observations(api, linked)
+                report["linked_token"]["observations"] = linked_observations
+                for key, label in (("sid", "same_user"), ("session_id", "same_session")):
+                    if key in values and key in linked_values:
+                        report["linked_token"][label] = {"ok": True, "value": values[key] == linked_values[key]}
+                    else:
+                        report["linked_token"][label] = {"ok": False, "reason": "dependent_observation_failed"}
+            except Exception as exc:
+                report["linked_token"]["error"] = failure(exc)
+        else:
+            report["linked_token"]["reason"] = "elevated_default_or_full_token_not_observed"
+    except Exception as exc:
+        report["error"] = failure(exc)
+    finally:
+        for handle in (linked, current):
+            if handle:
+                try:
+                    api.close(handle)
+                except Exception as exc:
+                    report["cleanup"]["errors"].append(failure(exc))
+        report["cleanup"]["token_handles_closed"] = not report["cleanup"]["errors"]
+    current_complete = bool(report.get("current")) and all(
+        record["ok"] is True for record in report.get("current", {}).values())
+    linked_info = report["linked_token"]
+    linked_complete = (not linked_info["attempted"] or
+                       bool(linked_info.get("observations")) and
+                       all(record["ok"] is True for record in linked_info.get("observations", {}).values()))
+    report["observations_complete"] = (
+        "error" not in report and "error" not in linked_info
+        and report["compartment"]["ok"] is True
+        and current_complete and linked_complete and report["cleanup"]["token_handles_closed"])
+    report["status"] = "observed" if report["observations_complete"] else "diagnostic_incomplete"
+    return report
+
+
+def checked_path(path, *, inside=None, is_file=True):
+    """Reject every existing alias/reparse component before resolving paths."""
+    path = Path(os.path.abspath(path))
+    for component in (path, *path.parents):
+        info = component.lstat()
+        if stat.S_ISLNK(info.st_mode) or getattr(info, "st_file_attributes", 0) & 0x400:
+            raise GateFailure("reparse_or_symlink_path")
+    resolved = path.resolve(strict=True)
+    if inside is not None and resolved != inside and inside not in resolved.parents:
+        raise GateFailure("path_outside_owned_root")
+    if is_file and not resolved.is_file():
+        raise GateFailure("expected_regular_file")
+    if not is_file and not resolved.is_dir():
+        raise GateFailure("expected_directory")
+    return resolved
+
+
+def validate_inputs(args):
+    root = checked_path(ROOT, is_file=False)
+    script = checked_path(PROBE, inside=root)
+    # Fixed local dependencies, not imports selected through PATH/PYTHONPATH.
+    for relative in (".github/windows_identity_proof.py", ".github/windows_psec_compartment_smoke.py",
+                     "ruleproxy/windows_app_process.py"):
+        checked_path(root / relative, inside=root)
+    runtime = checked_path(sys.base_prefix, is_file=False)
+    python = checked_path(sys.executable, inside=runtime)
+    if python.name.casefold() != "python.exe":
+        raise GateFailure("expected_existing_python_runtime")
+    actor = checked_path(args.actor, inside=root)
+    if actor.name != "windows_identity_actor.exe" or not 512 <= actor.stat().st_size <= 8 * 1024 * 1024:
+        raise GateFailure("expected_bounded_native_identity_actor")
+    if not isinstance(args.actor_sha256, str) or not DIGEST_PATTERN.fullmatch(args.actor_sha256):
+        raise GateFailure("invalid_actor_sha256")
+    with actor.open("rb") as stream:
+        actor_bytes = stream.read(8 * 1024 * 1024 + 1)
+    if not 512 <= len(actor_bytes) <= 8 * 1024 * 1024:
+        raise GateFailure("native_actor_size_changed")
+    if actor_bytes[:2] != b"MZ" or hashlib.sha256(actor_bytes).hexdigest() != args.actor_sha256:
+        raise GateFailure("native_actor_digest_mismatch")
+    # A single new directory within the checkout, never an arbitrary system or
+    # pre-existing directory. Its existing parent must have no aliases.
+    raw_work = Path(os.path.abspath(args.work))
+    # First bind the report to the caller's exact fresh-work spelling. Resolve
+    # only the existing parent after its no-reparse checks: Windows can expand
+    # a legitimate 8.3 name into a different canonical long-path spelling.
+    if Path(os.path.abspath(args.report)) != raw_work / "report.json":
+        raise GateFailure("report_must_be_work_report_json")
+    parent = checked_path(raw_work.parent, inside=root, is_file=False)
+    work = parent / raw_work.name
+    if root not in work.parents or work.exists() or work.is_symlink():
+        raise GateFailure("fresh_owned_work_directory_required")
+    return python, script, actor, work
+
+
+def fixed_command(python, script, actor, digest, work):
+    """No shell, -c argument, module name, or caller-supplied command."""
+    return [str(python), "-I", "-S", "-B", str(script),
+            "--disposable-ci", "--approved-security-test",
+            "--actor", str(actor), "--actor-sha256", digest,
+            "--work", str(work / "probe"), "--report", str(work / "probe/report.json")]
+
+
+class SIDAndAttributes(C.Structure):
+    _fields_ = [("Sid", H), ("Attributes", D)]
+
+
+class TokenGroups(C.Structure):
+    _fields_ = [("GroupCount", D), ("Groups", SIDAndAttributes * 1)]
+
+
+class SecurityAttributes(C.Structure):
+    _fields_ = [("length", D), ("security", H), ("inherit", C.c_int)]
+
+
+class NativeAPI:
+    """Loaded only inside the explicitly approved Windows runtime path."""
+
+    def __init__(self):
+        spec = importlib.util.spec_from_file_location("ordinary_launcher_process",
+                                                     ROOT / "ruleproxy/windows_app_process.py")
+        self.proc = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(self.proc)
+        self.base = self.proc._KernelAPI()
+        self.k, self.a = self.base.kernel, self.base.advapi
+        self.ip = C.WinDLL("iphlpapi", use_last_error=True)
+        for owner, name, args, result in (
+            (self.a, "CreateProcessAsUserW",
+             [H, P, P, H, H, C.c_int, D, H, P, H, C.POINTER(self.proc._ProcessInfo)], C.c_int),
+            (self.a, "ConvertSidToStringSidW", [H, C.POINTER(P)], C.c_int),
+            (self.k, "QueryFullProcessImageNameW", [H, D, P, C.POINTER(D)], C.c_int),
+            (self.k, "IsProcessInJob", [H, H, C.POINTER(C.c_int)], C.c_int),
+            (self.k, "GetWindowsDirectoryW", [P, D], D),
+            (self.k, "CreateFileW", [P, D, D, H, D, D, H], H),
+            (self.k, "QueryInformationJobObject", [H, C.c_int, H, D, C.POINTER(D)], C.c_int),
+            (self.ip, "GetCurrentThreadCompartmentId", [], D),
+        ):
+            fn = getattr(owner, name)
+            fn.argtypes, fn.restype = args, result
+
+    @staticmethod
+    def check(ok, operation):
+        if not ok:
+            raise NativeFailure(operation, C.get_last_error())
+
+    def close(self, handle):
+        self.check(self.k.CloseHandle(handle), "CloseHandle")
+
+    def qpc_frequency(self):
+        value = C.c_int64()
+        fn = self.k.QueryPerformanceFrequency
+        fn.argtypes, fn.restype = [C.POINTER(C.c_int64)], C.c_int
+        self.check(fn(C.byref(value)), "QueryPerformanceFrequency")
+        return value.value
+
+    def qpc(self):
+        value = C.c_int64()
+        fn = self.k.QueryPerformanceCounter
+        fn.argtypes, fn.restype = [C.POINTER(C.c_int64)], C.c_int
+        self.check(fn(C.byref(value)), "QueryPerformanceCounter")
+        return value.value
+
+    def sleep_ms(self, milliseconds):
+        self.k.Sleep.argtypes, self.k.Sleep.restype = [D], None
+        self.k.Sleep(milliseconds)
+
+    def job_empty(self, job):
+        class Accounting(C.Structure):
+            _fields_ = [("times", C.c_int64 * 4), ("faults", D),
+                        ("total", D), ("active", D), ("terminated", D)]
+        value, returned = Accounting(), D()
+        self.check(self.k.QueryInformationJobObject(job, 1, C.byref(value), C.sizeof(value),
+                                                   C.byref(returned)), "QueryInformationJobObject")
+        if returned.value != C.sizeof(value):
+            raise GateFailure("job_accounting_size")
+        return value.active == 0
+
+    def token_for_process(self, process):
+        token = H()
+        self.check(self.a.OpenProcessToken(process, TOKEN_QUERY, C.byref(token)), "OpenProcessToken")
+        return token.value
+
+    def current_token(self):
+        return self.token_for_process(self.k.GetCurrentProcess())
+
+    def compartment(self):
+        return int(self.ip.GetCurrentThreadCompartmentId())
+
+    def query(self, token, kind, name):
+        size = D()
+        C.set_last_error(0)
+        ok = self.a.GetTokenInformation(token, kind, None, 0, C.byref(size))
+        code = C.get_last_error()
+        if ok:
+            raise GateFailure("unexpected_token_size_probe_success")
+        if code != 122:
+            raise NativeFailure("GetTokenInformation(" + name + ")", code)
+        if not 1 <= size.value <= 65536:
+            raise GateFailure("invalid_token_information_size")
+        buffer = C.create_string_buffer(size.value)
+        self.check(self.a.GetTokenInformation(token, kind, buffer, len(buffer), C.byref(size)),
+                   "GetTokenInformation(" + name + ")")
+        if not 1 <= size.value <= len(buffer):
+            raise GateFailure("token_information_length_changed")
+        return buffer, size.value
+
+    def scalar(self, token, kind, name):
+        # Fixed-width token classes are queried directly. Some Windows builds
+        # reject their otherwise-conventional zero-length size probe with
+        # ERROR_BAD_LENGTH; that error is not permission to accept bad data.
+        value, size = D(), D()
+        self.check(self.a.GetTokenInformation(token, kind, C.byref(value),
+                                              C.sizeof(value), C.byref(size)),
+                   "GetTokenInformation(" + name + ")")
+        if size.value != C.sizeof(value):
+            raise GateFailure("invalid_token_scalar_size")
+        return value.value
+
+    def sid_text(self, pointer, buffer, size):
+        # TOKEN_USER / TOKEN_MANDATORY_LABEL / TOKEN_GROUPS contain native
+        # pointers into their returned buffer, not offsets or separate allocs.
+        beginning = C.addressof(buffer)
+        if not pointer or pointer < beginning or pointer + 8 > beginning + size:
+            raise GateFailure("sid_pointer_outside_token_buffer")
+        revision = C.c_ubyte.from_address(pointer).value
+        count = C.c_ubyte.from_address(pointer + 1).value
+        if revision != 1 or count > 15 or pointer + 8 + count * 4 > beginning + size:
+            raise GateFailure("invalid_sid_length_in_token_buffer")
+        text = P()
+        self.check(self.a.ConvertSidToStringSidW(pointer, C.byref(text)), "ConvertSidToStringSidW")
+        try:
+            if not text.value or not SID_PATTERN.fullmatch(text.value):
+                raise GateFailure("invalid_native_sid")
+            return text.value
+        finally:
+            if self.k.LocalFree(C.cast(text, H)):
+                raise NativeFailure("LocalFree(SID_string)", C.get_last_error())
+
+    def sid_field(self, token, kind, name, *, nullable=False):
+        buffer, size = self.query(token, kind, name)
+        header = C.sizeof(H) if kind == 31 else C.sizeof(SIDAndAttributes)
+        if size < header:
+            raise GateFailure("invalid_sid_information_size")
+        pointer = H.from_buffer(buffer).value
+        if not pointer:
+            if nullable:
+                return None
+            raise GateFailure("missing_native_sid")
+        return self.sid_text(pointer, buffer, size)
+
+    def groups(self, token, kind, name):
+        buffer, size = self.query(token, kind, name)
+        if size < C.sizeof(D):
+            raise GateFailure("invalid_token_groups_size")
+        count = D.from_buffer(buffer).value
+        start = TokenGroups.Groups.offset
+        if count > 1024 or (count and start + count * C.sizeof(SIDAndAttributes) > size):
+            raise GateFailure("invalid_token_groups_count")
+        entries = []
+        for index in range(count):
+            group = SIDAndAttributes.from_buffer(buffer, start + index * C.sizeof(SIDAndAttributes))
+            entries.append((self.sid_text(group.Sid, buffer, size), group.Attributes))
+        return entries
+
+    def boolean(self, token, kind, name):
+        value = self.scalar(token, kind, name)
+        if value not in (0, 1):
+            raise GateFailure("invalid_token_boolean")
+        return bool(value)
+
+    def integrity(self, token):
+        integrity = self.sid_field(token, 25, "TokenIntegrityLevel")
+        if not re.fullmatch(r"S-1-16-[0-9]+", integrity):
+            raise GateFailure("unexpected_integrity_sid")
+        return int(integrity.rsplit("-", 1)[1])
+
+    def observation_readers(self, token):
+        """The same exact native readers serve runtime and diagnostic mode."""
+        return {
+            "sid": lambda: self.sid_field(token, 1, "TokenUser"),
+            "session_id": lambda: self.scalar(token, 12, "TokenSessionId"),
+            "token_type": lambda: self.scalar(token, 8, "TokenType"),
+            "elevation_type": lambda: self.scalar(token, 18, "TokenElevationType"),
+            "elevated": lambda: self.boolean(token, 20, "TokenElevation"),
+            "integrity_rid": lambda: self.integrity(token),
+            "groups": lambda: self.groups(token, 2, "TokenGroups"),
+            "appcontainer": lambda: self.boolean(token, 29, "TokenIsAppContainer"),
+            "appcontainer_sid": lambda: self.sid_field(token, 31, "TokenAppContainerSid", nullable=True),
+            "capabilities": lambda: self.groups(token, 30, "TokenCapabilities"),
+            "ui_access": lambda: self.boolean(token, 26, "TokenUIAccess"),
+        }
+
+    def identity(self, token):
+        # Runtime remains all-or-nothing. Only the read-only diagnostic
+        # collector below continues after recording an individual failure.
+        values = {name: reader() for name, reader in self.observation_readers(token).items()}
+        return identity_from_observations(values)
+
+    def linked_token(self, token):
+        # This API returns an existing owned token handle. Never duplicate,
+        # restrict, fabricate, adjust, or set fields on either token.
+        linked, size = H(), D()
+        self.check(self.a.GetTokenInformation(token, 19, C.byref(linked), C.sizeof(linked), C.byref(size)),
+                   "GetTokenInformation(TokenLinkedToken)")
+        if not linked.value:
+            raise GateFailure("missing_existing_linked_token")
+        if size.value != C.sizeof(linked):
+            self.close(linked.value)
+            raise GateFailure("invalid_linked_token_size")
+        return linked.value
+
+    def process_info(self):
+        return self.proc._ProcessInfo()
+
+    def create_job(self):
+        job = self.k.CreateJobObjectW(None, None)
+        self.check(job, "CreateJobObjectW")
+        try:
+            limits = self.proc._JobExtendedLimitInfo()
+            limits.BasicLimitInformation.LimitFlags = KILL_ON_JOB_CLOSE
+            self.check(self.k.SetInformationJobObject(job, 9, C.byref(limits), C.sizeof(limits)),
+                       "SetInformationJobObject")
+            actual = self.proc._JobExtendedLimitInfo()
+            self.check(self.k.QueryInformationJobObject(job, 9, C.byref(actual), C.sizeof(actual), None),
+                       "QueryInformationJobObject")
+            if actual.BasicLimitInformation.LimitFlags != KILL_ON_JOB_CLOSE:
+                raise GateFailure("job_not_kill_on_close_non_breakaway")
+            return job
+        except BaseException:
+            self.close(job)
+            raise
+
+    def open_stdio_file(self, path, *, read=False):
+        sa = SecurityAttributes(C.sizeof(SecurityAttributes), None, True)
+        # CREATE_NEW; no sharing. Only these fresh, owned files are inherited.
+        handle = self.k.CreateFileW(str(path), 0x80000000 if read else 0x40000000,
+                                   0, C.byref(sa), 1, 0x80, None)
+        if handle == H(-1).value:
+            raise NativeFailure("CreateFileW(owned_stdio)", C.get_last_error())
+        return handle
+
+    def environment(self, work):
+        buffer = C.create_unicode_buffer(32768)
+        size = self.k.GetWindowsDirectoryW(buffer, len(buffer))
+        if not 0 < size < len(buffer):
+            raise GateFailure("native_windows_directory_unavailable")
+        return self.proc._environment_block({
+            "SystemRoot": buffer.value, "WINDIR": buffer.value,
+            "TEMP": str(work / "temp"), "TMP": str(work / "temp"),
+        })
+
+    def create_suspended(self, info, command, work, stdio, token):
+        size = C.c_size_t()
+        self.k.InitializeProcThreadAttributeList(None, 1, 0, C.byref(size))
+        if not 1 <= size.value <= 65536:
+            raise GateFailure("invalid_process_attribute_size")
+        attributes = C.create_string_buffer(size.value)
+        self.check(self.k.InitializeProcThreadAttributeList(attributes, 1, 0, C.byref(size)),
+                   "InitializeProcThreadAttributeList")
+        try:
+            handles = (H * 3)(*stdio)
+            self.check(self.k.UpdateProcThreadAttribute(attributes, 0, 0x20002, handles,
+                                                        C.sizeof(handles), None, None),
+                       "UpdateProcThreadAttribute(handle_list)")
+            startup = self.proc._StartupInfoEx()
+            startup.StartupInfo.cb = C.sizeof(startup)
+            startup.StartupInfo.dwFlags = 0x100  # STARTF_USESTDHANDLES
+            startup.StartupInfo.hStdInput, startup.StartupInfo.hStdOutput, startup.StartupInfo.hStdError = stdio
+            startup.lpAttributeList = C.cast(attributes, H)
+            # No desktop selection or ACL fallback. No breakaway flag.
+            flags = (self.proc._CREATE_SUSPENDED | self.proc._CREATE_UNICODE_ENVIRONMENT
+                     | self.proc._EXTENDED_STARTUPINFO_PRESENT | 0x08000000)  # CREATE_NO_WINDOW
+            commandline = C.create_unicode_buffer(subprocess.list2cmdline(command))
+            env = C.create_unicode_buffer(self.environment(work))
+            arguments = (command[0], commandline, None, None, True, flags,
+                         env, str(work), C.byref(startup), C.byref(info))
+            if token is None:
+                self.check(self.k.CreateProcessW(*arguments), "CreateProcessW")
+            else:
+                self.check(self.a.CreateProcessAsUserW(token, *arguments), "CreateProcessAsUserW")
+        finally:
+            self.k.DeleteProcThreadAttributeList(attributes)
+
+    def assign_job(self, job, process):
+        self.check(self.k.AssignProcessToJobObject(job, process), "AssignProcessToJobObject")
+
+    def verify_job(self, job, process):
+        value = C.c_int()
+        self.check(self.k.IsProcessInJob(process, job, C.byref(value)), "IsProcessInJob")
+        if not value.value:
+            raise GateFailure("child_not_in_owned_job")
+
+    def child_identity(self, process):
+        token = self.token_for_process(process)
+        try:
+            return self.identity(token)
+        finally:
+            self.close(token)
+
+    def verify_image(self, process, expected):
+        buffer, size = C.create_unicode_buffer(32768), D(32768)
+        self.check(self.k.QueryFullProcessImageNameW(process, 0, buffer, C.byref(size)),
+                   "QueryFullProcessImageNameW")
+        if os.path.normcase(buffer.value) != os.path.normcase(str(expected)):
+            raise GateFailure("child_image_not_fixed_python")
+
+    def resume(self, thread):
+        result = self.k.ResumeThread(thread)
+        if result == 0xFFFFFFFF:
+            raise NativeFailure("ResumeThread", C.get_last_error())
+        if result != 1:
+            raise GateFailure("unexpected_thread_suspend_count")
+
+    def wait(self, process, milliseconds):
+        value = self.k.WaitForSingleObject(process, milliseconds)
+        if value not in (0, 258):
+            raise NativeFailure("WaitForSingleObject", C.get_last_error())
+        return value == 0
+
+    def exit_code(self, process):
+        value = D()
+        self.check(self.k.GetExitCodeProcess(process, C.byref(value)), "GetExitCodeProcess")
+        return value.value
+
+    def terminate_job(self, job):
+        self.check(self.k.TerminateJobObject(job, 1), "TerminateJobObject")
+
+    def terminate_process(self, process):
+        self.check(self.k.TerminateProcess(process, 1), "TerminateProcess")
+
+
+class QpcBudget:
+    """Original guest QPC domain only; no renewed or converted deadline."""
+    def __init__(self, api, deadline_qpc, qpc_frequency):
+        if (type(deadline_qpc) is not int or not 1 <= deadline_qpc <= 0x7fffffffffffffff
+                or type(qpc_frequency) is not int or not 1 <= qpc_frequency <= 1000000000):
+            raise GateFailure("qpc_arguments")
+        observed_frequency = api.qpc_frequency()
+        if type(observed_frequency) is not int or observed_frequency != qpc_frequency:
+            raise GateFailure("qpc_frequency")
+        self.api, self.deadline, self.frequency = api, deadline_qpc, qpc_frequency
+        self.last = None
+        now = self.read()
+        if not 0 < deadline_qpc - now <= 120 * qpc_frequency:
+            raise GateFailure("qpc_admission")
+
+    def read(self):
+        now = self.api.qpc()
+        if (type(now) is not int or not 0 <= now <= 0x7fffffffffffffff
+                or self.last is not None and now < self.last):
+            raise GateFailure("qpc_clock")
+        self.last = now
+        return now
+
+    def cutoff(self, reserve_seconds):
+        if type(reserve_seconds) is not int or not 0 <= reserve_seconds <= 120:
+            raise GateFailure("qpc_reserve")
+        cutoff = self.deadline - reserve_seconds * self.frequency
+        if cutoff <= 0:
+            raise GateFailure("qpc_cutoff")
+        return cutoff
+
+    def remaining_ms(self, cutoff, cap_ms=None):
+        if type(cutoff) is not int or not 0 < cutoff <= self.deadline:
+            raise GateFailure("qpc_cutoff")
+        if cap_ms is not None and (type(cap_ms) is not int or not 0 <= cap_ms <= 120000):
+            raise GateFailure("qpc_cap")
+        value = max(0, (cutoff - self.read()) * 1000 // self.frequency)
+        return min(value, cap_ms) if cap_ms is not None else value
+
+    def require_ms(self, cutoff, cap_ms=None):
+        value = self.remaining_ms(cutoff, cap_ms)
+        if value <= 0:
+            raise GateFailure("qpc_expired")
+        return value
+
+
+_RETAINED_SCOPED_OWNERS = []
+
+
+def _launch_owned_qpc(api, command, work, expected, parent, budget, work_cutoff, cleanup_cutoff):
+    """Current-token-only branch; each numeric ownership is consumed once."""
+    info, job, stdio = api.process_info(), None, []
+    assigned = attempted = exited = False
+    result = {"started": False, "resumed": False, "timed_out": False,
+              "nested_resource_cleanup_incomplete": False,
+              "cleanup": {"errors": [], "job_closed": False, "handles_closed": False,
+                          "job_empty": False, "process_exit_confirmed": False,
+                          "close_uncertain": False}}
+    diagnostic = diagnostic_new()
+    result["diagnostic_execution"] = diagnostic
+    cleanup = result["cleanup"]
+    def attempt(fn):
+        try:
+            return True, fn()
+        except Exception as exc:
+            diagnostic_error(diagnostic, exc)
+            cleanup["errors"].append(failure(exc))
+            return False, None
+    def close_once(handle):
+        ok, _ = attempt(lambda: api.close(handle))
+        if not ok:
+            cleanup["close_uncertain"] = True
+        return ok
+    try:
+        if not token_is_ordinary(expected) or not same_identity(expected, parent):
+            raise GateFailure("current_ordinary_required")
+        if not work_cutoff < cleanup_cutoff <= budget.deadline:
+            raise GateFailure("qpc_cutoff_order")
+        budget.require_ms(work_cutoff)
+        diagnostic_stage(diagnostic, "job")
+        job = api.create_job()
+        for filename in ("controller.stdin", "controller.stdout", "controller.stderr"):
+            budget.require_ms(work_cutoff)
+            diagnostic_stage(diagnostic, "stdio")
+            stdio.append(api.open_stdio_file(work / filename, read=filename.endswith("stdin")))
+        budget.require_ms(work_cutoff)
+        attempted = True
+        diagnostic_stage(diagnostic, "create")
+        api.create_suspended(info, command, work, stdio, None)
+        result.update(started=True, child_pid=int(info.dwProcessId))
+        diagnostic_stage(diagnostic, "assign")
+        api.assign_job(job, info.hProcess); assigned = True
+        api.verify_job(job, info.hProcess)
+        diagnostic_stage(diagnostic, "image")
+        api.verify_image(info.hProcess, command[0])
+        diagnostic_stage(diagnostic, "token")
+        child = api.child_identity(info.hProcess)
+        if not token_is_ordinary(child) or not same_identity(child, expected):
+            raise GateFailure("child_token_mismatch_before_resume")
+        result["child_identity"] = safe_identity(child, parent)
+        result["native_identity_verified_before_resume"] = True
+        budget.require_ms(work_cutoff)
+        result["nested_resource_cleanup_incomplete"] = True
+        diagnostic_stage(diagnostic, "resume")
+        api.resume(info.hThread); result["resumed"] = True
+        diagnostic_stage(diagnostic, "wait")
+        if not api.wait(info.hProcess, budget.require_ms(work_cutoff, RUN_MILLISECONDS)):
+            result["timed_out"] = True
+            raise GateFailure("bounded_probe_deadline")
+        exited = True
+        result["exit_code"] = api.exit_code(info.hProcess)
+        budget.require_ms(work_cutoff)
+    except Exception as exc:
+        diagnostic_error(diagnostic, exc)
+        result["error"] = failure(exc)
+    finally:
+        diagnostic_stage(diagnostic, "cleanup")
+        if attempted and not info.hProcess:
+            cleanup["errors"].append({"operation": "invariant", "reason": "spawn_exit_unknown"})
+        if info.hProcess:
+            ok, observed = attempt(lambda: api.wait(info.hProcess, 0))
+            exited = exited or ok and observed is True
+            if assigned:
+                attempt(lambda: api.terminate_job(job))
+            elif not exited:
+                attempt(lambda: api.terminate_process(info.hProcess))
+        if job:
+            if assigned:
+                def drain_job():
+                    while True:
+                        if api.job_empty(job):
+                            return True
+                        remaining = budget.require_ms(cleanup_cutoff, 20)
+                        api.sleep_ms(remaining)
+                ok, empty = attempt(drain_job)
+                cleanup["job_empty"] = ok and empty is True
+                attempt(lambda: budget.require_ms(cleanup_cutoff))
+            else:
+                cleanup["job_empty"] = True
+            owned, job = job, None
+            cleanup["job_closed"] = close_once(owned)
+        if info.hProcess and not exited:
+            def wait_exit():
+                return api.wait(info.hProcess, budget.remaining_ms(cleanup_cutoff, 5000))
+            ok, observed = attempt(wait_exit)
+            exited = ok and observed is True
+            # A failed wait or signal must not suppress the final observation.
+            ok, observed = attempt(lambda: api.wait(info.hProcess, 0))
+            exited = exited or ok and observed is True
+        cleanup["process_exit_confirmed"] = exited if attempted else True
+        closed = True
+        for attribute in ("hThread", "hProcess"):
+            handle = getattr(info, attribute)
+            if handle and (exited or not attempted):
+                setattr(info, attribute, None)
+                closed = close_once(handle) and closed
+            elif handle:
+                closed = False
+        while stdio:
+            closed = close_once(stdio.pop()) and closed
+        cleanup["handles_closed"] = closed and not cleanup["close_uncertain"]
+        attempt(lambda: budget.require_ms(cleanup_cutoff))
+        if not cleanup["process_exit_confirmed"] or not cleanup["handles_closed"]:
+            _RETAINED_SCOPED_OWNERS.append((api, info))
+    return result
+
+
+def launch_owned(api, command, work, expected, parent, *, token=None,
+                 qpc_budget=None, work_cutoff=None, cleanup_cutoff=None):
+    """Single lifecycle with testable failure cleanup, including pre-assignment."""
+    if qpc_budget is not None:
+        if token is not None:
+            raise GateFailure("scoped_current_token_only")
+        return _launch_owned_qpc(api, command, work, expected, parent,
+                                 qpc_budget, work_cutoff, cleanup_cutoff)
+    if work_cutoff is not None or cleanup_cutoff is not None:
+        raise GateFailure("paired_qpc_budget_required")
+    info, job, stdio, assigned = api.process_info(), None, [], False
+    result = {"started": False, "resumed": False, "timed_out": False,
+              "nested_resource_cleanup_incomplete": False,
+              "cleanup": {"errors": [], "job_closed": False, "handles_closed": False}}
+    try:
+        job = api.create_job()
+        for filename in ("controller.stdin", "controller.stdout", "controller.stderr"):
+            stdio.append(api.open_stdio_file(work / filename, read=filename.endswith("stdin")))
+        api.create_suspended(info, command, work, stdio, token)
+        result.update(started=True, child_pid=int(info.dwProcessId))
+        api.assign_job(job, info.hProcess)
+        assigned = True
+        api.verify_job(job, info.hProcess)
+        api.verify_image(info.hProcess, command[0])
+        child = api.child_identity(info.hProcess)
+        if not token_is_ordinary(child, require_limited=token is not None) or not same_identity(child, expected):
+            raise GateFailure("child_token_mismatch_before_resume")
+        result["child_identity"] = safe_identity(child, parent)
+        result["native_identity_verified_before_resume"] = True
+        # Mark uncertainty before the call: an unexpected suspend count can
+        # mean that a thread ran even if ResumeThread did not return 1.
+        result["nested_resource_cleanup_incomplete"] = True
+        api.resume(info.hThread)
+        result["resumed"] = True
+        if not api.wait(info.hProcess, RUN_MILLISECONDS):
+            result["timed_out"] = True
+            raise GateFailure("bounded_probe_deadline")
+        result["exit_code"] = api.exit_code(info.hProcess)
+    except Exception as exc:
+        result["error"] = failure(exc)
+    finally:
+        cleanup = result["cleanup"]
+
+        def attempt(operation):
+            try:
+                operation()
+                return True
+            except Exception as exc:
+                cleanup["errors"].append(failure(exc))
+                return False
+
+        if info.hProcess:
+            if assigned:
+                attempt(lambda: api.terminate_job(job))
+                # Closing the owned job is also the fail-safe when termination
+                # reports an error; never leave a live child with only a PID.
+                if job and attempt(lambda: api.close(job)):
+                    cleanup["job_closed"] = True
+                    job = None
+            else:
+                attempt(lambda: api.terminate_process(info.hProcess))
+
+            def await_exit():
+                if not api.wait(info.hProcess, 5000):
+                    raise GateFailure("cleanup_process_wait_deadline")
+            attempt(await_exit)
+        if job and attempt(lambda: api.close(job)):
+            cleanup["job_closed"] = True
+        closed = True
+        for handle in (info.hThread, info.hProcess, *reversed(stdio)):
+            if handle:
+                closed = attempt(lambda handle=handle: api.close(handle)) and closed
+        cleanup["handles_closed"] = closed
+    return result
+
+
+def read_probe(path):
+    checked_path(path, inside=path.parent)
+    with path.open("rb") as stream:
+        raw = stream.read(MAX_REPORT + 1)
+    if len(raw) > MAX_REPORT:
+        raise GateFailure("probe_report_too_large")
+    value = json.loads(raw)
+    if not isinstance(value, dict):
+        raise GateFailure("probe_report_not_object")
+    return value
+
+
+def save_report(path, report):
+    # Private paths and raw subprocess diagnostics never reach stdout.
+    data = (json.dumps(report, ensure_ascii=True, indent=2) + "\n").encode("ascii")
+    if len(data) > MAX_REPORT:
+        raise GateFailure("launcher_report_too_large")
+    with path.open("xb") as stream:
+        stream.write(data)
+
+
+def run_preflight(args):
+    if os.name != "nt" or not args.disposable_ci or not args.approved_security_test:
+        raise PermissionError("requires an explicitly approved disposable Windows security test")
+    root = checked_path(ROOT, is_file=False)
+    checked_path(root / "ruleproxy/windows_app_process.py", inside=root)
+    raw = Path(os.path.abspath(args.report))
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,95}\.json", raw.name):
+        raise GateFailure("expected_bounded_preflight_report_name")
+    parent = checked_path(raw.parent, inside=root, is_file=False)
+    path = parent / raw.name
+    if path.exists() or path.is_symlink():
+        raise GateFailure("fresh_preflight_report_required")
+    # NativeAPI construction binds functions but calls no mutation API.
+    report = token_preflight(NativeAPI())
+    save_report(path, report)
+    return 0 if report["observations_complete"] else 1
+
+
+_RETAINED_PRIVATE_STREAMS = []
+_PRIVATE_CLOSE_ATTEMPTS = []
+
+
+def close_private_once(stream):
+    """Never retry uncertain file closure or surrender its owner to destruction."""
+    if any(stream is previous for previous in _PRIVATE_CLOSE_ATTEMPTS):
+        raise GateFailure("private_report_close_already_attempted")
+    _PRIVATE_CLOSE_ATTEMPTS.append(stream)
+    try:
+        stream.close()
+    except Exception:
+        _RETAINED_PRIVATE_STREAMS.append(stream)
+        raise GateFailure("private_report_close_uncertain") from None
+
+
+def read_private_bytes(path, limit):
+    checked_path(path, inside=path.parent)
+    stream = path.open("rb")
+    try:
+        raw = stream.read(limit + 1)
+    finally:
+        close_private_once(stream)
+    if len(raw) > limit:
+        raise GateFailure("private_report_bound")
+    return raw
+
+
+def write_private_bytes(path, data):
+    stream = path.open("xb")
+    try:
+        if stream.write(data) != len(data):
+            raise GateFailure("private_report_short_write")
+        stream.flush()
+    finally:
+        close_private_once(stream)
+
+
+def read_private(path, limit=MAX_REPORT):
+    raw = read_private_bytes(path, limit)
+    if len(raw) > limit:
+        raise GateFailure("private_report_bound")
+    def unique(pairs):
+        value = {}
+        for key, item in pairs:
+            if key in value:
+                raise GateFailure("private_report_duplicate")
+            value[key] = item
+        return value
+    try:
+        text = raw.decode("utf-8", "strict")
+    except UnicodeError:
+        raise GateFailure("private_report_utf8") from None
+    try:
+        value = json.loads(text, object_pairs_hook=unique,
+                           parse_constant=lambda _: (_ for _ in ()).throw(GateFailure("private_report_nonfinite")))
+    except (ValueError, RecursionError):
+        raise GateFailure("private_report_json") from None
+    if type(value) is not dict:
+        raise GateFailure("private_report_object")
+    return value
+
+
+def probe_facts(value, nonce, digest, controller_pid, controller_sid, deadline, frequency, *, native=None):
+    """Recompute independent bounded pipe facts; cleanup never erases echo."""
+    names = ("probe_identity_verified", "actor_creation_observed", "actor_identity_verified",
+             "fresh_actor_verified", "pipe_echo_verified", "pipe_eof_verified",
+             "actor_exit_verified", "nested_cleanup_verified")
+    facts = dict.fromkeys(names, False)
+    if type(value) is not dict:
+        return facts
+    spec = importlib.util.spec_from_file_location("scoped_stage0b_verifier", PROBE)
+    probe = importlib.util.module_from_spec(spec); spec.loader.exec_module(probe)
+    identity = value.get("controller_identity")
+    actor = value.get("actor")
+    if type(identity) is not dict:
+        return facts
+    bound = (type(value.get("schema_version")) is int and value["schema_version"] == 1
+             and value.get("stage") == "0b" and value.get("nonce") == nonce
+             and value.get("actor_sha256") == digest
+             and type(value.get("deadline_qpc")) is int and value["deadline_qpc"] == deadline
+             and type(value.get("qpc_frequency")) is int and value["qpc_frequency"] == frequency
+             and type(identity.get("pid")) is int and identity["pid"] == controller_pid
+             and identity.get("sid") == controller_sid
+             and identity.get("elevated") is False and identity.get("appcontainer") is False
+             and type(identity.get("cid")) is int and identity["cid"] == 1)
+    if not bound:
+        return facts
+    facts["probe_identity_verified"] = True
+    facts["actor_creation_observed"] = type(value.get("child_pid")) is int and value["child_pid"] > 0
+    if type(actor) is not dict or type(native) is not dict:
+        return facts
+    # Full native identity/echo still requires the independently parsed snapshot.
+    if json.dumps(native, sort_keys=True, allow_nan=False) != json.dumps(actor, sort_keys=True, allow_nan=False):
+        return facts
+    checks = probe.checks(value)
+    identity_ok = (checks["profile_identity"] is True and checks["child_identity"] is True
+                   and checks["no_network_capabilities"] is True
+                   and type(actor.get("schemaVersion")) is int and actor["schemaVersion"] == 1
+                   and type(actor.get("pid")) is int
+                   and value.get("copied_actor_sha256") == digest
+                   and value.get("image_verified_before_resume") is True)
+    facts["actor_identity_verified"] = identity_ok
+    facts["fresh_actor_verified"] = identity_ok and checks["fresh_actor"] is True
+    pipe = actor.get("pipe")
+    expected_pipe = {"attempted": True, "inheritanceCleared": True, "bytesRead": 32,
+                     "bytesWritten": 32, "nonceMatched": True, "requiresControllerTimeout": True,
+                     "win32Error": 0, "failure": None}
+    exact_pipe = (type(pipe) is dict and set(pipe) == set(expected_pipe)
+                  and all(type(pipe[key]) is type(item) and pipe[key] == item
+                          for key, item in expected_pipe.items()))
+    fresh = facts["fresh_actor_verified"]
+    facts["pipe_echo_verified"] = (fresh and exact_pipe and actor.get("pipeSucceeded") is True
+                                    and value.get("echo_matched") is True)
+    facts["pipe_eof_verified"] = fresh and value.get("pipe_eof_observed") is True
+    facts["actor_exit_verified"] = fresh and type(value.get("exit_code")) is int and value["exit_code"] == 0
+    facts["nested_cleanup_verified"] = fresh and checks["cleanup"] is True
+    return facts
+
+
+def run_scoped(args, diagnostic=None):
+    """Integration entry refuses elevated current token before any fallback logic."""
+    if (os.name != "nt" or not args.disposable_ci or not args.approved_security_test
+            or not getattr(args, "current_ordinary_only", False)):
+        raise GateFailure("current_ordinary_scope_required")
+    nonce = getattr(args, "case_nonce", None)
+    if type(nonce) is not str or re.fullmatch(r"[0-9a-f]{32}", nonce) is None:
+        raise GateFailure("case_nonce")
+    diagnostic_stage(diagnostic, "inputs")
+    python, script, actor, work = validate_inputs(args)
+    diagnostic_stage(diagnostic, "initial_token")
+    api = NativeAPI()
+    diagnostic_stage(diagnostic, "qpc")
+    budget = QpcBudget(api, args.deadline_qpc, args.qpc_frequency)
+    budget.require_ms(budget.cutoff(30))
+    work.mkdir(); (work / "temp").mkdir()
+    report = {"schema_version": 2, "stage": "current-ordinary-stage0b-launcher",
+              "case_nonce": nonce, "actor_sha256": args.actor_sha256,
+              "deadline_qpc": args.deadline_qpc, "qpc_frequency": args.qpc_frequency,
+              "current_ordinary_only": True, "controller_pid": os.getpid(),
+              "current_ordinary_verified": False, "stage0b_passed": False,
+              "cleanup": {"token_handles_closed": False, "errors": []}}
+    token = None
+    try:
+        diagnostic_stage(diagnostic, "identity")
+        token = api.current_token()
+        parent = api.identity(token)
+        # Deliberately before choose_mode, and no linked-token call in this branch.
+        compartment = api.compartment()
+        if not token_is_ordinary(parent) or type(compartment) is not int or compartment != 1:
+            raise GateFailure("current_ordinary_required")
+        report.update(current_ordinary_verified=True, controller_sid=parent["sid"])
+        command = fixed_command(python, script, actor, args.actor_sha256, work)
+        command += ["--case-nonce", nonce, "--deadline-qpc", str(args.deadline_qpc),
+                    "--qpc-frequency", str(args.qpc_frequency)]
+        diagnostic_stage(diagnostic, "create")
+        report["launch"] = launch_owned(api, command, work, parent, parent,
+                                         qpc_budget=budget, work_cutoff=budget.cutoff(10),
+                                         cleanup_cutoff=budget.cutoff(5))
+        launch = report["launch"]
+        child_diagnostic = launch.get("diagnostic_execution")
+        if diagnostic is not None and diagnostic[1] is None and type(child_diagnostic) is list and child_diagnostic[1] is not None:
+            diagnostic[1:] = validate_execution(child_diagnostic)[1:]
+        if launch["cleanup"]["process_exit_confirmed"] and launch.get("started") is True:
+            diagnostic_stage(diagnostic, "report")
+            value = read_private(work / "probe/report.json")
+            native = read_private(work / "probe/output/actor.json", 8192)
+            report["probe_facts"] = probe_facts(value, nonce, args.actor_sha256,
+                                               launch["child_pid"], parent["sid"],
+                                               args.deadline_qpc, args.qpc_frequency, native=native)
+            report["stage0b_passed"] = (all(report["probe_facts"].values())
+                and child_environment_admitted(value.get("child_environment"))
+                and launch.get("exit_code") == 0 and "error" not in launch
+                and launch["cleanup"]["job_closed"] and launch["cleanup"]["job_empty"]
+                and launch["cleanup"]["handles_closed"] and not launch["cleanup"]["errors"])
+    except Exception as exc:
+        diagnostic_error(diagnostic, exc)
+        report["error"] = failure(exc)
+        if isinstance(exc, GateFailure) and str(exc) == "private_report_close_uncertain":
+            report["cleanup"]["errors"].append({"operation": "invariant", "reason": "private_report_close_uncertain"})
+    finally:
+        diagnostic_stage(diagnostic, "cleanup")
+        if token:
+            owned, token = token, None
+            try:
+                api.close(owned)
+            except Exception as exc:
+                diagnostic_error(diagnostic, exc, "close")
+                report["cleanup"]["errors"].append(failure(exc))
+        report["cleanup"]["token_handles_closed"] = not report["cleanup"]["errors"]
+    try:
+        budget.require_ms(budget.cutoff(5))
+    except Exception as exc:
+        diagnostic_error(diagnostic, exc)
+        report["cleanup"]["errors"].append(failure(exc))
+        report["stage0b_passed"] = False
+    report["stage0b_passed"] = (report["stage0b_passed"] and "error" not in report
+                                and report["cleanup"]["token_handles_closed"])
+    diagnostic_stage(diagnostic, "report")
+    if diagnostic is not None:
+        report["diagnostic_execution"] = validate_execution(diagnostic)
+    data = (json.dumps(report, ensure_ascii=True, indent=2) + "\n").encode("ascii")
+    if len(data) > MAX_REPORT:
+        raise GateFailure("launcher_report_too_large")
+    write_private_bytes(work / "report.json", data)
+    diagnostic_stage(diagnostic, "complete")
+    return 0 if report["stage0b_passed"] else 1
+
+
+def run(args):
+    if getattr(args, "current_ordinary_only", False):
+        return run_scoped(args)
+    if os.name != "nt" or not args.disposable_ci or not args.approved_security_test:
+        raise PermissionError("requires an explicitly approved disposable Windows security test")
+    python, script, actor, work = validate_inputs(args)
+    work.mkdir()
+    (work / "temp").mkdir()
+    report = {"schema_version": 1, "stage": "ordinary-user-stage0b-launcher",
+              "network_tested": False, "product_acceptance": False, "privacy_qualified": False,
+              "actor_sha256": args.actor_sha256, "probe_report": "probe/report.json",
+              "stage0b_passed": False, "launcher_passed": False,
+              "nested_resource_cleanup_incomplete": False,
+              "cleanup": {"token_handles_closed": False, "errors": []}}
+    api, current, linked = None, None, None
+    try:
+        api = NativeAPI()
+        current = api.current_token()
+        parent = api.identity(current)
+        mode = choose_mode(parent, api.compartment())
+        report.update(mode=mode, parent_identity=safe_identity(parent), parent_compartment=1)
+        expected = parent
+        if mode == "existing_linked_limited_token":
+            linked = api.linked_token(current)
+            expected = api.identity(linked)
+            validate_linked(expected, parent)
+            report["linked_identity"] = safe_identity(expected, parent)
+        command = fixed_command(python, script, actor, args.actor_sha256, work)
+        report["launch"] = launch_owned(api, command, work, expected, parent, token=linked)
+        launch = report["launch"]
+        report["nested_resource_cleanup_incomplete"] = launch["nested_resource_cleanup_incomplete"]
+        if launch.get("resumed") is True and launch.get("timed_out") is False:
+            value = read_probe(work / "probe/report.json")
+            # Re-evaluate the existing Stage 0b evidence; never trust its boolean
+            # alone and never remove or relax its ordinary-user entry gate.
+            spec = importlib.util.spec_from_file_location("ordinary_stage0b_verifier", PROBE)
+            probe = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(probe)
+            identity = value.get("controller_identity", {})
+            same_controller = (
+                identity.get("sid") == expected["sid"]
+                and identity.get("pid") == launch.get("child_pid")
+                and identity.get("elevated") is False and identity.get("appcontainer") is False
+                and type(identity.get("cid")) is int and identity["cid"] == 1)
+            checks = probe.checks(value)
+            if same_controller and checks["cleanup"] is True:
+                report["nested_resource_cleanup_incomplete"] = False
+                launch["nested_resource_cleanup_incomplete"] = False
+            report["stage0b_passed"] = (
+                "error" not in launch and launch.get("exit_code") == 0
+                and launch.get("native_identity_verified_before_resume") is True
+                and value.get("stage0b_passed") is True and all(checks.values())
+                and same_controller)
+    except Exception as exc:
+        report["error"] = failure(exc)
+    finally:
+        for handle in (linked, current):
+            if handle:
+                try:
+                    api.close(handle)
+                except Exception as exc:
+                    report["cleanup"]["errors"].append(failure(exc))
+        report["cleanup"]["token_handles_closed"] = not report["cleanup"]["errors"]
+    launch = report.get("launch", {})
+    cleanup = launch.get("cleanup", {})
+    report["launcher_passed"] = (
+        report["stage0b_passed"] and "error" not in report and "error" not in launch
+        and cleanup.get("job_closed") is True and cleanup.get("handles_closed") is True
+        and not cleanup.get("errors") and report["cleanup"]["token_handles_closed"])
+    report["status"] = "passed" if report["launcher_passed"] else "blocked_or_failed"
+    save_report(work / "report.json", report)
+    return 0 if report["launcher_passed"] else 1
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--disposable-ci", action="store_true")
+    parser.add_argument("--approved-security-test", action="store_true")
+    parser.add_argument("--token-preflight", action="store_true")
+    parser.add_argument("--report", type=Path, required=True)
+    for name in ("actor", "work"):
+        parser.add_argument("--" + name, type=Path)
+    parser.add_argument("--actor-sha256")
+    parser.add_argument("--current-ordinary-only", action="store_true")
+    parser.add_argument("--case-nonce")
+    parser.add_argument("--deadline-qpc", type=int)
+    parser.add_argument("--qpc-frequency", type=int)
+    args = parser.parse_args(argv)
+    scoped = (args.current_ordinary_only, args.case_nonce is not None,
+              args.deadline_qpc is not None, args.qpc_frequency is not None)
+    if any(scoped) and (not all(scoped) or args.token_preflight):
+        parser.error("current-ordinary-only requires nonce and paired QPC deadline")
+    if args.token_preflight:
+        if args.actor is not None or args.work is not None or args.actor_sha256 is not None:
+            parser.error("--token-preflight accepts no actor, actor-sha256, or work")
+        return run_preflight(args)
+    if args.actor is None or args.work is None or args.actor_sha256 is None:
+        parser.error("runtime requires --actor, --actor-sha256, and --work")
+    if args.current_ordinary_only:
+        diagnostic = diagnostic_new()
+        diagnostic_stage(diagnostic, 'arguments')
+        try:
+            return run_scoped(args, diagnostic)
+        except BaseException as exc:
+            diagnostic_error(diagnostic, exc)
+            raise
+        finally:
+            emit_scoped_diagnostic(args, diagnostic)
+    return run(args)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

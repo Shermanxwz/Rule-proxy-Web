@@ -1,0 +1,22 @@
+{
+  "archive_action": "read-and-copy-only; original capture is not re-executed",
+  "files": [
+    {
+      "bytes": 1008,
+      "path": "verification/windows-2026-10-22/model2-death-after01-capture.ps1",
+      "sha256": "88d726324f380bff6ff2498762b74acc0c4bc6410fffe9981822a8cb58b37015"
+    },
+    {
+      "bytes": 1998,
+      "path": "verification/windows-2026-10-22/model2-death-after01-expanded.ps1",
+      "sha256": "850fcb705393e74a59413e5c0f2607770c9a2808a220ffdedf0d308d3f0c140b"
+    },
+    {
+      "bytes": 671,
+      "path": "verification/windows-2026-10-22/model2-death-after01-global-projection.json",
+      "sha256": "966d19de2234983782075cf732e09026ea54a406648e80cd780462a467374b96"
+    }
+  ],
+  "schema_version": 1,
+  "stage": "model2-death-global-readonly-evidence-index"
+}

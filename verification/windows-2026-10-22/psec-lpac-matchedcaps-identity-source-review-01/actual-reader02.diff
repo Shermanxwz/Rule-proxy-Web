@@ -1,0 +1,39 @@
+--- verify_psec_lpac_matchedcaps_actual_01.py
++++ verify_psec_lpac_matchedcaps_actual_01_reader02.py
+@@ -119,6 +119,24 @@
+             'exception_present':value['exception'] is not None,
+             'call_interval_ms':qpc_delta(value['before_qpc'],value['after_qpc'],c['frequency'])}
+     return safe
++
++def prior_evidence_product_fields(name,value):
++    """Read the pinned historical schema; never manufacture absent values."""
++    require(name in PRIOR_EVIDENCE and type(value) is dict,'audit_prior_public_schema')
++    nested=name in ('model2-dns-01-public.json','model2-raw-dns-02-public.json')
++    if nested:
++        require(type(value.get('result')) is dict,'audit_prior_nested_result_schema')
++        source=value['result'];location='result'
++    else:source=value;location='top'
++    def observed(record):
++        present='product_acceptance' in record
++        recorded=record['product_acceptance'] if present else None
++        require(not present or type(recorded) is bool,'audit_prior_product_field_type')
++        return dict(present=present,recorded_value=recorded)
++    top=observed(value);selected=observed(source)
++    return dict(product_acceptance=selected['recorded_value'],product_acceptance_source=location,
++        product_acceptance_field_present=selected['present'],
++        product_acceptance_recorded_value=selected['recorded_value'],top_product_acceptance=top)
+ 
+ def audit(args):
+     require(re.fullmatch(r'[0-9a-f]{40}',args.source_commit) is not None,'audit_source_commit')
+@@ -370,9 +388,9 @@
+     for name,digest in PRIOR_EVIDENCE.items():
+         path=R/'verification/windows-2026-10-22'/name;value,raw=json_file(path)
+         require(sha(raw)==digest and raw==git('verification/windows-2026-10-22/'+name),'audit_prior_dns_and_postassign_evidence_unchanged')
+-        require(value.get('product_acceptance') is False,'audit_prior_evidence_not_product_acceptance')
++        recorded=prior_evidence_product_fields(name,value)
+         prior_evidence.append(dict(name=name,**descriptor(raw),status=value.get('status'),failure=value.get('failure'),
+-            product_acceptance=False,unchanged=True))
++            **recorded,unchanged=True))
+ 
+     out=dict(schema_version=1,stage='cpse-lpac-matchedcaps-identity-actual01-independent-file-only-review',source_commit=commit,
+         original_public=descriptor(pubraw),preflight=descriptor(preraw),private_commitments=private,

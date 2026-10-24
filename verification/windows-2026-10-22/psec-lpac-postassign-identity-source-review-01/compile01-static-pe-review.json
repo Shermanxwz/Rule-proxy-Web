@@ -1,0 +1,71 @@
+{
+  "abi_export_machine_code_hex": "b802000000c3",
+  "abi_version": 2,
+  "actor_executed": false,
+  "compile_log_sha256": "9d98d036d1ccf916853fdd5d809f5aec5ed98abc5a2a558bcf1ab6095c3b67bd",
+  "compile_only": true,
+  "compiler_script_sha256": "7f94684dc612b20c3cb034700cd6b9d157c27d2edb22a7496814ba957b15c58d",
+  "constructor_policy": "outer-guarded-held-explicit-inner-assignment-v1",
+  "cpse_called": false,
+  "dependency_input_count": 31,
+  "dll_bytes": 214528,
+  "dll_loaded": false,
+  "dll_sha256": "5db0d4db168074a64b3c042b1be86954edaf7138e643c01fdd3625264a8b8f64",
+  "export_details": [
+    {
+      "name": "pb_abi_version",
+      "ordinal": 1,
+      "rva": 25184
+    },
+    {
+      "name": "pb_bind",
+      "ordinal": 2,
+      "rva": 25200
+    },
+    {
+      "name": "pb_build_spec",
+      "ordinal": 3,
+      "rva": 27216
+    },
+    {
+      "name": "pb_close_environment",
+      "ordinal": 4,
+      "rva": 27808
+    },
+    {
+      "name": "pb_create_arm",
+      "ordinal": 5,
+      "rva": 28272
+    },
+    {
+      "name": "pb_create_environment",
+      "ordinal": 6,
+      "rva": 33056
+    },
+    {
+      "name": "pb_unbind",
+      "ordinal": 7,
+      "rva": 34208
+    },
+    {
+      "name": "pb_verify_spec",
+      "ordinal": 8,
+      "rva": 34736
+    }
+  ],
+  "immutable_snapshot_verified": true,
+  "imports": [
+    "KERNEL32.dll"
+  ],
+  "input_snapshot_sha256": "9303a0a9545c6302fd3bd115775775f77f1c3574ba8c1e5a525f7e9dfa4969b3",
+  "limits": "Static PE/compile evidence only. No environment, process, token, Job or network acceptance.",
+  "manifest_sha256": "1a29ce2ce18f75e13dc1546fc201558121e30563e475d2075d94951546aaef56",
+  "native_source_input_count": 6,
+  "payload_version": 1,
+  "processmodel_loaded": false,
+  "reader_sha256": "64ac422501a5f2984f07ea641d887064c340f7b7e67782a6b040ac1e769137e5",
+  "runtime_acceptance": false,
+  "schema_version": 1,
+  "stage": "psec-lpac-postassign-bridge-compile01-static-audit",
+  "toolchain_record_sha256": "796cd755464544645ce142c58d8dbfc113ff301034803dd4705d17894f47bb07"
+}

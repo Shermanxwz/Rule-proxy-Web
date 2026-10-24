@@ -1,0 +1,35 @@
+{
+  "content": {
+    "actor_executed": false,
+    "compile_helper_sha256": "f730416866134d2876a43b8b68c2bed5c02b879e60ebed0cb3c71e7e557b64d0",
+    "decision": "GO-compile-only-after-independent-static-review",
+    "freeze_sha256": "e84fd2d705e089f0f1d30938f687068db3b4ea58d833b4f273fac365809f12ae",
+    "limitations": [
+      "No runtime or Linux equivalence result",
+      "Expected imports require independent raw PE review after build",
+      "Synchronous pipe calls rely on absolute Job watchdog"
+    ],
+    "portable_assertions": 2683,
+    "portable_tests": 3,
+    "schema_version": 1,
+    "source_count": 4,
+    "source_review": [
+      "fixed frontend role and exact14 args",
+      "original pair start/end retained",
+      "native self empty capabilities plus external LPAC proof required",
+      "two pipe handles only; GetHandleInformation readback before protocol",
+      "original RPB1 reducer reused without edits",
+      "typed report failures and once pipe/report closure"
+    ],
+    "stage": "lpac-pipe-front-native-root-input-review",
+    "windows_actor_compiled": false
+  },
+  "raw_commitment": {
+    "bytes": 1029,
+    "sha256": "3202c4eb5859b8915ad8b277952ecbe10b5a7d947b0f512def0fa53883c57a41"
+  },
+  "schema_version": 1,
+  "stage": "source-evidence-safe-view",
+  "temporal_scope": "Original preparation/review snapshot: its pending/false runtime fields are historical snapshot fields, not the current result.",
+  "transformation": "JSON value projection; account identifiers/user paths redacted if present; no runtime inference"
+}

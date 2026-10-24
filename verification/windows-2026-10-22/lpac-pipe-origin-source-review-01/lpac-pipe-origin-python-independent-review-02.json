@@ -1,0 +1,55 @@
+{
+  "content": {
+    "actions": {
+      "additional_native_API_actor_or_network_called": false,
+      "existing_pure_probes_only": true,
+      "source_or_main_modified": false
+    },
+    "actual_ready": false,
+    "archived_four_file_snapshot_verified": true,
+    "blockers": [
+      {
+        "fact": "A physically rewritten selected native final after its already observed held exit but before completion was accepted.",
+        "group": "held-exit-causality",
+        "repair": "Require each normal held exit observation at or after its own native final and owner post-Resume sample."
+      }
+    ],
+    "decision": "BLOCKED",
+    "independent_exit_probe": {
+      "bytes": 1054,
+      "name": "lpac-pipe-origin-false02-independent-exit-probe.json",
+      "sha256": "4608c6e45f8b9aab7d70b5b9ae09109674a8f88d4b34a9cba6272141bd1248fe"
+    },
+    "reviewed_candidate_freeze_sha256": "64451dbbca7d3d932df2b3c05eaba35959d7c27b5c56f9397a147efca087f918",
+    "reviewed_files": {
+      ".github/windows_identity_lpac_pipe_origin.py": {
+        "bytes": 66680,
+        "sha256": "3d2698dea777b240cff90b5166de642a095d538404027bef4d46ec6abc7d0123"
+      },
+      ".github/windows_identity_lpac_pipe_origin_local.py": {
+        "bytes": 17255,
+        "sha256": "a69fec199a9c7252ed733f3f71e4408afabd0c6f9e7ac36612105ba431e71ce6"
+      },
+      "tests/test_windows_identity_lpac_pipe_origin.py": {
+        "bytes": 24823,
+        "sha256": "fe431b66a2000da337238bf6e30fddad0cb8f0c35d339c5aad8b20d0a7e55a41"
+      },
+      "tests/test_windows_identity_lpac_pipe_origin_local.py": {
+        "bytes": 10315,
+        "sha256": "e813cb0866c4ab1e8f1fdc8ed586cb9c53c4fa402f5e2d09c23157bb8fa396a3"
+      }
+    },
+    "reviewed_runtime_source_count": 40,
+    "reviewed_runtime_source_sha256": "15f19c4a57eca22e63faa21d446fde8647a24fbcf2ef6e8a57eafb27ae41d39f",
+    "schema_version": 1,
+    "stage": "independent-LPAC-IPC-python-frozen-review"
+  },
+  "raw_commitment": {
+    "bytes": 1825,
+    "sha256": "e88df7b44f98e5b74ac2e57b35e9b1496c5118cdf50282921dbc345e633bdbb0"
+  },
+  "schema_version": 1,
+  "stage": "source-evidence-safe-view",
+  "temporal_scope": "Original preparation/review snapshot: its pending/false runtime fields are historical snapshot fields, not the current result.",
+  "transformation": "JSON value projection; account identifiers/user paths redacted if present; no runtime inference"
+}

@@ -1,0 +1,64 @@
+{
+  "acl_or_label_changed": false,
+  "actor_executed": false,
+  "actual_acceptance": false,
+  "checks": {
+    "all37_main_candidate_hashes_exact": true,
+    "eight_fresh_nonces_two_distinct_high_ports_unchanged": true,
+    "explicit_future_source_head_parameter_unchanged": true,
+    "fresh02_artifact_plan_public_preflight_paths": true,
+    "native_compile01_and_manifest_unchanged": true,
+    "no_other_runtime_logic_change": true,
+    "original120_115_clock_and_permissions_unchanged": true,
+    "original_actual01_public_preflight_unchanged": true,
+    "prior_driver_all37_before_import_gate_unchanged": true,
+    "ready_change_is_one_literal_only": true,
+    "single_approved_run_no_retry_fallback_unchanged": true
+  },
+  "declared_driver_substitutions": {
+    "3df55cdbc317522d74a3f6cc8f0f68258aa73da0b1d5cd8ae811aebf7ab9342f": "b726d48d6dddfed2533168ac0921add834488f333931f08b75dc6195cd9fc4ac",
+    "42dc85fff24fcf952458a3aae14a6ee31da6ebbcd9cf943e5bf53a03c7d8efc9": "086940edb854de4a54cc6ced7068972b7cc02e77e7eaebeb522f0eac93da242f",
+    "zero-cap-loopback-compile01-actual01": "zero-cap-loopback-compile01-actual02",
+    "zero-cap-loopback-local-01-preflight.json": "zero-cap-loopback-local-02-preflight.json",
+    "zero-cap-loopback-local-01-public.json": "zero-cap-loopback-local-02-public.json",
+    "zero-cap-loopback-python-candidate-freeze-03.json": "zero-cap-loopback02-python-candidate-freeze-02.json",
+    "zero-cap-loopback-recovery-plan-01.json": "zero-cap-loopback-recovery-plan-02.json",
+    "zero_cap_loopback_actual01": "zero_cap_loopback_actual02"
+  },
+  "driver": {
+    "bytes": 5500,
+    "sha256": "ab8317011d5cadd65697e5672f8a27579e0b90eb4b1a3fcfeb0a782c6389716e"
+  },
+  "driver_executed": false,
+  "expected_full_count": 988,
+  "false_freeze": {
+    "bytes": 7642,
+    "sha256": "78eb9d8d55fb6e0df800461d1826d00ae10fe8306038fd41e8454a91d040de9b"
+  },
+  "fix_review": {
+    "bytes": 2222,
+    "sha256": "d0a373bc781d08dedbcba21a162157032f4d981dc9cf36a07a3d57899e597b24"
+  },
+  "full_suite_result_not_claimed": true,
+  "limitations": [
+    "GO is for the fresh reviewed bounded attempt after the parent finishes full tests and commits its actual source.",
+    "Actual01 remains inconclusive/control-open32; neither this patch nor the Ready flag reclassifies its result.",
+    "No same-SID adversarial boundary, proxy, DNS or product acceptance is inferred."
+  ],
+  "native_api_called": false,
+  "network_called": false,
+  "prior_driver_review": {
+    "bytes": 2073,
+    "sha256": "50334e0ec3ff841970d1d0ece8480b062409c161e463ca5e5ffddf0774daa228"
+  },
+  "schema_version": 1,
+  "source_count": 37,
+  "source_sha256": "b726d48d6dddfed2533168ac0921add834488f333931f08b75dc6195cd9fc4ac",
+  "stage": "zero-cap-loopback02-driver-and-ready-independent-review",
+  "suites_repeated": false,
+  "true_freeze": {
+    "bytes": 8351,
+    "sha256": "086940edb854de4a54cc6ced7068972b7cc02e77e7eaebeb522f0eac93da242f"
+  },
+  "verdict": "GO"
+}

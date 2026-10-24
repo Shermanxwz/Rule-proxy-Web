@@ -1,0 +1,55 @@
+{
+  "claim_scope": "ordinary-python-job-list-only",
+  "local_helper_sha256": "f5ce0fbc20a727f1c78a513bdac816dc49ae43fb1b24e4f8d7eefcd0b252163b",
+  "observed_date": "2026-10-22",
+  "observed_public_sha256": "a56b6308b30ad433554382f2d9ba380392e132a763bc66d9a7c575129c599c68",
+  "observed_result": {
+    "appcontainer_tested": false,
+    "attempt_count": 1,
+    "facts": {
+      "cleanup_verified": true,
+      "core_handles_closed_once": true,
+      "creation_time_job_requested": true,
+      "current_ordinary": true,
+      "deadline_verified": true,
+      "held_identity_before_resume": true,
+      "held_image_before_resume": true,
+      "held_job_before_resume": true,
+      "job_closed": true,
+      "job_empty": true,
+      "job_handle_noninheritable": true,
+      "native_x64": true,
+      "pre_resume_all_verified": true,
+      "private_root_verified": true,
+      "process_exit_confirmed": true,
+      "worker_exit_zero": true,
+      "worker_resumed": true
+    },
+    "failure": null,
+    "journal_retained": true,
+    "native_actor_tested": false,
+    "network_tested": false,
+    "nonce_sha256": "fb85650c1e2154d6a4e4ead877e7c8912eae521634d7df58122b11ac3eedad45",
+    "product_acceptance": false,
+    "proxy_tested": false,
+    "python_version": "3.12.10",
+    "schema_version": 1,
+    "security_profile_created": false,
+    "source_sha256": "f5ce0fbc20a727f1c78a513bdac816dc49ae43fb1b24e4f8d7eefcd0b252163b",
+    "stage": "local-job-list-mechanism",
+    "status": "passed"
+  },
+  "observed_runner": {
+    "actual_execution": true,
+    "kind": "workspace-once-script",
+    "sha256": "3e64400a97314a41dda346d833662524807defbd69a3e24cfb4c05b33c3f3b9f",
+    "source_archived": true
+  },
+  "repository_wrapper": {
+    "actual_execution": false,
+    "kind": "repository-wrapper",
+    "sha256": "f36b1386f1c262dc354aab11c2be56c87d02ffae54451df938132b07d2aa1aa8"
+  },
+  "schema_version": 1,
+  "stage": "local-job-list-mechanism-evidence"
+}

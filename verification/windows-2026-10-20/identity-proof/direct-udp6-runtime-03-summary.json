@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "experiment": "direct UDP6 guest receive-context validation 03",
+  "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39689438718",
+  "head": "e366f47a0302c71e63b0020857cc5274f34af83c",
+  "source_head": "468142038fdcc41b353a873e5a28cc4a9c4320a7",
+  "freeze_sha256": "67579e7490345c80c4dd8e9048d085e3437c52acac8b4c6017b78bc622ce1493",
+  "receipt_sha256": {
+    "udp6": "afd3594861546df7b9fbc6b1b3ec5cbb82dd85a8f5dc5f9d0a435daa101ed664",
+    "stage0": "9669775f813d8e82ae31aa56d304438bbbff2d96e848bf4ea09e2162a21c0899",
+    "preparation": "bb145643c2215e85865c817c937854677d391066e4b3a5b42504ee028a3dbb97"
+  },
+  "status": "production ordinary IPv6 context and echo admitted; selected local sends accepted; capture incomplete and packet conclusion inconclusive",
+  "observations": [
+    "All four phase reports passed fresh profile/provenance and network binding. The fixed driver completed with no driver failure. Before admission passed every predicate, including exact ordinary nonce echo. Its versioned receive context was [1,1023,1023], supporting the reviewed production owned-NIC, independently derived site-zone, pre/post interface stability and actual pktinfo ingress contract. The scope-zero observation was false, as permitted by the reviewed normalized-zone acceptance.",
+    "Three selected sendto invocations locally accepted their datagrams. explicit_send_denial is false; selected_echo_observed and selected_nonce_payload_observed are false. Local send acceptance is not delivery or API denial. The owned receiver verified and echoed 42 ordinary payloads: before 1, sample 40, after 1; no selected payload was observed there.",
+    "The complete private flow body passed digest/length admission and separate manifest/binding/control checks. Packet evaluation reported ordinary payload calibration and unique ports, 50,836 total PCAP records, zero selected and zero unknown-flow matches. These record counts are not actor attempts. capture_complete_contract and decoder_complete are false; reasons are capture_lifecycle, opaque_protocol and truncated. The reported bounded-no-selected-datagram flag is false. No bounded absence or IPv6 no-egress conclusion is established.",
+    "Stage0 exports capture_abort=overflow. In the frozen worker, overflow is set when a read exceeds the remaining retention capacity under the fixed 64 MiB cap; the worker retains at most that cap while continuing to drain. This is not evidence of disk-capacity exhaustion or a measured traffic source. Exact retained/drained byte counts and offending packet bytes were not exported in these receipts.",
+    "Binary admission and configured payload P<=24MiB plus 65MiB reserve admission passed; exact ZIP size is not exported. Held-QEMU mapped backing-file and separately labeled local-package integrity admission/pre-stop/close passed. This does not attest resident pages or upstream-source equivalence.",
+    "QEMU and TPM exits were observed as zero; QMP/server/watcher/receiver/socket/thread/work cleanup is reported complete with zero teardown errors. Capture read-descriptor cleanup is true, but successful outer cleanup does not make the failed capture complete.",
+    "Strict Stage0 remains false with capabilities_empty as the failed primitive identity check; build 26300.9457 remains below support floor 26300.9550. Existing acceptance rules were not relaxed."
+  ],
+  "timing_and_diagnosis": [
+    "Closed job breadcrumbs place QEMU start at 22:55:01 UTC, guest beacon at 23:09:22, original result at 23:09:36, and cleanup completion at 00:42:39 UTC. Original-result arrival is not proof that the optional network wait had completed. host_wait_state=not_started can persist when its awaited function raises before assignment; it does not prove that function was never entered.",
+    "Independent source review identifies a reproducible cleanup-defect candidate: a sticky capture error makes the authorization wait fail, suppressing finalize, while child draining may continue to the original outer deadline. The worker requires finalize plus EOF for early orderly completion. This is a source-level explanation under local investigation, not a recovered runtime stack or timestamped proof of the precise blocked call.",
+    "opaque_protocol identifies an unsupported IPv6 next-header branch for relevant fixed-destination traffic, not a particular protocol in this run. truncated has multiple source branches. The raw PCAP/private bundle were deleted during cleanup; their exact offending bytes and branches cannot be reconstructed from the sanitized receipts. Overflow and decoder failures remain failures, not grounds to ignore opaque or truncated input."
+  ],
+  "limits": [
+    "Native/driver facts are controller-attested projections tied to reviewed source, not independent host token/socket authentication. The audit validates receipts and source contracts, not a reparse of deleted raw evidence.",
+    "This run establishes actual production ordinary IPv6 compatibility and selected local API acceptance, but not IPv6 isolation, universal egress prevention, DNS, proxy, descendant IPv6, Linux parity or product acceptance.",
+    "Earlier runtime 01 remains ambiguous and runtime 02 retains its observed scope-zero rejection before guest payload comparison. This run does not retroactively change those results or establish their unexported facts.",
+    "No network repair, IPv4 fallback, capability/policy/network configuration change or automatic subsequent run occurred. Any repair requires focused source review and short-gate validation; a further guest run needs separate authorization."
+  ]
+}

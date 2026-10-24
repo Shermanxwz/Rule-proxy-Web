@@ -1,0 +1,63 @@
+{
+  "files": [
+    {
+      "bytes": 1345,
+      "path": "verification/windows-2026-10-22/lpac-dns-local-01-preflight.json",
+      "sha256": "12d2ed341a3dac3bdd3748d174e5aad184870c9c5f929e040895873397522569"
+    },
+    {
+      "bytes": 1343,
+      "path": "verification/windows-2026-10-22/lpac-dns-local-01-public.json",
+      "sha256": "a815d1b6a321e98c06048d95d983c845b7cc995e1fb216dfe1afe810ff2d75f6"
+    },
+    {
+      "bytes": 925,
+      "path": "verification/windows-2026-10-22/lpac-dns-local-01-recovery-public.json",
+      "sha256": "e35a14cce9e30baa07b17cf8ab416b9906178e09426968351505e3c4560b6169"
+    },
+    {
+      "bytes": 2756,
+      "path": "verification/windows-2026-10-22/lpac-dns-local-01-runner.py",
+      "sha256": "8a552792eb6927d5cd9927ec9704d52484547a2287148f0af0c01a75c232c47b"
+    },
+    {
+      "bytes": 9850,
+      "path": "verification/windows-2026-10-22/lpac-dns-local-01-recovery-review.py",
+      "sha256": "68526613114c0940aa58a0c7191383699f27bd73243a0a38b1edaeded1c5857c"
+    },
+    {
+      "bytes": 996,
+      "path": "verification/windows-2026-10-22/lpac-dns-local-01-after-global-capture.ps1",
+      "sha256": "b581d782f44332af47e1fc261fd25536fad2e6e5c181423702c0ed24c0a2529a"
+    },
+    {
+      "bytes": 1994,
+      "path": "verification/windows-2026-10-22/lpac-dns-local-01-after-global-expanded.ps1",
+      "sha256": "a0ace955717cab22b6b2b1ba0e75c12b2dcc41a6143bb258854759c2f5545f46"
+    },
+    {
+      "bytes": 980,
+      "path": "verification/windows-2026-10-22/lpac-dns-local-01-after-global-projection.json",
+      "sha256": "4581841c9414dc84bce78307dbdab0b84d9797d8376b8b84a7d2da4de55dc424"
+    },
+    {
+      "bytes": 14570,
+      "path": "verification/windows-2026-10-22/lpac-dns-local-01-component-projection.json",
+      "sha256": "8bf7e0ba4c67b08a48339acc4b9e21c315ef36f968a71b0fdf5f451e22edb6b4"
+    },
+    {
+      "bytes": 3763,
+      "path": "verification/windows-2026-10-22/lpac-dns-local-01-summary.json",
+      "sha256": "ae02cdcb981f4ae27731e63fc59052d95c4b3a76bf6281ba8e09ccf663db8725"
+    }
+  ],
+  "original_failure": "setup",
+  "original_network_tested": false,
+  "original_recovery_required": true,
+  "original_status": "inconclusive",
+  "schema_version": 1,
+  "separate_recovery_passed": true,
+  "source_commit": "de69fa49b5766d8a7a5bb61567e52410759df089",
+  "source_sha256": "a1b924f5edee5b0e279fa14f35319ad9ee835c243696526e13e72a80b62bc792",
+  "stage": "standalone-lpac-setup-failure-and-independent-recovery-evidence-index"
+}

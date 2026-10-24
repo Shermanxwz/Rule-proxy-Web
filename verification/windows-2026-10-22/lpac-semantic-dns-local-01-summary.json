@@ -1,0 +1,123 @@
+{
+  "access_denial_observed": false,
+  "actor_sha256": "0a9e867cce846b366693e8662034db8c0c4646bd312a6143c367da2c36fb557a",
+  "actors_exited_from_owned_cleanup": 2,
+  "actors_natural_exit_zero": 0,
+  "attempt": 1,
+  "automatic_cleanup_confirmed": true,
+  "broker_cancellation_proven": false,
+  "broker_pid_attributed": false,
+  "default_resolver_tested": false,
+  "dns_isolation_qualified": false,
+  "expected_full_go_count": 5,
+  "expected_full_native_report_count": 7,
+  "g_psec_tested": false,
+  "global_after_capture_available": true,
+  "global_configuration_byte_equal": true,
+  "go_count": 1,
+  "identity_basis": "held-accesscheck-matrix-v1",
+  "inventory_gate_count": 2,
+  "manifest_key_count": 13,
+  "manifest_sha256": "657c88ef59f8ba9d4c24f5e407696b27615f50c63d58adc5d8dd64f942104e92",
+  "native_report_count": 3,
+  "native_source_pin_count": 9,
+  "network_tested": true,
+  "no_earlier_attempt_reinterpretation": true,
+  "no_psec_repair_or_causal_dns_claim": true,
+  "observation_complete": false,
+  "ordinary_after_bound_native_positive": false,
+  "ordinary_after_independent_receiver_positive": false,
+  "ordinary_after_verified": false,
+  "ordinary_before_bound_native_positive": true,
+  "ordinary_before_independent_receiver_positive": true,
+  "ordinary_before_verified": false,
+  "original_failure": "protocol",
+  "original_flags_never_filled_from_later_analysis": true,
+  "original_ordinary_after_flag": false,
+  "original_ordinary_before_flag": false,
+  "original_public": {
+    "bytes": 1573,
+    "sha256": "0909bb6ffd4024883f5c2fa2c8ad36e83867be598d6970c6e511aada4e8ef414"
+  },
+  "original_selected_api": null,
+  "original_status": "inconclusive",
+  "private_config": {
+    "bytes": 5408,
+    "sha256": "ddfa8f7b4facd0fd1effe96e7360520d47aad378ba6cf53f8738e40c0ffbd1c0"
+  },
+  "private_worker_report": {
+    "bytes": 46205,
+    "sha256": "619bdf10f66e8d6b8a867a61d447b03903e97ec8a66977d76c838c4405ca25dc"
+  },
+  "product_acceptance": false,
+  "proxy_tested": false,
+  "receiver": {
+    "broker_cancellation_proven": false,
+    "byte_count_is_observed_lower_bound": true,
+    "case_query_observed": {
+      "after": false,
+      "before": true,
+      "selected": false
+    },
+    "cases": {
+      "after": {
+        "answers_sent": 0,
+        "matched_queries": 0,
+        "rejected": 0,
+        "send_failed": 0
+      },
+      "before": {
+        "answers_sent": 1,
+        "matched_queries": 1,
+        "rejected": 0,
+        "send_failed": 0
+      },
+      "selected": {
+        "answers_sent": 0,
+        "matched_queries": 0,
+        "rejected": 0,
+        "send_failed": 0
+      }
+    },
+    "cleanup_confirmed": true,
+    "counts": {
+      "answers_sent": 1,
+      "bytes": 62,
+      "datagrams": 1,
+      "matched_queries": 1,
+      "oversized": 0,
+      "rejected": 0,
+      "send_failed": 0
+    },
+    "error": "none",
+    "ready": true,
+    "selected_query_observed": false,
+    "socket_close_attempted": true,
+    "socket_close_uncertain": false,
+    "socket_closed": true,
+    "thread_stopped": true
+  },
+  "receiver_counts_available": true,
+  "recovery_required": false,
+  "schema_version": 1,
+  "scope": "standalone-lpac-accesscheck-standard53-dns-mechanism-v1",
+  "selected_api": null,
+  "selected_dns_phase_present": false,
+  "selected_semantic_held": true,
+  "selected_semantic_matrix": [
+    2,
+    0,
+    0,
+    2
+  ],
+  "selected_wire_query_observed": false,
+  "semantic_check_count": 4,
+  "separate_recovery_not_inferred": true,
+  "snapshot_required_deadline_typeerror_observed": true,
+  "source_commit": "ba0954a6496a6ced2c5197d57ebc14155b998753",
+  "source_files_verified": 35,
+  "source_git_blob_bytes_verified": true,
+  "source_sha256": "3f5e3fc55043103ab0bcf8144085a936e4374e69d54f3bf83e0c8f5aa7a1987e",
+  "stage": "standalone-semantic-lpac-dns-actual01-summary",
+  "token_class46_queried": false
+}

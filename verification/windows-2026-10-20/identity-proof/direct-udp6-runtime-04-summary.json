@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "experiment": "direct UDP6 guest capture-failure diagnostic 04",
+  "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39705258560",
+  "head": "b717c247fdade030bb6ca2a0035e9381d8cefbcf",
+  "source_head": "c2db6849044eaa37bedc5216a5a7acec5ac8fde9",
+  "freeze_sha256": "664b8e077aed3e418298af4269319bc944232587ae595b18f8f2ee0421e55710",
+  "receipt_sha256": {
+    "udp6": "dabaf6bcda063fc58fee66986c8678fad7455f2ce0d3ebfa8ecd2f2c560c6897",
+    "stage0": "501937c701596c09b0a4c58a2e490357208d7b41984404ab2592b5eee58cb536",
+    "preparation": "c951c9897fb66e39c6b9bed7b948fc6792c615eda0dabb323f700186b6191e06"
+  },
+  "status": "capture complete; decoder inconclusive on two IPv6 Next Header 58 records; no packet-absence conclusion",
+  "observations": [
+    "All four phase reports passed fresh profile/provenance and network binding. The fixed driver completed without failure; before admission passed every predicate. Production ordinary native receive context [1,1023,1023] and exact nonce echo were verified under the reviewed owned-NIC/site-zone/pktinfo contract; scope-zero remained an observation, not required true.",
+    "Three selected sendto invocations locally accepted their datagrams. explicit_send_denial=false; selected_echo_observed=false and selected_nonce_payload_observed=false. The owned receiver verified and echoed 42 ordinary payloads (before 1 / sample 40 / after 1), with zero selected observations. These separate facts do not prove API enforcement, delivery failure or universal no-egress.",
+    "The private flow body passed digest/length admission and separate manifest/binding/control predicates. This run reports capture_complete_contract=true: configured retention limit 67,108,864 bytes; retained=drained=23,225,941; overflow=false; final status, child/QEMU exit, authorization, status EOF, descriptor closure, cleanup and drain completeness all true. Capture read cleanup and host prerequisites also passed. This is source-bound receipt evidence, not an independent reparse of deleted raw data.",
+    "Decoder processed 19,953 total PCAP records, not actor attempts. Ordinary payload calibration and unique ports passed; zero selected and zero unknown-flow packet matches were reported. decoder_complete=false solely because opaque_protocol remained. Fixed diagnostics report exactly two unsupported Next Header 58 occurrences, no omitted categories/events, detail_complete=true, and truncation counters [0,0,0]. The bounded-no-selected-datagram flag remains false.",
+    "Next Header 58 identifies ICMPv6. The counter is reached only after the frame matches the owned guest source MAC and the outer IPv6 destination matches the fixed fixture endpoint; these are guest-to-fixture ICMPv6 candidates, not assumed unrelated background traffic or actor-attributed packets. No ICMPv6 type, code, checksum result, quoted-packet content or originating process was exported. The two records cannot be labeled harmless or irrelevant. The parser stopped at that unsupported header; subtype and any embedded payload cannot be reconstructed after raw capture deletion.",
+    "Binary and payload P<=24MiB/65MiB reserve admission passed, without an exact ZIP size claim. Owned-QEMU mapped backing-file and separate local-package integrity admission/pre-stop/close passed. This does not attest resident pages or unpatched upstream-source equivalence.",
+    "QEMU/TPM exits were observed as zero; QMP/server/watcher/receiver/socket/thread and owned work cleanup completed with zero teardown errors. host_wait_state=received, capture_abort absent and host_failure absent. Strict Stage0 remains false at capabilities_empty; observed build 26300.9457 remains below support floor 26300.9550. Existing acceptance remains unchanged."
+  ],
+  "timing": [
+    "Closed breadcrumbs: QEMU start 01:27:04 UTC; guest beacon 01:40:23; original result 01:40:36; cleanup done 01:40:55 with 5437 seconds remaining. The native harness began 01:23:32. This job completed normally within the existing budget, not near the outer deadline.",
+    "This job had no capture overflow and does not by itself test the repaired sticky-error cleanup branch in a Windows VM. That branch has separate deterministic/owned-process/paused-QEMU evidence. Shorter wall time here must not be attributed solely to the cleanup correction."
+  ],
+  "limits": [
+    "The purpose was one new instrumented collection, not a promise of green. It produced specific new failure evidence while preserving the original opaque rejection. No automatic subsequent run occurred.",
+    "Runtime03 remains an incomplete-capture failure with its historical overflow/truncation/opaque ambiguity. This new job does not identify its lost bytes, exact subtype, overflow onset or hidden runtime stack.",
+    "No capture-window, retention/resource limit, endpoint, network configuration, identity/policy/capability, send count or deadline was changed. No IPv4 fallback or networking repair was attempted.",
+    "This is not IPv6 isolation, universal egress prevention, DNS/proxy, descendant IPv6, Linux parity or product acceptance. Any ICMPv6 parsing/classification change needs primary-source protocol review and tests; simply skipping Next Header58 is not justified."
+  ]
+}

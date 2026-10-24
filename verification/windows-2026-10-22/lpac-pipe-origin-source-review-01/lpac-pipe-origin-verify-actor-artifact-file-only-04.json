@@ -1,0 +1,53 @@
+{
+  "content": {
+    "actor": {
+      "bytes": 180224,
+      "sha256": "8d4f0628b9f254ba868753342e0b4d06a472de38912c12fe3b44d873823488e6"
+    },
+    "actor_and_manifest_unchanged": true,
+    "actor_executed": false,
+    "calls": 1,
+    "explicit_native_API_or_backend_called": false,
+    "main_modified": false,
+    "manifest_single_bom": true,
+    "original_manifest": {
+      "bytes": 592,
+      "sha256": "9a1a77084d987e663a72cb076035de802f55f04ff536087ebb387662045cdbeb"
+    },
+    "raw_hash_not_recomputed_from_stripped_content": true,
+    "schema_version": 1,
+    "scope": "File parsing/hash/source binding only; not runtime acceptance. Python library imports may initialize libraries.",
+    "source_pins": {
+      ".github/native/windows_identity_actor.cpp": {
+        "bytes": 31002,
+        "sha256": "530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553"
+      },
+      ".github/native/windows_identity_lpac_pipe_front_actor.cpp": {
+        "bytes": 6869,
+        "sha256": "ecc4a793fa1afc33a5c9407486ee9f463bd68132b8090eb259270a89d19ca48d"
+      },
+      ".github/native/windows_identity_proxy_bridge_core.hpp": {
+        "bytes": 16902,
+        "sha256": "f03e45166265f02a65abc12930efd73634a332596d22aa78cadc1267a80b6356"
+      },
+      ".github/native/windows_identity_proxy_pipe_actor.cpp": {
+        "bytes": 16095,
+        "sha256": "26636a6b9979e91452cf6e7d2049d6fbbfa43639a35708ee18d4a71e67fb8dd0"
+      }
+    },
+    "stage": "production-verify-actor-original-artifact-file-only",
+    "success": true,
+    "validator_source": {
+      "bytes": 67006,
+      "sha256": "d7be85a0db6b28e1df43658e879aeec8bd802c67cb4f677a3872d2fffaab1882"
+    }
+  },
+  "raw_commitment": {
+    "bytes": 1574,
+    "sha256": "1a631b6aba688c30be46cd31468bd61a1404cf9ca40373ae9cfa5e8cf52b22f3"
+  },
+  "schema_version": 1,
+  "stage": "source-evidence-safe-view",
+  "temporal_scope": "Original preparation/review snapshot: its pending/false runtime fields are historical snapshot fields, not the current result.",
+  "transformation": "JSON value projection; account identifiers/user paths redacted if present; no runtime inference"
+}

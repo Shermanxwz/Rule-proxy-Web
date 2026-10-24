@@ -8,6 +8,8 @@ vendor/
 *.zip
 !downloads/RuleProxy-Network-Recovery.zip
 private/
+local-ac-*/
+local-origin-*/
 state/
 source.yaml
 config.yaml

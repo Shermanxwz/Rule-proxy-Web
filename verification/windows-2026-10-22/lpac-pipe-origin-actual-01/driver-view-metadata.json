@@ -1,0 +1,12 @@
+{
+  "copy_is_original_bytes": true,
+  "public_view_commitment": {
+    "bytes": 12676,
+    "sha256": "5a9986b5c8cda7b5fbf685738ebc246b2b01ff3112f7e54e9a54cd927046aba4"
+  },
+  "raw_commitment": {
+    "bytes": 12676,
+    "sha256": "5a9986b5c8cda7b5fbf685738ebc246b2b01ff3112f7e54e9a54cd927046aba4"
+  },
+  "transformation": "exact original bytes"
+}

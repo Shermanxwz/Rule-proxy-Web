@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "repository": "Shermanxwz/Rule-proxy-Web",
+  "repository_id": 1412843902,
+  "source_commit": "0bf8c8a64cec283e21c4f73d86d1b913c390752c",
+  "run_id": 39539948628,
+  "native_job_id": 119026178440,
+  "artifacts": [
+    {
+      "artifact_id": 12325196251,
+      "archive_sha256": "ad36c0e55f1985368d08477b9276a1882b93bccbd8b0075835203c7cf570473b",
+      "public_file": "serviced-stage0-attempt-10-runtime-public.json"
+    },
+    {
+      "artifact_id": 12325366038,
+      "archive_sha256": "8f9bf31ce7eb7ab6744b87347a135bd0d52fe95df194541b1efbd63eb449aef3",
+      "public_file": "serviced-stage0-attempt-10-preparation-public.json"
+    },
+    {
+      "artifact_id": 12325505833,
+      "archive_sha256": "476b5024f3e5bff86145e349d58abd1f5e69922135831b75b9adc1e835bfae58",
+      "public_file": "serviced-stage0-attempt-10-capacity-public.json"
+    }
+  ],
+  "observed_outcome": "original_guest_wait_deadline_without_ordinary_result",
+  "stage0_passed": false,
+  "vm_destroyed": true,
+  "prior_attempt_cleanup_uncertainty_unchanged": true,
+  "provider_deletion_attempted": false,
+  "installed_stock_beacon_observed": true,
+  "update_media_host_verified_and_attached": true,
+  "result_transport_state": "not_observed",
+  "advisory_unauthenticated": true,
+  "advisory_accepted": 6,
+  "advisory_prefix_rejections": 15,
+  "advisory_extra_reboot_before_pending_mask": 4,
+  "advisory_extra_count": 1,
+  "advisory_completed_pending_mask": 0,
+  "ordinary_result_observed": false,
+  "ordinary_servicing_receipt_verified": false,
+  "isolation_result_observed": false,
+  "sender_counters_observed": false,
+  "deadline_extended": false,
+  "interpretation": "Closed COM2 advisory records include extra_reboot_before and later completed, but do not authenticate SYSTEM, prove ordinary-user execution, establish guest result provenance, or satisfy Stage0 acceptance. Missing ordinary result remains a harness failure; no identical replay."
+}

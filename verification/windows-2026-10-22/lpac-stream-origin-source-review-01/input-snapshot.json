@@ -1,0 +1,18 @@
+{
+  ".github/native/windows_identity_lpac_stream_network_actor.cpp": {
+    "sha256": "b3b864e844d6cc77100f327ba617d4dc5ac5a78599c70cc61a71aa12a5c9d463",
+    "bytes": 17035
+  },
+  ".github/native/windows_identity_actor.cpp": {
+    "sha256": "530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553",
+    "bytes": 31002
+  },
+  ".github/native/windows_identity_lpac_stream_front_actor.cpp": {
+    "sha256": "f5ded24762f577b0eeef1b99d2d6f683e901b690c964fe87a75ae7511cd09bc5",
+    "bytes": 2889
+  },
+  ".github/native/windows_identity_lpac_stream_contract.hpp": {
+    "sha256": "8a616aaa95c717412215dfc18d8acfc9fd51fad8ef5983d9d017a502df0f2f7e",
+    "bytes": 26029
+  }
+}

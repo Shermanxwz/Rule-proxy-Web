@@ -1,0 +1,72 @@
+{
+  "account_created": false,
+  "alternate_storage_available": false,
+  "eligible_storage_labels": [],
+  "existing_tmp_ready": false,
+  "host_changes": false,
+  "kvm": {
+    "api_supported": true,
+    "api_version": 12,
+    "error_errno": null,
+    "exists": true,
+    "handle_closed": true,
+    "opened_read_write": true
+  },
+  "media_downloaded": false,
+  "minimum_free_bytes": 59055800320,
+  "proposed_storage_label": null,
+  "read_only": true,
+  "same_filesystem": {
+    "runner_temp__mnt": true,
+    "tmp__mnt": true,
+    "tmp__runner_temp": true,
+    "workspace__mnt": true,
+    "workspace__runner_temp": true,
+    "workspace__tmp": true
+  },
+  "schema_version": 1,
+  "stage": "windows-client-lab-read-only-preflight",
+  "storage": {
+    "mnt": {
+      "directory": true,
+      "error_errno": null,
+      "exists": true,
+      "filesystem_group": "filesystem_1",
+      "free_bytes": 14078107648,
+      "minimum_met": false,
+      "total_bytes": 76887154688,
+      "writable": true
+    },
+    "runner_temp": {
+      "directory": true,
+      "error_errno": null,
+      "exists": true,
+      "filesystem_group": "filesystem_1",
+      "free_bytes": 14078107648,
+      "minimum_met": false,
+      "total_bytes": 76887154688,
+      "writable": true
+    },
+    "tmp": {
+      "directory": true,
+      "error_errno": null,
+      "exists": true,
+      "filesystem_group": "filesystem_1",
+      "free_bytes": 14078107648,
+      "minimum_met": false,
+      "total_bytes": 76887154688,
+      "writable": true
+    },
+    "workspace": {
+      "directory": true,
+      "error_errno": null,
+      "exists": true,
+      "filesystem_group": "filesystem_1",
+      "free_bytes": 14078107648,
+      "minimum_met": false,
+      "total_bytes": 76887154688,
+      "writable": true
+    }
+  },
+  "vm_created": false
+}

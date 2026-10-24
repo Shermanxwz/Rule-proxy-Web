@@ -1,0 +1,46 @@
+{
+  "Config2048_prefix_hex": "4134503101000008",
+  "GUID": "8b743b1e-2850-4c82-a350-fda8439e3ab1",
+  "Result32": {
+    "alignment": 8,
+    "bytes": 32,
+    "flags": {
+      "entered": 1,
+      "error_valid": 4,
+      "exception": 16,
+      "input_fault": 8,
+      "returned": 2
+    },
+    "offsets": {
+      "error": 12,
+      "flags": 8,
+      "raw_pointer": 16,
+      "reserved": 28,
+      "seh_code": 24,
+      "size": 0,
+      "version": 4
+    },
+    "success_transport": "Native call returned and Result32 physically copied. This is not injection/identity/time/readback/cleanup/Resume qualification."
+  },
+  "actual_ready": false,
+  "caller_obligations": [
+    "Source/artifact admission and retained target/thread/current-primary/SD/two Jobs exact proofs.",
+    "Original root/worker/work/short-window epoch, durable intent, one consumed call, raw Result32 persistence before post-QPC; synchronous helper not internally interruptible.",
+    "Known nonNULL then full Detours framing and Config2048 physical readback, allocation base/extent identity, explicit whole-range RO/protection query.",
+    "Any NULL/partial/exception/late/unknown forbids Resume; no retry, alternate address, rollback or live free.",
+    "Exact supervised target stop/exit and parent resource cleanup. Process-lifetime allocation release is not live restoration or payload-absence proof."
+  ],
+  "exports": {
+    "a4_copy_config_v1": "uint32 WINAPI(HANDLE,const uint8_t*,uint32,Result32*)",
+    "a4_payload_abi_v1": "uint32 WINAPI(void) =>1"
+  },
+  "function_return_codes": {
+    "0": "primitive returned; inspect raw pointer and error even if NULL",
+    "1": "rejected input before primitive; output may remain zero for invalid output/source shape",
+    "2": "SEH/unreturned primitive or result copy unknown; no retry"
+  },
+  "libraries": "Caller verifies and supplies parent DLL. This source neither loads a library nor creates/opens/closes a process/HANDLE.",
+  "network_DNS_proxy_Linux_or_application_qualification": false,
+  "schema_version": 1,
+  "stage": "A4-parent-thin-payload-source-ABI"
+}

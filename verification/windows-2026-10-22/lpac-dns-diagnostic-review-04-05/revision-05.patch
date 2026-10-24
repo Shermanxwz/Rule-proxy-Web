@@ -1,0 +1,202 @@
+diff --git a/.github/windows_identity_lpac_dns_local.py b/.github/windows_identity_lpac_dns_local.py
+--- a/.github/windows_identity_lpac_dns_local.py
++++ b/.github/windows_identity_lpac_dns_local.py
+@@ -52,6 +52,24 @@
+     with path.open('xb') as stream:
+         require(stream.write(raw)==len(raw),'durable_write');stream.flush();os.fsync(stream.fileno())
+     require(sha(local.bounded(path,MAX_REPORT))==sha(raw),'durable_readback')
++
++def validate_failure_detail(value):
++    if value is None:return None
++    require(type(value) is dict and set(value)=={'type','message','operation'}
++        and type(value['type']) is str and 1<=len(value['type'])<=64
++        and type(value['message']) is str and len(value['message'])<=512
++        and (value['operation'] is None or type(value['operation']) is str and 1<=len(value['operation'])<=128)
++        and len(encode(value))<=8192,'private_failure_detail')
++    return value
++
++def private_failure_detail(exc,operation=None):
++    # Private diagnostic data only. Never copy this object into public output.
++    try:message=str(exc)
++    except BaseException:message='<exception message unavailable>'
++    try:operation=operation or getattr(exc,'operation',None)
++    except BaseException:operation=None
++    return validate_failure_detail(dict(type=type(exc).__name__[:64],message=message[:512],
++        operation=operation[:128] if type(operation) is str and operation else None))
+ 
+ def plan(value,*,device,source,actor,manifest):
+     keys={'schema_version','scope','device_sha256','source_sha256','actor_sha256','manifest_sha256',
+@@ -141,7 +159,7 @@
+ 
+     def atomic_spawn(self,info,argv,cwd,job,owners,state,*,environment,stdio=(),profile_pointer=None,catalog=None):
+         # Observation only: attempted/ownership/cleanup policy is unchanged.
+-        state.update(create_status='not_entered',create_winerror=None,create_information='not_observed')
++        state.update(create_status='not_entered',create_winerror=None,create_information='not_observed',create_exception_detail=None)
+         require(type(environment) is str and environment.endswith('\0\0') and len(stdio) in (0,3),'constructor')
+         lpac=profile_pointer is not None
+         if lpac:
+@@ -181,8 +199,8 @@
+                     ok=self.k.CreateProcessW(argv[0],commandline,None,None,bool(stdio),
+                         self.proc._CREATE_SUSPENDED|self.proc._CREATE_UNICODE_ENVIRONMENT|self.proc._EXTENDED_STARTUPINFO_PRESENT|0x08000000,
+                         env,str(cwd),C.byref(startup),C.byref(info))
+-                except BaseException:
+-                    state['create_status']='exception';raise
++                except BaseException as exc:
++                    state.update(create_status='exception',create_exception_detail=private_failure_detail(exc,'CreateProcessW(atomic-LPAC)'));raise
+                 code=C.get_last_error() if not ok else 0
+                 information='all_zero' if not any((info.hProcess,info.hThread,info.dwProcessId,info.dwThreadId)) else 'nonzero'
+                 state.update(create_status='returned_true' if ok else 'returned_false',create_winerror=None if ok else code,
+@@ -268,7 +286,7 @@
+         self.owners=helpers.OneShotHandles(api.close);self.job=None;self.children=[];self.tasks={};self.fixture=None
+         self.profile=dict(attempted=False,returned=False,created=False,pointer=None,sid=None)
+         self.catalog=None;self.inventory=None;self.selected_wire=False
+-        self.j=dict(schema_version=1,stage='standalone-lpac-dns-worker-result',failure=None,selected_wire_query_observed=False,
++        self.j=dict(schema_version=1,stage='standalone-lpac-dns-worker-result',failure=None,failure_detail=None,selected_wire_query_observed=False,
+             profile_name='ruleproxy-lpac-'+c['run'],profile_sid=None,profile_created=False,acl_attempted=False,
+             selected_lpac_held=False,inventory=None,inventory_gates=[],go=[],native=[],fixture_final=None,
+             ordinary_before=False,ordinary_after=False,natural_exits=False,selected_access_denial=False,
+@@ -289,7 +307,7 @@
+         if name in ('selected','health'):require(image_hash==self.c['actor_sha256'],'actor_changed')
+         info=self.api.process_info();row=dict(info=info,attempted=False,assigned=False,exited=False,exit_code=None,pid=None,created=None,
+             process_returned=False,
+-            create_observation=dict(status='not_entered',winerror=None,process_information='not_observed',returned_qpc=None,work_cutoff=work_cutoff),
++            create_observation=dict(status='not_entered',winerror=None,process_information='not_observed',returned_qpc=None,work_cutoff=work_cutoff,exception_detail=None),
+             token=None,identity=None,capabilities=None,lpac=None,lpac_expected=lpac,resumed=False,admitted=False,
+             image_sha256=image_hash,admission_qpc=None,resume_qpc=None,go_qpc=[],name=name)
+         children.append(row)
+@@ -306,7 +324,8 @@
+                 row['attempted']=state['creation_attempted'];row['process_returned']=bool(info.hProcess)
+                 if info.dwProcessId:row['pid']=int(info.dwProcessId)
+                 row['create_observation']=dict(status=state.get('create_status','not_entered'),winerror=state.get('create_winerror'),
+-                    process_information=state.get('create_information','not_observed'),returned_qpc=None,work_cutoff=work_cutoff)
++                    process_information=state.get('create_information','not_observed'),returned_qpc=None,work_cutoff=work_cutoff,
++                    exception_detail=state.get('create_exception_detail'))
+                 if row['create_observation']['status'] in ('returned_false','returned_true'):
+                     try:row['create_observation']['returned_qpc']=self.budget.read()
+                     except BaseException:pass # No trustworthy return clock => cannot become known-no-child.
+@@ -468,6 +487,9 @@
+             self.finish(selected,'selected',2,1);self.finish(health,'health',3,2);self.j['natural_exits']=True
+         except BaseException as exc:
+             self.j['failure']='inventory' if type(exc) is ValueError and str(exc).startswith('dns_inventory') else 'protocol' if self.j['selected_lpac_held'] else 'setup'
++            last=self.tasks.get(next(reversed(self.tasks),None))
++            captured=None if last is None else last['create_observation']['exception_detail']
++            self.j['failure_detail']=captured if captured is not None else private_failure_detail(exc)
+         finally:self.cleanup()
+         self.j['tasks']=[task_projection(r) for r in self.children]
+         return self.j
+@@ -532,14 +554,15 @@
+     return c
+ 
+ def validate_result(j,c):
+-    keys={'schema_version','stage','failure','selected_wire_query_observed','profile_name','profile_sid','profile_created','acl_attempted',
++    keys={'schema_version','stage','failure','failure_detail','selected_wire_query_observed','profile_name','profile_sid','profile_created','acl_attempted',
+         'selected_lpac_held','inventory','inventory_gates','go','native','fixture_final','ordinary_before','ordinary_after','natural_exits',
+         'selected_access_denial','workload_cleanup','workload_job_empty','workload_stop','acl_removed','cleanup_tools','profile_deleted',
+         'sid_released','fixture_cleanup','tasks','cleanup_tasks'}
+     require(type(j) is dict and set(j)==keys and type(j['schema_version']) is int and j['schema_version']==1
+         and j['stage']=='standalone-lpac-dns-worker-result' and j['failure'] in (None,'setup','protocol','inventory','cleanup')
+         and j['profile_name']=='ruleproxy-lpac-'+c['run'],'result_schema')
+-    booleans=keys-{'schema_version','stage','failure','profile_name','profile_sid','inventory','inventory_gates','go','native','fixture_final','tasks','cleanup_tasks'}
++    validate_failure_detail(j['failure_detail']);require(j['failure'] is not None or j['failure_detail'] is None,'success_failure_detail')
++    booleans=keys-{'schema_version','stage','failure','failure_detail','profile_name','profile_sid','inventory','inventory_gates','go','native','fixture_final','tasks','cleanup_tasks'}
+     require(all(type(j[k]) is bool for k in booleans) and (j['profile_sid'] is None or ac.ac_profile_sid(j['profile_sid']))
+         and (not j['profile_created'] or ac.ac_profile_sid(j['profile_sid'])),'result_facts')
+     rowkeys={'name','attempted','assigned','exited','exit_code','pid','created','identity','capabilities','lpac','lpac_expected',
+@@ -552,7 +575,7 @@
+             require(type(row) is dict and set(row)==rowkeys and row['name'] in allowed and row['name'] not in names,'task_schema');names.add(row['name'])
+             for k in ('attempted','assigned','exited','lpac_expected','resumed','admitted','process_returned'):require(type(row[k]) is bool,'task_bool')
+             observation=row['create_observation']
+-            require(type(observation) is dict and set(observation)=={'status','winerror','process_information','returned_qpc','work_cutoff'}
++            require(type(observation) is dict and set(observation)=={'status','winerror','process_information','returned_qpc','work_cutoff','exception_detail'}
+                 and observation['status'] in ('not_entered','exception','returned_false','returned_true'),'create_observation')
+             require((observation['status']=='not_entered')==(not row['attempted']),'create_attempt_observation')
+             require(live.integer(observation['winerror']) if observation['status']=='returned_false' else observation['winerror'] is None,'create_error_observation')
+@@ -561,6 +584,8 @@
+             require(type(observation['work_cutoff']) is int and observation['work_cutoff']==c['deadline_qpc']-(3 if field=='cleanup_tasks' else 25)*c['frequency']
+                 and (observation['returned_qpc'] is None or live.integer(observation['returned_qpc'],c['start_qpc'],live.MAX_SIGNED)),'create_clock_observation')
+             require(observation['status'] not in ('not_entered','exception') or observation['returned_qpc'] is None,'create_unreturned_clock')
++            validate_failure_detail(observation['exception_detail'])
++            require((observation['exception_detail'] is not None)==(observation['status']=='exception'),'create_exception_detail')
+             require(row['lpac_expected']==(row['name']=='selected') and ac.digest(row['image_sha256']),'task_image')
+             require(row['lpac'] is None or type(row['lpac']) is int and row['lpac'] in (0,1),'task_lpac')
+             require(row['lpac_expected'] or row['lpac'] is None,'ordinary_lpac_not_queried')
+diff --git a/tests/test_windows_identity_lpac_dns_local.py b/tests/test_windows_identity_lpac_dns_local.py
+--- a/tests/test_windows_identity_lpac_dns_local.py
++++ b/tests/test_windows_identity_lpac_dns_local.py
+@@ -98,10 +98,16 @@
+     def release_profile_sid(self,state):state['pointer']=None
+     def acl_read(self,path,sid):return m.expected_acl(self.root,path) if self.granted and not self.removed else []
+     def atomic_spawn(self,info,argv,cwd,job,owners,state,**kw):
+-        state.update(creation_attempted=True,create_status='returned_true',create_winerror=None,create_information='nonzero')
++        state.update(creation_attempted=True,create_status='returned_true',create_winerror=None,create_information='nonzero',create_exception_detail=None)
+         if self.fault=='unknowncreate' and kw['profile_pointer']:
+-            state.update(create_status='exception',create_information='not_observed')
+-            self.events.append('unknowncreate');raise OSError('unknown create')
++            exc=OSError('unknown create')
++            state.update(create_status='exception',create_information='not_observed',create_exception_detail=m.private_failure_detail(exc,'CreateProcessW(atomic-LPAC)'))
++            self.events.append('unknowncreate');raise exc
++        if self.fault=='argument-masked' and kw['profile_pointer']:
++            exc=C.ArgumentError('PRIVATE-ARGUMENT-DETAIL: unsupported call shape')
++            state.update(create_status='exception',create_information='not_observed',
++                create_exception_detail=m.private_failure_detail(exc,'CreateProcessW(atomic-LPAC)'))
++            self.controls_uncertain=True;raise ValueError('secondary capability_close')
+         if (self.fault is not None and self.fault.startswith('create-false') and kw['profile_pointer']
+                 or self.fault=='remove-create-false' and '/remove:g' in argv):
+             state.update(create_status='returned_false',create_winerror=5,create_information='all_zero')
+@@ -250,7 +256,7 @@
+     def test_precise_failed_create_cleans_without_fabricating_a_process_exit(self):
+         owner,api,j=self.owner('create-false');m.validate_result(j,owner.c)
+         selected=next(row for row in j['tasks'] if row['name']=='selected')
+-        self.assertEqual(selected['create_observation'],dict(status='returned_false',winerror=5,process_information='all_zero',returned_qpc=api.now,work_cutoff=D-25*F))
++        self.assertEqual(selected['create_observation'],dict(status='returned_false',winerror=5,process_information='all_zero',returned_qpc=api.now,work_cutoff=D-25*F,exception_detail=None))
+         self.assertTrue(selected['attempted']);self.assertFalse(selected['process_returned'])
+         self.assertTrue(j['workload_cleanup']);self.assertTrue(j['profile_deleted']);self.assertEqual(j['go'],[])
+         self.assertFalse(selected['exited']);self.assertIsNone(selected['exit_code']);self.assertTrue(m.known_no_child(selected,start=T))
+@@ -289,6 +295,32 @@
+         owner,api,j=self.owner('malformed');self.assertTrue(j['selected_wire_query_observed']);m.validate_result(j,owner.c)
+         v=public_base()
+         v=m.public_result(j,owner.c,v);self.assertEqual(v['status'],'failed');self.assertTrue(v['selected_wire_query_observed']);m.validate_public(v)
++
++    def test_private_failure_detail_is_bounded_closed_and_success_must_have_none(self):
++        detail=m.private_failure_detail(C.ArgumentError('private '*1000),'x'*1000)
++        self.assertEqual(detail['type'],'ArgumentError');self.assertEqual(len(detail['message']),512);self.assertEqual(len(detail['operation']),128)
++        for change in ({'message':'x'*513},{'type':'x'*65},{'operation':'x'*129},{'extra':'not allowed'}):
++            with self.subTest(change=list(change)),self.assertRaises(ValueError):m.validate_failure_detail(detail|change)
++        owner,api,j=self.owner();self.assertIsNone(j['failure_detail']);m.validate_result(j,owner.c)
++        j['failure_detail']=detail
++        with self.assertRaises(ValueError):m.validate_result(j,owner.c)
++
++    def test_owner_preserves_original_create_argument_error_when_finally_masks_it(self):
++        owner,api,j=self.owner('argument-masked');m.validate_result(j,owner.c)
++        self.assertEqual(j['failure_detail']['type'],'ArgumentError')
++        self.assertIn('PRIVATE-ARGUMENT-DETAIL',j['failure_detail']['message'])
++        self.assertEqual(j['failure_detail']['operation'],'CreateProcessW(atomic-LPAC)')
++        self.assertNotIn('secondary',j['failure_detail']['message']);self.assertFalse(j['profile_deleted']);self.assertEqual(j['go'],[])
++        v=m.public_result(j,owner.c,public_base());m.validate_public(v)
++        self.assertNotIn(b'PRIVATE-ARGUMENT-DETAIL',m.encode(v));self.assertNotIn('failure_detail',v)
++
++    def test_private_error_never_reaches_public_or_erases_receiver_positive(self):
++        owner,api,j=self.owner('malformed');m.validate_result(j,owner.c)
++        self.assertEqual(j['failure_detail']['message'],'malformed native')
++        v=m.public_result(j,owner.c,public_base());m.validate_public(v)
++        self.assertEqual(v['status'],'failed');self.assertTrue(v['selected_wire_query_observed'])
++        self.assertNotIn(b'malformed native',m.encode(v));self.assertNotIn('failure_detail',v)
++        with self.assertRaises(ValueError):m.validate_public(v|{'failure_detail':j['failure_detail']})
+ 
+     def test_successful_lpac_wire_is_leak_not_product_or_psec_success(self):
+         owner,api,j=self.owner(status=0);m.validate_result(j,owner.c)
+@@ -410,7 +442,14 @@
+             environment='SystemRoot=C:\\Windows\0\0',profile_pointer=55,catalog=CATALOG)
+         self.assertEqual((state['create_status'],state['create_winerror']),('exception',None))
+         self.assertEqual(state['create_information'],'not_observed')
++        self.assertEqual(state['create_exception_detail'],dict(type='OSError',message='pure callback exception',operation='CreateProcessW(atomic-LPAC)'))
+         self.assertTrue(state['creation_attempted']);self.assertEqual(owners.pending,set())
++        api=self.make_create_boundary(lambda *args:(_ for _ in ()).throw(C.ArgumentError('private bad signature')))
++        api.k.LocalFree=lambda pointer:pointer.value;state={}
++        with self.assertRaisesRegex(ValueError,'capability_close'):api.atomic_spawn(proc._ProcessInfo(),['fixed.exe'],'owned',77,
++            m.helpers.OneShotHandles(lambda h:None),state,environment='SystemRoot=C:\\Windows\0\0',profile_pointer=55,catalog=CATALOG)
++        self.assertEqual(state['create_exception_detail']['type'],'ArgumentError')
++        self.assertEqual(state['create_exception_detail']['message'],'private bad signature')
+ 
+     def test_actual_false_api_reads_all_four_process_information_fields(self):
+         for field in ('hProcess','hThread','dwProcessId','dwThreadId'):

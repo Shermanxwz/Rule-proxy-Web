@@ -1,0 +1,83 @@
+{
+  "actual_inventory_effective_nrpt_count": 0,
+  "automatic_cleanup_confirmed": true,
+  "dns_isolation_qualified": false,
+  "document": {
+    "bytes": 3491,
+    "path": "docs/validation/2026-10-23-lpac-semantic-dns-01.md",
+    "sha256": "211fd8db544861c5dc3a96078daed44bca273f613ae575f6cfce842057d75da7"
+  },
+  "evidence_index": {
+    "bytes": 2553,
+    "path": "verification/windows-2026-10-22/lpac-semantic-dns-local-01-evidence-index.json",
+    "sha256": "01707d4343bbbb683824ef4220674cba5405e72fed156ba4d3e1afed3e2cbbb1"
+  },
+  "g_psec_tested": false,
+  "global_snapshot_bytes_equal_initial": true,
+  "go_count": 1,
+  "native_report_count": 3,
+  "nrpt_in_snapshot": false,
+  "ordinary_before_bound_native_positive": true,
+  "ordinary_before_receiver_positive": true,
+  "original_before_flag": false,
+  "original_public": {
+    "bytes": 1573,
+    "sha256": "0909bb6ffd4024883f5c2fa2c8ad36e83867be598d6970c6e511aada4e8ef414"
+  },
+  "original_status": "inconclusive",
+  "product_acceptance": false,
+  "proxy_tested": false,
+  "recovery_required": false,
+  "schema_version": 1,
+  "selected_dns_called": false,
+  "selected_resumed": true,
+  "semantic_checks": 4,
+  "snapshot_required_deadline_typeerror_observed": true,
+  "source_automatic_ci": {
+    "base_identity_actor_compiled_only": true,
+    "conclusion": "success",
+    "decoded_log": {
+      "bytes": 196280,
+      "kept_in_work": true,
+      "raw_github_log_zip": false,
+      "sha256": "892b94e5bc933647cd5c5e3145d40a45250fc9650c3008931b52d9f973c6f37b"
+    },
+    "errors": 0,
+    "event": "push",
+    "failures": 0,
+    "gated_runtime_steps_skipped": [
+      5,
+      6,
+      7,
+      8,
+      9
+    ],
+    "job_id": 120127167483,
+    "local_dns_actual_is_separate_evidence": true,
+    "native_actor_executed": false,
+    "proxy_c07_actor_compiled": false,
+    "run_attempt": 1,
+    "run_id": 39865683458,
+    "seconds": 34.453,
+    "skips": 0,
+    "source_commit": "ba0954a6496a6ced2c5197d57ebc14155b998753",
+    "status": "completed",
+    "tests_run": 825,
+    "url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39865683458",
+    "workflow_dispatched": false,
+    "workflow_rerun": false
+  },
+  "source_commit": "ba0954a6496a6ced2c5197d57ebc14155b998753",
+  "source_review_index": {
+    "bytes": 1272,
+    "path": "verification/windows-2026-10-22/lpac-semantic-dns-source-review-01/index.json",
+    "sha256": "187b01f79f49c0fbe9b7840f0eeea85c7bde1996d61a690b657a3f64265a91fd"
+  },
+  "source_sha256": "3f5e3fc55043103ab0bcf8144085a936e4374e69d54f3bf83e0c8f5aa7a1987e",
+  "stage": "semantic-dns01-incomplete-checkpoint",
+  "summary": {
+    "bytes": 3842,
+    "path": "verification/windows-2026-10-22/lpac-semantic-dns-local-01-summary.json",
+    "sha256": "e1182cb1490175001647e51e6d1ce0f78ba99c9caea71a4ca78c3aa95c9c4bf7"
+  }
+}

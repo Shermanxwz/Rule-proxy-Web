@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "experiment": "N0a-runner-capture",
+  "run_id": 39590250893,
+  "native_job_id": 119189549259,
+  "head": "00284f60ececc8a9ea4529c92c1216e11c0d6231",
+  "workflow_conclusion": "failure",
+  "workflow_failure_interpretation": "unchanged strict Stage0 native_identity capabilities_empty requirement",
+  "reports": {
+    "stage0": {
+      "file": "n0a-capture-01-stage0.json",
+      "sha256": "abc08a5eb9721788a64c857183c01036525d20e635f8e6c291a773ec0902a4d0"
+    },
+    "connect": {
+      "file": "n0a-capture-01-connect.json",
+      "sha256": "91310f7e381308c5e962f2eb558a6341129dc261ebef80df4c3660aa1c85523b"
+    },
+    "capture": {
+      "file": "n0a-capture-01-capture.json",
+      "sha256": "56f9232d227534b16f998b3e3637f539d8a8a33aba4f5c4fba82e4aab3c40164"
+    }
+  },
+  "artifact_zip_sha256": {
+    "stage0": "0390b2ff1ce20d01473848456499c21d7ab2cc30eaa4e916dd6f6ffad69f9563",
+    "connect": "23dd8eed1ececdd6fb0bc7e9bed6148bef7cacc8e03e5f2376cab38e8299fe02",
+    "capture": "2ee44acb412473d5089f85757a6d86fe82d60267643830d468a0d9b38e33ebdf"
+  },
+  "artifact_digests_verified": true,
+  "observed": {
+    "capture_status": "no_selected_tuple_observed",
+    "records": 17694,
+    "ordinary_syn_controls": true,
+    "selected_ports_observed": 0,
+    "unknown_flow_packets": 0,
+    "capture_complete_contract": true,
+    "decoder_complete": true,
+    "payload_admitted": true,
+    "capacity_admitted": true,
+    "exact_payload_bytes_published": false,
+    "guest_explicit_denials": 3,
+    "runner_explicit_denials": 3,
+    "fresh_ordinary_controls_before_inside_after": true,
+    "guest_ordinary_frames": 42,
+    "runner_ordinary_frames": 42,
+    "contained_frames": 0,
+    "vm_destroyed": true,
+    "qemu_exit_code": 0,
+    "tpm_exit_code": 0,
+    "owned_work_removed": true
+  },
+  "limits": {
+    "scope": "runner_ipv4_tcp_tuple",
+    "actor_attribution_established": false,
+    "loopback_packet_capture_tested": false,
+    "dns_udp_ipv6_proxy_child_tested": false,
+    "checksums_validated": false,
+    "qpc_to_pcap_timestamp_mapping": false,
+    "source_report_binding": "ordinary_controller_attested",
+    "raw_native_records_independently_reconstructed": false,
+    "psec_cleanup_independently_verified": false,
+    "strict_stage0_passed": false,
+    "product_acceptance": false,
+    "linux_equivalence": false,
+    "exploratory_below_support_floor": true
+  },
+  "interpretation": [
+    "Reviewed controller validated all fresh native/connect/flow bindings and complete ordinary SYN witnesses; closed reports are controller attestations, not independent reconstruction from raw native data.",
+    "Selected runner TCP tuples were not observed in the qualified capture. This is not a claim about every protocol, target, unbound socket, loopback packet path or all egress.",
+    "Actor/source profile remained AgenticAppContainer-only enabled0x4 versus empty ordinary source; old empty-capability Stage0 failure is preserved.",
+    "Capture lifecycle completeness is validated by reviewed source contract; individual raw lifecycle/PCAP/private-bundle bytes are not published.",
+    "One authorized run; no rerun was launched. All owned-resource cleanup and work removal confirmed."
+  ]
+}

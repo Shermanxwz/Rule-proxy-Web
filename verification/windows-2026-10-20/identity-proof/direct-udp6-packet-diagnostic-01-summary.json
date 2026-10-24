@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "experiment": "UDP6 closed capture and decoder diagnostics short validation",
+  "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39704455621",
+  "head": "c2db6849044eaa37bedc5216a5a7acec5ac8fde9",
+  "freeze_sha256": "664b8e077aed3e418298af4269319bc944232587ae595b18f8f2ee0421e55710",
+  "result_sha256": "a416f0d73650a10d87acb3257649b7c5fbba82eb482f57948e3e80ed58ff62a7",
+  "status": "Linux and Windows short gates passed; no new guest runtime",
+  "observations": [
+    "Each platform ran 726 required tests with zero skips. Added tests distinguish three existing truncation branches, sparse opaque-header detail and exact omission totals, unavailable diagnostics, retained positive observations, strict capture snapshot types and unchanged rejection predicates. These are synthetic parser/projection tests, not observations of runtime03 packet bytes.",
+    "The packet diagnostic internally retains 256 protocol-enum counters and publicly lists at most 16 positive entries in enum order, plus omitted category/event totals and detail_complete. It never changes admission or removes opaque/truncated failures. Capture diagnostics project only existing production-owned snapshot counts and finalization/exit/closure flags. Unknown or malformed input remains null.",
+    "A dense public counter array failed the real pretty-print size check. The approved sparse representation yields a conservative host-nested packet projection ceiling of 3855 bytes including newline. Full host-artifact independent-field ceiling is measured as 9165 bytes, not a historical writer cap. Guest result4096, private body65536 and native report32768 limits remain unchanged.",
+    "Actual hosted TEST_ONLY owned IPv6 loopback mechanics verified 45 ordinary/fixture-phase nonce echoes (1 before,40 sample,3 fixture-contained,1 after). The separate wrong-echo case locally accepted one send and rejected the returned wrong payload while the receiver verified and returned one frame. All seven held child exits/handles, two receiver sockets/threads and work cleanup completed without kills. Fixture-contained is not AppContainer/PSEC execution.",
+    "Both platforms ran 56 real inert Bash argv cases:6 zero exits and50 expected nonzero refusals, all direct exits/root cleanup confirmed without kill/read error. Descendants were not independently observed. Windows isolated clean/poisoned import environments verified production artifacts without executing them in that verifier; the separate existing hosted harness executes production invalid CLI only, not a valid production network command.",
+    "Actual PowerShell checks78/48/60/57 passed with stated process/transport mocks. Six payload modes10/14/15/17/22/17,12 negative replacements and66 ZIP checks passed using inert artifact boundaries, not deployable guest payloads. Linux paused owned-QEMU mapped-backing-file and separate local-package integrity admission/pre-stop/close and cleanup passed; resident-page/source-equivalence and guest-network claims remain false.",
+    "The earlier capture-finish correction is unchanged from its independently green108-test and actual paused-QEMU lifecycle gate. This short run adds no capture-window, capacity, network, identity, policy, attempt or deadline change. The path-triggered direct runtime workflow was skipped."
+  ],
+  "limits": [
+    "Runtime03 remains inconclusive due incomplete capture, overflow, opaque protocol and truncation; its deleted raw PCAP/body cannot be reconstructed. New synthetic branch diagnostics cannot identify that old run retrospectively.",
+    "The 64 MiB capture retention limit is unchanged and overflow is not fixed by this diagnostic. A future separately authorized instrumented job may still overflow. It can distinguish new observed branch categories and counts, not guarantee complete capture or isolation.",
+    "No Windows guest VM, production valid network CLI, new network configuration, DNS/proxy/descendant assay or automatic repeat ran. Any further guest evidence collection requires separate approval and a bounded causal question, not repeated attempts to obtain green."
+  ]
+}

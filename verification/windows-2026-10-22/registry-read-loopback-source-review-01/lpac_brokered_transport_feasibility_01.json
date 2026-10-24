@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "stage": "primary-source-lpac-brokered-transport-feasibility",
+  "decision": "Prefer a cooperative IPC broker that retains all raw sockets. A duplicated connected socket is a possible mechanics experiment, not a proven immutable-destination or all-network confinement primitive.",
+  "current_observation_boundary": {
+    "root_actual_receipt": "registry-read-loopback-actual-01-independent-review.json",
+    "root_actual_receipt_bytes": 42527,
+    "root_actual_receipt_sha256": "7b1606aa434d5da2d78836dce65541b566e41571efc63539bfe44b7c43332e5f",
+    "root_reported_observation": "Held registryRead-only semantic LPAC passed Winsock startup, then its tested socket creation returned 10013 before connect or send. Frontend listening and ordinary before/after controls passed; cleanup was confirmed.",
+    "not_proven": [
+      "The precise AFD/device/provider access check that caused 10013.",
+      "All socket APIs, families, protocols, services or DNS brokers are denied.",
+      "A duplicated socket can be imported or used by this exact LPAC configuration.",
+      "A socket shared with LPAC cannot be disconnected and reused for another destination."
+    ]
+  },
+  "primary_sources": [
+    {
+      "url": "https://learn.microsoft.com/en-us/windows/win32/api/winsock2/nf-winsock2-wsaduplicatesocketa",
+      "supports": "The source creates target-PID-specific protocol information, transfers it over IPC, and the cooperating target calls WSASocket once to obtain a descriptor. Descriptors share socket state; socket use is coordinated by the applications. The underlying socket persists until the last descriptor closes.",
+      "does_not_support": "No promise of LPAC import success, immutable destination, send/receive-only access rights or denial of other network APIs."
+    },
+    {
+      "url": "https://learn.microsoft.com/en-us/windows/win32/api/handleapi/nf-handleapi-duplicatehandle",
+      "supports": "Microsoft advises against directly duplicating socket handles: Winsock recognition and internal reference counting can be wrong. WSADuplicateSocket is the documented socket-specific route.",
+      "does_not_support": "Do not turn a generic reduced-access DuplicateHandle operation into a claimed safe socket capability."
+    },
+    {
+      "url": "https://learn.microsoft.com/en-us/previous-versions/windows/desktop/legacy/ms737757(v=vs.85)",
+      "supports": "DisconnectEx with TF_REUSE_SOCKET can prepare an existing connection-oriented socket for reuse through AcceptEx or ConnectEx.",
+      "does_not_support": "The primary contract does not establish whether LPAC reauthorization would block that reuse in this configuration. Its existence is enough to reject an unqualified immutable-destination claim."
+    },
+    {
+      "url": "https://learn.microsoft.com/en-us/windows/win32/api/mswsock/nc-mswsock-lpfn_connectex",
+      "supports": "ConnectEx takes a caller-supplied remote address on a bound, unconnected socket. A connected socket is rejected, but the reuse transition is separately documented.",
+      "does_not_support": "A successful original TCP connection alone does not permanently bind the authority of a raw socket descriptor."
+    },
+    {
+      "url": "https://learn.microsoft.com/en-us/windows/win32/api/namedpipeapi/nf-namedpipeapi-createpipe",
+      "supports": "Anonymous pipes expose read and write handles for ReadFile/WriteFile; no Winsock startup or socket function is involved. Explicit security and inheritance settings are available.",
+      "does_not_support": "This general pipe contract does not itself prove a particular LPAC inheritance, integrity, ACL or cleanup arrangement; those need the existing held-owner checks and a separate finite run."
+    },
+    {
+      "url": "https://learn.microsoft.com/en-us/windows/win32/ipc/named-pipe-security-and-access-rights",
+      "supports": "Named-pipe client and server opens are checked against a security descriptor. Default permissions are too broad to be used as an application-specific ownership proof.",
+      "does_not_support": "Pipe names, a nonce or a shared package SID alone do not prove an adversarial authentication/tamper boundary."
+    },
+    {
+      "url": "https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-updateprocthreadattribute",
+      "supports": "HANDLE_LIST permits an explicit child inheritance list; those listed handles must be inheritable and CreateProcess must request inheritance.",
+      "does_not_support": "Changing the existing no-inheritance launcher requires a new closed seam, not silent fallback to general inheritance."
+    },
+    {
+      "url": "https://learn.microsoft.com/en-us/windows/win32/secauthz/appcontainer-isolation",
+      "supports": "AppContainer follows resource grants and capability-based isolation.",
+      "does_not_support": "A finite socket-creation denial does not establish that every allocated handle, service or broker route is unavailable."
+    }
+  ],
+  "recommended_next_narrow_scope": {
+    "suggested_scope": "one-local-semantic-lpac-held-ipc-relay-origin-v1",
+    "purpose": "Prove an explicitly cooperative LPAC request/sink can reach one owned endpoint through a source-bound ordinary network broker while LPAC receives no SOCKET or WSAPROTOCOL_INFO.",
+    "selected": "Predeclare exact empty TokenCapabilities for a native IPC-only semantic LPAC; no registryRead or network-capability fallback. Require exact expected SID/user/session/low IL/primary and the real four-descriptor matrix before resume. Unexpected startup/resource requirements stop this cell for separate review.",
+    "transport": "Reuse the existing held, source-bound pipe ownership discipline. Transfer only the declared read/write IPC endpoints, never socket descriptors, process handles, token handles, arbitrary paths or a generic broker-connect command.",
+    "broker": "Retains all sockets. Accepts only the predeclared bounded request/stream contract, validates target policy in its own trusted process, and owns the actual fixed origin/proxy connection. No request-provided arbitrary destination, DNS, redirect, CONNECT or reconnect authority in the first mechanism cell.",
+    "positive_control": "Independent ordinary before/after health against the same held origin and the same bounded response protocol. LPAC request receipt, broker socket tuple/held generation and origin response/EOF are independently bound.",
+    "supervision": "Keep original root120/worker115 and finite phase deadlines, exact inner/outer Jobs, source/device/artifact/plan pins, original response/EOF/nonce checks, once resources and conservative unknown cleanup. No global policy changes.",
+    "reporting": "Call it cooperative IPC transport or a brokered client adapter. Keep proxy/product/Linux-equivalence, hostile same-SID trust, DNS/IPv6/UDP/service-broker and all-network-denial qualifications false. Existing zero-cap and registryRead socket observations remain immutable."
+  },
+  "why_not_a_drop_in_linux_equivalent": [
+    "An arbitrary application expecting to create a TCP connection to an HTTP proxy cannot use a pipe handle as its socket without an application-specific transport adapter or another independently designed integration.",
+    "A cooperative broker can constrain operations it receives; it does not by itself force every possible API in a compromised selected process through that broker.",
+    "Remaining service/DNS/broker paths, IPC access outside the declared channel and process-tamper boundaries must be evaluated separately. API hooks alone are compatibility code, not kernel enforcement.",
+    "A successful finite request through a broker is progress toward a chosen application integration, not proof of transparent per-process network-namespace behavior."
+  ],
+  "optional_separate_socket_mechanics_only": {
+    "supported_design": "If a future cooperating client genuinely needs a SOCKET, an independent target-held WSADuplicateSocket/one-use WSAPROTOCOL_INFO/WSASocket test is the documented mechanism to investigate, with exact target PID/generation and no generic DuplicateHandle shortcut.",
+    "mandatory_limits": "LPAC import may fail with 10013; stop without capability fallback. Binding a descriptor to a current peer is an observation, not immutable authority. Independent negative reuse/new-socket and service tests would still be required; their outcome cannot be assumed from the source broker's identity.",
+    "not_recommended_as_first_isolation_implementation": true
+  },
+  "actions": {
+    "implementation_created": false,
+    "driver_or_actor_executed": false,
+    "socket_or_network_api_invoked": false,
+    "token_profile_or_acl_created_or_changed": false,
+    "main_or_old_evidence_modified": false,
+    "research_only": true
+  }
+}

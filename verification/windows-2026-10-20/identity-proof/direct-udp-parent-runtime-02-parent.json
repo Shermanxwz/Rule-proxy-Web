@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "experiment": "N0a-UDP-Parent",
+  "receipt_verified": false,
+  "reason": "report_absent",
+  "result": {
+    "all_selected_sendto_invoked": false,
+    "ordinary_controls_verified": false,
+    "explicit_send_denial": false,
+    "selected_send_accepted_count": 0,
+    "selected_echo_observed": false,
+    "sockets_cleanup_confirmed": false,
+    "profile_flags_verified": false,
+    "runtime_acceptance": false,
+    "schema_version": 1,
+    "experiment": "N0a-UDP-Parent",
+    "chain_verified": {
+      "before": false,
+      "sample": false,
+      "contained": false,
+      "after": false
+    },
+    "profile_verified": {
+      "before": false,
+      "sample": false,
+      "contained": false,
+      "after": false
+    },
+    "provenance_verified": {
+      "before": false,
+      "sample": false,
+      "contained": false,
+      "after": false
+    },
+    "descendant_cleanup_confirmed": false,
+    "stage0_passed": false,
+    "product_acceptance": false,
+    "privacy_qualified": false,
+    "psec_cleanup_independently_verified": false
+  },
+  "execution": {
+    "phase": "not_started",
+    "failed": true,
+    "cleanup_confirmed": false
+  },
+  "launcher": {
+    "phase": "not_started",
+    "failure": "report_absent",
+    "python_exit_code": null,
+    "process_exit_confirmed": null,
+    "timed_out": false,
+    "budget_exhausted": false
+  },
+  "flow_transport_state": "not_observed",
+  "original_stage0_receipt_verified": false,
+  "host_receiver": null,
+  "vm_destroyed": true,
+  "host_wait_state": "not_started",
+  "packet": {
+    "schema_version": 1,
+    "scope": "runner_ipv4_udp_payload",
+    "status": "inconclusive",
+    "packet_egress_tested": false,
+    "packet": null,
+    "reason": "unavailable",
+    "capture_read_cleanup_confirmed": true,
+    "selected_payload_observed": null,
+    "actor_attribution_established": false,
+    "isolation_acceptance": false,
+    "host_prerequisites_verified": false,
+    "receiver_selected_observed": null
+  }
+}

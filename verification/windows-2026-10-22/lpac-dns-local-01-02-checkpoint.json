@@ -1,0 +1,91 @@
+{
+  "all_owned_profile_and_ace_residue_recovered": true,
+  "default_resolver_tested": false,
+  "dns_isolation_qualified": false,
+  "document": {
+    "bytes": 8521,
+    "path": "docs/validation/2026-10-23-lpac-dns-mechanism.md",
+    "sha256": "c304866dc0f5b14e21c02ffd6704ee67a1e385cb16059d407240f4096045541a"
+  },
+  "failure": "setup",
+  "g_psec_tested": false,
+  "global_snapshot_byte_equal_initial": true,
+  "global_snapshot_objects": [
+    "firewall_profiles",
+    "dns",
+    "routes",
+    "user_proxy"
+  ],
+  "independent_recovery": {
+    "bytes": 1173,
+    "passed": true,
+    "path": "verification/windows-2026-10-22/lpac-dns-local-02-recovery-public.json",
+    "sha256": "a42ef58a1c3b6b82b68e69d69e61a47d78077f2e7abd5f06b7f16a5524605342"
+  },
+  "inventory_executed": false,
+  "nrpt_in_snapshot": false,
+  "original_cleanup_uncertainty_preserved": true,
+  "original_public": {
+    "bytes": 1345,
+    "path": "verification/windows-2026-10-22/lpac-dns-local-02-public.json",
+    "sha256": "648a28df4868236ecc179b1a410b8c8539290577bc9677e0aa78f1cb7abe3b91"
+  },
+  "original_recovery_required_preserved": true,
+  "original_tool_count": 4,
+  "original_tool_natural_exit_codes": [
+    0,
+    0,
+    0,
+    0
+  ],
+  "product_acceptance": false,
+  "proxy_tested": false,
+  "query_go_published": false,
+  "receiver_started": false,
+  "scope": "standalone-lpac-standard53-dns-mechanism-v1",
+  "selected_dns_api_called": false,
+  "selected_identity_admitted": false,
+  "selected_process_returned": false,
+  "selected_thread_resumed": false,
+  "source_automatic_ci": {
+    "compiled_base_identity_actor_only": true,
+    "compiled_proxy_c07_actor": false,
+    "conclusion": "success",
+    "decoded_log": {
+      "bytes": 176489,
+      "kept_in_work": true,
+      "raw_github_log_zip": false,
+      "sha256": "f95a9cefb1debd2297e7717ee8d3d7f5fbbd4fdabd89375a02bea76102770663"
+    },
+    "dns_isolation_qualified": false,
+    "elapsed_seconds": 36.71,
+    "errors": 0,
+    "event": "push",
+    "failures": 0,
+    "gated_runtime_step_numbers_skipped": [
+      5,
+      6,
+      7,
+      8,
+      9
+    ],
+    "job_id": 120093399204,
+    "lpac_or_dns_runtime_attempted": false,
+    "native_actor_executed": false,
+    "product_acceptance": false,
+    "run_attempt": 1,
+    "run_id": 39855754660,
+    "schema_version": 1,
+    "skips": 0,
+    "source_commit": "524638057f1b60a3292964162fe70305fbea8e3e",
+    "stage": "read-only-automatic-lpac-ordinary-fix-source-ci-review",
+    "status": "completed",
+    "tests_run": 744,
+    "url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39855754660",
+    "workflow_dispatched": false,
+    "workflow_rerun": false
+  },
+  "source_commit": "524638057f1b60a3292964162fe70305fbea8e3e",
+  "source_sha256": "96e1b3c439c7b33c7b01820f65c411558b1e5685b994cc09c2cf174b14e483d1",
+  "status": "inconclusive"
+}

@@ -1,0 +1,212 @@
+{
+  "ac_accesscheck_qualified": true,
+  "ac_actual_call_count": 4,
+  "ac_observed_matrix": [
+    3,
+    0,
+    1,
+    2
+  ],
+  "actor_held_exit_codes": [
+    1,
+    1,
+    1
+  ],
+  "actor_never_resumed": true,
+  "all_attributes_ignored_proven": false,
+  "all_recorded_post_jobs_verified": true,
+  "all_three_primary_admitted": true,
+  "assignments_timely": true,
+  "atomic_inner_creation_proven": false,
+  "author_false02_pure": {
+    "command": [
+      "python.exe",
+      "-I",
+      "-S",
+      "-B",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "candidate/tests",
+      "-p",
+      "test_windows_identity_psec_lpac_matchedcaps_bridge*.py",
+      "-v"
+    ],
+    "exit_code": 0,
+    "log": {
+      "bytes": 6829,
+      "name": "psec-lpac-matchedcaps-python-pure-02.log",
+      "sha256": "f07dc8979d255359a9521867ee836a6e6f3b2a6b748ce313f6535e1395e3b7ff"
+    },
+    "seconds": "11.789",
+    "skip_count": 0,
+    "test_method_counts": {
+      "tests/test_windows_identity_psec_lpac_matchedcaps_bridge.py": 13,
+      "tests/test_windows_identity_psec_lpac_matchedcaps_bridge_local.py": 17
+    },
+    "tests": 30
+  },
+  "bootstrap_source": "External held primary token and physical generation/Job/PI-bound receipt",
+  "broker_cancellation_proven": false,
+  "broker_outcome_unknown": false,
+  "caller_intent_count": 10,
+  "compiled_checks_not_new_tests": true,
+  "constructor_policy": "bootstrap-held-primary-matched-security-capabilities-aap-only-v1",
+  "continuous_outer_supervision_proven": false,
+  "creation_transfer_crash_gap_resolved": false,
+  "dns_tested": false,
+  "document": {
+    "bytes": 8942,
+    "path": "docs/validation/2026-10-23-psec-lpac-matchedcaps-identity-01.md",
+    "sha256": "fff4cfc5268ee81a74e2e97ce361bd56cc20ce99fd9266c802abe3b032f36d14"
+  },
+  "evidence_index": {
+    "bytes": 4185,
+    "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-local-01-evidence-index.json",
+    "sha256": "b262ea7588476c818ae568d6bd7964cceabe4d45332ca09c50ee0d3c6f8b4f9c"
+  },
+  "existing_g_psec_api_dns_leak_remains_true": true,
+  "external_environment_absence_verified": false,
+  "failure": "accesscheck",
+  "global_before_after_byte_equal": true,
+  "global_snapshot_bytes": 7378,
+  "global_snapshot_sha256": "f05d91ee76ee8a97ae5ab3bfa092167a8ee560c083255f142e6c453f2edf7ab3",
+  "independent_deny_all_scope_not_proxy_policy_comparison": true,
+  "known_caller_resource_cleanup_confirmed": true,
+  "linux_equivalence_proven": false,
+  "lpac_accesscheck_qualified": false,
+  "lpac_actual_call_count": 1,
+  "lpac_complete_observed_matrix": null,
+  "lpac_failure": "mask",
+  "lpac_first_call": {
+    "access_status": true,
+    "api_success": true,
+    "expected_granted_access": 2,
+    "granted_access": 3,
+    "label": "combined",
+    "privilege_count": 0,
+    "win32_error": null
+  },
+  "lpac_observed_access_prefix": [
+    3
+  ],
+  "lpac_semantic_identity_qualified": false,
+  "lpac_unattempted_labels": [
+    "world",
+    "aap",
+    "arap"
+  ],
+  "model2_policy_compared": false,
+  "module_unbind_confirmed": true,
+  "native_compiled_checks": 254,
+  "native_return_count": 7,
+  "network_tested": false,
+  "nrpt_in_snapshot": false,
+  "observation_complete": false,
+  "old_postassign_checkpoint": {
+    "bytes": 6192,
+    "path": "verification/windows-2026-10-22/psec-lpac-postassign-identity-local-01-checkpoint.json",
+    "sha256": "a4d30c0d4a203245555ed89f911e8d604b17ef37ab466c8a04141e00413e688b"
+  },
+  "old_scope_results_not_rewritten": true,
+  "once_assignment_verified_roles": 3,
+  "original_assignment_bools": [
+    1,
+    1,
+    1
+  ],
+  "original_assignment_win32_errors": [
+    0,
+    0,
+    0
+  ],
+  "original_atomic01_broker_unknown_preserved": true,
+  "original_atomic01_recovery_required_preserved": true,
+  "original_public": {
+    "bytes": 2658,
+    "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-local-01-public.json",
+    "sha256": "6acc10b614f5c35c56ed2adf4e648a7b0f4ea3a74ddbdf3f3e7fb595c9a103b4"
+  },
+  "post_assignment_counts": {
+    "ac": 7,
+    "bootstrap": 11,
+    "lpac": 6
+  },
+  "post_assignment_exact_job_count": 24,
+  "pretransfer_and_assignment_physical_receipt_count": 9,
+  "product_acceptance": false,
+  "proxy_tested": false,
+  "psec_network_preservation_proven": false,
+  "reader01_schema_mismatch_preserved": true,
+  "reader02_schema_repair_actual_rerun": false,
+  "reason_for_mask_failure_determined": false,
+  "recovery_required": false,
+  "roles": [
+    "bootstrap",
+    "ac",
+    "lpac"
+  ],
+  "root_integrated_pure": {
+    "errors": 0,
+    "existing_symlink_skips": true,
+    "failures": 0,
+    "linux_executed": false,
+    "log_bytes": 179734,
+    "log_sha256": "a573b78178d9afd550026a9a85db817d9f7781583568d8fac2e3f2b19e06af3c",
+    "seconds": 83.64,
+    "skips": 2,
+    "tests": 955
+  },
+  "same_measured_security_capabilities_input": true,
+  "schema_version": 1,
+  "scope": "one-local-cpse-deny-all-outer-guarded-matched-secaps-identity-v1",
+  "security_capabilities_abi_bytes": 64,
+  "security_capabilities_physical_receipt_count": 1,
+  "security_capabilities_verified": true,
+  "snapshot_objects": [
+    "firewall_profiles",
+    "dns",
+    "routes",
+    "user_proxy"
+  ],
+  "source_automatic_ci": {
+    "actual_runtime_qualification": false,
+    "compile_and_pure_only": true,
+    "conclusion": "success",
+    "decoded_log_original": {
+      "bytes": 228205,
+      "sha256": "5f3f4413c8c45bbdaea90becfe18024ef6ddf58db07b090474ed48ea91d60539"
+    },
+    "decoded_text_encoding": "UTF-8 BOM / CRLF",
+    "dispatch_or_rerun": false,
+    "errors": 0,
+    "failures": 0,
+    "gated_runtime_steps_5_to_9": "skipped",
+    "job_id": 120193628680,
+    "raw_zip": false,
+    "run_id": 39885821454,
+    "runtime_skip_basis": "Root separately inspected GitHub job metadata; gated steps have no execution log.",
+    "seconds": 76.405,
+    "skips": 0,
+    "source_commit": "ec45dffb66cc88bb48578101afb93ce7044a6521",
+    "status": "completed",
+    "tests": 955,
+    "url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39885821454"
+  },
+  "source_commit": "ec45dffb66cc88bb48578101afb93ce7044a6521",
+  "source_review_index": {
+    "bytes": 52915,
+    "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-source-review-01/index.json",
+    "sha256": "671b12df40cb5c26cbd42406a5b4f993c20dcbdef83e9d73645f9337a826a3be"
+  },
+  "source_sha256": "f77fdff1de75ba53d6dca04d65659deb43fd6bdc91c2feaf1c6a03ade7c008db",
+  "stage": "matchedcaps01-three-held-partial-lpac-mask-checkpoint",
+  "standalone_semantic_dns02_api_query5_5_preserved": true,
+  "status": "inconclusive",
+  "unattempted_calls_not_filled": true,
+  "void_close_invoked_once": true,
+  "void_close_returned_normally": true,
+  "worker_bound": true,
+  "worker_exit_code": 0
+}

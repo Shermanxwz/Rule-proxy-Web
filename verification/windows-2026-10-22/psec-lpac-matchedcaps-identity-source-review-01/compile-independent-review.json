@@ -1,0 +1,307 @@
+{
+  "baseline_commit": "953de0a2374aff89959957da4b5641ce5aaff8a1",
+  "dependency_count": 31,
+  "execution": {
+    "CPSE_called": false,
+    "DLL_loaded": false,
+    "actor_executed": false,
+    "compiler_repeated": false,
+    "main_modified": false,
+    "native_API_called": false,
+    "network_executed": false,
+    "original_static_reader_repeated": false
+  },
+  "limits": "Compile/PE/file-only evidence only. No three-arm semantic success, environment absence, CPSE policy preservation, DNS/proxy qualification or product acceptance follows.",
+  "main_new_eight": {
+    ".github/native/windows_psec_lpac_matchedcaps_bridge.cpp": {
+      "bytes": 16460,
+      "git_blob": "8d0fb5840c31e3fa6e72851d98b1d5fcc7c7e399",
+      "sha256": "5e3e83c19788136404c5d412315aa08502a2ffc0c0cb41235ba4b20159deb497"
+    },
+    ".github/native/windows_psec_lpac_matchedcaps_bridge.hpp": {
+      "bytes": 4483,
+      "git_blob": "4c1a8aa94b89e70ec4e067d93ca90490fadc28b3",
+      "sha256": "b088676f846d3690f58b01afaf06df41e2cedbae10f140cd404cce8a0d814cd1"
+    },
+    ".github/native/windows_psec_lpac_matchedcaps_bridge_core.hpp": {
+      "bytes": 8144,
+      "git_blob": "a797df830ab6ea6faf71721d5907ae4068d5d65e",
+      "sha256": "8d06377a923bede038d2ff19e206da695b7a5d918c610a12a9c1a5dacde2820d"
+    },
+    ".github/windows_identity_psec_lpac_matchedcaps_bridge.py": {
+      "bytes": 102221,
+      "sha256": "36c0f7d6b289ba26ee469a10a985ed27c376cd9ea2104cff8f78b1065a28d178"
+    },
+    ".github/windows_identity_psec_lpac_matchedcaps_bridge_local.py": {
+      "bytes": 20805,
+      "sha256": "d4fcb5172f21496e28d65843f0f045be9786eecb220b8ddcb7d0d0696dd68c98"
+    },
+    "tests/test_windows_identity_psec_lpac_matchedcaps_bridge.py": {
+      "bytes": 18370,
+      "sha256": "40b2a37d5cdfbc0c1c8a974d4a9688f3937ebfff5b25da178b8e196616e5babb"
+    },
+    "tests/test_windows_identity_psec_lpac_matchedcaps_bridge_local.py": {
+      "bytes": 24258,
+      "sha256": "6258f8b17e8b3f44b7b7c9354badafcd68947b269ec0d74b506c61a3b37aae18"
+    },
+    "tests/test_windows_identity_psec_lpac_matchedcaps_native.py": {
+      "bytes": 10464,
+      "git_blob": "fadcec0b48fee8b0a61bc2cc50a108daf87635c2",
+      "sha256": "118bcae9cd00ed200b3dab843cf98b633cf893a895524b86f068502917c0c1fa"
+    }
+  },
+  "native_inputs": {
+    ".github/native/windows_psec_lpac_bridge_spec.hpp": "44eff1d580c79f1bffa081b2a35e9b29cdbd1e077339508a91fa33e9353b1991",
+    ".github/native/windows_psec_lpac_matchedcaps_bridge.cpp": "5e3e83c19788136404c5d412315aa08502a2ffc0c0cb41235ba4b20159deb497",
+    ".github/native/windows_psec_lpac_matchedcaps_bridge.hpp": "b088676f846d3690f58b01afaf06df41e2cedbae10f140cd404cce8a0d814cd1",
+    ".github/native/windows_psec_lpac_matchedcaps_bridge_core.hpp": "8d06377a923bede038d2ff19e206da695b7a5d918c610a12a9c1a5dacde2820d",
+    "generated/ProcessSecurityEnvironment_generated.h": "8bc22a17bf176be93817d8bda13058d7077386b72775643150a8f1a3e233eaae",
+    "vendor/flatbuffers/LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+    "vendor/flatbuffers/include/flatbuffers/allocator.h": "9ac3f3659ff1e5ff1b2be6166f08490d16f67b1e87d2e70ef87c3fd5d2689caf",
+    "vendor/flatbuffers/include/flatbuffers/array.h": "52ce6c281fb542bfceaf704a0ab51383afff34bd89585980dc6cc086dece807f",
+    "vendor/flatbuffers/include/flatbuffers/base.h": "1201c589bf034b5c0207a84bad1e025cfb8208f5e42133c5b0e2aa8c33763679",
+    "vendor/flatbuffers/include/flatbuffers/buffer.h": "8506628aa30e1c4768079eaceb4e46292ecae82b6adf6513302d3b5316547f6c",
+    "vendor/flatbuffers/include/flatbuffers/buffer_ref.h": "db4c627e3bfb728273ea36e65fa0f97c70c9911abc8799797893f986f0c68286",
+    "vendor/flatbuffers/include/flatbuffers/code_generator.h": "1228ff55171cbc68d78396d1219fa4ec9ee08a55b5982671dff955c5c2ee00d9",
+    "vendor/flatbuffers/include/flatbuffers/code_generators.h": "822bad303d1c40038c6df8b35493fabd94092360c1da0ba136f61218a11a5fcf",
+    "vendor/flatbuffers/include/flatbuffers/default_allocator.h": "9532a571b57f5f0c1763fe6f6f90121b46ce20a8f3d6b53b22645bb8f2716c7f",
+    "vendor/flatbuffers/include/flatbuffers/detached_buffer.h": "d34758c25713bebc10e31f4a591d38485413f16942b3650245b3371a0cdcd4cf",
+    "vendor/flatbuffers/include/flatbuffers/file_manager.h": "76c1668378943972090d48785e39a20108203d975c3c9575c90aa03b72c33c7f",
+    "vendor/flatbuffers/include/flatbuffers/flatbuffer_builder.h": "d44711560c9437febc2b4ccff4845a574f0b6fff29f9e9cb773b40a108d8859f",
+    "vendor/flatbuffers/include/flatbuffers/flatbuffers.h": "0d0edc1a6c9dd1ccedc1c0ac2d144b7c04e829f76bb99ab007ab5631ffa96ecd",
+    "vendor/flatbuffers/include/flatbuffers/flatc.h": "ee30bd369ec43796741106d0f6eeaa9061c92cb7a9c02ea0d4f0d3b0fe10b270",
+    "vendor/flatbuffers/include/flatbuffers/flex_flat_util.h": "f39974e56fafd17eeab1dcdf632fc773777f0062cb226d7c8f303d5477e7231f",
+    "vendor/flatbuffers/include/flatbuffers/flexbuffers.h": "0b4285d26ef7ed519b5abea4e75c7dd14a43741ef4824479e6a2f9c3d9372a31",
+    "vendor/flatbuffers/include/flatbuffers/grpc.h": "15f2d761cf0d23b8564b4eac96a6fbc3ef73a449b1c799b493b305aa7210a3a9",
+    "vendor/flatbuffers/include/flatbuffers/hash.h": "f497d227cf4005461df95eb982e86dbfcc501600184abe9c6133d254a7933056",
+    "vendor/flatbuffers/include/flatbuffers/idl.h": "06631129f14f1f061ca8835063ff48022a4bf27f063b4ce32912ffac62812b58",
+    "vendor/flatbuffers/include/flatbuffers/minireflect.h": "4b38cf7fc88c476801ce483b0b930f290fcadb5d68e28dfa770e5b26e591f2f8",
+    "vendor/flatbuffers/include/flatbuffers/reflection.h": "90ef08e1d4f7cf32c6f6fcb3206988d6c3b211362d1287322944ae7a234f95f8",
+    "vendor/flatbuffers/include/flatbuffers/reflection_generated.h": "df4b56ae8849370aef16688f6851e8c3b440aff3f9add6db972b9785042f0eca",
+    "vendor/flatbuffers/include/flatbuffers/registry.h": "7ce13bf8f4a1884633fd35eb747b9b97c50508d5305868ea4cde677d3580e02b",
+    "vendor/flatbuffers/include/flatbuffers/stl_emulation.h": "f39f906a2f361fee174d5c8749bf631fd56138351e5be8ff63e2d5f1f57613a7",
+    "vendor/flatbuffers/include/flatbuffers/string.h": "cc2f7d40f2d5613a0932e63d686aea68cde79f8eb4370476361b219b979f5a53",
+    "vendor/flatbuffers/include/flatbuffers/struct.h": "7efdabf43a53fd2a96382b08745c58832e80be9606c1e8c0b62849e56c5f8e9f",
+    "vendor/flatbuffers/include/flatbuffers/table.h": "021f320da27aa7c073950235066b9a6bfc81883f3f171a3eae4ac28f129dd18b",
+    "vendor/flatbuffers/include/flatbuffers/util.h": "2727464874a76f875aa2e0eea0d4a960fdcaa061a5a4f1e9af6f9843e8fac566",
+    "vendor/flatbuffers/include/flatbuffers/vector.h": "043136dc408e322c8b0d2968c139dc7095005711c7ca9bf47a68f9c7c909e50f",
+    "vendor/flatbuffers/include/flatbuffers/vector_downward.h": "7f687fdb661f4c1be09223d6e416e042b139ff1748b5a215cb9864c56f9f3be2",
+    "vendor/flatbuffers/include/flatbuffers/verifier.h": "d7fbf583019088983af684e7d00cbfda23b759093c6501f850c1c33400559b5a",
+    "vendor/windows-sdk/ProcessSecurityEnvironment.fbs": "736cacef37a6c97a0cb97c7132da462a3b51811fca8f1e4076cac51085dfa516"
+  },
+  "observations": {
+    "Context512_compile_gate_passed": true,
+    "Internal_static_assert_source_in_successful_compile": true,
+    "independent_PE": {
+      "ABI_machine_code": "b803000000c3",
+      "exports": [
+        {
+          "name": "pb_abi_version",
+          "ordinal": 1,
+          "rva": 26704
+        },
+        {
+          "name": "pb_bind",
+          "ordinal": 2,
+          "rva": 26720
+        },
+        {
+          "name": "pb_build_spec",
+          "ordinal": 3,
+          "rva": 28848
+        },
+        {
+          "name": "pb_close_environment",
+          "ordinal": 4,
+          "rva": 29440
+        },
+        {
+          "name": "pb_create_environment",
+          "ordinal": 5,
+          "rva": 29904
+        },
+        {
+          "name": "pb_create_matched_child",
+          "ordinal": 6,
+          "rva": 31056
+        },
+        {
+          "name": "pb_unbind",
+          "ordinal": 7,
+          "rva": 36688
+        },
+        {
+          "name": "pb_verify_spec",
+          "ordinal": 8,
+          "rva": 37216
+        }
+      ],
+      "imports": [
+        "KERNEL32.dll"
+      ]
+    },
+    "root_full_pure": {
+      "errors": 0,
+      "failures": 0,
+      "log": {
+        "bytes": 179734,
+        "sha256": "a573b78178d9afd550026a9a85db817d9f7781583568d8fac2e3f2b19e06af3c"
+      },
+      "new_portable_SC_assertions": 100,
+      "new_portable_assertions": 254,
+      "new_portable_role_assertions": 154,
+      "note": "The root full run already executed all three new native tests; this reviewer did not repeat them.",
+      "old_permission_skips": 2,
+      "seconds": 83.64,
+      "tests": 955
+    },
+    "snapshot_before_compile": true,
+    "toolchain": {
+      "architecture": "amd64",
+      "compiler": "MSVC",
+      "compiler_version": "19.44.35229.0",
+      "flags": [
+        "/std:c++17",
+        "/EHsc",
+        "/W4",
+        "/WX",
+        "/LD",
+        "/MT",
+        "/O2",
+        "/guard:cf",
+        "/INCREMENTAL:NO",
+        "/DYNAMICBASE",
+        "/NXCOMPAT"
+      ],
+      "runtime": "MT",
+      "vc_tools_version": "14.44.35207",
+      "windows_sdk_version": "10.0.26100.0"
+    }
+  },
+  "old_Git_pins_verified": {
+    ".github/native/windows_psec_lpac_bridge.cpp": "06969090ece3d5a74b7400f9808ebd60ee9234a7eed7a852c09abaf9942cf8ab",
+    ".github/native/windows_psec_lpac_bridge.hpp": "9417a1a377464eb5f96aeb899f6defaee5d4089809888e2209c99f8ad32b2076",
+    ".github/native/windows_psec_lpac_bridge_core.hpp": "7d68fb7c6553137cbd01a4003199d96fa926ba106d605b1935a79aac1f6f5e66",
+    ".github/native/windows_psec_lpac_bridge_spec.hpp": "44eff1d580c79f1bffa081b2a35e9b29cdbd1e077339508a91fa33e9353b1991",
+    ".github/native/windows_psec_lpac_postassign_bridge.cpp": "806ead04ee3f583bac1f0d7dc72f51fa10de4634bb7cd2b597f0a3a3c8b29f36",
+    ".github/windows_identity_psec_lpac_bridge.py": "4470b0da3ab2f16265f7270f73fe9dc8bb8c186fa25c62934a320faeca7e0033",
+    ".github/windows_identity_psec_lpac_bridge_local.py": "0b67875afc0cd9a6579eb74438d87607c6282c4375cbb9261ac930d4b1d273f3",
+    ".github/windows_identity_psec_lpac_postassign_bridge.py": "af65c045b04e1651ce9443172e618231caef8dd5aba832fc3860e60bc3580f79",
+    ".github/windows_identity_psec_lpac_postassign_bridge_local.py": "7506bf5178ae697996361fd2e93c54edcd75d70de0f61c2cd21769eace7772b6",
+    ".github/windows_identity_psec_spec.py": "c35dcb755a3e01faafd6888d4de846fbf8c4fea108e0a2fc30b6a837ecfdf7c5",
+    "generated/ProcessSecurityEnvironment_generated.h": "8bc22a17bf176be93817d8bda13058d7077386b72775643150a8f1a3e233eaae",
+    "tests/test_windows_identity_psec_lpac_postassign_bridge.py": "ad0b60abc0ea6d6b52ed1b35669d6080505d6c4429608afe7d8b54efb3c123b4",
+    "tests/test_windows_identity_psec_lpac_postassign_bridge_local.py": "2a2a2c68286e22cad795e679445b1ef0b8a64118dc729133939ddb25f0ad9ad9",
+    "vendor/flatbuffers/LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+    "vendor/flatbuffers/include/flatbuffers/allocator.h": "9ac3f3659ff1e5ff1b2be6166f08490d16f67b1e87d2e70ef87c3fd5d2689caf",
+    "vendor/flatbuffers/include/flatbuffers/array.h": "52ce6c281fb542bfceaf704a0ab51383afff34bd89585980dc6cc086dece807f",
+    "vendor/flatbuffers/include/flatbuffers/base.h": "1201c589bf034b5c0207a84bad1e025cfb8208f5e42133c5b0e2aa8c33763679",
+    "vendor/flatbuffers/include/flatbuffers/buffer.h": "8506628aa30e1c4768079eaceb4e46292ecae82b6adf6513302d3b5316547f6c",
+    "vendor/flatbuffers/include/flatbuffers/buffer_ref.h": "db4c627e3bfb728273ea36e65fa0f97c70c9911abc8799797893f986f0c68286",
+    "vendor/flatbuffers/include/flatbuffers/code_generator.h": "1228ff55171cbc68d78396d1219fa4ec9ee08a55b5982671dff955c5c2ee00d9",
+    "vendor/flatbuffers/include/flatbuffers/code_generators.h": "822bad303d1c40038c6df8b35493fabd94092360c1da0ba136f61218a11a5fcf",
+    "vendor/flatbuffers/include/flatbuffers/default_allocator.h": "9532a571b57f5f0c1763fe6f6f90121b46ce20a8f3d6b53b22645bb8f2716c7f",
+    "vendor/flatbuffers/include/flatbuffers/detached_buffer.h": "d34758c25713bebc10e31f4a591d38485413f16942b3650245b3371a0cdcd4cf",
+    "vendor/flatbuffers/include/flatbuffers/file_manager.h": "76c1668378943972090d48785e39a20108203d975c3c9575c90aa03b72c33c7f",
+    "vendor/flatbuffers/include/flatbuffers/flatbuffer_builder.h": "d44711560c9437febc2b4ccff4845a574f0b6fff29f9e9cb773b40a108d8859f",
+    "vendor/flatbuffers/include/flatbuffers/flatbuffers.h": "0d0edc1a6c9dd1ccedc1c0ac2d144b7c04e829f76bb99ab007ab5631ffa96ecd",
+    "vendor/flatbuffers/include/flatbuffers/flatc.h": "ee30bd369ec43796741106d0f6eeaa9061c92cb7a9c02ea0d4f0d3b0fe10b270",
+    "vendor/flatbuffers/include/flatbuffers/flex_flat_util.h": "f39974e56fafd17eeab1dcdf632fc773777f0062cb226d7c8f303d5477e7231f",
+    "vendor/flatbuffers/include/flatbuffers/flexbuffers.h": "0b4285d26ef7ed519b5abea4e75c7dd14a43741ef4824479e6a2f9c3d9372a31",
+    "vendor/flatbuffers/include/flatbuffers/grpc.h": "15f2d761cf0d23b8564b4eac96a6fbc3ef73a449b1c799b493b305aa7210a3a9",
+    "vendor/flatbuffers/include/flatbuffers/hash.h": "f497d227cf4005461df95eb982e86dbfcc501600184abe9c6133d254a7933056",
+    "vendor/flatbuffers/include/flatbuffers/idl.h": "06631129f14f1f061ca8835063ff48022a4bf27f063b4ce32912ffac62812b58",
+    "vendor/flatbuffers/include/flatbuffers/minireflect.h": "4b38cf7fc88c476801ce483b0b930f290fcadb5d68e28dfa770e5b26e591f2f8",
+    "vendor/flatbuffers/include/flatbuffers/reflection.h": "90ef08e1d4f7cf32c6f6fcb3206988d6c3b211362d1287322944ae7a234f95f8",
+    "vendor/flatbuffers/include/flatbuffers/reflection_generated.h": "df4b56ae8849370aef16688f6851e8c3b440aff3f9add6db972b9785042f0eca",
+    "vendor/flatbuffers/include/flatbuffers/registry.h": "7ce13bf8f4a1884633fd35eb747b9b97c50508d5305868ea4cde677d3580e02b",
+    "vendor/flatbuffers/include/flatbuffers/stl_emulation.h": "f39f906a2f361fee174d5c8749bf631fd56138351e5be8ff63e2d5f1f57613a7",
+    "vendor/flatbuffers/include/flatbuffers/string.h": "cc2f7d40f2d5613a0932e63d686aea68cde79f8eb4370476361b219b979f5a53",
+    "vendor/flatbuffers/include/flatbuffers/struct.h": "7efdabf43a53fd2a96382b08745c58832e80be9606c1e8c0b62849e56c5f8e9f",
+    "vendor/flatbuffers/include/flatbuffers/table.h": "021f320da27aa7c073950235066b9a6bfc81883f3f171a3eae4ac28f129dd18b",
+    "vendor/flatbuffers/include/flatbuffers/util.h": "2727464874a76f875aa2e0eea0d4a960fdcaa061a5a4f1e9af6f9843e8fac566",
+    "vendor/flatbuffers/include/flatbuffers/vector.h": "043136dc408e322c8b0d2968c139dc7095005711c7ca9bf47a68f9c7c909e50f",
+    "vendor/flatbuffers/include/flatbuffers/vector_downward.h": "7f687fdb661f4c1be09223d6e416e042b139ff1748b5a215cb9864c56f9f3be2",
+    "vendor/flatbuffers/include/flatbuffers/verifier.h": "d7fbf583019088983af684e7d00cbfda23b759093c6501f850c1c33400559b5a",
+    "vendor/windows-sdk/ProcessSecurityEnvironment.fbs": "736cacef37a6c97a0cb97c7132da462a3b51811fca8f1e4076cac51085dfa516"
+  },
+  "products": {
+    "psec-lpac-matchedcaps-bridge-manifest.json": {
+      "bytes": 5812,
+      "sha256": "fbbb268bde396dbe7bbdf7247f062bd2e1892f537f5e553a5ee105d1b52566d7"
+    },
+    "static-pe-review.json": {
+      "bytes": 2153,
+      "sha256": "2b8c3d42d89fa6305357b3af638abe47349c76b6445f6321ad7368a3c7ad76e5"
+    },
+    "windows_psec_lpac_matchedcaps_bridge.dll": {
+      "bytes": 217088,
+      "sha256": "91e9fdc092943ac3a3b47c9f5ad394f4aacb522d105aa802c47b74d5c4f702b1"
+    }
+  },
+  "promotion_changed_paths": [
+    ".github/windows_identity_psec_lpac_matchedcaps_bridge.py"
+  ],
+  "reviewed_metadata": {
+    "compile_psec_lpac_matchedcaps_bridge_01.ps1": {
+      "bytes": 5004,
+      "sha256": "196ab8c0d7ac2eecce845cf533146d6978dc43387ddb83439da46547b147f0a5"
+    },
+    "inspect_psec_lpac_matchedcaps_bridge_compile_01.py": {
+      "bytes": 7983,
+      "sha256": "c6b0de07555906d5d4c802c0dace04257ae8c9f2d99f0097135f9403adb3d043"
+    },
+    "psec-lpac-matchedcaps-native-freeze-01.json": {
+      "bytes": 13151,
+      "sha256": "7e702eac67a463682878c9d40ee1d8665d30a2f596a9ebf1edf1b2801de3fc1f"
+    },
+    "psec-lpac-matchedcaps-python-candidate-freeze-03.json": {
+      "bytes": 15023,
+      "sha256": "dfdfcf9a9afd67fc9f15e0a252fdfcd672f3bcfd07417ba3a23e259a4537e762"
+    }
+  },
+  "runtime_source_count": 36,
+  "runtime_source_sha256": "f77fdff1de75ba53d6dca04d65659deb43fd6bdc91c2feaf1c6a03ade7c008db",
+  "schema_version": 1,
+  "shared_runtime_Git_count": 34,
+  "shared_runtime_Git_pins": {
+    ".github/native/windows_identity_actor.cpp": "530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553",
+    ".github/native/windows_identity_dns_raw_udp.hpp": "43b8cc7afce3acd91cdd4f23ae7d7075a996f98860447c3e9791e298d33a8a78",
+    ".github/native/windows_identity_dns_standard_probe.hpp": "bce69ff57a173525a9cff2731f4d05fe34b5144daeaa465b0d8bb5181432d28c",
+    ".github/native/windows_identity_proxy_bridge_core.hpp": "f03e45166265f02a65abc12930efd73634a332596d22aa78cadc1267a80b6356",
+    ".github/native/windows_identity_proxy_c_actor.cpp": "17f8a816028f71667513586b2efd57fc1c46b369e1d7171e74a2cef6e9c543a3",
+    ".github/native/windows_identity_proxy_c_contract.hpp": "150efbbccdbcb9064eb6d43ddd25608a4a3655c5a408402779dae6216269ff1c",
+    ".github/native/windows_identity_proxy_origin_actor.cpp": "3d079e77e387ba77545c27f5b5c260f591657ef3a44384426cd2039fa8c04010",
+    ".github/native/windows_identity_proxy_origin_transport.hpp": "bed113e5e20064722cbb2c6d3e71b4d3ca6c4769ebd694c86997abec0af661c4",
+    ".github/native/windows_identity_proxy_pipe_actor.cpp": "26636a6b9979e91452cf6e7d2049d6fbbfa43639a35708ee18d4a71e67fb8dd0",
+    ".github/windows_dns_fixture.py": "5a330ae54ec887742ed14c0d2fd1135e486790b686fbc850c3681f04e674273a",
+    ".github/windows_identity_dns_cases_fixture.py": "28b3035e570ef57fbb3a12f9b8034c71be3d9280712a811fdb636fdb388c9d91",
+    ".github/windows_identity_dns_standard_inventory.ps1": "87d98b0463e031376b6c6d29f1a0db375f74639904d34023ee8bcffa8893dbf1",
+    ".github/windows_identity_lpac_accesscheck.py": "19c0d626e653147276cab9a97c5a0071f1c37b2eeb097c55fbacb39f262ade15",
+    ".github/windows_identity_lpac_dns_local.py": "aff8bd5d2a6b1dd688934f9f98fe66146d74a5365caf2ca2c53f6b934f10fd53",
+    ".github/windows_identity_lpac_identity_cell.py": "b7ffce514f00fbd44ce2e4bc77cd93dfe8285e90c608f5f1a82f30b025798105",
+    ".github/windows_identity_model2_controller.py": "9ecc846082f03fcbb206e5610e86d9f2af06250f2f1b165187229ea5582cc2c1",
+    ".github/windows_identity_model2_dns.py": "748b2e7e4adc7008e83d17e184659e7d428fa41a06958f738190b75133b02847",
+    ".github/windows_identity_model2_dns_raw.py": "e0d06ceed384433597a47dfa839043ff4572774a8425b842f38f5fa69fc405c0",
+    ".github/windows_identity_model2_firewall.ps1": "0c78f295fe0a5a6ec2d7a04d58dcfb888767a9231928121493853519f1613cdb",
+    ".github/windows_identity_model2_live.py": "c27260065808dd9f180918b49ba907897a963ff360da9ca72dd9a735c36029fd",
+    ".github/windows_identity_model2_local.py": "e8aa1c1072469bfbf48cafc29ee1d8f09de228aa37ca0734187c9b1af98c6d45",
+    ".github/windows_identity_model2_local_probe.py": "ec14c0d1b185da1deed651bb27726fdc114b4641181cfc29d998f2eac14e56bf",
+    ".github/windows_identity_model2_maintenance.py": "68b6ce894d0dd544a61e19faf4d52f8388af9973a4f86f4dad35868842e38788",
+    ".github/windows_identity_ordinary_launcher.py": "a890f4740bc2869586278158edad65dd8c649e09afed8c7aab355d842301d4a0",
+    ".github/windows_identity_pipe_probe.py": "4dc8567d8a64e544d7a4baa873ff08900720320e26c8d6a6fd43ae3e5744dc74",
+    ".github/windows_identity_proof.py": "aada68c3a0c309dffe422cd6271cf80a728e05a3c4a52a6a81293b47b74d2386",
+    ".github/windows_identity_proxy_origin_probe.py": "33cfddf58caa8877bbe3f6b97132dfa45e9803c88df7c34f17a8501b1b560095",
+    ".github/windows_identity_proxy_pipe_ac_guest.py": "78777d3a6b210a9e27494fc35f9dc53782adda0594b4f4705dee2c008d8d02e1",
+    ".github/windows_identity_proxy_pipe_ac_local.py": "f5ce0fbc20a727f1c78a513bdac816dc49ae43fb1b24e4f8d7eefcd0b252163b",
+    ".github/windows_identity_proxy_pipe_probe.py": "e6bb37aa6f2c5a98dde44d63d097f7921775fd0d7858b95053f33565602df15b",
+    ".github/windows_identity_psec_spec.py": "c35dcb755a3e01faafd6888d4de846fbf8c4fea108e0a2fc30b6a837ecfdf7c5",
+    ".github/windows_psec_compartment_smoke.py": "6602471c0cf08f977879caef5c34bab20db9b84208f5cdae0a00b7a1f802d019",
+    "ruleproxy/windows_app_process.py": "8e62820f98d9dbe352d988501d211565aceecce84657200c2793b69404cbee33",
+    "ruleproxy/windows_runtime_pins.py": "2854702df1f2f7bfefce2b772920394033aaefaadf7b45de7b7d4a3fd1d73e65"
+  },
+  "snapshot_count": 37,
+  "source_count": 6,
+  "stage": "matchedcaps-compile01-independent-file-review",
+  "verdict": "GO for compiled artifact/source binding; no runtime or identity acceptance"
+}

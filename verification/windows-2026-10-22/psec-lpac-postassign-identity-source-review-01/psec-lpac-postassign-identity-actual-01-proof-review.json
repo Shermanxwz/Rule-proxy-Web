@@ -1,0 +1,435 @@
+{
+  "actions": {
+    "actor_or_network_executed": false,
+    "cleanup_or_recovery_called": false,
+    "cpse_called": false,
+    "dll_loaded": false,
+    "existing_auditor_rerun": false,
+    "file_and_git_reads_only": true,
+    "main_or_original_evidence_modified": false,
+    "native_api_constructed": false,
+    "pure_staged_validators_imported_after_pins": true,
+    "tests_rerun": false
+  },
+  "atomic_inner_creation_proven": false,
+  "commitments": {
+    "accesscheck_source": {
+      "bytes": 34465,
+      "sha256": "19c0d626e653147276cab9a97c5a0071f1c37b2eeb097c55fbacb39f262ade15"
+    },
+    "config": {
+      "bytes": 5627,
+      "sha256": "0bd55407175caaabe0d8f5999a5c077533da1c10a5d61977075d7932a1dcc3d8"
+    },
+    "existing_file_audit": {
+      "bytes": 54321,
+      "sha256": "8bb68ed9ba06f85e178939ca3e713c7b084d7d06dadeef440839b4f63f8f7d66"
+    },
+    "forensic": {
+      "bytes": 98271,
+      "sha256": "4dc18961a56cbd928bba4d648c7cebdbff641bc1c8d085d45d9fab0dca34b8da"
+    },
+    "original_public": {
+      "bytes": 2408,
+      "sha256": "3862644d9d75b0e44a52c4bf2e0be063314dd6418e9e2fff6d5acca1fdaf0bd0"
+    },
+    "outer_launch": {
+      "bytes": 619,
+      "sha256": "9c74d8deeffbb1fb7bb8b030aef3d9256eaf497dec6bd490bc62ae4d45461d44"
+    },
+    "plan": {
+      "bytes": 1724,
+      "sha256": "4193ab399d91de30e68d7eba2651d2a72c9cd7a5f5957afd8bba09e8cca1bf6a"
+    },
+    "worker_report": {
+      "bytes": 104273,
+      "sha256": "a46913b32279b6815ae60da2189b9bfda1a524f708e36f91add020a9e02a031c"
+    }
+  },
+  "constructor_policy": "outer-guarded-held-explicit-inner-assignment-v1",
+  "continuous_outer_supervision_proven": false,
+  "creation_transfer_crash_gap_resolved": false,
+  "dns_tested": false,
+  "global_snapshot": {
+    "after": {
+      "bytes": 7378,
+      "sha256": "f05d91ee76ee8a97ae5ab3bfa092167a8ee560c083255f142e6c453f2edf7ab3"
+    },
+    "before": {
+      "bytes": 7378,
+      "sha256": "f05d91ee76ee8a97ae5ab3bfa092167a8ee560c083255f142e6c453f2edf7ab3"
+    },
+    "bytes_equal": true,
+    "original": {
+      "bytes": 7378,
+      "sha256": "f05d91ee76ee8a97ae5ab3bfa092167a8ee560c083255f142e6c453f2edf7ab3"
+    },
+    "scope": "four captured configuration objects"
+  },
+  "interpretation": [
+    "AC completed all four fixed AccessCheck controls with [3,0,1,2] and qualified.",
+    "The arm requested with AAP policy 1 completed only the combined control: API true, AccessStatus true, mask 3 and zero privileges; its fixed expectation was mask 2. This is a real semantic-mask mismatch, not a failed AccessCheck API or an initialized output.",
+    "The combined descriptor has the same byte hash in both arms and its metadata matches the fixed source template. No descriptor bytes or SIDs are included here.",
+    "The source stops the observer immediately on the mask mismatch, so world/AAP/ARAP controls were not run for the second arm. No complete LPAC vector or AC classification is inferred from that single call.",
+    "The second proof generation_after is false because the observer exited before that final check. This flag is not a recorded generation mismatch; separately, the owner performed valid held checks after the observer returned.",
+    "AccessCheck API success and AccessStatus false are distinct. The AC world control is a successful negative; its Win32 error is null because the wrapper does not interpret LastError on API success.",
+    "The arm policy argument and successful construction do not prove LPAC semantics. Which layer accepted, modified, ignored or overrode the attribute remains unknown.",
+    "Both transfers and later exact Job/primary identity admissions succeeded, but this finite no-resume cell does not prove atomic inner creation, continuous outer supervision from creation or resolution of a crash transfer gap.",
+    "Worker exit 0 means the owner emitted its failed-accesscheck report; both never-resumed actors were stopped with observed exit 1. No successful identity mechanism, DNS/proxy isolation or product acceptance is inferred.",
+    "Known caller cleanup closed this new environment obligation. It does not prove external environment absence or broker cancellation, and original atomic01 unknown/recovery remains unchanged."
+  ],
+  "known_cleanup": {
+    "api_obligations_closed": true,
+    "child_resources_cleanup": true,
+    "job_query_resources_cleanup_verified": true,
+    "module_unbound": true,
+    "observer_resources_cleanup_verified": true,
+    "opaque_outcome_unknown": false,
+    "workload_cleanup": true,
+    "workload_job_empty": true
+  },
+  "native": {
+    "all_staged_git_immutable_compile_bytes_verified": true,
+    "dependency_count": 31,
+    "dll": {
+      "bytes": 214528,
+      "sha256": "5db0d4db168074a64b3c042b1be86954edaf7138e643c01fdd3625264a8b8f64"
+    },
+    "manifest": {
+      "bytes": 5759,
+      "sha256": "1a29ce2ce18f75e13dc1546fc201558121e30563e475d2075d94951546aaef56"
+    },
+    "source_count": 6
+  },
+  "network_tested": false,
+  "original_failure": "accesscheck",
+  "original_observation_complete": false,
+  "original_recovery_required": false,
+  "original_status": "inconclusive",
+  "postassign_exact_job_observation_count": 13,
+  "prior_atomic01": {
+    "broker_outcome_unknown": true,
+    "not_cleared": true,
+    "public": {
+      "bytes": 1660,
+      "sha256": "cc562d1b045fea336c4257051faa52e63aa415d91556a4ea84f18aa363652f9c"
+    },
+    "recovery_required": true
+  },
+  "product_acceptance": false,
+  "proof_calls": [
+    {
+      "actual_call_count": 4,
+      "api_error": null,
+      "calls": [
+        {
+          "access_status": true,
+          "api_success": true,
+          "attempted": true,
+          "call_within_original_observer_window": true,
+          "descriptor_bytes": 120,
+          "descriptor_metadata_equals_fixed_template": true,
+          "descriptor_sha256": "ee3c86d1f6cfc1dc651629670b2789f4da64b1b138ad964ad7ac5844c94c8129",
+          "descriptor_verified": true,
+          "expected_granted_access": 3,
+          "granted_access": 3,
+          "label": "combined",
+          "matches_expected_mask": true,
+          "output_validity": "API-success-output",
+          "privilege_count": 0,
+          "win32_error": null,
+          "within_deadline": true
+        },
+        {
+          "access_status": false,
+          "api_success": true,
+          "attempted": true,
+          "call_within_original_observer_window": true,
+          "descriptor_bytes": 72,
+          "descriptor_metadata_equals_fixed_template": true,
+          "descriptor_sha256": "9be942e409861151bb93da9abaf0d8033c2e3a7df4577f8d6d3b929bd44e0bea",
+          "descriptor_verified": true,
+          "expected_granted_access": 0,
+          "granted_access": 0,
+          "label": "world",
+          "matches_expected_mask": true,
+          "output_validity": "API-success-output",
+          "privilege_count": 0,
+          "win32_error": null,
+          "within_deadline": true
+        },
+        {
+          "access_status": true,
+          "api_success": true,
+          "attempted": true,
+          "call_within_original_observer_window": true,
+          "descriptor_bytes": 96,
+          "descriptor_metadata_equals_fixed_template": true,
+          "descriptor_sha256": "39e5fce56dc10aa4c1e55cbb35d1207042d6617608db16da8ac308a9861c2314",
+          "descriptor_verified": true,
+          "expected_granted_access": 1,
+          "granted_access": 1,
+          "label": "aap",
+          "matches_expected_mask": true,
+          "output_validity": "API-success-output",
+          "privilege_count": 0,
+          "win32_error": null,
+          "within_deadline": true
+        },
+        {
+          "access_status": true,
+          "api_success": true,
+          "attempted": true,
+          "call_within_original_observer_window": true,
+          "descriptor_bytes": 96,
+          "descriptor_metadata_equals_fixed_template": true,
+          "descriptor_sha256": "15166e6015903b018e6c5d49ee7f2527f3d1f3768309fd473be49d1e3814e21a",
+          "descriptor_verified": true,
+          "expected_granted_access": 2,
+          "granted_access": 2,
+          "label": "arap",
+          "matches_expected_mask": true,
+          "output_validity": "API-success-output",
+          "privilege_count": 0,
+          "win32_error": null,
+          "within_deadline": true
+        }
+      ],
+      "classification": "ac-semantic-match",
+      "complete_observed_access_vector": [
+        3,
+        0,
+        1,
+        2
+      ],
+      "duplicate_identity_bound": true,
+      "duplicate_matches_primary_except_declared_duplicate_fields": true,
+      "failure": null,
+      "generation_after": true,
+      "generation_before": true,
+      "impersonation_applied": false,
+      "observation_complete": true,
+      "observed_access_prefix": [
+        3,
+        0,
+        1,
+        2
+      ],
+      "proof_window_timely": true,
+      "qualified": true,
+      "resource_cleanup_verified": true,
+      "resources": [
+        {
+          "alias": false,
+          "attempted": true,
+          "close_attempted": true,
+          "close_confirmed": true,
+          "close_uncertain": false,
+          "creation_returned": true,
+          "kind": "token",
+          "name": "source-primary",
+          "returned": true
+        },
+        {
+          "alias": false,
+          "attempted": true,
+          "close_attempted": true,
+          "close_confirmed": true,
+          "close_uncertain": false,
+          "creation_returned": true,
+          "kind": "token",
+          "name": "duplicate-identification",
+          "returned": true
+        },
+        {
+          "alias": false,
+          "attempted": true,
+          "close_attempted": true,
+          "close_confirmed": true,
+          "close_uncertain": false,
+          "creation_returned": true,
+          "kind": "descriptor",
+          "name": "descriptor-combined",
+          "returned": true
+        },
+        {
+          "alias": false,
+          "attempted": true,
+          "close_attempted": true,
+          "close_confirmed": true,
+          "close_uncertain": false,
+          "creation_returned": true,
+          "kind": "descriptor",
+          "name": "descriptor-world",
+          "returned": true
+        },
+        {
+          "alias": false,
+          "attempted": true,
+          "close_attempted": true,
+          "close_confirmed": true,
+          "close_uncertain": false,
+          "creation_returned": true,
+          "kind": "descriptor",
+          "name": "descriptor-aap",
+          "returned": true
+        },
+        {
+          "alias": false,
+          "attempted": true,
+          "close_attempted": true,
+          "close_confirmed": true,
+          "close_uncertain": false,
+          "creation_returned": true,
+          "kind": "descriptor",
+          "name": "descriptor-arap",
+          "returned": true
+        }
+      ],
+      "role": "ac",
+      "separate_owner_held_checks_after_observer_return_present": true,
+      "source_and_duplicate_primary_vs_identification_types_verified": true,
+      "source_identity_bound": true,
+      "source_primary_matches_external_owner_snapshot": true,
+      "token_class46_queried": false,
+      "unrun_labels": []
+    },
+    {
+      "actual_call_count": 1,
+      "api_error": null,
+      "calls": [
+        {
+          "access_status": true,
+          "api_success": true,
+          "attempted": true,
+          "call_within_original_observer_window": true,
+          "descriptor_bytes": 120,
+          "descriptor_metadata_equals_fixed_template": true,
+          "descriptor_sha256": "ee3c86d1f6cfc1dc651629670b2789f4da64b1b138ad964ad7ac5844c94c8129",
+          "descriptor_verified": true,
+          "expected_granted_access": 2,
+          "granted_access": 3,
+          "label": "combined",
+          "matches_expected_mask": false,
+          "output_validity": "API-success-output",
+          "privilege_count": 0,
+          "win32_error": null,
+          "within_deadline": true
+        }
+      ],
+      "classification": "unknown",
+      "complete_observed_access_vector": null,
+      "duplicate_identity_bound": true,
+      "duplicate_matches_primary_except_declared_duplicate_fields": true,
+      "failure": "mask",
+      "generation_after": false,
+      "generation_before": true,
+      "impersonation_applied": false,
+      "observation_complete": false,
+      "observed_access_prefix": [
+        3
+      ],
+      "proof_window_timely": true,
+      "qualified": false,
+      "resource_cleanup_verified": true,
+      "resources": [
+        {
+          "alias": false,
+          "attempted": true,
+          "close_attempted": true,
+          "close_confirmed": true,
+          "close_uncertain": false,
+          "creation_returned": true,
+          "kind": "token",
+          "name": "source-primary",
+          "returned": true
+        },
+        {
+          "alias": false,
+          "attempted": true,
+          "close_attempted": true,
+          "close_confirmed": true,
+          "close_uncertain": false,
+          "creation_returned": true,
+          "kind": "token",
+          "name": "duplicate-identification",
+          "returned": true
+        },
+        {
+          "alias": false,
+          "attempted": true,
+          "close_attempted": true,
+          "close_confirmed": true,
+          "close_uncertain": false,
+          "creation_returned": true,
+          "kind": "descriptor",
+          "name": "descriptor-combined",
+          "returned": true
+        }
+      ],
+      "role": "lpac",
+      "separate_owner_held_checks_after_observer_return_present": true,
+      "source_and_duplicate_primary_vs_identification_types_verified": true,
+      "source_identity_bound": true,
+      "source_primary_matches_external_owner_snapshot": true,
+      "token_class46_queried": false,
+      "unrun_labels": [
+        "world",
+        "aap",
+        "arap"
+      ]
+    }
+  ],
+  "proxy_tested": false,
+  "schema_version": 1,
+  "source": {
+    "all_staged_source_git_bytes_verified": true,
+    "count": 36,
+    "freeze": {
+      "bytes": 18818,
+      "sha256": "5a7b92ab97c472333ed28f9888ffec99dd4f4ec1018a721bfd1858a0d896ab06"
+    },
+    "sha256": "d625a45670dc4b544c73e7dfb0acb55f483064dca23495e5e12f9dcbf8705f9f"
+  },
+  "source_commit": "953de0a2374aff89959957da4b5641ce5aaff8a1",
+  "stage": "postassign-actual01-independent-proof-call-file-review",
+  "transfers": [
+    {
+      "all_postassign_both_exact_jobs_true": true,
+      "assignment_api_success": true,
+      "assignment_return_value": 1,
+      "assignment_win32_error": 0,
+      "assignment_within_deadline": true,
+      "exit_code": 1,
+      "exited": true,
+      "outer_query_closed_before_assignment": true,
+      "postassign_observation_count": 7,
+      "pretransfer_inner_api_success": true,
+      "pretransfer_inner_membership": false,
+      "pretransfer_outer_api_success": true,
+      "pretransfer_outer_membership": true,
+      "primary_and_held_admitted": true,
+      "resumed": false,
+      "role": "ac"
+    },
+    {
+      "all_postassign_both_exact_jobs_true": true,
+      "assignment_api_success": true,
+      "assignment_return_value": 1,
+      "assignment_win32_error": 0,
+      "assignment_within_deadline": true,
+      "exit_code": 1,
+      "exited": true,
+      "outer_query_closed_before_assignment": true,
+      "postassign_observation_count": 6,
+      "pretransfer_inner_api_success": true,
+      "pretransfer_inner_membership": false,
+      "pretransfer_outer_api_success": true,
+      "pretransfer_outer_membership": true,
+      "primary_and_held_admitted": true,
+      "resumed": false,
+      "role": "lpac"
+    }
+  ],
+  "worker_exit_code": 0
+}

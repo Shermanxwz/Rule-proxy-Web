@@ -1,0 +1,30 @@
+{
+  "content": {
+    "actor_or_profile_or_permission_change_started": false,
+    "actual_native_assay_started": false,
+    "driver_sha256": "02989dcfec7add635f88d862c875b197b41305ce19d7525b1a1916bd729518e7",
+    "exit_code": 1,
+    "explicit_LocalNativeAPI_constructed": false,
+    "failure": "JSONDecodeError: Unexpected UTF-8 BOM (decode using utf-8-sig)",
+    "four_expected_final_paths_observed_absent": true,
+    "import_limit": "Repository imports occurred and may initialize CPython libraries such as Winsock; no whole-parent no-API/no-WSA claim.",
+    "location": "driver actual -> core.verify_actor -> imported strict UTF-8 JSON decoder",
+    "nonce_or_plan_created": false,
+    "original_manifest_bytes": 592,
+    "original_manifest_sha256": "9a1a77084d987e663a72cb076035de802f55f04ff536087ebb387662045cdbeb",
+    "raw_traceback_location": "tool transcript only; this file is a typed summary, not a reconstructed raw failure log",
+    "repair_scope": "New verify_actor accepts one UTF-8 BOM for interpretation while hashing the unchanged original bytes. No old decoder-global, manifest or binary mutation.",
+    "schema_version": 1,
+    "source_commit": "bf4dcc2ab3913ae46056d34ef76892ec266f596e",
+    "source_sha256": "0844e0bb4900ea0146094f4abf3ed4c564eae0825379950e4e9b87ec2961f146",
+    "stage": "root-reported-actual-entry-preparation-failure"
+  },
+  "raw_commitment": {
+    "bytes": 1310,
+    "sha256": "a1f459f835956842d6f4c143d14a3f6513214952db479bd24d48e7cc62f77445"
+  },
+  "schema_version": 1,
+  "stage": "source-evidence-safe-view",
+  "temporal_scope": "Original preparation/review snapshot: its pending/false runtime fields are historical snapshot fields, not the current result.",
+  "transformation": "JSON value projection; account identifiers/user paths redacted if present; no runtime inference"
+}

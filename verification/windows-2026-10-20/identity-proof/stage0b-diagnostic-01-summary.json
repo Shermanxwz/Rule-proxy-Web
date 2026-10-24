@@ -1,0 +1,77 @@
+{
+  "conclusion": "failure",
+  "exact_result_sha256": "0f3f1b32c124230b97a4486781ad10dab9a01a3061159211e76c501c8084a254",
+  "experiment": "Stage0b comprehensive closed diagnostics short gate",
+  "freeze_sha256": "13cc85c9d6b376314575fe62e3b4f028266d09998c7898b90baf26b5e807a27b",
+  "head": "ab2c2c02ff9aa0d62b2ee243a7a710559e0c7b8a",
+  "interpretation": [
+    "Linux passed all 926 required tests and the separate tiny paused owned-QEMU provenance/cleanup mechanism. Windows compiled the production/TEST_ONLY actors but failed six new diagnostic fixture tests; all later isolated-input, PowerShell, ZIP and owned-loopback steps were skipped. The identity sidecar failed the same six tests among 344 overlapping tests; all its token/pipe/restricted/paired runtime steps were skipped.",
+    "One isolated real Python import/composition subprocess returned success, but its test compared Windows CRLF output against literal LF. Four other tests use forward-slash string suffixes for missing/close-failure injection, which do not match Windows backslash paths. These are source-supported concrete test-dispatch counterexamples, not changes to production acceptance.",
+    "The remaining parser-state test observed read_error on its first empty-object fixture, before successful parsing. The exact underlying exception was not exported; path-resolution/containment remains a source-supported candidate, not a captured runtime cause. No parser, identity or cleanup requirement is relaxed.",
+    "The original Stage0b guest run remains failed and its private report state remains unrecoverable. This short gate did not run a Windows guest or establish genuine Stage0b IPC/proxy success. No automatic retry follows this result."
+  ],
+  "observations": {
+    "actual_ipv6_loopback_not_run": true,
+    "actual_windows_ps_parity_not_run": true,
+    "actual_zip_not_run": true,
+    "counts_overlap_not_additive": true,
+    "linux_paused_qemu_cleanup": {
+      "cleanup_confirmed": true,
+      "control_closed": true,
+      "failure": false,
+      "forced_kill": false,
+      "guest_executed": false,
+      "packet_egress_tested": false,
+      "passed": true,
+      "paused_observed": true,
+      "process_exit_observed": true,
+      "provenance": {
+        "admitted": true,
+        "close_confirmed": true,
+        "failure": false,
+        "libslirp": {
+          "architecture": "amd64",
+          "local_integrity_verified": true,
+          "name": "libslirp0",
+          "sha256": "1f71a24af59f3aa76c1e0bcf7852de08c1c21c40524479b9d5df404d903b2280",
+          "version": "4.7.0-1ubuntu3.1"
+        },
+        "pre_stop_verified": true,
+        "qemu": {
+          "architecture": "amd64",
+          "local_integrity_verified": true,
+          "name": "qemu-system-x86",
+          "sha256": "8a35ccba41582fc6c38b9df85fc9e35fa1d42f414d2d7d8090ee9b2f5e7c0854",
+          "version": "1:8.2.2+ds-0ubuntu1.18"
+        },
+        "resident_bytes_verified": false,
+        "schema_version": 1,
+        "source_equivalence_verified": false
+      },
+      "qemu_8_2_2": true,
+      "schema_version": 1,
+      "work_removed": true
+    },
+    "linux_required_passed": 926,
+    "sidecar_failures": 6,
+    "sidecar_run": 344,
+    "windows_failures": 6,
+    "windows_required_run": 926
+  },
+  "privacy": {
+    "closed_counts_booleans_public_ci_and_package_digests_only": true,
+    "raw_logs_paths_nonces_sids_pids_credentials_excluded": true
+  },
+  "run_id": 39742948718,
+  "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39742948718",
+  "schema_version": 1,
+  "scope": {
+    "changed_files": 11,
+    "native_actor_unchanged": true,
+    "proxy_executed": false,
+    "runtime_workflow_unchanged": true,
+    "stage0b_pipe_executed": false,
+    "unchanged_pins": 411,
+    "windows_vm_executed": false
+  }
+}

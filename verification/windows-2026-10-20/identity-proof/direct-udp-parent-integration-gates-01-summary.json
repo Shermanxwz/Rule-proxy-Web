@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "experiment": "Default-OFF descendant UDP integration short gates",
+  "repository": "Shermanxwz/Rule-proxy-Web",
+  "branch": "dot/windows-isolation-proof",
+  "source_head": "30c5bd2c6ed9fe69881c3afa6754488e29ac6326",
+  "run_id": 39632337586,
+  "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39632337586",
+  "conclusion": "success",
+  "reviewed_manifests": {
+    "integration": "5ea29ba41f7f3d006417249e1bfee8d085c065c3ff7ac448cc58cd7c01ae0597",
+    "legacy_fixture_fix": "be68711e4a3fa2ae8b40e3cbe55815d81ba0429c103e51cacadb49429e6a7b34",
+    "trigger_fix": "14d69dd4d7335ea07c663618e2269090d1af8a9b5932e0a58e8122746c6a71c5"
+  },
+  "result_sha256": "049b3e7b8ecd49dbb2208a9ca2e9c4ccfb4b5f15be74b436ae033ca1e44b073c",
+  "observed": {
+    "linux_required_tests": 432,
+    "windows_required_tests": 432,
+    "skips": 0,
+    "production_parent_compile": true,
+    "legacy_ps_checks": 75,
+    "udp_ps_checks": 48,
+    "parent_ps_checks": 60,
+    "payload_members": [
+      10,
+      14,
+      15,
+      17,
+      22
+    ],
+    "payload_forbidden_cases": 8,
+    "payload_ps_checks": 48,
+    "actual_qpc_refusals": [
+      "expired",
+      "wrong_frequency",
+      "overflow",
+      "prelaunch_delay"
+    ],
+    "delayed_start_same_deadline_reserve_consumed": true,
+    "positive_fixture_echoes": 45,
+    "timeout_receiver_echoes": 4,
+    "owned_parent_processes": 14,
+    "owned_receivers": 5,
+    "all_owned_cleanup_confirmed": true,
+    "work_removed": true,
+    "delayed_start_initial_reserve_admissibility_verified": true
+  },
+  "prior_attempt": {
+    "schema_version": 1,
+    "run_id": 39630653396,
+    "head": "58d43fa42f9478a641ad7990ffb2fa6008057012",
+    "source_manifest_sha256": "5ea29ba41f7f3d006417249e1bfee8d085c065c3ff7ac448cc58cd7c01ae0597",
+    "overall_success": false,
+    "linux_required_tests": 431,
+    "windows_required_tests": 431,
+    "required_skips": 0,
+    "native_parent_compile_passed": true,
+    "powershell_fixture": {
+      "passed": false,
+      "failure": "guest_fixture",
+      "stage": "payload_selection_commands",
+      "mode": "none",
+      "checks": 51,
+      "exception_class": "RuntimeException",
+      "error_category": "n0a_fixture",
+      "empty_configuration_rejected": null
+    },
+    "five_mode_zip_executed": false,
+    "actual_qpc_and_parent_mechanism_executed": false,
+    "runtime_enabled": false,
+    "full_guest_run": false
+  },
+  "untriggered_fixture_publication": {
+    "head": "e3b12590705f83cf08f2c0034ab4987e0033f816",
+    "parent_gate_triggered": false,
+    "cause": "Two legacy fixture dependency paths were absent from the parent workflow push filter. The later exact two-path correction launched the successful gate."
+  },
+  "limitations": [
+    "Required scoped suites passed; this is not a full-repository test claim.",
+    "PowerShell orchestration uses mocked process/transport boundaries; ZIP extraction uses inert artifact-boundary inputs, not deployment-valid binary manifests.",
+    "The inherited wait/envelope/audit/report-hash seam executes real Python code with a mocked owned process and synthetic identity/provenance records.",
+    "Hosted network mechanisms use TEST_ONLY owned loopback children; contained is only a fixture phase, and the ordinary null-SID pair is not AppContainer SID equality.",
+    "Production parent is compiled and invoked only with invalid CLI. A valid production network CLI and nonadmin production profile are not dynamically tested.",
+    "Injected token/SID/pre-resume refusal controls are not actual failing ResumeThread API calls.",
+    "The timeout receiver observed four frames; no valid child report was observed, so those frames are not a native accepted-send count.",
+    "The new QPC interface was exercised on hosted Windows; no actual executor startup or full guest descendant path has been observed.",
+    "Runtime remains OFF. No descendant AppContainer inheritance, packet absence, DNS/broker, Linux-equivalence or product-acceptance claim is made.",
+    "Strict original Stage0 and all prior inconclusive history remain unchanged. No raw identity, PID, SID, paths, nonces, tuples, PCAP or private bundle is archived.",
+    "Delayed-start checks observe the same QPC frequency and remaining >2s before delay, then 0<remaining<=2s before launch; the native wrapper subsequently refuses child creation. This is not full native initial admission or a hard syscall timing guarantee."
+  ]
+}

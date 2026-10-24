@@ -1,0 +1,53 @@
+{
+  "actual_executed": false,
+  "cleanup": {
+    "historical_assignment_preserved": true,
+    "latest_failed_membership": "Derived cleanup view uses assigned=false for exact held-process stop; no historical row rewrite",
+    "opaque_unknown_not_washed": true
+  },
+  "crash_boundary": {
+    "atomic_job_retention_proven": false,
+    "creation_transfer_gap_fixed": false,
+    "note": "A false membership stops before token/next arm/observer. Normal held cleanup does not prove crash containment or broker cancellation."
+  },
+  "default_preflight_changed": false,
+  "dns_tested": false,
+  "durable": {
+    "before_admission": true,
+    "decision_qpc": "Separate post-durable original-budget sample; raw receipt admission_decision_recorded remains false",
+    "fields": [
+      "config/source/run/actor",
+      "original F/root D/worker D/work cutoff",
+      "PI returned-receipt SHA",
+      "held process handle/PID/creation",
+      "pre/post generation and image",
+      "inner and outer raw typed calls",
+      "outer scoped close outcome"
+    ],
+    "path": "job-admissions/<arm>-<sequence:02d>.json"
+  },
+  "lpac_semantics_observed": false,
+  "native_unchanged": true,
+  "network_executed": false,
+  "product_acceptance": false,
+  "proxy_tested": false,
+  "purpose": "Observe both exact Jobs independently before admission; no containment fix is claimed.",
+  "query": {
+    "aliases": "zero/INVALID_HANDLE_VALUE or alias of any live owned Job/process/thread/token is not blindly closed",
+    "close": "scoped OneShotHandles consumes before CloseHandle; no retry",
+    "inner": "borrowed held inner Job",
+    "membership": "API false -> membership null and immediate Win32 error; API success false is separate known false",
+    "no_assign": true,
+    "no_fallback": true,
+    "outer": "OpenJobObjectW QUERY=4, inherit=False, exact config name",
+    "unknown_resources": "controls_uncertain and job_query_resources_cleanup_verified=false; no opaque close/unbind qualification"
+  },
+  "result_schema": {
+    "new_boolean": "job_query_resources_cleanup_verified",
+    "public_schema_unchanged": true,
+    "task_new_field": "job_admissions"
+  },
+  "runtime_qualification": false,
+  "schema_version": 1,
+  "stage": "cpse-exact-job-admission-diagnostic-source03"
+}

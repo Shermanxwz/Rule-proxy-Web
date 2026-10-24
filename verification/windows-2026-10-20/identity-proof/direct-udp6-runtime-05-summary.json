@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "experiment": "direct UDP6 guest ICMPv6 diagnostic 05",
+  "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39710504873",
+  "head": "9cc0caefd9b2d618ead3954f6ab14c7a406a40ba",
+  "source_head": "8ad89a1f58c0168a566efabc7674a69ba07c4b84",
+  "freeze_sha256": "a1fc5c80ce988852b4bbfb9cde6c5cf49fc922e236d8dec400c905f9b20f8249",
+  "receipt_sha256": {
+    "udp6": "022824e9ce2d2070b081a5708699583286a0e68898dfb4abdd7d15dcae243066",
+    "stage0": "3b9ffad9f7836162f0eb03ae1ae8442157d4a1040408c5e581d3fd2051491a7d",
+    "preparation": "e396a42f288d9d34360d5f8fd64cf4469c8297d505145bcd476a874be7f6b267"
+  },
+  "status": "workflow failed; capture complete; decoder inconclusive on two ICMPv6 records; no packet-absence conclusion",
+  "observations": [
+    "All four phase reports passed fresh profile/provenance and network binding. The fixed driver completed without failure; before admission passed every predicate. Production ordinary native receive context [1,1023,1023] and exact nonce echo were verified under the reviewed owned-NIC/site-zone/pktinfo contract; scope-zero remained an observation, not required true.",
+    "Three selected sendto invocations locally accepted their datagrams. explicit_send_denial=false; selected_echo_observed=false and selected_nonce_payload_observed=false. The owned receiver verified and echoed 42 ordinary payloads (before 1 / sample 40 / after 1), with zero selected observations. These separate facts do not prove API enforcement, delivery failure or universal no-egress.",
+    "The private flow body passed digest/length admission and separate manifest/binding/control predicates. This run reports capture_complete_contract=true: configured retention limit 67,108,864 bytes; retained=drained=20,920,180; overflow=false; final status, child/QEMU exit, authorization, status EOF, descriptor closure, cleanup and drain completeness all true. Capture read cleanup and host prerequisites also passed. This is source-bound receipt evidence, not an independent reparse of deleted raw data.",
+    "Decoder processed 17,855 total PCAP records, not actor attempts. Ordinary payload calibration and unique ports passed; zero selected and zero unknown-flow direct UDP packet matches were reported. decoder_complete=false solely because opaque_protocol remained. Version 2 diagnostics report exactly two Next Header 58 occurrences, no omitted categories/events, listing detail complete, and truncation counters [0,0,0]. The bounded-no-selected-datagram flag remains false.",
+    "The two reached-NH58 candidates match the owned guest source MAC and fixed outer fixture destination. This run observes type 135/code 0 once and type 136/code 0 once; both outer checksums are consistent. RFC4861 assigns those types to Neighbor Solicitation and Neighbor Advertisement. These numeric type assignments are not validation that the messages satisfy Neighbor Discovery hop-limit, target, option or address rules, are benign, or belong to a selected actor. Those fields were not exported. quote_counts=[0,0,0,2] means unsupported/not-error in the limited Types1-4 quote parser, not malformed NDP; all quote-detail counters are zero. raw_selected_nonce_match=[false,0] means no complete expected selected frame bytes matched in these candidate ICMP bytes; it is not a universal absence or authenticity claim. The unchanged opaque rejection remains in force.",
+    "Binary and payload P<=24MiB/65MiB reserve admission passed, without an exact ZIP size claim. Owned-QEMU mapped backing-file and separate local-package integrity admission/pre-stop/close passed. This does not attest resident pages or unpatched upstream-source equivalence.",
+    "QEMU/TPM exits were observed as zero; QMP/server/watcher/receiver/socket/thread and owned work cleanup completed with zero teardown errors. host_wait_state=received, capture_abort absent and host_failure absent. Strict Stage0 remains false at capabilities_empty; observed build 26300.9457 remains below support floor 26300.9550. Existing acceptance remains unchanged."
+  ],
+  "timing": [
+    "Closed breadcrumbs: bounded native harness began 02:18:43 UTC; QEMU start 02:25:43; guest beacon 02:36:07; original result 02:36:16; cleanup done 02:36:43 with 5400 seconds remaining. No outer-deadline exhaustion occurred.",
+    "This job had no capture overflow and does not by itself test the repaired sticky-error cleanup branch in a Windows VM. That branch has separate deterministic/owned-process/paused-QEMU evidence. Shorter wall time here must not be attributed solely to the cleanup correction."
+  ],
+  "limits": [
+    "This was one authorized new instrumented collection, not a promise of green. It obtained current-run type/code/checksum evidence without changing workload or weakening opaque rejection. No automatic subsequent run occurred.",
+    "Runtime04 remains inconclusive with only two NH58 candidates known. This run does not prove the earlier two packets had the same types or contents. Runtime03 incomplete capture and all earlier failed runs retain their original conclusions.",
+    "Raw PCAP and private flow body were deleted under the reviewed cleanup contract. This audit checks closed receipts against pinned source, not an independent raw reparse; unknown hop limit, target and options cannot now be recovered.",
+    "No capture-window, retention/resource limit, endpoint, network configuration, identity/policy/capability, send count or deadline was changed. No IPv4 fallback or networking repair was attempted.",
+    "This is not IPv6 isolation, universal egress prevention, DNS/proxy, descendant IPv6, Linux parity or product acceptance. Type-only skipping of 135/136 is not justified. Any future Neighbor Discovery parsing/admission change requires separate source-backed protocol review and tests."
+  ],
+  "references": [
+    {
+      "title": "RFC4861 Neighbor Discovery for IPv6, sections4.3,4.4,7.1.1,7.1.2",
+      "url": "https://www.rfc-editor.org/rfc/rfc4861.html"
+    }
+  ]
+}

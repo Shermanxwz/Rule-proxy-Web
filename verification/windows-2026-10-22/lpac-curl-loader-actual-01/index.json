@@ -1,0 +1,132 @@
+{
+  "all_old_evidence_retained": true,
+  "bindings": {
+    "bytes": 29385,
+    "sha256": "abb57ab92248c353df4e7253885e6e9e0df058adba1731e61d257333af2d0ca1"
+  },
+  "files": [
+    {
+      "bytes": 5392,
+      "path": "verification/windows-2026-10-22/lpac-curl-loader-actual-01/summary.json",
+      "sha256": "c2ae9c13818623f370666e3968badf297812ce0e10113fc45fe5902f2982f05d"
+    },
+    {
+      "bytes": 14188,
+      "path": "verification/windows-2026-10-22/lpac-curl-loader-actual-01/independent-file-review.json",
+      "sha256": "75d31c57c572c1f7b5fe86dfe5b3b9c9392e314a8b333ca0a3c9112c5c3c10ba"
+    },
+    {
+      "bytes": 29992,
+      "path": "verification/windows-2026-10-22/lpac-curl-loader-actual-01/source-build-index.json",
+      "sha256": "65899f534e163e7e3853fdb9989956c3c02d39a076ec8037ce2e455302531f70"
+    },
+    {
+      "bytes": 13604,
+      "path": "verification/windows-2026-10-22/lpac-curl-loader-actual-01/preparation-history.json",
+      "sha256": "bd829722ff9c390124f81dfd65ad21a238f016d6f8e1cacfc3914b7e819169cc"
+    },
+    {
+      "bytes": 7117,
+      "path": "verification/windows-2026-10-22/lpac-curl-loader-actual-01/native-static-view.json",
+      "sha256": "76db3a00201395986b66bfb05fd9dbf2ad7bd35fb0ce05dfe43ed8c835d42224"
+    },
+    {
+      "bytes": 2232,
+      "path": "verification/windows-2026-10-22/lpac-curl-loader-actual-01/pure-CI-summary.json",
+      "sha256": "b27d077a5f3ea1a8f28d039e80a0a94b2389a04818519c8039ef47c36e0db64f"
+    },
+    {
+      "bytes": 17070,
+      "path": "verification/windows-2026-10-22/lpac-curl-loader-actual-01/runner.py",
+      "sha256": "48b7413c7cd225a6143026fd8aaab2e99e9433411e75cc2cdd130a97dee56d77"
+    },
+    {
+      "bytes": 33114,
+      "path": "verification/windows-2026-10-22/lpac-curl-loader-actual-01/reader.py",
+      "sha256": "76122535226bc587c07b2c6a4a28fc45c865d4eaae5066a4c93fe9fafb566263"
+    },
+    {
+      "bytes": 2693,
+      "path": "verification/windows-2026-10-22/lpac-curl-loader-actual-01/global-capture.ps1",
+      "sha256": "8ae5a96f75f33ba4b3d586e92e89481792da6cffdf5d9fc96e57b98dd2bffc01"
+    },
+    {
+      "bytes": 3600,
+      "path": "docs/validation/2026-10-24-lpac-curl-loader-01.md",
+      "sha256": "f23fa86639c3f3665fe465125fa9d049bb6ce6e4a310579d9f0db4ed23a73622"
+    }
+  ],
+  "no_runtime_dispatched": true,
+  "original_independent_review": {
+    "bytes": 14188,
+    "sha256": "75d31c57c572c1f7b5fe86dfe5b3b9c9392e314a8b333ca0a3c9112c5c3c10ba"
+  },
+  "original_preflight": {
+    "bytes": 1655,
+    "path": "verification/windows-2026-10-22/lpac-curl-loader-local-01-preflight.json",
+    "sha256": "fa42b91912af59b17097cf0f1f7321379066f6ed8d30018612722b57165f758f"
+  },
+  "original_public": {
+    "bytes": 2928,
+    "path": "verification/windows-2026-10-22/lpac-curl-loader-local-01-public.json",
+    "sha256": "d2897b93ca6542839adfb555b8fcfbf64a9be0a459b234260ed6b0ab3aced5ee"
+  },
+  "physical_evidence_commitments": {
+    "journal": [
+      {
+        "bytes": 308,
+        "sha256": "5cd659e97d2a06272327572dfa61538a9b1b1ac228e8b27fb143407c2fe1f93a"
+      }
+    ],
+    "returns": [
+      {
+        "bytes": 402,
+        "sha256": "296f798354186b46b2d27e8511924b2b10c9f6842ac8870585fc15488ec5a753"
+      }
+    ]
+  },
+  "privacy": "Safe statuses, invariant code, counts, source names and byte hashes only. No raw private report, stdout/stderr text, SID/PID/HANDLE/QPC/device/file-ID values or raw CI logs.",
+  "private_commitments": {
+    "config": {
+      "bytes": 8302,
+      "sha256": "b315af3b3dcccac5b7ab088ddcf43c7094e24075cc38a5d1cc447094430e21f9"
+    },
+    "driver": {
+      "bytes": 17070,
+      "sha256": "48b7413c7cd225a6143026fd8aaab2e99e9433411e75cc2cdd130a97dee56d77"
+    },
+    "forensic": {
+      "bytes": 13065,
+      "sha256": "2321129358b031161bfbd051a22265e26b879f5b056b987f024c8bfd92c36f32"
+    },
+    "outer_report": {
+      "bytes": 619,
+      "sha256": "d090e4036cc81a66dc401634a25ddb000540079450c750b960403ac1e2ecbfeb"
+    },
+    "plan": {
+      "bytes": 2299,
+      "sha256": "c7812aaf9d653ca80cb6ced578df0eb5b6569b4ef2b23fb71e41944ce41a496b"
+    },
+    "stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "stdout": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "worker_report": {
+      "bytes": 13065,
+      "sha256": "2321129358b031161bfbd051a22265e26b879f5b056b987f024c8bfd92c36f32"
+    }
+  },
+  "publisher": {
+    "bytes": 30652,
+    "sha256": "e5fbbcadf87d9526d6c94912af5c59492ae4a042cc002049365897baaa05ba60"
+  },
+  "schema_version": 1,
+  "source_commit": "d7ec75b4b743311c7e9ffd3116aa9fd19cfed665",
+  "source_count": 62,
+  "source_sha256": "0c993f0f8507d27826cebc5abf66b70c99407ee43d4fdcabf14f7e98dd776642",
+  "stage": "curl-loader-actual01-immutable-thin-index"
+}

@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "stage": "exact-job-query-read-only-contract-03",
+  "actual_executed": false,
+  "previous_review": "work/psec_lpac_joblist_constraints_02.json",
+  "queries": [
+    {
+      "api": "OpenJobObjectW",
+      "signature": "HANDLE WINAPI OpenJobObjectW(DWORD desired_access, BOOL inherit_handle, LPCWSTR exact_name)",
+      "requested_access": 4,
+      "requested_access_name": "JOB_OBJECT_QUERY",
+      "inherit_handle": false,
+      "source": "https://learn.microsoft.com/en-us/windows/win32/api/jobapi2/nf-jobapi2-openjobobjectw",
+      "fact": "The existing named Job is opened subject to its DACL; names are case-sensitive. Success returns a handle with the requested rights, failure returns null. No association or setting is changed."
+    },
+    {
+      "api": "Job rights",
+      "source": "https://learn.microsoft.com/en-us/windows/win32/procthread/job-object-security-and-access-rights",
+      "fact": "QUERY0x0004 covers relevant queries and IsProcessInJob. ASSIGN0x0001 and TERMINATE0x0008 are different rights and are not required by this observer."
+    },
+    {
+      "api": "IsProcessInJob",
+      "signature": "BOOL WINAPI IsProcessInJob(HANDLE held_process, HANDLE exact_job, PBOOL result)",
+      "source": "https://learn.microsoft.com/en-us/windows/win32/api/jobapi/nf-jobapi-isprocessinjob",
+      "fact": "Use the original held process and a non-null exact Job handle. Record function success separately from result. On API failure result is not a qualified negative; preserve null/unknown and immediate error."
+    },
+    {
+      "api": "CloseHandle",
+      "signature": "BOOL WINAPI CloseHandle(HANDLE handle)",
+      "source": "https://learn.microsoft.com/en-us/windows/win32/api/handleapi/nf-handleapi-closehandle",
+      "fact": "Close the newly opened query handle once. A failed or unknown close blocks resource qualification. Closing a process handle does not terminate that process; it is not a replacement for crash supervision."
+    }
+  ],
+  "required_observer_boundaries": [
+    "Bind exact named outer Job to the original guarded config and original owner-held lifetime; never use a null Job or any-Job query as the exact result.",
+    "Bracket by held process PID/generation/image readbacks and original QPC bounds, with no actor resume or new allowance.",
+    "Retain two independent query outcomes, even if the first is false, before applying the original both-true admission gate.",
+    "Scope the temporary query handle in a separate once ledger and aggregate uncertainty into cleanup; do not retain closed numeric values in the long-lived process/token ledger.",
+    "No OpenJob failure fallback to broader rights, another name, another Job, post-create AssignProcessToJobObject or process lookup by unbound PID.",
+    "The source03 observer does not itself prove CPSE preserves Job attributes or establish caller-crash cleanup for an out-of-Job process."
+  ],
+  "actions": {
+    "native_api_called": false,
+    "job_or_token_mutated": false,
+    "handle_opened_or_closed": false,
+    "actor_or_network_executed": false,
+    "main_modified": false
+  }
+}

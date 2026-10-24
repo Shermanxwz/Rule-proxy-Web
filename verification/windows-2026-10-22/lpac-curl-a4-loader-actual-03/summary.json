@@ -1,0 +1,238 @@
+{
+  "CI": {
+    "run_id": 40063419546,
+    "runtime_steps_skipped": true,
+    "seconds": 214.376,
+    "skips": 0,
+    "tests": 1423,
+    "url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/40063419546"
+  },
+  "LPAC": {
+    "capabilities_empty": true,
+    "each_granted_access": [
+      2,
+      0,
+      0,
+      2
+    ],
+    "each_observer_resources_closed": true,
+    "held_snapshots": 12,
+    "proof_count": 2,
+    "proofs_before_Resume": true
+  },
+  "all_scoped_cleanup_true": true,
+  "evidence_interpretation": "Delivery errors 126/127 are closed-shim decisions with absent SDK receipts; they do not establish OS DLL/procedure absence. Complete A4 startup acceptance remains false.",
+  "failure": "trace",
+  "global_after": {
+    "bytes": 8364,
+    "name": "lpac-curl-a4-loader-after-a4a03-global-snapshot.json",
+    "sha256": "8668bdf4b3802e415b53f95b88e322b804ef0f035463fdd5c5cad7e8f08ea4c3"
+  },
+  "global_before": {
+    "bytes": 8364,
+    "name": "lpac-curl-a4-loader-before-a4a03-global-snapshot.json",
+    "sha256": "8668bdf4b3802e415b53f95b88e322b804ef0f035463fdd5c5cad7e8f08ea4c3"
+  },
+  "global_before_after_byte_equal": true,
+  "global_objects": [
+    "firewall_profiles",
+    "dns",
+    "routes",
+    "user_proxy"
+  ],
+  "known_cleanup_predicates": 14,
+  "lease_checks": {
+    "count": 2,
+    "pre_post_target_and_shim_identity_size_hash_equal": true
+  },
+  "local_pure": {
+    "seconds": 353.246,
+    "skips": 2,
+    "tests": 1423
+  },
+  "next_route_boundary": "A new bounded HTTP adapter is a separate unexecuted route. These version-only facts establish no socket/connect/send/recv, DNS, TLS or proxy behavior.",
+  "not_qualified": [
+    "complete_A4_startup_acceptance",
+    "HTTP",
+    "DNS",
+    "proxy",
+    "real_Winsock_startup",
+    "TLS",
+    "all_dynamic_calls_mediated",
+    "hostile_trace_authenticity",
+    "root_crash_safety",
+    "Linux_equivalence",
+    "product_acceptance"
+  ],
+  "observations": {
+    "Linux_equivalence": false,
+    "PSEC_qualified": false,
+    "acl_removed": true,
+    "all_dynamic_calls_mediated": false,
+    "application_compatibility": false,
+    "cleanup_tools": true,
+    "dns_isolation_qualified": false,
+    "failure": "trace",
+    "hostile_child_trace_authenticity": false,
+    "hostile_same_sid_boundary_verified": false,
+    "labels_restored": true,
+    "lpac_identity_verified": true,
+    "network_qualified": false,
+    "observation_complete": false,
+    "observer_resources_cleanup_verified": true,
+    "ordinary_after_positive": true,
+    "ordinary_before_positive": true,
+    "parent_stdio_mapping_duplicate_closed": true,
+    "payload_carrier_returned_nonnull": true,
+    "payload_readback_readonly_verified": true,
+    "private_memory_sequence_complete": true,
+    "product_acceptance": false,
+    "profile_deleted": true,
+    "proxy_qualified": false,
+    "query_resources_closed": true,
+    "restoration_fully_verified": false,
+    "restore_payload_absence_verified": false,
+    "root_crash_safe": false,
+    "selected_exit_code": 0,
+    "selected_natural_exit": true,
+    "selected_resumed": true,
+    "selected_version_positive": true,
+    "shim_file_closed": true,
+    "sid_released": true,
+    "startup_diagnostic_observed": false,
+    "target_file_closed": true,
+    "trace_call_count": 34,
+    "trace_diagnostic_candidate_complete": false,
+    "trace_header_bound": true,
+    "trace_mapping_closed": true,
+    "trace_stable": true,
+    "trace_view_unmapped": true,
+    "whole_mapped_image_integrity_verified": false,
+    "workload_cleanup": true,
+    "workload_job_empty": true
+  },
+  "ordinary_controls": {
+    "after": true,
+    "before": true
+  },
+  "original_public_unchanged": true,
+  "outer_cleanup_true": true,
+  "payload_readback_readonly_verified": true,
+  "preflight": {
+    "bytes": 1723,
+    "name": "lpac-curl-a4-loader-local-03-preflight.json",
+    "sha256": "2646ba5bd55106381adc512229e6275bfb9568f16cca9763d66a1821502c60ec"
+  },
+  "prior_between_attempt_DNS_and_routes_difference_remains_unattributed": true,
+  "private_memory_sequence_complete": true,
+  "public": {
+    "bytes": 3138,
+    "name": "lpac-curl-a4-loader-local-03-public.json",
+    "sha256": "a3c2cea5359613e97ad2b13cd2d4dc5aed068cc7883b7b2f187ad548c2f49726"
+  },
+  "recovery_required": false,
+  "same_as_actual02_snapshot": true,
+  "schema_version": 1,
+  "selected": {
+    "Resume_raw_count": 1,
+    "URL_supplied": false,
+    "command_arguments": [
+      "--disable",
+      "--version"
+    ],
+    "exit_code": 0,
+    "natural_exit": true,
+    "resumed": true,
+    "stderr_bytes": 0,
+    "stdout": {
+      "bytes": 366,
+      "sha256": "462db4e956d97703eae92a1863090a26987ab7b9bc55c43b4e11565918cc56a4"
+    },
+    "version_positive": true
+  },
+  "source_commit": "0d024290b4f86a3aae042b8b2c5499687fc93928",
+  "source_count": 90,
+  "source_sha256": "c10559be677975f49baf7f2ddd21e9c370fc17eade2f7b05976f4356b6e7da7f",
+  "stage": "A4-actual03-safe-summary",
+  "status": "inconclusive",
+  "trace": {
+    "SDK_load_acquisitions": 0,
+    "SDK_load_releases": 0,
+    "bootstrap_complete": true,
+    "cleanup_calls": 1,
+    "cleanup_implementation_return": 0,
+    "closed_denials": [
+      {
+        "SDK_called": false,
+        "captured_input": "api-ms-win-core-synch-l1-2-0",
+        "delivery_error": 126,
+        "delivery_nonzero": false,
+        "load_flags": 2048,
+        "operation": "LoadLibraryExW",
+        "owned_input_sha256": "1eb0a341fdb9b000b922ad4575fa9d0cdb3ddf72ba22ab18adaa0591cba0dda5",
+        "slot": 22
+      },
+      {
+        "SDK_called": false,
+        "captured_input": "kernel32",
+        "delivery_error": 126,
+        "delivery_nonzero": false,
+        "load_flags": 2048,
+        "operation": "LoadLibraryExW",
+        "owned_input_sha256": "f13bc601140315bf38eb1acc78fd1e70b10c343142db1ddadc9488f30cd1103f",
+        "slot": 23
+      },
+      {
+        "SDK_called": false,
+        "captured_input": "api-ms-win-core-fibers-l1-1-1",
+        "delivery_error": 126,
+        "delivery_nonzero": false,
+        "load_flags": 2048,
+        "operation": "LoadLibraryExW",
+        "owned_input_sha256": "29645eb8bbc88e18d592f4b9178521acd886270eaeb8b8cb93e5992836da0628",
+        "slot": 24
+      },
+      {
+        "SDK_called": false,
+        "captured_input": "wine_get_version",
+        "delivery_error": 127,
+        "delivery_nonzero": false,
+        "load_flags": null,
+        "operation": "GetProcAddress",
+        "owned_input_sha256": "da4a16284d7746739c769d631759b8688d540605141ad8177e0f4f1654301a07",
+        "slot": 28
+      }
+    ],
+    "decoder_all_resources_closed_or_empty": false,
+    "file": {
+      "bytes": 557312,
+      "name": "a4-trace.bin",
+      "sha256": "6274f3dcdcf27c78c063f9dad49d8c80faecfecaa74bb58f46f49c92f50a12d6"
+    },
+    "header_bound": true,
+    "module_reference_state_unknown": false,
+    "module_references_known_balanced": true,
+    "process_lifetime_view_boundary": "The decoder does not prove target-view reclamation. Exact natural process exit and parent mapping/view cleanup are separately recorded outer facts.",
+    "reasons": [
+      "closed_gateway_failed_delivery",
+      "sticky_failure_or_unsupported",
+      "unsupported_loader_input",
+      "unsupported_procedure_observed"
+    ],
+    "retained_child_view_count": 1,
+    "row_count": 34,
+    "stable": true,
+    "startup_calls": 1,
+    "startup_implementation_return": 0,
+    "startup_reference_state_unknown": false,
+    "startup_references_known_balanced": true,
+    "these_are_real_Winsock_SDK_calls": false,
+    "unused_rows_zero": true
+  },
+  "worker_commitment": {
+    "bytes": 328884,
+    "name": "worker-report.json",
+    "sha256": "7c776c5e07ab6ac71cdb51e72f78f2d03a84b9e881cb181dc139745ea2d4b507"
+  },
+  "worker_equals_forensic": true
+}

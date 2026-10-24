@@ -1,0 +1,7 @@
+{
+  "error": "[WinError 87] GetTokenInformation(TokenIsLessPrivilegedAppContainer)",
+  "error_type": "NativeFailure",
+  "read_only": true,
+  "token_close_verified": true,
+  "workload_spawned": false
+}

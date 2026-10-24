@@ -1,0 +1,25 @@
+{
+  "content": {
+    "actor_started": false,
+    "before_explicit_LocalNativeAPI_construction": true,
+    "before_runtime_nonce_generation": true,
+    "before_runtime_plan_and_actor_creation": true,
+    "evidence_kind": "Root-reported tool traceback and control-flow context; not a separately saved raw stderr stream",
+    "network_experiment_started": false,
+    "original_binary_manifest_and_source_commit_not_modified": true,
+    "raw_exception_type_not_transcribed": null,
+    "reported_failure": "New core verify_actor passed the original UTF-8-BOM manifest to the strict decoder without removing one BOM. The driver outer decoder had already been corrected.",
+    "schema_version": 1,
+    "source_commit": "bf4dcc2ab3913ae46056d34ef76892ec266f596e",
+    "stage": "driver-input-gate-reported-failure",
+    "subsequent_fix_requires_fresh_source_and_driver": true
+  },
+  "raw_commitment": {
+    "bytes": 828,
+    "sha256": "2fd429b8eee6b539eefedf817a071022c24c3f2a55d5eba267285c76881752b9"
+  },
+  "schema_version": 1,
+  "stage": "source-evidence-safe-view",
+  "temporal_scope": "Original preparation/review snapshot: its pending/false runtime fields are historical snapshot fields, not the current result.",
+  "transformation": "JSON value projection; account identifiers/user paths redacted if present; no runtime inference"
+}

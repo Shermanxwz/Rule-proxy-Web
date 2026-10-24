@@ -1,0 +1,100 @@
+{
+  "bounds": {
+    "full_host_composition_measured_bytes": 9402,
+    "full_host_measurement_is_not_a_new_cap": true,
+    "guest_envelope_limit": 4096,
+    "native_limit": 32768,
+    "packet_nested_indent2_newline_conservative_bytes": 4092,
+    "packet_projection_limit": 4096,
+    "private_body_limit": 65536
+  },
+  "conclusion": "success",
+  "diagnostic_contract": {
+    "complex_quotes_unknown": true,
+    "icmp_first_encountered_pairs": 2,
+    "icmp_omitted_distinct_count_claimed": false,
+    "icmp_omitted_event_total": true,
+    "joint_correlations_computed_per_event": true,
+    "ndp_failure_mask": 524287,
+    "ndp_vector_fields": 12,
+    "next_header_detail_rows": 2,
+    "next_header_omitted_category_and_event_totals": true,
+    "partial_quotes_not_malformed": true,
+    "quoted_checksums_do_not_authenticate": true,
+    "raw_selected_bytes_separate_from_direct_udp": true,
+    "version": 4
+  },
+  "experiment": "UDP6 NA joint-relation diagnostic short gate",
+  "freeze_sha256": "21bc51709cd65f7115a2f1fbb056df0e308fc1e9b276ee02d562164d3e69be6c",
+  "head": "73a43b061b4c85c9d01da1a88e1b102dec850244",
+  "interpretation": [
+    "Actual Linux and Windows each passed 770 required scoped tests with zero skips; this is not the entire repository test suite.",
+    "Diagnostic v4 appends a five-bit presence set of per-event NA relation patterns and an unknown-NA count. It reports combinations actually observed, not frequencies or cross-event marginal inference. Presence bits 0..4 represent joint patterns 8, 9, 10, 12, 15 for source==G, target==G, source==target and fixed-destination truth. Missing or tainted ordinary witness readiness or incomplete target bytes produce unknown, not false comparisons.",
+    "These are unauthenticated byte relationships, even when recorded before a later checksum or flag refusal. A fixed private NA-event counter validates the projection; a truncated public type/code table cannot necessarily reconstruct that total. No raw address is exported.",
+    "Inner packet schema 2, strict ND profile, bit 6 fixture-address refusal, opaque_protocol and all packet-absence formulas remain unchanged. Exact narrow reverse-AST checks preserve the original witness/profile/decode/evaluate behavior aside from the new diagnostic call.",
+    "Worst-case complete nested indent2 serialization including final newline is 4092 bytes under the unchanged 4096 projection limit. The 9402-byte full-host composition is a measurement, not a newly imposed whole-artifact cap. Native 32768, guest 4096 and private 65536 limits remain unchanged.",
+    "Actual hosted TEST_ONLY IPv6 loopback mechanics, isolated production-input verification, inert Bash/PS/ZIP prerequisites and Linux paused no-guest QEMU provenance all succeeded. Hosted contained is a fixture phase, not AppContainer isolation; valid production network CLI and Windows guest VM were not run. Existing production invalid-CLI checks remain distinct from no-PE isolated verification.",
+    "All seven hosted child owners and two receivers reported cleanup and owned-work removal. Direct Bash exit is not proof of descendant-tree termination; inert/provenance mocks are not real guest evidence.",
+    "Runtime06 remains failed/inconclusive: two strict NS qualified and one NA had source!=G OR target!=G, possibly both. The exact failed comparison cannot be recovered from its deleted raw capture. This new diagnostic does not retrospectively identify that branch or change earlier runtime results.",
+    "No new guest run was launched. This short gate does not establish real guest packet absence, universal IPv6 no-egress, address ownership, actor attribution, DNS/proxy, descendant IPv6, Linux parity or product acceptance."
+  ],
+  "observations": {
+    "hosted_cleanup_confirmed": true,
+    "hosted_ipv6_main_verified_echoes": 45,
+    "hosted_work_removed": true,
+    "hosted_wrong_echo_native_payload_rejected": true,
+    "hosted_wrong_echo_native_send_accepted": true,
+    "hosted_wrong_echo_receiver_frames": 1,
+    "isolated_production_inputs_verified": true,
+    "isolated_verifier_executed_pe": false,
+    "linux_guest_executed": false,
+    "nd_profile_tests": "Synthetic unchanged strict-profile and new joint-pattern diagnostic fixtures only; no guest capture.",
+    "owned_children": 7,
+    "owned_receivers": 2,
+    "paused_linux_qemu_cleanup_confirmed": true,
+    "paused_linux_qemu_provenance_passed": true,
+    "production_actor_invalid_cli_only": true,
+    "production_valid_network_cli_executed": false,
+    "windows_power_shell_checks": [
+      78,
+      48,
+      60,
+      57
+    ],
+    "zip_boundaries_inert": true,
+    "zip_checks": 66,
+    "zip_member_modes": [
+      10,
+      14,
+      15,
+      17,
+      22,
+      17
+    ],
+    "zip_negative_cases": 12
+  },
+  "privacy": {
+    "closed_records_only": true,
+    "raw_logs_pcap_private_bodies_identifiers_excluded": true
+  },
+  "required_tests": {
+    "linux": 770,
+    "skips": 0,
+    "windows": 770
+  },
+  "result_sha256": "6f0a35bae47f48002fcace14b8adc1308fcb0abd37fc815ba0c412d2c848e16a",
+  "run_id": 39719613176,
+  "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39719613176",
+  "schema_version": 1,
+  "source_scope": {
+    "actor_guest_network_capture_workflow_unchanged": true,
+    "changed_files": 4,
+    "decoder_diagnostic_version": 4,
+    "diagnostic_only": true,
+    "inner_packet_schema_version": 2,
+    "no_global_reason_removal": true,
+    "strict_per_packet_nd_admission_change": false,
+    "unchanged_pins": 406,
+    "unqualified_nd_and_other_opaque_still_fail": true
+  }
+}

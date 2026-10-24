@@ -1,0 +1,129 @@
+{
+  "api_or_experiment_run_by_reader": false,
+  "api_success_does_not_imply_membership": true,
+  "attempt": 3,
+  "held_bound_physical_receipt_count": 1,
+  "held_worker_result_available": true,
+  "inner_job_is_borrowed_and_not_closed_by_query": true,
+  "job_admission_record_count": 1,
+  "missing_receipt_or_membership_synthesized": false,
+  "original_dual_exact_membership_admission_gate_unchanged": true,
+  "physical_receipt_count": 1,
+  "physical_receipts": [
+    {
+      "bound_to_validated_held_worker_result": true,
+      "bytes": 2285,
+      "independent_physical_file_establishes_admission": false,
+      "raw_private_text_published": false,
+      "role": "ac",
+      "sequence": 1,
+      "sha256": "bb4682cb27f869e49051c813525f8abf2690edee4b7a88d08a2c05d7bd50d68e",
+      "unvalidated_or_incomplete_forensic_only": false
+    }
+  ],
+  "query_resource_cleanup_verified": true,
+  "raw_handles_pid_sid_job_name_creation_or_qpc_published": false,
+  "records": [
+    {
+      "admission_verified": false,
+      "decision_tick_recorded": true,
+      "decision_within_original_work_deadline": true,
+      "exact_inner_and_outer_membership_verified": false,
+      "exception": {
+        "message_published": false,
+        "private_sha256": null,
+        "recorded": false
+      },
+      "generation_after": {
+        "alive": true,
+        "available": true,
+        "exception": {
+          "message_published": false,
+          "private_sha256": null,
+          "recorded": false
+        },
+        "held_generation_verified": true,
+        "image_verified": true,
+        "pid_and_creation_match_held_arm": true,
+        "within_original_work_deadline": true
+      },
+      "generation_before": {
+        "alive": true,
+        "available": true,
+        "exception": {
+          "message_published": false,
+          "private_sha256": null,
+          "recorded": false
+        },
+        "held_generation_verified": true,
+        "image_verified": true,
+        "pid_and_creation_match_held_arm": true,
+        "within_original_work_deadline": true
+      },
+      "inner_query": {
+        "api_success": true,
+        "attempted": true,
+        "exception": {
+          "message_published": false,
+          "private_sha256": null,
+          "recorded": false
+        },
+        "immediate_win32_error": 0,
+        "membership": false,
+        "returned": true,
+        "within_original_work_deadline": true
+      },
+      "original_disk_receipt": {
+        "bytes": 2285,
+        "sha256": "bb4682cb27f869e49051c813525f8abf2690edee4b7a88d08a2c05d7bd50d68e"
+      },
+      "outer_query": {
+        "api_success": true,
+        "attempted": true,
+        "exception": {
+          "message_published": false,
+          "private_sha256": null,
+          "recorded": false
+        },
+        "immediate_win32_error": 0,
+        "membership": true,
+        "returned": true,
+        "within_original_work_deadline": true
+      },
+      "purpose": "initial",
+      "query_resources": {
+        "cleanup_verified": true,
+        "close_api_success": true,
+        "close_attempted": true,
+        "close_returned": true,
+        "close_uncertain": false,
+        "close_within_original_work_deadline": true,
+        "exception": {
+          "message_published": false,
+          "private_sha256": null,
+          "recorded": false
+        },
+        "handle_available": true,
+        "immediate_close_win32_error": 0,
+        "immediate_open_win32_error": 0,
+        "one_shot_close_source_bound": true,
+        "open_attempted": true,
+        "open_returned": true,
+        "open_within_original_work_deadline": true,
+        "protected_handle_alias": false
+      },
+      "raw_handles_pid_sid_job_name_creation_or_qpc_published": false,
+      "receipt_available": true,
+      "role": "ac",
+      "sequence": 1
+    }
+  ],
+  "schema_version": 1,
+  "scope": "one-local-cpse-deny-all-matched-aap-identity-v1",
+  "scoped_query_handle_one_shot_source_invariant": true,
+  "source_commit": "4c5878ba0ffa6f4b938e26bf5c8c016b7042b333",
+  "source_sha256": "cf09c9c86adf9f7af3fb3d71bdde6cd1fd4fa7000a8eb01cc5ebc71b3ea5d682",
+  "stage": "psec-exact-job-admissions-private-safe-projection",
+  "unbound_files_used_for_qualification": false,
+  "worker_result_validated": true
+}

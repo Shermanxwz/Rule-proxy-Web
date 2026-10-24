@@ -1,0 +1,914 @@
+{
+  "actual_archive": {
+    "bytes": 3821,
+    "path": "verification/windows-2026-10-22/lpac-pipe-origin-actual-01/index.json",
+    "sha256": "5fe64985d2d21749cedf0ec3ab84047b69e1d1b91b27aede1ccd6c8381fc8e60"
+  },
+  "actual_source_CI": {
+    "bytes": 1394,
+    "name": "lpac-pipe-origin-actual-source-CI-receipt-01.json",
+    "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39910769791",
+    "sha256": "8340511598dca3815bfd2ffc38062719636c190ed4ce3d02263bccf39254f10a"
+  },
+  "actual_source_commit": "42064e8cbfc3263cb1352f923ab8e269d490b078",
+  "actual_source_commit_pending": false,
+  "baseline_old_sources_commit": "277c112f81fb4e3b70305d9e881beada4758b115",
+  "commitment_only": [
+    {
+      "bytes": 20264,
+      "name": "lpac-pipe-front-native-candidate-01.patch",
+      "public_representation": "commitment-only; full original retained in WORK",
+      "sha256": "8b3a3467581c035eef55091b379dd5dbed4c3f3810641a4f6bfbc48f3322e2f8"
+    },
+    {
+      "bytes": 114987,
+      "name": "lpac-pipe-origin-python-candidate-01.patch",
+      "public_representation": "commitment-only; full original retained in WORK",
+      "sha256": "0e737582ae58d86786a477246138c750f4e93aeaf8649004ed8e47be053849e8"
+    },
+    {
+      "bytes": 121144,
+      "name": "lpac-pipe-origin-python-candidate-02.patch",
+      "public_representation": "commitment-only; full original retained in WORK",
+      "sha256": "8d2fb7560aac1f7ca033325f231ff390c6e59553317787524dab05a3e29b16ce"
+    },
+    {
+      "bytes": 122329,
+      "name": "lpac-pipe-origin-python-candidate-03.patch",
+      "public_representation": "commitment-only; full original retained in WORK",
+      "sha256": "dfcf212ece157df902f6ca0df582f786e0b7d465c861173c49928c24d1417f82"
+    },
+    {
+      "bytes": 12441,
+      "name": "run_lpac_pipe_origin_01_candidate.py",
+      "public_representation": "commitment-only; full original retained in WORK",
+      "sha256": "460f268a05d33136098499da6b26fa26ae9392ae75be8dd9d80cd2929501d813"
+    },
+    {
+      "bytes": 12525,
+      "name": "run_lpac_pipe_origin_01_candidate02.py",
+      "public_representation": "commitment-only; full original retained in WORK",
+      "sha256": "8397934b9ad32567acbdd19c6dd75585f0f624d9e16c0f6f95174871767fc5d4"
+    },
+    {
+      "bytes": 21236,
+      "name": "verify_lpac_pipe_origin_actual_01_candidate.py",
+      "public_representation": "commitment-only; full original retained in WORK",
+      "sha256": "c5fc89bd549bb3f20b1880468fb08d58002bf46f9cfa3324719b58927e33b71f"
+    },
+    {
+      "bytes": 21980,
+      "name": "verify_lpac_pipe_origin_actual_01_candidate02.py",
+      "public_representation": "commitment-only; full original retained in WORK",
+      "sha256": "50f982f02f897dbea9ec2e3381b8fce052bbc2366487188d0cc03498d969a666"
+    },
+    {
+      "bytes": 4418,
+      "name": "lpac-pipe-front-compile-01/input-snapshot.json",
+      "public_representation": "commitment-only; full original retained in WORK",
+      "sha256": "e84fd2d705e089f0f1d30938f687068db3b4ea58d833b4f273fac365809f12ae"
+    },
+    {
+      "bytes": 90,
+      "name": "lpac-pipe-front-compile-01/compile.log",
+      "public_representation": "commitment-only; full original retained in WORK",
+      "sha256": "ab8cc588214bd8f497b509e6192849eceece2f93895365cf7048f036ae5939c5"
+    },
+    {
+      "bytes": 454,
+      "name": "lpac-pipe-front-compile-01/toolchain.json",
+      "public_representation": "commitment-only; full original retained in WORK",
+      "sha256": "69471c8dfe91067914c7b7ad8bac7d9490aaf9e42ec5be063891ccbdc2831446"
+    },
+    {
+      "bytes": 123823,
+      "name": "lpac-pipe-origin-python-candidate-04.patch",
+      "public_representation": "commitment-only; full original retained in WORK",
+      "sha256": "4a4f136decb04c256638ac294b1099934acd32bea82845d47765da3f49ab3bbd"
+    },
+    {
+      "bytes": 123866,
+      "name": "lpac-pipe-origin-python-candidate-05.patch",
+      "public_representation": "commitment-only; full original retained in WORK",
+      "sha256": "fc29486e8cec18f1622350fa32df4d05323069b8d75860bc849b5ed11a70c743"
+    }
+  ],
+  "false_snapshots": [
+    {
+      "files": {
+        ".github/windows_identity_lpac_pipe_origin.py": {
+          "bytes": 62681,
+          "sha256": "adb0d9051b7fdb45add356ee64e002595112bdf34bb015d7babfa747b15daaa1"
+        },
+        ".github/windows_identity_lpac_pipe_origin_local.py": {
+          "bytes": 17255,
+          "sha256": "a69fec199a9c7252ed733f3f71e4408afabd0c6f9e7ac36612105ba431e71ce6"
+        },
+        "tests/test_windows_identity_lpac_pipe_origin.py": {
+          "bytes": 22718,
+          "sha256": "454afebc2e5ebdb6d10e22bed69d757307b9a950264f01dd224cd8fd79630283"
+        },
+        "tests/test_windows_identity_lpac_pipe_origin_local.py": {
+          "bytes": 10315,
+          "sha256": "e813cb0866c4ab1e8f1fdc8ed586cb9c53c4fa402f5e2d09c23157bb8fa396a3"
+        }
+      },
+      "revision": 1,
+      "snapshot_is_work_retention_not_runtime_evidence": true,
+      "snapshot_matches_freeze": true
+    },
+    {
+      "files": {
+        ".github/windows_identity_lpac_pipe_origin.py": {
+          "bytes": 66680,
+          "sha256": "3d2698dea777b240cff90b5166de642a095d538404027bef4d46ec6abc7d0123"
+        },
+        ".github/windows_identity_lpac_pipe_origin_local.py": {
+          "bytes": 17255,
+          "sha256": "a69fec199a9c7252ed733f3f71e4408afabd0c6f9e7ac36612105ba431e71ce6"
+        },
+        "tests/test_windows_identity_lpac_pipe_origin.py": {
+          "bytes": 24823,
+          "sha256": "fe431b66a2000da337238bf6e30fddad0cb8f0c35d339c5aad8b20d0a7e55a41"
+        },
+        "tests/test_windows_identity_lpac_pipe_origin_local.py": {
+          "bytes": 10315,
+          "sha256": "e813cb0866c4ab1e8f1fdc8ed586cb9c53c4fa402f5e2d09c23157bb8fa396a3"
+        }
+      },
+      "revision": 2,
+      "snapshot_is_work_retention_not_runtime_evidence": true,
+      "snapshot_matches_freeze": true
+    },
+    {
+      "files": {
+        ".github/windows_identity_lpac_pipe_origin.py": {
+          "bytes": 66976,
+          "sha256": "4b1c5001b5e8b71a5df9893392747de623cb921c7fe5bed8ca524516cca5e072"
+        },
+        ".github/windows_identity_lpac_pipe_origin_local.py": {
+          "bytes": 17255,
+          "sha256": "a69fec199a9c7252ed733f3f71e4408afabd0c6f9e7ac36612105ba431e71ce6"
+        },
+        "tests/test_windows_identity_lpac_pipe_origin.py": {
+          "bytes": 25701,
+          "sha256": "cc7e00b425eeb5b7aa60cd958f02d35d78804209ddb3c3685d2807bab7fa8152"
+        },
+        "tests/test_windows_identity_lpac_pipe_origin_local.py": {
+          "bytes": 10315,
+          "sha256": "e813cb0866c4ab1e8f1fdc8ed586cb9c53c4fa402f5e2d09c23157bb8fa396a3"
+        }
+      },
+      "revision": 3,
+      "snapshot_is_work_retention_not_runtime_evidence": true,
+      "snapshot_matches_freeze": true
+    },
+    {
+      "files": {
+        ".github/windows_identity_lpac_pipe_origin.py": {
+          "bytes": 67006,
+          "sha256": "d7be85a0db6b28e1df43658e879aeec8bd802c67cb4f677a3872d2fffaab1882"
+        },
+        ".github/windows_identity_lpac_pipe_origin_local.py": {
+          "bytes": 17255,
+          "sha256": "a69fec199a9c7252ed733f3f71e4408afabd0c6f9e7ac36612105ba431e71ce6"
+        },
+        "tests/test_windows_identity_lpac_pipe_origin.py": {
+          "bytes": 27151,
+          "sha256": "a7b137ca11d7a55e983b403d35a36876c22de3a39e04b6be4bb441e020c4ab23"
+        },
+        "tests/test_windows_identity_lpac_pipe_origin_local.py": {
+          "bytes": 10315,
+          "sha256": "e813cb0866c4ab1e8f1fdc8ed586cb9c53c4fa402f5e2d09c23157bb8fa396a3"
+        }
+      },
+      "revision": 4,
+      "snapshot_is_work_retention_not_runtime_evidence": true,
+      "snapshot_matches_freeze": true
+    }
+  ],
+  "historical_order": [
+    "False01 31 pure passed, independent nine accepted mutations BLOCKED; no actor run",
+    "False02 32 pure passed, independent native-final-after-held-exit mutation BLOCKED; no actor run",
+    "False03 33 pure passed and original nine plus exit mutations rejected, independent source-only GO",
+    "READY promotion only false-to-true literal; runtime still requires separately frozen root actual inputs",
+    "Full-suite harness01 native stderr caused PowerShell NativeCommandError before full capture; original log empty; not a test assertion failure",
+    "Fresh subprocess capture02 passed1061/155.245s/2 old skips; after input/test fix fresh03 passed1062/157.802s/2 old skips. Pure is separate from runtime acceptance.",
+    "Initial committed driver stopped in inner manifest BOM parsing before explicit LocalNativeAPI/nonces/plan/actor; not a network attempt",
+    "False04 fixes single-BOM parsing while preserving original manifest hash; production verify_actor file-only check of original artifacts passed",
+    "Automatic source CI for bf4dcc had one hosted temporary-path test error; runtime steps skipped; source failure retained",
+    "False05 changes only test temporary-base canonicalization plus specific readiness assertion; production path containment remains strict"
+  ],
+  "integrated_suite": {
+    "bytes": 785,
+    "name": "lpac-pipe-origin-integrated-suite-receipt-03.json",
+    "sha256": "c21a924967811dff17b04f1ceac4c89843419e84389f182be278a9ae3ad125cb"
+  },
+  "main_or_actual_mutations_by_this_preview": false,
+  "native_source_current_commitments": {
+    ".github/native/windows_identity_actor.cpp": {
+      "bytes": 31002,
+      "sha256": "530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553"
+    },
+    ".github/native/windows_identity_dns_raw_udp.hpp": {
+      "bytes": 8847,
+      "sha256": "43b8cc7afce3acd91cdd4f23ae7d7075a996f98860447c3e9791e298d33a8a78"
+    },
+    ".github/native/windows_identity_dns_standard_probe.hpp": {
+      "bytes": 6678,
+      "sha256": "bce69ff57a173525a9cff2731f4d05fe34b5144daeaa465b0d8bb5181432d28c"
+    },
+    ".github/native/windows_identity_lpac_loopback_actor.cpp": {
+      "bytes": 30053,
+      "sha256": "c3744801ef26fd42a3f1b1712a7d0b7c8e49369ae7e4d655ab46d8eb3f188985"
+    },
+    ".github/native/windows_identity_lpac_loopback_contract.hpp": {
+      "bytes": 4650,
+      "sha256": "a5e46a18c25211d34fd33c21a6e640dd7a6a3e3e02ec67fe03c30f010f9f9dce"
+    },
+    ".github/native/windows_identity_lpac_pipe_front_actor.cpp": {
+      "bytes": 6869,
+      "sha256": "ecc4a793fa1afc33a5c9407486ee9f463bd68132b8090eb259270a89d19ca48d"
+    },
+    ".github/native/windows_identity_proxy_bridge_core.hpp": {
+      "bytes": 16902,
+      "sha256": "f03e45166265f02a65abc12930efd73634a332596d22aa78cadc1267a80b6356"
+    },
+    ".github/native/windows_identity_proxy_c_actor.cpp": {
+      "bytes": 49690,
+      "sha256": "17f8a816028f71667513586b2efd57fc1c46b369e1d7171e74a2cef6e9c543a3"
+    },
+    ".github/native/windows_identity_proxy_c_contract.hpp": {
+      "bytes": 4313,
+      "sha256": "150efbbccdbcb9064eb6d43ddd25608a4a3655c5a408402779dae6216269ff1c"
+    },
+    ".github/native/windows_identity_proxy_origin_actor.cpp": {
+      "bytes": 25762,
+      "sha256": "3d079e77e387ba77545c27f5b5c260f591657ef3a44384426cd2039fa8c04010"
+    },
+    ".github/native/windows_identity_proxy_origin_transport.hpp": {
+      "bytes": 6338,
+      "sha256": "bed113e5e20064722cbb2c6d3e71b4d3ca6c4769ebd694c86997abec0af661c4"
+    },
+    ".github/native/windows_identity_proxy_pipe_actor.cpp": {
+      "bytes": 16095,
+      "sha256": "26636a6b9979e91452cf6e7d2049d6fbbfa43639a35708ee18d4a71e67fb8dd0"
+    }
+  },
+  "ordinary_B_artifact": {
+    "binding": "Previously compiled artifact and its exact existing manifest/original compile record, checked against current five source pins; no original precompile snapshot is invented.",
+    "executable_sha256": "042562a096a9f488b7a52ee8eb894af0b26dc679a05dc8948a9ae159b71cf161",
+    "manifest": {
+      "bytes": 633,
+      "sha256": "5b3660539e70bc53d004b2ee3b7b13bfa7fe6418042e57bbd0263b03cef4a456"
+    },
+    "native_pin_count": 5,
+    "no_retrospective_original_snapshot_created": true,
+    "original_build_input_snapshot_present": false,
+    "original_compile_record": {
+      "bytes": 3714,
+      "path": "verification/windows-2026-10-22/native-origin-compile-pure-01.json",
+      "sha256": "8c10437a9db1b87cad027de2e3e23c7fb8f5723ea0a07bdca2a06a9cf341f142"
+    }
+  },
+  "ordinary_B_compilation_input_count": 5,
+  "raw_originals_retained": true,
+  "ready_source_sha256": "d136e22b2dfbdb991cfbef06d5dd7a54d687135bedbff653ada5e4d01ab88a61",
+  "restrictions": {
+    "arbitrary_app_adapter": false,
+    "linux_equivalence": false,
+    "product_acceptance": false,
+    "selected_dns_api_tested": false,
+    "selected_socket_api_tested": false,
+    "transparent_proxy": false
+  },
+  "schema_version": 1,
+  "selected_compilation_input_count": 4,
+  "selected_ready_freeze": {
+    "bytes": 7014,
+    "name": "lpac-pipe-origin-ready-source-freeze-02.json",
+    "sha256": "99719b7d6a22a03b59f639fd4cb06a9588701e744d47a1f98c1e9df0b5fd329d"
+  },
+  "source_bf4_CI_failure_view": {
+    "bytes": 4802,
+    "name": "source-bf4-automatic-CI-failure-view.json",
+    "sha256": "d5bfdbe610de62e373648e3a2c6aaa00e82f0d4ef3ae66c5d123a5a14b3e5689"
+  },
+  "source_count": 40,
+  "source_views": [
+    {
+      "name": "lpac-ipc-origin-scope-contract-01.json",
+      "raw_commitment": {
+        "bytes": 33381,
+        "sha256": "50c679695df76c6a1288abf7a040daf14c126187ea620e38eeb7246c5b126cd0"
+      },
+      "representation": "safe-JSON-view-not-original-bytes",
+      "view_commitment": {
+        "bytes": 34736,
+        "sha256": "801129802d2d739cab8422da8c2d893677daf0d14dfb6ce0400d389e1a6975ab"
+      }
+    },
+    {
+      "name": "lpac-ipc-origin-contract-root-review-01.json",
+      "raw_commitment": {
+        "bytes": 1187,
+        "sha256": "6daa01bc1332ae31091b808d47f3fefb490e4eccab804e4da78a05f32dfb7488"
+      },
+      "representation": "safe-JSON-view-not-original-bytes",
+      "view_commitment": {
+        "bytes": 1715,
+        "sha256": "ef03e88d10818b5b08a60e06eefe81395f8b68f411a97258786f299650253a8d"
+      }
+    },
+    {
+      "name": "lpac-pipe-new-descriptor-ownership-research-01.json",
+      "raw_commitment": {
+        "bytes": 1529,
+        "sha256": "9745392e667a383c892940d84fc39c68ea1ebfbb9f5a9fdd0fa0bf6acc19f36a"
+      },
+      "representation": "safe-JSON-view-not-original-bytes",
+      "view_commitment": {
+        "bytes": 2049,
+        "sha256": "0fd5c1bfe6f16886d3dcc7355eb1bb726ae07c2e5c65ccbfc6166f7f79d2869b"
+      }
+    },
+    {
+      "name": "lpac-pipe-front-native-abi-01.json",
+      "raw_commitment": {
+        "bytes": 4348,
+        "sha256": "16593f0635ccb649ffb44b69c5f4043a32bf0bf2e7474d3a511acb45bea22718"
+      },
+      "representation": "safe-JSON-view-not-original-bytes",
+      "view_commitment": {
+        "bytes": 5470,
+        "sha256": "1934920137e14426628136da9cfa143cf72013d4e1823eabb54981e670944829"
+      }
+    },
+    {
+      "name": "lpac-pipe-front-native-freeze-01.json",
+      "raw_commitment": {
+        "bytes": 4418,
+        "sha256": "e84fd2d705e089f0f1d30938f687068db3b4ea58d833b4f273fac365809f12ae"
+      },
+      "representation": "safe-JSON-view-not-original-bytes",
+      "view_commitment": {
+        "bytes": 5126,
+        "sha256": "3859c3638dcedace5ee23d424dfc74f00699823d4d06a130ba537b189a4e845f"
+      }
+    },
+    {
+      "name": "lpac-pipe-front-native-independent-review-01.json",
+      "raw_commitment": {
+        "bytes": 4329,
+        "sha256": "f98d3f2939f6e6739fd6d4552567f568baebdbf53633603db8cfdadcb434a9d4"
+      },
+      "representation": "safe-JSON-view-not-original-bytes",
+      "view_commitment": {
+        "bytes": 5005,
+        "sha256": "0d59348621c94bc36dc24e2e20cc58b3b2710250d342bf7d6bb03810327c933d"
+      }
+    },
+    {
+      "name": "lpac-pipe-front-native-root-input-review-01.json",
+      "raw_commitment": {
+        "bytes": 1029,
+        "sha256": "3202c4eb5859b8915ad8b277952ecbe10b5a7d947b0f512def0fa53883c57a41"
+      },
+      "representation": "safe-JSON-view-not-original-bytes",
+      "view_commitment": {
+        "bytes": 1553,
+        "sha256": "23f43ed50198a0f1ccd13c5dba4048c37778ea95d8cf01050d3265c9f74f4376"
+      }
+    },
+    {
+      "name": "lpac-pipe-front-compile-independent-review-01.json",
+      "raw_commitment": {
+        "bytes": 6338,
+        "sha256": "6859172be6bf1b40e2dcb6b1fa38738390e64430cb600dc67182e330dcd48dd9"
+      },
+      "representation": "safe-JSON-view-not-original-bytes",
+      "view_commitment": {
+        "bytes": 7212,
+        "sha256": "e58db325003372525b553a0f0426f688eb527bda6d9dea307fb26b8b6fa2cc3d"
+      }
+    },
+    {
+      "name": "lpac-pipe-origin-python-candidate-freeze-01.json",
+      "raw_commitment": {
+        "bytes": 16693,
+        "sha256": "6b6c0d1dc8e887e3e5e32e1fa504c4e6df70d9432e26ff730d1fbbc755128ddc"
+      },
+      "representation": "safe-JSON-view-not-original-bytes",
+      "view_commitment": {
+        "bytes": 17838,
+        "sha256": "96e06f221b0d3614e1da3550d5149eab785ba0fa53a7527a41338cdb42789b31"
+      }
+    },
+    {
+      "name": "lpac-pipe-origin-python-candidate-freeze-02.json",
+      "raw_commitment": {
+        "bytes": 17275,
+        "sha256": "64451dbbca7d3d932df2b3c05eaba35959d7c27b5c56f9397a147efca087f918"
+      },
+      "representation": "safe-JSON-view-not-original-bytes",
+      "view_commitment": {
+        "bytes": 18442,
+        "sha256": "664dc34b2db82d0021113d9e4a1a885c9f1fee173b7fca33046f5314ace8a54b"
+      }
+    },
+    {
+      "name": "lpac-pipe-origin-python-candidate-freeze-03.json",
+      "raw_commitment": {
+        "bytes": 17728,
+        "sha256": "986aa220427ee48dad5b26da740066a573b0316e61b41bea7e9fa9a08d9186f0"
+      },
+      "representation": "safe-JSON-view-not-original-bytes",
+      "view_commitment": {
+        "bytes": 18915,
+        "sha256": "117a0c8a4fed344d016f07badbb6e15d5c7e200ca924580a57bf47a2dd65afae"
+      }
+    },
+    {
+      "name": "lpac-pipe-origin-python-independent-review-01.json",
+      "raw_commitment": {
+        "bytes": 4407,
+        "sha256": "18b12264baeac16c03ee8b9c8bf0210402cab39dfb74df19847f5de76f3ab2d3"
+      },
+      "representation": "safe-JSON-view-not-original-bytes",
+      "view_commitment": {
+        "bytes": 5059,
+        "sha256": "e6bfb83af2048c683a95ac6699d14c3aca5317fb596959bbf05dd4a97df1452a"
+      }
+    },
+    {
+      "name": "lpac-pipe-origin-python-independent-review-02.json",
+      "raw_commitment": {
+        "bytes": 1825,
+        "sha256": "e88df7b44f98e5b74ac2e57b35e9b1496c5118cdf50282921dbc345e633bdbb0"
+      },
+      "representation": "safe-JSON-view-not-original-bytes",
+      "view_commitment": {
+        "bytes": 2389,
+        "sha256": "f7cf2c73970a0443d74d19aa6f5598dd3e9f562b37908718625fe5b66e01197e"
+      }
+    },
+    {
+      "name": "lpac-pipe-origin-python-independent-review-03.json",
+      "raw_commitment": {
+        "bytes": 5775,
+        "sha256": "19a96c47252596f02e6ea25fedb903de2c8eb5b684ec00d59042969d06292970"
+      },
+      "representation": "safe-JSON-view-not-original-bytes",
+      "view_commitment": {
+        "bytes": 6521,
+        "sha256": "5eece231c47f306e23952f2495eeeaec85670370dd2f07fb2e8d8b12d09a9ff9"
+      }
+    },
+    {
+      "name": "lpac-pipe-origin-false01-independent-gate-probes.json",
+      "raw_commitment": {
+        "bytes": 2443,
+        "sha256": "d5ba49d44247b8b8d7a00a54fb0b0c36563e7f38143cbb2720dbfd7a63a02f5c"
+      },
+      "representation": "safe-JSON-view-not-original-bytes",
+      "view_commitment": {
+        "bytes": 3081,
+        "sha256": "90402ded50d938b7875826e08ceee5f63638b775f1c8a0dede11a63c4407cef1"
+      }
+    },
+    {
+      "name": "lpac-pipe-origin-false02-independent-gate-probes.json",
+      "raw_commitment": {
+        "bytes": 2479,
+        "sha256": "f2694071f962901b0e067113f0cf16835b4b277e5a985b4cc0a2ef6c14087136"
+      },
+      "representation": "safe-JSON-view-not-original-bytes",
+      "view_commitment": {
+        "bytes": 3117,
+        "sha256": "9bdcea8c87e0a38c57969bde95acbaa65295ade570f6ed2db871037017a6765c"
+      }
+    },
+    {
+      "name": "lpac-pipe-origin-false02-independent-exit-probe.json",
+      "raw_commitment": {
+        "bytes": 1054,
+        "sha256": "4608c6e45f8b9aab7d70b5b9ae09109674a8f88d4b34a9cba6272141bd1248fe"
+      },
+      "representation": "safe-JSON-view-not-original-bytes",
+      "view_commitment": {
+        "bytes": 1564,
+        "sha256": "acd6c90081b56d30f3a1e1420443bba3021cd6a6ee17e313f7993608f2abc497"
+      }
+    },
+    {
+      "name": "lpac-pipe-origin-false02-independent-partial-checks.json",
+      "raw_commitment": {
+        "bytes": 564,
+        "sha256": "77fc315725b2aeaaf184bf820208abb1722109f66e2b0358c61ee01ad1e18352"
+      },
+      "representation": "safe-JSON-view-not-original-bytes",
+      "view_commitment": {
+        "bytes": 1079,
+        "sha256": "acbf4a86f89fdbb3ed3d77d5faf415b4630f264e9b03a75a18aa4ab0cc013360"
+      }
+    },
+    {
+      "name": "lpac-pipe-origin-false03-independent-gate-probes.json",
+      "raw_commitment": {
+        "bytes": 3570,
+        "sha256": "98d2e500376052006913e8961cf90dea82c8dce9ae0074d3a746938363a28df5"
+      },
+      "representation": "safe-JSON-view-not-original-bytes",
+      "view_commitment": {
+        "bytes": 4284,
+        "sha256": "c8dd3edb9aef12dafa6bec501fadfe70175798f5e80e2c7912712456dac39802"
+      }
+    },
+    {
+      "name": "lpac-pipe-origin-promotion-independent-review-01.json",
+      "raw_commitment": {
+        "bytes": 2769,
+        "sha256": "77f798833d27d2d21b5379a3cf6cbcc60350cd756ef25000d061aae3be457cc2"
+      },
+      "representation": "safe-JSON-view-not-original-bytes",
+      "view_commitment": {
+        "bytes": 3379,
+        "sha256": "e63261be6b7414f39f63772443963bf8cf4bf801b6b0af9bdafda33bbd9ab400"
+      }
+    },
+    {
+      "name": "lpac-pipe-origin-ready-source-freeze-01.json",
+      "raw_commitment": {
+        "bytes": 6945,
+        "sha256": "0358797358a256495b50885698bebddecb53369f25be05755da80ad240e4be83"
+      },
+      "representation": "safe-JSON-view-not-original-bytes",
+      "view_commitment": {
+        "bytes": 7595,
+        "sha256": "82681fb3ea7babd122a2ec491215a8869231943b6fcf2ff066652f4b44499578"
+      }
+    },
+    {
+      "name": "lpac-pipe-origin-driver-prepare-rejected-01.json",
+      "raw_commitment": {
+        "bytes": 459,
+        "sha256": "45d880ca21dc51eba13f0ac38888ddd6bfa177a14193ffe57be91ac2f7ac6e98"
+      },
+      "representation": "safe-JSON-view-not-original-bytes",
+      "view_commitment": {
+        "bytes": 954,
+        "sha256": "4c28f9100efb8b7bd989d62fa7780d726de4730c67fa25bdb87cd566d08b1074"
+      }
+    },
+    {
+      "name": "lpac-pipe-origin-driver-candidate-freeze-02.json",
+      "raw_commitment": {
+        "bytes": 3423,
+        "sha256": "0f0b486aad73aa4704747f7929358de1d74ca23b515ec22f2dc052e4bf3145ca"
+      },
+      "representation": "safe-JSON-view-not-original-bytes",
+      "view_commitment": {
+        "bytes": 4085,
+        "sha256": "b3b9136f7853be2b382b8dead298a38ae18137fc6fe980de452a239857933cfb"
+      }
+    },
+    {
+      "name": "lpac-pipe-reader-candidate-freeze-02.json",
+      "raw_commitment": {
+        "bytes": 2511,
+        "sha256": "59e348029549f4b6eada1be42980ce5ed80208459da7e668ae844be650aeaf7b"
+      },
+      "representation": "safe-JSON-view-not-original-bytes",
+      "view_commitment": {
+        "bytes": 3119,
+        "sha256": "f79c5048cf284f9502838b75d1823a804aef4cc28887144a78117a4cedd50188"
+      }
+    },
+    {
+      "name": "lpac-pipe-full-suite-harness-interruption-01.json",
+      "raw_commitment": {
+        "bytes": 1082,
+        "sha256": "99eda71ce95b860d99e435334d936a7a7d00c3aea4594b4f6975b783559ee791"
+      },
+      "representation": "safe-JSON-view-not-original-bytes",
+      "view_commitment": {
+        "bytes": 1610,
+        "sha256": "8e2f574103e3c7d31a2a42f2fd9319e24c2c1831f0aa3790b20eba467269fb56"
+      }
+    },
+    {
+      "name": "lpac-pipe-origin-python-candidate-freeze-04.json",
+      "raw_commitment": {
+        "bytes": 18354,
+        "sha256": "8c9d26a505affc13609f1d03e68382a763cd9458728e1f6dcb6cc27dd759340e"
+      },
+      "representation": "safe-JSON-view-not-original-bytes",
+      "view_commitment": {
+        "bytes": 19571,
+        "sha256": "54baa0e9bbbf6492a7a45006f7d486a059e3f34f5b7875246b372fc69d19e0c6"
+      }
+    },
+    {
+      "name": "lpac-pipe-origin-python-candidate-freeze-05.json",
+      "raw_commitment": {
+        "bytes": 18707,
+        "sha256": "f1dad2816a3e81890173bbd2f764b38f95acfebe876e2cf781459304b2d5abf7"
+      },
+      "representation": "safe-JSON-view-not-original-bytes",
+      "view_commitment": {
+        "bytes": 19944,
+        "sha256": "21fe0909c6d6fab21453dd8816faa272366dce772d758a8bb929e1cd053ba118"
+      }
+    },
+    {
+      "name": "lpac-pipe-origin-driver-inner-bom-failure-01.json",
+      "raw_commitment": {
+        "bytes": 828,
+        "sha256": "2fd429b8eee6b539eefedf817a071022c24c3f2a55d5eba267285c76881752b9"
+      },
+      "representation": "safe-JSON-view-not-original-bytes",
+      "view_commitment": {
+        "bytes": 1331,
+        "sha256": "21a0b5df863a082f4cdc208c89955946e5440cfbda3fcaa9741e8024d6e7867b"
+      }
+    },
+    {
+      "name": "lpac-pipe-driver-preparation-failure-01.json",
+      "raw_commitment": {
+        "bytes": 1310,
+        "sha256": "a1f459f835956842d6f4c143d14a3f6513214952db479bd24d48e7cc62f77445"
+      },
+      "representation": "safe-JSON-view-not-original-bytes",
+      "view_commitment": {
+        "bytes": 1824,
+        "sha256": "99f93bab531c8c2d1fd758aaab4cbc0d42c3c940c66266fed83539a668626a78"
+      }
+    },
+    {
+      "name": "lpac-pipe-origin-verify-actor-artifact-file-only-04.json",
+      "raw_commitment": {
+        "bytes": 1574,
+        "sha256": "1a631b6aba688c30be46cd31468bd61a1404cf9ca40373ae9cfa5e8cf52b22f3"
+      },
+      "representation": "safe-JSON-view-not-original-bytes",
+      "view_commitment": {
+        "bytes": 2134,
+        "sha256": "45a589cfc7ccfca12dde1dd264979de00ed982a3708918694eaa3ba23e6fa9f3"
+      }
+    },
+    {
+      "name": "lpac-pipe-origin-source-ci-failure-01.json",
+      "raw_commitment": {
+        "bytes": 1073,
+        "sha256": "9373eb495bdef8f64d6dfb8d4b5641bc192eadb71df68f54493f07d8baa451ea"
+      },
+      "representation": "safe-JSON-view-not-original-bytes",
+      "view_commitment": {
+        "bytes": 1583,
+        "sha256": "4f21c0a688c2f67166df9c56a610c3f2327cbe41c5b5858a90f6909f0a9fa8e4"
+      }
+    },
+    {
+      "name": "lpac-pipe-origin-python-independent-review-05.json",
+      "raw_commitment": {
+        "bytes": 5305,
+        "sha256": "1e7747454c47e9f54e79ba3f11a39bfcd9edbdef65325978ca20aef2a91f83c9"
+      },
+      "representation": "safe-JSON-view-not-original-bytes",
+      "view_commitment": {
+        "bytes": 6035,
+        "sha256": "8212e425d7ace6ec82f49342f9d87cc65dffd7c0f4fd6e62154a04f1f72c3e6c"
+      }
+    },
+    {
+      "name": "lpac-pipe-origin-ready-source-freeze-02.json",
+      "raw_commitment": {
+        "bytes": 7014,
+        "sha256": "99719b7d6a22a03b59f639fd4cb06a9588701e744d47a1f98c1e9df0b5fd329d"
+      },
+      "representation": "safe-JSON-view-not-original-bytes",
+      "view_commitment": {
+        "bytes": 7668,
+        "sha256": "33069452b0bbc3b67543f08a803500429b45e592e969c276eadbf373834c8e72"
+      }
+    },
+    {
+      "name": "lpac-pipe-origin-ready-source-independent-review-01.json",
+      "raw_commitment": {
+        "bytes": 3574,
+        "sha256": "e5b103fa62615e1307768fbea60bf2e5e0f48f4b5ee9958e81b4b72de8b20857"
+      },
+      "representation": "safe-JSON-view-not-original-bytes",
+      "view_commitment": {
+        "bytes": 4220,
+        "sha256": "694e0c4e9737265c1bbb330b44589b66c414f18bbe6d1dcedc2f7cfd03c95590"
+      }
+    },
+    {
+      "name": "lpac-pipe-origin-ready-source-independent-review-02.json",
+      "raw_commitment": {
+        "bytes": 3956,
+        "sha256": "b23d1942a9d2114b8a944c4d31d5e51a7161c61df83d0c3e2cb6284b5f2f3bbe"
+      },
+      "representation": "safe-JSON-view-not-original-bytes",
+      "view_commitment": {
+        "bytes": 4608,
+        "sha256": "7846dfe9180c02f3c3aaa582325f2c4b21b46ea9f92fa5d941faec86c1bc42c2"
+      }
+    },
+    {
+      "name": "lpac-pipe-origin-source-stage-01.json",
+      "raw_commitment": {
+        "bytes": 1714,
+        "sha256": "ef684593deb3a7464d2da40f84e0fe4e27d2ced8a341592a9a36343f659c16a9"
+      },
+      "representation": "safe-JSON-view-not-original-bytes",
+      "view_commitment": {
+        "bytes": 2284,
+        "sha256": "546796a417e16f394ea6aaba95bc084d0838ba21bf2cecce113849800f19a618"
+      }
+    },
+    {
+      "name": "lpac-pipe-origin-BOM-source-stage-01.json",
+      "raw_commitment": {
+        "bytes": 1172,
+        "sha256": "332ec2637068febe605b6e0c2c47ee644b001126b36dcdf0924bea6465f16a24"
+      },
+      "representation": "safe-JSON-view-not-original-bytes",
+      "view_commitment": {
+        "bytes": 1716,
+        "sha256": "dac5ebfc99d11f2d97f702c61b2ef76d78895d3d4c146f2ec3ac92e3e2c61bde"
+      }
+    },
+    {
+      "name": "lpac-pipe-origin-actual-driver-root-review-01.json",
+      "raw_commitment": {
+        "bytes": 2122,
+        "sha256": "987adbff931b6498c05e4e61b79e7875d86fe79493ea53d1548170b34a8d1b0a"
+      },
+      "representation": "safe-JSON-view-not-original-bytes",
+      "view_commitment": {
+        "bytes": 2702,
+        "sha256": "2bca3699f586b90d9b9ad824ad01907812b74fdda065895c6e058c45e0adc6a1"
+      }
+    },
+    {
+      "name": "lpac-pipe-origin-actual-driver-root-review-02.json",
+      "raw_commitment": {
+        "bytes": 1254,
+        "sha256": "46c3234ffc69ebc46a425135b12a6b357d50aea3e19edc9112ca033f435ad692"
+      },
+      "representation": "safe-JSON-view-not-original-bytes",
+      "view_commitment": {
+        "bytes": 1772,
+        "sha256": "18a2a1392cdefdf07039d0b7640251ce98b0449bdcbca308a6e15fa6fed731b1"
+      }
+    },
+    {
+      "name": "lpac-pipe-origin-driver-finalization-02.json",
+      "raw_commitment": {
+        "bytes": 3244,
+        "sha256": "318c161daced05f295e77e5fa5c65ef3a2e578e0fff1bad91b0d61549cbf9a42"
+      },
+      "representation": "safe-JSON-view-not-original-bytes",
+      "view_commitment": {
+        "bytes": 3904,
+        "sha256": "9840c84a65dcd01dde39a5a9517ce728a727e1081676c44fbf75d1d6608d6ead"
+      }
+    },
+    {
+      "name": "lpac-pipe-front-native-pure-01.log",
+      "raw_commitment": {
+        "bytes": 867,
+        "sha256": "4966728ce57e8cba1c1d062fe985ccc678d58dddbeda27f3a5cd2c00196c9d27"
+      },
+      "representation": "bounded-safe-text-view",
+      "view_commitment": {
+        "bytes": 1275,
+        "sha256": "ec8c6df05c261b36d41bbe80f9651e59d601fd2c3816b8c6f3f7756dedee2ffa"
+      }
+    },
+    {
+      "name": "lpac-pipe-front-native-pure-02.log",
+      "raw_commitment": {
+        "bytes": 867,
+        "sha256": "cf5b7b57486a2141a2595f0cfc2e3dab1a72036b9acf90e87ba0f7f42371ba49"
+      },
+      "representation": "bounded-safe-text-view",
+      "view_commitment": {
+        "bytes": 1275,
+        "sha256": "6a8918ae6bceedfba0c831efbd9fe40b45b1aaac53540f9204daa7d8bd3b4f91"
+      }
+    },
+    {
+      "name": "lpac-pipe-origin-python-pure-01.log",
+      "raw_commitment": {
+        "bytes": 5936,
+        "sha256": "9096a115edcf51a409559c936fde2dc7a2bc025f97142b4056e3925362dd8714"
+      },
+      "representation": "bounded-safe-text-view",
+      "view_commitment": {
+        "bytes": 6511,
+        "sha256": "043274fa5d1b69848b66e072270859efb1312af236b40addf54cb05afe4b1896"
+      }
+    },
+    {
+      "name": "lpac-pipe-origin-python-pure-02.log",
+      "raw_commitment": {
+        "bytes": 6170,
+        "sha256": "f218716f0555881d165283dfe315ab719132fee50719c272fb3b804054d89eff"
+      },
+      "representation": "bounded-safe-text-view",
+      "view_commitment": {
+        "bytes": 6751,
+        "sha256": "9605726d8a0f82ddb48a5c5d01b56af40aca81d21b0dbc17cf431dada29a8e4c"
+      }
+    },
+    {
+      "name": "lpac-pipe-origin-python-pure-03.log",
+      "raw_commitment": {
+        "bytes": 6367,
+        "sha256": "5580bf7b7151eb0b670c10e896bfee4ddf20112046488ea1501b90b16ec74637"
+      },
+      "representation": "bounded-safe-text-view",
+      "view_commitment": {
+        "bytes": 6954,
+        "sha256": "0a21de81a4064b41c41e2f3e3b5208673483ce4aa888a4917e458dc14b4fbbbb"
+      }
+    },
+    {
+      "name": "lpac-pipe-origin-python-pure-04.log",
+      "raw_commitment": {
+        "bytes": 6574,
+        "sha256": "cf2a3220815d60a3dfcd20815d459bdffa30440ad52a4deadac58ab44d413fe4"
+      },
+      "representation": "bounded-safe-text-view",
+      "view_commitment": {
+        "bytes": 7167,
+        "sha256": "5614904029fad783216033fb5388126d041d09c47317b0929af4347a5a39fe87"
+      }
+    },
+    {
+      "name": "lpac-pipe-origin-python-pure-05.log",
+      "raw_commitment": {
+        "bytes": 6574,
+        "sha256": "668692771835bd95e8c71d28974e2881bcf6ed3c3d49ac8e1cc2fe9e74f14636"
+      },
+      "representation": "bounded-safe-text-view",
+      "view_commitment": {
+        "bytes": 7167,
+        "sha256": "5b75f080aa1dbbb79b4a4ca0a57574308566ad2b26b3c2c393e4a3d569527351"
+      }
+    },
+    {
+      "name": "lpac-pipe-reader-components-02.log",
+      "raw_commitment": {
+        "bytes": 833,
+        "sha256": "c9d4d4573d7aa065662afffdc5e23af181c5849bd8979dbcd4ae83531fe1c561"
+      },
+      "representation": "bounded-safe-text-view",
+      "view_commitment": {
+        "bytes": 1245,
+        "sha256": "24e1c61d95eae5801708bfd2d8092d16e013835fdb7bf2dad90181488de5ccb3"
+      }
+    },
+    {
+      "name": "lpac-pipe-origin-main-pure-01.log",
+      "raw_commitment": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "representation": "bounded-safe-text-view",
+      "view_commitment": {
+        "bytes": 447,
+        "sha256": "cb205a4ad2ab410fe528cdf5db473fee6be2e50e5786d0227e46c6cfa2552a21"
+      }
+    },
+    {
+      "name": "lpac-pipe-origin-main-pure-02.log",
+      "raw_commitment": {
+        "bytes": 200837,
+        "sha256": "e2b8d1daaca25d0cd7062c130dda59780100673ad18e6ea974e27a981e64e06c"
+      },
+      "representation": "bounded-safe-text-view",
+      "view_commitment": {
+        "bytes": 600,
+        "sha256": "0110bc8c2bfb5c3acc83b72f57bffb211b6db0cb55d05083a8874436fa661419"
+      }
+    },
+    {
+      "name": "lpac-pipe-origin-main-pure-03.log",
+      "raw_commitment": {
+        "bytes": 201045,
+        "sha256": "a688963e5dcd5b9fbe608fd571d392d9c689717d47a98ea7871edf583ddb6ae0"
+      },
+      "representation": "bounded-safe-text-view",
+      "view_commitment": {
+        "bytes": 600,
+        "sha256": "3393ab25fc5ee263d4d715a067ed6828b356a58098d4bd3912416f0ecd6be6a9"
+      }
+    }
+  ],
+  "stage": "lpac-pipe-origin-source-review-index",
+  "transitive_native_commitments_are_not_the_compilation_input_list": true
+}

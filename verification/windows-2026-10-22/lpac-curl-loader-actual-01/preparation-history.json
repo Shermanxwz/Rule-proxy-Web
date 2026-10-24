@@ -1,0 +1,382 @@
+{
+  "files": [
+    {
+      "bytes": 12406,
+      "name": "lpac-curl-loader-event-supervision-contract-01.json",
+      "sha256": "2157128d32be25a2f8a617a203a68f0b3fc4a348bd7ae44dace040d75e3a40a8"
+    },
+    {
+      "bytes": 19103,
+      "name": "lpac-curl-loader-fixed-closure-03.json",
+      "sha256": "d552a31b6d3005208033ec69d9c82aa4fd31780ed96ed0a009b3734d7f964963"
+    },
+    {
+      "bytes": 26548,
+      "name": "lpac-curl-loader-wrapper-abi-03.json",
+      "sha256": "316cd4f64782a79869b710dfcf66b2c720761b759fde6c966e4454324218f848"
+    },
+    {
+      "bytes": 29795,
+      "name": "lpac-curl-loader-wrapper-abi-04.json",
+      "sha256": "2c8104235ac4d7948d29512f6a3d9a283225a3b31e17486394224db817a76bfd"
+    },
+    {
+      "bytes": 30326,
+      "name": "lpac-curl-loader-wrapper-abi-05.json",
+      "sha256": "1dd9fda13a0e4df0d1ad474a773849d64d208f5fc007dc0ec68614116242d16d"
+    },
+    {
+      "bytes": 3428,
+      "name": "lpac-curl-loader-source-only-freeze-04.json",
+      "sha256": "2a0867c95914aaba5dd137e958d952c63195b8541e016b319e9e2c1d3b9f4c8c"
+    },
+    {
+      "bytes": 2197,
+      "name": "lpac-curl-loader-source-only-freeze-05.json",
+      "sha256": "854a6448c575f2d99262d84639a5b77464e30d6b11300bb87491a88b06c8a402"
+    },
+    {
+      "bytes": 19031,
+      "name": "lpac-curl-loader-no-url-mapping-supplement-04.json",
+      "sha256": "422780d986d32e167156c5d8c421373a6172e9f560ea0bf95a4a30a13de88789"
+    },
+    {
+      "bytes": 4775,
+      "name": "lpac-curl-loader-independent-design-review-03.json",
+      "sha256": "e26261f78b36d396dda7da4e843261dc6f4cbdb1cbeed02856fcb5d719c3c45c"
+    },
+    {
+      "bytes": 3892,
+      "name": "lpac-curl-loader-independent-design-review-05.json",
+      "sha256": "4c38dc220c4c34ab2917240cb057a3c7b0661b2915e7e6243098e9f65320b62a"
+    },
+    {
+      "bytes": 3031,
+      "name": "lpac-curl-loader-source-preparation-01.json",
+      "sha256": "5bfa1d00addaf63302a0876bff2daf116935f570d65db7a8cbc14a620e0b205c"
+    },
+    {
+      "bytes": 13505,
+      "name": "lpac-curl-loader-native-candidate-freeze-01.json",
+      "sha256": "36a78c8e50b25a344794780bba505c5f2f9bc9765b224cfec714726b4f05f3f6"
+    },
+    {
+      "bytes": 6198,
+      "name": "lpac-curl-loader-native-candidate-freeze-02.json",
+      "sha256": "ae66578f8654d3686a2bbf5f0e04912507dd2c0c91bd72c50d6267ff7e8bd8ab"
+    },
+    {
+      "bytes": 6219,
+      "name": "lpac-curl-loader-native-candidate-freeze-03.json",
+      "sha256": "e3ef83e4caacf0f1cb385a505105761cf760c7ad6bd7be45cfb7cfd3df606814"
+    },
+    {
+      "bytes": 3312,
+      "name": "lpac-curl-loader-native-builder-independent-review-01.json",
+      "sha256": "3410b5db6e893b632df17ac8ec958adb2754c65a71b756e6f331d4cd9b95f25f"
+    },
+    {
+      "bytes": 3261,
+      "name": "lpac-curl-loader-native-builder-independent-review-02.json",
+      "sha256": "f1bac441c74c3e9992a43aea9d2c025800a11acfa5f14389088146e73584e845"
+    },
+    {
+      "bytes": 1093,
+      "name": "lpac-curl-loader-native-pure-01.json",
+      "sha256": "4b2ad5a342e015e617b5286b391c79c5109117f6478e554b1713f31af3355683"
+    },
+    {
+      "bytes": 1093,
+      "name": "lpac-curl-loader-native-pure-02.json",
+      "sha256": "cb3f75ba67c921e26c839f3507a9f06e0bb6dccfc4f5b8299f5e0577812625be"
+    },
+    {
+      "bytes": 1092,
+      "name": "lpac-curl-loader-native-pure-03.json",
+      "sha256": "31ce48c72019f986e9de5be1681747012e6dc30067d524c2f3c16ef1c9b10393"
+    },
+    {
+      "bytes": 2133,
+      "name": "lpac-curl-loader-native-pure-01.log",
+      "sha256": "17bde3572e190a14346e77255cbc386615ee8614e3cec7518a7f17fb3665c53d"
+    },
+    {
+      "bytes": 3254,
+      "name": "lpac-curl-loader-native-pure-02.log",
+      "sha256": "5de8f3bf68580bf073e7e82d7c02b8ced40ffee2d7c84bce680e94c2032383c8"
+    },
+    {
+      "bytes": 389,
+      "name": "lpac-curl-loader-native-pure-03.log",
+      "sha256": "3b04eca000a064a086ce681f3a09fa657930e02961bb817c82770d897938513e"
+    },
+    {
+      "bytes": 32318,
+      "name": "lpac-curl-loader-core-pure-01.log",
+      "sha256": "3f7878602559aaca552566aa6851c0bd7f7cb4f43e2edaebee50c3de6e0a6364"
+    },
+    {
+      "bytes": 1132,
+      "name": "lpac-curl-loader-core-happy-probe-02.log",
+      "sha256": "5261ba63fbe5022c90cc6d0b952e3af2e14c226b42beb32fe7a07789695b8563"
+    },
+    {
+      "bytes": 293,
+      "name": "lpac-curl-loader-core-happy-probe-03.log",
+      "sha256": "578d1052fbe8f7347eb88e384cbb599ed0c70fff7b9b84d94cca18cdc4e805f4"
+    },
+    {
+      "bytes": 2746,
+      "name": "lpac-curl-loader-core-pure-02.log",
+      "sha256": "ff4933058dc0bd9c631e16e52bc6a88319e1196d88e8e1ba35193d20439f8e63"
+    },
+    {
+      "bytes": 2603,
+      "name": "lpac-curl-loader-guard-prototype-freeze-01.json",
+      "sha256": "a1a8f47dc40ce0db06f23cfb4ecdf6bfe74d71656293efabe61c017d0b15f0c0"
+    },
+    {
+      "bytes": 2206,
+      "name": "lpac-curl-loader-guard-prototype-freeze-02.json",
+      "sha256": "56e3d39cbcf4ef69c9db0cddb1f1493162f9674c120f0335c9a878108b70e33f"
+    },
+    {
+      "bytes": 3518,
+      "name": "lpac-curl-loader-guard-pure-01.log",
+      "sha256": "039697138c6cfdcab1d81335bd860660a8a5477320801b65f98baf535cf9ae43"
+    },
+    {
+      "bytes": 3744,
+      "name": "lpac-curl-loader-guard-pure-02.log",
+      "sha256": "51b26931d79febe851d388e851bc17dbdb909bbecde5daa8eb4f3ab97e66cb09"
+    },
+    {
+      "bytes": 688,
+      "name": "lpac-curl-loader-backend-pure-01.json",
+      "sha256": "c2a334932c054169454fb3c4e7bfa0ba45298516db2f8e66d1155d90412d44ec"
+    },
+    {
+      "bytes": 987,
+      "name": "lpac-curl-loader-backend-pure-02.json",
+      "sha256": "1b9089792a5bbc80ece35f6fb4724815f1d8a0c3ed771e47f83a5dd6766ec6d0"
+    },
+    {
+      "bytes": 27292,
+      "name": "lpac-curl-loader-python-candidate-freeze-01.json",
+      "sha256": "7778d03e78cd2685629c6e57e7c394fc3ff60c0d975394774d2b867436ebcb42"
+    },
+    {
+      "bytes": 6696,
+      "name": "lpac-curl-loader-python-independent-source-review-01.json",
+      "sha256": "f109494bf269ece3a25671d76b7ec19fbe3d36c4b1e2fc46fe645df372f45f76"
+    },
+    {
+      "bytes": 9960,
+      "name": "lpac-curl-loader-python-fake-pure-03.log",
+      "sha256": "2c2d16174bf120a2e85219e76e28fa05f470110cd63f1c9967fc81883c69300d"
+    },
+    {
+      "bytes": 9960,
+      "name": "lpac-curl-loader-ready-fake-pure-01.log",
+      "sha256": "3ae791f20d8ea65a13db67fe70de24239dfc45e2e10d158b68a62b8dc93a280a"
+    },
+    {
+      "bytes": 1209,
+      "name": "lpac-curl-loader-main-pure-01.json",
+      "sha256": "322e3f73e82aba10e0d06a6db7b95b82e41cb199f9b68bcdeb621adca90ce8d3"
+    },
+    {
+      "bytes": 240452,
+      "name": "lpac-curl-loader-main-pure-01.log",
+      "sha256": "6fadfaad1cdcdac2a440d1741e83d94ada44f86e37191d8740574cff4f05f7f9"
+    },
+    {
+      "bytes": 74,
+      "name": "lpac-curl-loader-staged-whitespace-stop-01.log",
+      "sha256": "81fdccf1348eb652fb2a2a95c5d23b13b379954950c6c28e10c097553dc416fd"
+    },
+    {
+      "bytes": 8907,
+      "name": "lpac-curl-loader-ready-eof-independent-review-02.json",
+      "sha256": "90e33d0f47df6b4cc63da10b004592e461eb0a7f18ccc5a20484b054dcc1ea1d"
+    },
+    {
+      "bytes": 6254,
+      "name": "lpac-curl-loader-source-staged-index-review-02.json",
+      "sha256": "efa38234a3b0469b949340e46282e0460060cf2306451d725991874aeb3d284c"
+    },
+    {
+      "bytes": 3817,
+      "name": "lpac-curl-loader-driver-capture-candidate-freeze-01.json",
+      "sha256": "f04dda7b6124d8919891fd082a006ee914b30af785e3d344b5ce9211b7e47e2b"
+    },
+    {
+      "bytes": 1689,
+      "name": "lpac-curl-loader-driver-capture-candidate-freeze-02.json",
+      "sha256": "a47628981ed31cf83ad3fafe0582de8799285cd529482d6b6f00d837c600179a"
+    },
+    {
+      "bytes": 1873,
+      "name": "lpac-curl-loader-root-driver-source-review-01.json",
+      "sha256": "b13384c97fa4f0481357fa991b8a8dcbb467f5fc5e9069ec571180ab4bfcc981"
+    },
+    {
+      "bytes": 1355,
+      "name": "lpac-curl-loader-driver02-root-review.json",
+      "sha256": "12a791950f6dc6ee52d5b7595d43fc533c9b33ad7aaee521c3427d45c8e4245a"
+    },
+    {
+      "bytes": 3969,
+      "name": "lpac-curl-loader-reader-candidate-freeze-01.json",
+      "sha256": "fc7f018f6c3bb21402cfe4a8cb8131693e966ef9b646b96608bdc263e73910d0"
+    },
+    {
+      "bytes": 1281,
+      "name": "lpac-curl-loader-reader-candidate-freeze-02.json",
+      "sha256": "725125014f1f74b6989749ccf6f7e29561faa1de4f088bd8e5899c0c6a44ad61"
+    },
+    {
+      "bytes": 2554,
+      "name": "lpac-curl-loader-reader-candidate-freeze-03.json",
+      "sha256": "d3fc56e2b98e8dd1d1d2538b604d91eb913c47679782babc151f85f9fdb7e746"
+    },
+    {
+      "bytes": 1159,
+      "name": "lpac-curl-loader-reader-03-vs-02.patch",
+      "sha256": "d6d1ca45349a5653466a26fb30dfbc62f31bf27174f6735a9f0cbacaff65e15b"
+    },
+    {
+      "bytes": 567,
+      "name": "lpac-curl-loader-reader03-root-review.json",
+      "sha256": "1b97e229b625974a6a94acaa00beb85e8d2bbbe06a387518bd16fbe578cc1fb4"
+    },
+    {
+      "bytes": 6659,
+      "name": "lpac-curl-loader-actual-01-driver.log",
+      "sha256": "95fbd63c3d5fa4dbe97970d8a97bba132dc98ff43c90c72651683256b79b3c8f"
+    },
+    {
+      "bytes": 1973,
+      "name": "lpac-curl-loader-actual-01-driver-result.json",
+      "sha256": "e99b24b28f4e31fa55a2621282aa0413e0a03742a76e90bfc947dcef63adc630"
+    }
+  ],
+  "full02": {
+    "passed": true,
+    "raw_log": {
+      "bytes": 240452,
+      "sha256": "c04d6f784017eafd975f4d16525d584165fda13b7af03d03a1b586729fbcccf6"
+    },
+    "receipt": {
+      "bytes": 1209,
+      "sha256": "d7b8d94138436410d9dd0adf76cc370d03f0b4668ea6042ad099af243635236a"
+    },
+    "seconds": 273.694,
+    "skips": 2,
+    "tests": 1260
+  },
+  "historical_failures": [
+    {
+      "classification": "BLOCKED design gaps; final05 corrects update-only result class, error-zero read validity, payload alignment and four operation effect descriptions; design is not runtime",
+      "phase": "source-design03"
+    },
+    {
+      "classification": "Failed inert harness: compiler-output decoding UnicodeDecodeError then error-reporting TypeError; no Win32 adapter loaded",
+      "phase": "native-pure01"
+    },
+    {
+      "classification": "Failed inert harness compile C4459 promoted by Werror/C2220; fake global path shadowing only",
+      "phase": "native-pure02"
+    },
+    {
+      "classification": "Two inert production-core harness methods passed; native26 unchanged",
+      "phase": "native-pure03"
+    },
+    {
+      "classification": "12 tests with 11 errors from str passed to byte-only report decoder; raw failure retained",
+      "phase": "core-pure01"
+    },
+    {
+      "classification": "One fake happy-chain assertion failed; raw diagnostic retained; no unique cause inferred here",
+      "phase": "core-happy-probe02"
+    },
+    {
+      "classification": "Passed1260/267.087s/2skips for pre-EOF Ready01; not a failure and not transferred to actual-source full02",
+      "phase": "main-full01"
+    },
+    {
+      "classification": "One extra blank line at EOF stopped staged check; subsequent one-byte EOF-only fix retained before full02",
+      "phase": "staged-whitespace"
+    },
+    {
+      "classification": "Source-only prefix gate excluded legitimate ruleproxy files; driver02 permits only .github/ or ruleproxy/; no target/API attempt",
+      "phase": "driver01-source-review"
+    },
+    {
+      "classification": "Corresponding source-prefix reader fix retained in02",
+      "phase": "reader01-source-review"
+    },
+    {
+      "classification": "Nonzero UINTPTR_MAX handle could be displayed complete; reader03 rejects max handle/nonpositive PID or TID; presentation fix, not runtime cleanup bypass",
+      "phase": "reader02-display-review"
+    },
+    {
+      "classification": "Root reported one pre-import line-ending expectation assertion, corrected to actual LF before reader; no reader or resources ran on failed precheck",
+      "phase": "root-reader-launch-precheck"
+    }
+  ],
+  "native_pure": [
+    {
+      "Win32_adapter_or_Detours_or_wrapper_loaded": false,
+      "log": {
+        "bytes": 2133,
+        "sha256": "17bde3572e190a14346e77255cbc386615ee8614e3cec7518a7f17fb3665c53d"
+      },
+      "passed": false,
+      "receipt": {
+        "bytes": 1093,
+        "sha256": "4b2ad5a342e015e617b5286b391c79c5109117f6478e554b1713f31af3355683"
+      },
+      "receipt_name": "lpac-curl-loader-native-pure-01.json",
+      "return_code": 1,
+      "seconds": 0.7,
+      "tests": 2
+    },
+    {
+      "Win32_adapter_or_Detours_or_wrapper_loaded": false,
+      "log": {
+        "bytes": 3254,
+        "sha256": "5de8f3bf68580bf073e7e82d7c02b8ced40ffee2d7c84bce680e94c2032383c8"
+      },
+      "passed": false,
+      "receipt": {
+        "bytes": 1093,
+        "sha256": "cb3f75ba67c921e26c839f3507a9f06e0bb6dccfc4f5b8299f5e0577812625be"
+      },
+      "receipt_name": "lpac-curl-loader-native-pure-02.json",
+      "return_code": 1,
+      "seconds": 0.708,
+      "tests": 2
+    },
+    {
+      "Win32_adapter_or_Detours_or_wrapper_loaded": false,
+      "log": {
+        "bytes": 389,
+        "sha256": "3b04eca000a064a086ce681f3a09fa657930e02961bb817c82770d897938513e"
+      },
+      "passed": true,
+      "receipt": {
+        "bytes": 1092,
+        "sha256": "31ce48c72019f986e9de5be1681747012e6dc30067d524c2f3c16ef1c9b10393"
+      },
+      "receipt_name": "lpac-curl-loader-native-pure-03.json",
+      "return_code": 0,
+      "seconds": 0.904,
+      "tests": 2
+    }
+  ],
+  "raw_logs_or_private_messages_republished": false,
+  "schema_version": 1,
+  "stage": "curl-loader-preparation-history-safe-index",
+  "successful_guard_core_native_full_tests_are_not_target_execution": true
+}

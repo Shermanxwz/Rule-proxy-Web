@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "experiment": "UDP6 version2 receive-context short validation",
+  "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39688482122",
+  "head": "468142038fdcc41b353a873e5a28cc4a9c4320a7",
+  "freeze_sha256": "67579e7490345c80c4dd8e9048d085e3437c52acac8b4c6017b78bc622ce1493",
+  "result_sha256": "09631bcca34861af01040dedcdc5cbb308260b7e727f55d664bbcb7e2a3cf942",
+  "status": "short gates passed; production guest context remains untested",
+  "observations": [
+    "Linux and Windows each passed 710 required tests with zero skips, not a full-repository claim. Actual Windows SDK compilation, fixed parser/normalization helper tests, composed raw-vs-qualified result tests, isolated production-input verification and existing PS/ZIP gates passed.",
+    "Hosted TEST_ONLY IPv6 loopback exercised WSARecvMsg, IPV6_PKTINFO and IP Helper context queries. All 46 native rows report complete observed/passed context masks [1,1023,1023]. Main phases produced 45 exact echoes; the separate wrong-echo row passed peer context but rejected payload while preserving accepted send. This exercises the explicit loopback branch, not production site-zone or QEMU-MAC admission.",
+    "Synthetic helper contracts separately passed malformed ancillary, scope normalization and interface cases. They are not observations of a Windows guest site Zone. Raw nonce-payload observation is separately typed from qualified echo; post-context/cleanup preservation tests use controlled fixtures.",
+    "Seven held child exits/handles and two receiver socket/thread cleanups and work removal are true, with no kills. Hosted profile-only observes non-AppContainer identity; contained is a fixture phase, not PSEC. Production actor executed invalid CLI only; isolated verifier executed no PE.",
+    "PowerShell checks 78/48/60/57 and six-mode ZIP 66 checks with 12 forbidden substitutions passed. These mocked/inert boundaries do not establish actual guest transport or production payload fit. Both platforms passed 56 inert Bash vectors with six expected successes and 50 expected refusals.",
+    "Linux tiny paused QEMU provenance and cleanup passed; mapped backing-file/local-package agreement is separate from resident bytes or upstream-source equivalence. No guest ran."
+  ],
+  "bounds": {
+    "native_report_schema_field_ceiling_bytes": 32327,
+    "native_report_limit_bytes": 32768,
+    "private_bundle_field_ceiling_bytes": 37589,
+    "private_bundle_limit_bytes": 65536,
+    "public_envelope_field_ceiling_bytes": 2420,
+    "public_envelope_limit_bytes": 4096,
+    "independent_field_ceiling_not_joint_execution_trace": true
+  },
+  "limits": [
+    "The prior instrumented guest run identified a nonzero returned scope rejected by the old zero-scope predicate. Its payload comparison was not reached; the first guest run hidden cause remains unknown. Both receipts remain unchanged.",
+    "Version2 changes the receive-context acceptance explicitly: stable independently derived interface/site-zone plus actual ancillary ingress index replaces zero-scope acceptance. Fixed endpoint, identity/policy, sends, original deadlines and global network/QEMU settings remain unchanged. No arbitrary nonzero scope or missing context is accepted.",
+    "Production expected nonzero site Zone is conservative fixture admission, not universal Windows validity. Local packet destination is sanity-checked, not independently validated against an address ownership table. Hosted loopback exceptions are compile-time TEST_ONLY and cannot certify production guest context.",
+    "No guest runtime, IPv6 isolation/absence, DNS/proxy/descendant IPv6/Linux/product acceptance follows. No raw indices/LUIDs/MACs/zones/addresses/ports/PIDs/nonces/credentials/PCAP/private bundle are published. Any guest attempt requires a separate decision and unchanged pre-QEMU/provenance/ordinary-echo admissions."
+  ]
+}

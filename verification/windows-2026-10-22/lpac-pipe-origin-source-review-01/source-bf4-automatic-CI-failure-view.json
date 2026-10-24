@@ -1,0 +1,143 @@
+{
+  "errors": 1,
+  "inference": "A temporary path alias/case/canonicalization explanation is an inference; original log did not record the actual temporary root alias. No unique cause is established.",
+  "job": {
+    "conclusion": "failure",
+    "id": 120268486898,
+    "name": "Native build and gated pipe proof",
+    "run_id": 39909353692,
+    "status": "completed",
+    "steps": [
+      {
+        "conclusion": "success",
+        "name": "Set up job",
+        "number": 1,
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "name": "Run actions/checkout@v5",
+        "number": 2,
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "name": "Load installed MSVC and compile without executing the actor",
+        "number": 3,
+        "status": "completed"
+      },
+      {
+        "conclusion": "failure",
+        "name": "Pure Python identity proof unit tests only",
+        "number": 4,
+        "status": "completed"
+      },
+      {
+        "conclusion": "skipped",
+        "name": "Read-only current and existing linked token ABI preflight",
+        "number": 5,
+        "status": "completed"
+      },
+      {
+        "conclusion": "skipped",
+        "name": "Approved Stage 0b inherited-pipe proof in a verified ordinary token",
+        "number": 6,
+        "status": "completed"
+      },
+      {
+        "conclusion": "skipped",
+        "name": "Read-only R0 source token field and ABI diagnostics",
+        "number": 7,
+        "status": "completed"
+      },
+      {
+        "conclusion": "skipped",
+        "name": "Restricted-caller R0 identity diagnostic, not ordinary-user acceptance",
+        "number": 8,
+        "status": "completed"
+      },
+      {
+        "conclusion": "skipped",
+        "name": "Four-cell trusted-actor startup controls, no isolation acceptance",
+        "number": 9,
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "name": "Create closed publication projections without machine identities or paths",
+        "number": 10,
+        "status": "completed"
+      },
+      {
+        "conclusion": "skipped",
+        "name": "Run actions/upload-artifact@v7",
+        "number": 11,
+        "status": "completed"
+      },
+      {
+        "conclusion": "skipped",
+        "name": "Run actions/upload-artifact@v7",
+        "number": 12,
+        "status": "completed"
+      },
+      {
+        "conclusion": "skipped",
+        "name": "Run actions/upload-artifact@v7",
+        "number": 13,
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "name": "Run actions/upload-artifact@v7",
+        "number": 14,
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "name": "Post Run actions/checkout@v5",
+        "number": 28,
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "name": "Complete job",
+        "number": 29,
+        "status": "completed"
+      }
+    ]
+  },
+  "job_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39909353692/job/120268486898",
+  "jobs_representation": "normalized jobs summary; not raw HTTP response",
+  "log_representation": "Exact connector-decoded UTF-8 BOM/CRLF text retained in WORK; not original ZIP bytes",
+  "observed": "GateFailure at the containment check in the unnormalized temporary-root fixture before expected readiness ValueError",
+  "raw_commitments": {
+    "full.txt": {
+      "bytes": 254625,
+      "sha256": "110e2e1a8b4ffa919f57e05c1ab40da046219ae04ac97ab5f39338210230e427"
+    },
+    "jobs.json": {
+      "bytes": 3058,
+      "sha256": "c13fad62b5cab18fe920e75ef082760047f6e5a04aacf38bd69c58552c8af7a9"
+    },
+    "runs.json": {
+      "bytes": 12712,
+      "sha256": "433d701bf4ab777277e1c3d945f169e318d7c42b4996dd6fe2e528f7ac92e143"
+    }
+  },
+  "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39909353692",
+  "runs_representation": "connector decoded JSON retained in WORK",
+  "runtime_acceptance": false,
+  "schema_version": 1,
+  "seconds": 106.854,
+  "selected_log_lines": [
+    "2026-10-23T06:07:15.0611475Z ERROR: test_hidden_worker_also_honors_false_ready_before_api (test_windows_identity_lpac_pipe_origin_local.GuardTests.test_hidden_worker_also_honors_false_ready_before_api)",
+    "2026-10-23T06:07:15.0618623Z     raise GateFailure(\"path_outside_owned_root\")",
+    "2026-10-23T06:07:15.0618874Z _proxy_pipe_windows_identity_ordinary_launcher.GateFailure: path_outside_owned_root",
+    "2026-10-23T06:07:15.0619353Z Ran 1061 tests in 106.854s",
+    "2026-10-23T06:07:15.0619485Z FAILED (errors=1)"
+  ],
+  "skips": 0,
+  "source_commit": "bf4dcc2ab3913ae46056d34ef76892ec266f596e",
+  "stage": "automatic-source-CI-failure-safe-view",
+  "test_count": 1061
+}

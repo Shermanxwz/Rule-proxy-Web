@@ -1,0 +1,119 @@
+{
+  "compiled_RPS1_assertions": 54313,
+  "compiled_assertions_are_not_separate_tests": true,
+  "local_full": {
+    "failures": 0,
+    "seconds": 172.701,
+    "skip_scope": "existing Windows symlink privilege cases",
+    "skips": 2,
+    "tests": 1096
+  },
+  "logs": [
+    {
+      "name": "lpac-stream-native-pure-02.log",
+      "not_runtime_proof": true,
+      "raw_commitment": {
+        "bytes": 331,
+        "sha256": "528037b23c40c1b3a30c793bf27e5a58221dd0a484e2a136221221e603753c4e"
+      },
+      "selected_lines": [
+        "RPS1_PRODUCTION_ASSERTIONS 54313",
+        "OK"
+      ]
+    },
+    {
+      "name": "lpac-stream-origin-main-pure-01.log",
+      "not_runtime_proof": true,
+      "raw_commitment": {
+        "bytes": 207672,
+        "sha256": "2edd34d458ef1f93ff7163d349db03c7a2050d9c1722535ec333681b0c09a328"
+      },
+      "selected_lines": [
+        "Ran 1096 tests in 172.701s",
+        "OK (skipped=2)",
+        "LPAC_PIPE_PORTABLE_ASSERTIONS 2656",
+        "IMMUTABLE_CAPS_PRODUCTION_ASSERTIONS 27",
+        "RPS1_PRODUCTION_ASSERTIONS 54313",
+        "PSEC_BRIDGE_FAKE_CHECKS 327",
+        "PYTHON_SPEC_ORIGINAL_BYTES 176 e045bdf6c5982de81f5ac34aea49a33ca64e81abb3fa01752aca078caa385992",
+        "MATCHEDCAPS_SC_FAKE_CHECKS 100",
+        "MATCHEDCAPS_ROLE_FAKE_CHECKS 154"
+      ]
+    },
+    {
+      "name": "lpac-stream-python-independent-gates-03.log",
+      "not_runtime_proof": true,
+      "raw_commitment": {
+        "bytes": 1542,
+        "sha256": "6e9276f42ac05407e3ec63f0c4939ed9a7fe9700f24d83350cd145bbaeb54bd2"
+      },
+      "selected_lines": [
+        "Ran 8 tests in 2.177s",
+        "OK"
+      ]
+    },
+    {
+      "name": "lpac-stream-python-pure-01.log",
+      "not_runtime_proof": true,
+      "raw_commitment": {
+        "bytes": 6275,
+        "sha256": "b15fdf7daa2ed5df24ab31faaa125202061ddec44f4f07a0e7a08d1208eda7ba"
+      },
+      "selected_lines": [
+        "Ran 32 tests in 10.422s",
+        "OK"
+      ]
+    },
+    {
+      "name": "lpac-stream-python-pure-02.log",
+      "not_runtime_proof": true,
+      "raw_commitment": {
+        "bytes": 6275,
+        "sha256": "ab7c629bc0424fd7a263cf4d6e759b189f89eea5a0163e2ebeb724be37cf0d4d"
+      },
+      "selected_lines": [
+        "Ran 32 tests in 10.257s",
+        "OK"
+      ]
+    },
+    {
+      "name": "lpac-stream-python-pure-03.log",
+      "not_runtime_proof": true,
+      "raw_commitment": {
+        "bytes": 6503,
+        "sha256": "ad4bb1fd887432ff5321361245854931d57c868edecc664483f49f083a5dbf64"
+      },
+      "selected_lines": [
+        "Ran 33 tests in 11.711s",
+        "OK"
+      ]
+    },
+    {
+      "name": "lpac-stream-reader-components-01.log",
+      "not_runtime_proof": true,
+      "raw_commitment": {
+        "bytes": 2647,
+        "sha256": "dde517288687b0f89a8562fad02ded897852bbd0fddd3231b2b1eff77b2e6a41"
+      },
+      "selected_lines": [
+        "FAIL: test_full_physical_files_dynamic_stream_and_projection_failure_separate (test_lpac_stream_reader_components_01.ReaderComponents.test_full_physical_files_dynamic_stream_and_projection_failure_separate)",
+        "FAIL: test_malformed_committed_selected_report_is_valid_partial_not_valid_json (test_lpac_stream_reader_components_01.ReaderComponents.test_malformed_committed_selected_report_is_valid_partial_not_valid_json)",
+        "Ran 4 tests in 4.074s",
+        "FAILED (failures=2)"
+      ]
+    },
+    {
+      "name": "lpac-stream-reader-components-02.log",
+      "not_runtime_proof": true,
+      "raw_commitment": {
+        "bytes": 889,
+        "sha256": "7e4a57074ded8a72d0ef546ec5e6c057cfab7330d4ee6fb434af2def8b213ef7"
+      },
+      "selected_lines": [
+        "Ran 4 tests in 3.046s",
+        "OK"
+      ]
+    }
+  ],
+  "schema_version": 1
+}

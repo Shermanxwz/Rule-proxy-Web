@@ -1,0 +1,227 @@
+{
+  "schema_version": 1,
+  "stage": "paired-native-startup-diagnostic-public",
+  "sanitized": true,
+  "byte_exact": false,
+  "source_report_sha256": "1e057bcc3d2cba0549ae85269282b63fe60804eee8f4509fe5ecac9fd96af052",
+  "dependency_audit_sha256": "fab2c20808f53d31ff594e7e1c368e3c5cb971a712e52012d297e408ac3df5da",
+  "ordinary_user_acceptance": false,
+  "restricted_caller_r0_passed": false,
+  "stage0b_passed": false,
+  "psec_acceptance": false,
+  "product_acceptance": false,
+  "privacy_qualified": false,
+  "diagnostic_completed": true,
+  "all_actor_startups_succeeded": false,
+  "source_identity_verified": true,
+  "parent_token_unchanged": true,
+  "builds": {
+    "full": {
+      "actor_sha256": "e40e9a4f802449939cdb37b8323b748146c316bd555e5f491c5759f74c9414fd",
+      "source_sha256": "530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553",
+      "build_manifest_sha256": "38e9e42d3d64e9ab27f5bf62753fec47715440a54938da18b7d291b75cd6978f",
+      "http_compiled": true,
+      "static_crt": true
+    },
+    "identity": {
+      "actor_sha256": "6f411c7636cce0e2ba5bb3e0913f19b977ae50dfa039ed8bf71658d92e4fb9f5",
+      "source_sha256": "530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553",
+      "build_manifest_sha256": "cabbf4d14e233cb35c8997223e06d2bbfa7b326f2677acdf1f1222ce2f0fc529",
+      "http_compiled": false,
+      "static_crt": true
+    }
+  },
+  "cells": [
+    {
+      "label": "full-source",
+      "attempted": true,
+      "derived_token_created": false,
+      "derived_identity_verified": null,
+      "process_created": true,
+      "parent_token_unchanged": true,
+      "actor_report_present": true,
+      "actor_matches_native_observation": true,
+      "actor_started_and_reported": true,
+      "safe_to_continue": true,
+      "actor_sha256": "e40e9a4f802449939cdb37b8323b748146c316bd555e5f491c5759f74c9414fd",
+      "error": null,
+      "started": true,
+      "resumed": true,
+      "timed_out": false,
+      "source_control": true,
+      "job_created": true,
+      "assigned_to_owned_job": true,
+      "native_verified_before_resume": true,
+      "native_exit_code": 0,
+      "launch_error": null,
+      "cleanup": {
+        "derived_token_closed": true,
+        "process_cleanup_confirmed": true,
+        "job_closed": true,
+        "job_empty": true,
+        "process_exit_confirmed": true,
+        "handles_closed": true,
+        "errors": []
+      },
+      "parent_token_checks": [
+        {
+          "phase": "before_cell",
+          "unchanged": true,
+          "error": null
+        },
+        {
+          "phase": "after_cleanup",
+          "unchanged": true,
+          "error": null
+        }
+      ]
+    },
+    {
+      "label": "full-restricted",
+      "attempted": true,
+      "derived_token_created": true,
+      "derived_identity_verified": true,
+      "process_created": true,
+      "parent_token_unchanged": true,
+      "actor_report_present": false,
+      "actor_matches_native_observation": null,
+      "actor_started_and_reported": false,
+      "safe_to_continue": true,
+      "actor_sha256": "e40e9a4f802449939cdb37b8323b748146c316bd555e5f491c5759f74c9414fd",
+      "error": null,
+      "started": true,
+      "resumed": true,
+      "timed_out": false,
+      "source_control": false,
+      "job_created": true,
+      "assigned_to_owned_job": true,
+      "native_verified_before_resume": true,
+      "native_exit_code": 3221225794,
+      "launch_error": null,
+      "cleanup": {
+        "derived_token_closed": true,
+        "process_cleanup_confirmed": true,
+        "job_closed": true,
+        "job_empty": true,
+        "process_exit_confirmed": true,
+        "handles_closed": true,
+        "errors": []
+      },
+      "parent_token_checks": [
+        {
+          "phase": "before_cell",
+          "unchanged": true,
+          "error": null
+        },
+        {
+          "phase": "after_derivation",
+          "unchanged": true,
+          "error": null
+        },
+        {
+          "phase": "after_cleanup",
+          "unchanged": true,
+          "error": null
+        }
+      ]
+    },
+    {
+      "label": "identity-source",
+      "attempted": true,
+      "derived_token_created": false,
+      "derived_identity_verified": null,
+      "process_created": true,
+      "parent_token_unchanged": true,
+      "actor_report_present": true,
+      "actor_matches_native_observation": true,
+      "actor_started_and_reported": true,
+      "safe_to_continue": true,
+      "actor_sha256": "6f411c7636cce0e2ba5bb3e0913f19b977ae50dfa039ed8bf71658d92e4fb9f5",
+      "error": null,
+      "started": true,
+      "resumed": true,
+      "timed_out": false,
+      "source_control": true,
+      "job_created": true,
+      "assigned_to_owned_job": true,
+      "native_verified_before_resume": true,
+      "native_exit_code": 0,
+      "launch_error": null,
+      "cleanup": {
+        "derived_token_closed": true,
+        "process_cleanup_confirmed": true,
+        "job_closed": true,
+        "job_empty": true,
+        "process_exit_confirmed": true,
+        "handles_closed": true,
+        "errors": []
+      },
+      "parent_token_checks": [
+        {
+          "phase": "before_cell",
+          "unchanged": true,
+          "error": null
+        },
+        {
+          "phase": "after_cleanup",
+          "unchanged": true,
+          "error": null
+        }
+      ]
+    },
+    {
+      "label": "identity-restricted",
+      "attempted": true,
+      "derived_token_created": true,
+      "derived_identity_verified": true,
+      "process_created": true,
+      "parent_token_unchanged": true,
+      "actor_report_present": false,
+      "actor_matches_native_observation": null,
+      "actor_started_and_reported": false,
+      "safe_to_continue": true,
+      "actor_sha256": "6f411c7636cce0e2ba5bb3e0913f19b977ae50dfa039ed8bf71658d92e4fb9f5",
+      "error": null,
+      "started": true,
+      "resumed": true,
+      "timed_out": false,
+      "source_control": false,
+      "job_created": true,
+      "assigned_to_owned_job": true,
+      "native_verified_before_resume": true,
+      "native_exit_code": 3221225794,
+      "launch_error": null,
+      "cleanup": {
+        "derived_token_closed": true,
+        "process_cleanup_confirmed": true,
+        "job_closed": true,
+        "job_empty": true,
+        "process_exit_confirmed": true,
+        "handles_closed": true,
+        "errors": []
+      },
+      "parent_token_checks": [
+        {
+          "phase": "before_cell",
+          "unchanged": true,
+          "error": null
+        },
+        {
+          "phase": "after_derivation",
+          "unchanged": true,
+          "error": null
+        },
+        {
+          "phase": "after_cleanup",
+          "unchanged": true,
+          "error": null
+        }
+      ]
+    }
+  ],
+  "cleanup": {
+    "source_token_closed": true,
+    "errors": []
+  },
+  "error": null
+}

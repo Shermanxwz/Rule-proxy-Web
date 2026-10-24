@@ -1,0 +1,133 @@
+{
+  "schema_version": 1,
+  "stage": "n0a-runner-capture-integration-pure-gates",
+  "source_commit": "882f584ea9c059cc4f1bcd99fea5e8a77dc05541",
+  "run_id": 39586303007,
+  "conclusion": "success",
+  "jobs": {
+    "linux": {
+      "id": 119175940706,
+      "tests": 213,
+      "skipped": 0
+    },
+    "windows": {
+      "id": 119175941050,
+      "tests": 213,
+      "skipped": 0
+    }
+  },
+  "reviewed_manifests": {
+    "integration": "8e170ae375942c3af73e8fcc30194cc5fd6f86f14786502f834dda7167e1a6e2",
+    "portability": "3414d448642af13c165e1e5bd7af27950992febf33a198844d12540789a72835"
+  },
+  "windows_observations": [
+    {
+      "schema_version": 1,
+      "checks": 48,
+      "guest_entrypoint_executed": false,
+      "network_executed": false,
+      "native_acceptance": false
+    },
+    {
+      "checks": {
+        "actual_native_snapshot_parse_hash_parity": true,
+        "actual_report_composition_max40": true,
+        "good": true,
+        "invalid_role_rejected_without_output": true,
+        "native_profile_contract_12_synthetic_cases": true,
+        "production_contained_guard_rejects_source_token": true,
+        "production_ordinary_guard_rejects_observed_admin": true,
+        "timeout": true,
+        "wrong": true
+      },
+      "owned_cleanup_confirmed": true,
+      "runtime_acceptance": false,
+      "schema_version": 1,
+      "token_guard_exercised_by_socket_fixture": false,
+      "wire_binding_synthetic": true
+    }
+  ],
+  "portability_checks": {
+    "legacy_windows_crt_crlf_ctrl_z_counterexample_passed": true,
+    "binary_all_octet_roundtrip_passed": true,
+    "full_private_flow_to_packet_composition_passed": true,
+    "linux_signal_fixture_passed": true
+  },
+  "previous_gate": {
+    "run_id": 39585583149,
+    "source_commit": "f010235ddb7d65f9144572b0f15b3e50ea74ee6c",
+    "conclusion": "failure",
+    "linux_tests": 212,
+    "windows_tests": 212,
+    "windows_failures": [
+      "linux_signal_constant_missing_in_fixture",
+      "capture_file_composition_inconclusive"
+    ],
+    "windows_observations": [
+      {
+        "schema_version": 1,
+        "checks": 48,
+        "guest_entrypoint_executed": false,
+        "network_executed": false,
+        "native_acceptance": false
+      },
+      {
+        "checks": {
+          "actual_native_snapshot_parse_hash_parity": true,
+          "actual_report_composition_max40": true,
+          "good": true,
+          "invalid_role_rejected_without_output": true,
+          "native_profile_contract_12_synthetic_cases": true,
+          "production_contained_guard_rejects_source_token": true,
+          "production_ordinary_guard_rejects_observed_admin": true,
+          "timeout": true,
+          "wrong": true
+        },
+        "owned_cleanup_confirmed": true,
+        "runtime_acceptance": false,
+        "schema_version": 1,
+        "token_guard_exercised_by_socket_fixture": false,
+        "wire_binding_synthetic": true
+      }
+    ],
+    "exact_original_capture_failure_subreason_observed": false
+  },
+  "local_validation": {
+    "required_tests": 213,
+    "required_skips": 0,
+    "candidate_full_discovery": {
+      "tests": 2587,
+      "errors": 2,
+      "skipped": 94
+    },
+    "clean_published_baseline": {
+      "source_commit": "0cd7ab177f011af6707429a6cb4d7b450dfeb925",
+      "tests": 2529,
+      "errors": [
+        "test_linux_profile_access.LinuxProfileAccessTests.test_shared_profile_rejects_host_ipc_nodes_without_changing_them",
+        "test_linux_runtime.SharedProfileCommandTests.test_shared_keyring_uses_only_proxy_socket_inside_private_runtime"
+      ],
+      "skipped": 94,
+      "failures": 0
+    },
+    "full_repository_green": false,
+    "environment_error": "unchanged_tests_fail_at_AF_UNIX_socket_creation_with_EPERM"
+  },
+  "scope": {
+    "capture_execution_enabled": false,
+    "windows_guest_executed": false,
+    "production_capture_integrated_at_runtime": false,
+    "packet_absence_proven": false,
+    "actor_attribution_established": false,
+    "stage0_acceptance_changed": false,
+    "product_acceptance": false,
+    "private_bundle_or_pcap_published": false
+  },
+  "limitations": [
+    "Short gates validate source, pure contracts, actual hosted Windows PowerShell and existing owned-loopback/native-report fixture mechanics, not contained Windows packet behavior.",
+    "Old CRT mode behavior is now observed in a controlled fixture; the first failing composition did not record its exact read subreason.",
+    "Manifest and native provenance remain pinned-controller attestations; capture is default disabled pending separate runtime review.",
+    "The isolated helper is same-UID lifecycle containment, not an OS privilege sandbox.",
+    "PowerShell transport ordering/deadline checks use mocks and owned fixtures; no real guest private upload or full Windows capture lifecycle has executed."
+  ]
+}

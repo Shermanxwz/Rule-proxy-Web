@@ -1,0 +1,37 @@
+{
+  "conclusion": "failure",
+  "experiment": "dns-request3-explicit-port-pair",
+  "head": "1549f039c0d01607d508d253cb1009b40742761f",
+  "interpretation": "The read-only UDP53 admission did not establish an empty endpoint inventory. The closed report does not distinguish existing endpoints, command failure or unexpected output. No responder or API case started, so the port hypothesis was not tested and was not falsified.",
+  "limits": {
+    "dns_denial_observed": false,
+    "endpoint_busy_proven": false,
+    "enumeration_error_proven": false,
+    "full_guest_or_production_integration": false,
+    "global_settings_changed": false,
+    "port_pair_replayed": false,
+    "service_takeover_attempted": false
+  },
+  "linux_tests": 57,
+  "next": "Separate no-query/no-bind closed inventory diagnostics only; no automatic port-pair replay or takeover.",
+  "observations": {
+    "all_child_handles_cleanup_confirmed": true,
+    "api_called": false,
+    "case_count": 0,
+    "control_children_exited": 2,
+    "fixture_count": 0,
+    "listener_bind_attempted": false,
+    "nrpt_empty": true,
+    "port53_owned": false,
+    "udp53_empty_not_established": true,
+    "work_removed": true
+  },
+  "privacy": "Closed flags/counts and public CI/code metadata; no endpoint rows, addresses, PIDs, raw exceptions or credentials.",
+  "result_sha256": "a9da695e59ad3646b3a82778aadf06a79fecad336167a0c77192e3957c3fc3a9",
+  "reviewed_manifest_sha256": "b8ab4cb8101e3aec4f064c6fa492353782dcb94510c8f60fc94ed8e4b2631f31",
+  "run_id": 39599559399,
+  "schema": 1,
+  "source_note": "The production inventory already enumerates Get-NetUDPEndpoint without -LocalPort, then filters LocalPort53 and caps matches at two. A parameter-specific no-match exception is not established.",
+  "windows_compile": true,
+  "windows_unit_stage_executed": false
+}

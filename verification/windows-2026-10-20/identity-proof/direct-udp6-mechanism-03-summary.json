@@ -1,0 +1,43 @@
+{
+  "schema": 1,
+  "scope": "Standalone hosted TEST_ONLY IPv6 readback contract validation",
+  "run_id": 39665095939,
+  "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39665095939",
+  "head": "da4f11b77c1bde03c29cb66efbe5c6a1aca6b62c",
+  "freeze_sha256": "c8f4a8e97d15b47cc11bc3520c980e1d7e47b3f37232504facb922c5a460450c",
+  "result_sha256": "4987a3c1eea308ddfaf596383d127623300d847217398751fac041063623cb68",
+  "workflow_conclusion": "failure",
+  "tests": {
+    "linux_required": 538,
+    "windows_required": 538,
+    "skips_each": 0,
+    "native_builds_passed": true,
+    "synthetic_readback_helper_contract": true
+  },
+  "observations": {
+    "attempt_rows": 46,
+    "all_getsockopt_return_zero": true,
+    "all_returned_lengths": 1,
+    "all_get_error_null": true,
+    "all_value_null_due_to_length_gate": true,
+    "failure": "v6only_length",
+    "all_sets_succeeded": true,
+    "bind_or_send_invoked": false,
+    "receiver_datagrams": [
+      0,
+      0
+    ],
+    "all_attempt_sockets_closed": true,
+    "all_seven_child_owners_cleanup": true,
+    "both_receivers_cleanup": true,
+    "work_removed": true
+  },
+  "interpretation": [
+    "Actual getsockopt succeeded but reported a one-byte result in all 46 rows. The strict full-DWORD-length check refused before bind/send. This is not a Winsock API error or an isolation denial.",
+    "No returned value was exported because the length gate rejected it. This run does not establish that the returned Boolean was nonzero; it isolates the observed length incompatibility.",
+    "The documented nonzero semantic correction was not reached, because the full-DWORD gate failed. The synthetic helper-contract check passed but is not API evidence.",
+    "This separate job does not reconstruct either earlier failed job. Their ambiguity and original receipts remain immutable.",
+    "All owned cleanup was confirmed; private reports were removed. No VM, production valid network CLI, guest alias, libslirp runtime, packet capture, nonadmin/PSEC, DNS/proxy/descendant or product claim."
+  ],
+  "next_step": "Read-only primary-source-compatible bounded Boolean representation assessment, not automatic retry or arbitrary-length acceptance."
+}

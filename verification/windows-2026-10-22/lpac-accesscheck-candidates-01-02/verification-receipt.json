@@ -1,0 +1,30 @@
+{
+  "actual_native_token_network_actions": false,
+  "actual_ready": false,
+  "all_original_copies_byte_identical": true,
+  "archive_does_not_execute_source_or_import_candidate": true,
+  "archive_script": {
+    "bytes": 18751,
+    "sha256": "982ed08207ca2367e38829138eb1235e39539a3f07e1c65331d2f5432acd85ee"
+  },
+  "baseline_no_installed_candidate_verified": true,
+  "dependencies_not_downloaded_or_refreshed": true,
+  "full_patch_byte_reconstruction_verified": true,
+  "incremental_patch_in_memory_application_verified": true,
+  "known_candidate01_adapter_defects_preserved": 2,
+  "matched_identity_cell_run": false,
+  "original_artifact_count": 9,
+  "original_artifact_pins_verified": true,
+  "privacy_scan": "No machine paths, host labels, runtime addresses or non-fixture SIDs; only explicit well-known/synthetic source constants.",
+  "pure_logs_verified": {
+    "candidate_01_tests": 14,
+    "candidate_02_tests": 19,
+    "new_fake_regressions": 5,
+    "rerun": false,
+    "skipped": 0
+  },
+  "revision_freeze_and_abi_hash_chain_verified": true,
+  "schema_version": 1,
+  "source_files_verified": 4,
+  "stage": "lpac-accesscheck-candidates-01-02-file-verification"
+}

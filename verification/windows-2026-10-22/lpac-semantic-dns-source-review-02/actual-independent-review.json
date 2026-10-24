@@ -1,0 +1,906 @@
+{
+  "access_denial_observed": true,
+  "actor_sha256": "0a9e867cce846b366693e8662034db8c0c4646bd312a6143c367da2c36fb557a",
+  "all_actual_native_and_go_file_bytes_bound": true,
+  "broker_cancellation_proven": false,
+  "broker_pid_attributed": false,
+  "cleanup": {
+    "acl_removed": true,
+    "cleanup_tools": true,
+    "fixture_cleanup": true,
+    "guard": true,
+    "outer_cleanup": true,
+    "profile_deleted": true,
+    "semantic_resources_cleanup": true,
+    "sid_released": true,
+    "worker_bound": true,
+    "worker_exit": true,
+    "workload_cleanup": true
+  },
+  "conclusion": "本轮 standalone semantic-LPAC 对固定 loopback standard53 的 DnsQueryEx 调用明确返回 API/query5，记录0、及时且释放闭合；同方法普通进程前后均成功并由独立receiver各匹配一次查询/答复。selected receiver计数和事件均为0，全部自然退出与清理闭合。没有发现隐藏的未完成阶段。",
+  "default_resolver_tested": false,
+  "dns_isolation_qualified": false,
+  "evidence_basis": "Existing actual raw source-bound report, raw native reports, raw GO/intent files, original inventory stdout and fixture ledger. Compile and fake-test receipts are not used as actual evidence.",
+  "existing_g_psec_dns_leak_not_cancelled": true,
+  "failure": null,
+  "g_psec_tested": false,
+  "go_files": 5,
+  "identity_basis": "held-accesscheck-matrix-v1",
+  "inner_public_reprojection_byte_value_equal": true,
+  "inventory": {
+    "all_gates_within_five_frequency_of_original_inventory": true,
+    "effective_nrpt_count": 0,
+    "gates": 4,
+    "raw": {
+      "bytes": 658,
+      "sha256": "c204c7ff8b1aa19836e5abf3e45be29e96184e3c8bb720b72ef732e1f39254d5"
+    },
+    "runs": 1,
+    "server_values_published": false,
+    "tcp53_count": 0,
+    "udp53_count": 0
+  },
+  "limits": "这是一个实际执行的有限显式服务器 DNS 拒绝观察。不是当前 G/PSEC 代理组合的修复证据，不覆盖默认 resolver、其他目标/方法/服务 broker，也不识别发包 PID；不能推翻既有 Model2 API6 泄漏。",
+  "manifest_keys": 13,
+  "manifest_sha256": "657c88ef59f8ba9d4c24f5e407696b27615f50c63d58adc5d8dd64f942104e92",
+  "native_reports": [
+    {
+      "bytes": 1013,
+      "report": "ready.json",
+      "role": "selected",
+      "sha256": "67be329b2d9486f67b1a6063a4d563f025ef83bdff9324fce08a9a884f65f1be"
+    },
+    {
+      "bytes": 769,
+      "report": "ready.json",
+      "role": "health",
+      "sha256": "f33bda0a0de6c9a78d1604b96bfd58cf2640d41b2c270d1d4965e2d6d554e2c5"
+    },
+    {
+      "bytes": 1311,
+      "report": "phase-0001.json",
+      "role": "health",
+      "sha256": "70f60096e5f95e30dd4b68349a13d9b03e09f98a10b377e5fffdc9088d3813a4"
+    },
+    {
+      "bytes": 1552,
+      "report": "phase-0001.json",
+      "role": "selected",
+      "sha256": "8c2d2524b337ce897bed1f51bb283367e7e98c7bdc0e5c2b987a9cc0be99ac93"
+    },
+    {
+      "bytes": 1311,
+      "report": "phase-0002.json",
+      "role": "health",
+      "sha256": "e7415ed2d498382d110b1006fc19386cde93f9feafe057c5a29b67dbd70b9999"
+    },
+    {
+      "bytes": 1094,
+      "report": "final.json",
+      "role": "selected",
+      "sha256": "5210e910b47379e597916c561dd444408633b6fbab413e82772a3ce13fb218a2"
+    },
+    {
+      "bytes": 850,
+      "report": "final.json",
+      "role": "health",
+      "sha256": "46137b1d6994923a30a73701f10f884abd10b2be23d84ae8270ad50e8a97e9c8"
+    }
+  ],
+  "native_source_pins": 9,
+  "natural_exit_zero_count": 8,
+  "observation_complete": true,
+  "ordinary_after": {
+    "independent_receiver_answer": 1,
+    "independent_receiver_query": 1,
+    "same_native_api_positive": true
+  },
+  "ordinary_before": {
+    "independent_receiver_answer": 1,
+    "independent_receiver_query": 1,
+    "same_native_api_positive": true
+  },
+  "ordinary_intents": [
+    {
+      "action": "profile-create",
+      "bytes": 216,
+      "sha256": "0e7f85c96e6c7a994e122a2e268ca167ab0202c7a285caa3412dbe417b5e3b76"
+    },
+    {
+      "action": "acl-grant",
+      "bytes": 211,
+      "sha256": "516322272e03d2a60479e2f00403f9d7a369e2bd233a00a0c60a30a4df1c08ed"
+    },
+    {
+      "action": "spawn-grant-root",
+      "bytes": 218,
+      "sha256": "c315ec73110d362030bac7b1197e32acfa8b192c4d2cfb6bb36d7511ca916b94"
+    },
+    {
+      "action": "spawn-grant-inputs",
+      "bytes": 220,
+      "sha256": "517ee7e6be623200e6ed58eaf63bd5165d4984304e27baeaabaf62810d5677e0"
+    },
+    {
+      "action": "spawn-grant-lpac-report",
+      "bytes": 225,
+      "sha256": "63ccc87a8748d57ff200ba9cb323060a2927dd6836ef076627c8b1f329809037"
+    },
+    {
+      "action": "spawn-grant-lpac-control",
+      "bytes": 226,
+      "sha256": "7450fdc06ba6a3255363a5688d82779cb3ac2d60b859839ffb43fbef246ebed6"
+    },
+    {
+      "action": "spawn-selected",
+      "bytes": 216,
+      "sha256": "a94c13a5a2a862990f19d8b27e84ba27f9f65ae19543650bfa13ad559f9da969"
+    },
+    {
+      "action": "spawn-health",
+      "bytes": 214,
+      "sha256": "5d539a77b824cbc4dc2c2befb353c4470c264eee77f21472d54730ea10f5d641"
+    },
+    {
+      "action": "spawn-inventory",
+      "bytes": 217,
+      "sha256": "f4ae576f6e33790a21c146c0bfd417e993b63a306fbc15267667394a2eb0e010"
+    },
+    {
+      "action": "go-before",
+      "bytes": 211,
+      "sha256": "a267ddb1506e36ed9c086cce401ba4fc1a9a357dfc355a17699f00644c3b7eac"
+    },
+    {
+      "action": "go-selected",
+      "bytes": 213,
+      "sha256": "36d95f5559991e90c4b9e38c06a449e9450dc34171451e678a5a6abe7c3360b7"
+    },
+    {
+      "action": "go-after",
+      "bytes": 210,
+      "sha256": "c39a7ffd2ad2f0c1ab85bb07564a093758de16945ed247d15715b940190152c2"
+    },
+    {
+      "action": "finish-selected",
+      "bytes": 217,
+      "sha256": "14e2dd74d8440169caa18ae606721143b0e2902419fd743c69c8f8eec71ed0b5"
+    },
+    {
+      "action": "finish-health",
+      "bytes": 215,
+      "sha256": "2a41a435f612f197796440fb6ac8b43a541f8924ba0c67cfaaf3ae55a3e9059b"
+    },
+    {
+      "action": "acl-remove",
+      "bytes": 212,
+      "sha256": "01ce3ea2bbf686b2e2ca04a68bed50d5592aa15803afc257d29882cbdfe7c4b0"
+    },
+    {
+      "action": "spawn-remove",
+      "bytes": 214,
+      "sha256": "7ae6b1f11eac9ee49527f45c4cccd2e6bd0bc021ee5d9f01fa607ddab01c8b1d"
+    },
+    {
+      "action": "profile-delete",
+      "bytes": 216,
+      "sha256": "aff68952ba44b09e7e087b5b533b8dfb9bd12637902fe79fbb085b6fd5a95e75"
+    }
+  ],
+  "original_epoch_seconds": 120,
+  "original_public": {
+    "bytes": 1805,
+    "sha256": "757ad3b8c48f7f4d6e4d6aab9feaef4915dc54b39cf1977484eed6119fcc744f"
+  },
+  "outer_binding_limit": "Original public outer held-worker/guard/exit/cleanup checks are explicit trusted inputs to reprojection. This receipt does not fabricate a missing outer private launch ledger or reobserve exited kernel processes.",
+  "plan": {
+    "bytes": 1128,
+    "sha256": "d47415183754729403523c6b72a73e1d3972f9d7f5eeb88bb02531c0c1d099a1"
+  },
+  "primary_identity_and_exact_capabilities_bound": true,
+  "private_config": {
+    "bytes": 5408,
+    "sha256": "9b07c2fbb5c55b759b03b4cde4cab893fb79cfb17a2dacd81e5b28d2d59b5d68"
+  },
+  "private_worker_report": {
+    "bytes": 99182,
+    "sha256": "f8bcee156bebed35ab9d344c54b69c22ad86a92f45cc7518bc49a04a645916f2"
+  },
+  "product_acceptance": false,
+  "proxy_tested": false,
+  "raw_logs_published": false,
+  "receiver": {
+    "aggregate_answers_sent": 2,
+    "aggregate_datagrams": 2,
+    "aggregate_received_bytes_lower_bound": 124,
+    "cleanup_confirmed": true,
+    "oversized": 0,
+    "per_packet_capture_claimed": false,
+    "raw_datagrams_published": false,
+    "rejected": 0,
+    "selected_answers_sent": 0,
+    "selected_matched_queries": 0,
+    "selected_query_observed": false,
+    "send_failed": 0
+  },
+  "recovery_required": false,
+  "reviewer_actions": {
+    "actor_or_network_rerun": false,
+    "file_reads_and_pure_projection_only": true,
+    "main_or_original_evidence_modified": false,
+    "native_api_instantiated": false,
+    "pure_tests_rerun": false,
+    "recovery_executed": false,
+    "token_or_actor_api_called": false
+  },
+  "schema_version": 1,
+  "selected_api": {
+    "answer_match": false,
+    "api_status": 5,
+    "called": true,
+    "completed": true,
+    "context_retained": false,
+    "pending": false,
+    "query_status": 5,
+    "query_status_success_verified": false,
+    "record_count": 0,
+    "records_released": true,
+    "timely_verified": true,
+    "within_deadline": true
+  },
+  "selected_phase_and_api_within_original_deadlines": true,
+  "semantic_authorization_count": 5,
+  "semantic_check_count": 11,
+  "semantic_checks": [
+    {
+      "all_resources_close_confirmed": true,
+      "held_before_and_after_bound": true,
+      "intent": {
+        "bytes": 519,
+        "sha256": "6a7c1262357a22aa1e73b1d6a225652cc763b2d726a571f2e72f6c9a9fcad27b"
+      },
+      "matrix": [
+        2,
+        0,
+        0,
+        2
+      ],
+      "private_proof_sha256": "aa37dd69ba40add91cae7fdfce8531cce64ea068aef34ac283633200509f1458",
+      "purpose": "admission",
+      "qualified": true,
+      "resource_count": 6,
+      "sequence": 1
+    },
+    {
+      "all_resources_close_confirmed": true,
+      "held_before_and_after_bound": true,
+      "intent": {
+        "bytes": 516,
+        "sha256": "42d6e476d1aa6ca91f1b07a4b7f036e07674b5bd1c5b2cddc33e81a3744f1681"
+      },
+      "matrix": [
+        2,
+        0,
+        0,
+        2
+      ],
+      "private_proof_sha256": "79d1b7ac80fed9eb3f578afc79b7a01a18d2babd28a0af7c9f65580984520ab5",
+      "purpose": "resume",
+      "qualified": true,
+      "resource_count": 6,
+      "sequence": 2
+    },
+    {
+      "all_resources_close_confirmed": true,
+      "held_before_and_after_bound": true,
+      "intent": {
+        "bytes": 514,
+        "sha256": "d1b15f2081be8f0a13666e8e8efdb010881bb6d1fccc1bb969f49d642d905242"
+      },
+      "matrix": [
+        2,
+        0,
+        0,
+        2
+      ],
+      "private_proof_sha256": "a0d80f68c92620c8701f2f4a93392b9a38ba6242b239695aefe78c84074dfeaf",
+      "purpose": "held",
+      "qualified": true,
+      "resource_count": 6,
+      "sequence": 3
+    },
+    {
+      "all_resources_close_confirmed": true,
+      "held_before_and_after_bound": true,
+      "intent": {
+        "bytes": 516,
+        "sha256": "d59a26bfff9bdd47a5db8383fcf1b6ed6e272be7ba5a9b3bbd6c03e4fdb0647c"
+      },
+      "matrix": [
+        2,
+        0,
+        0,
+        2
+      ],
+      "private_proof_sha256": "e55eeef48fd249027ba843de45aadeae9b2f070033f92e12f169c882522bea23",
+      "purpose": "dns-go",
+      "qualified": true,
+      "resource_count": 6,
+      "sequence": 4
+    },
+    {
+      "all_resources_close_confirmed": true,
+      "held_before_and_after_bound": true,
+      "intent": {
+        "bytes": 514,
+        "sha256": "151f4a356905b67d82cd9eee9c0d3ac028bd10f22c958c8d9c54194816a6a6c4"
+      },
+      "matrix": [
+        2,
+        0,
+        0,
+        2
+      ],
+      "private_proof_sha256": "6ac00a111b17483668437fd16c1157b70f502b76374eacc7716caa871ada7c7b",
+      "purpose": "held",
+      "qualified": true,
+      "resource_count": 6,
+      "sequence": 5
+    },
+    {
+      "all_resources_close_confirmed": true,
+      "held_before_and_after_bound": true,
+      "intent": {
+        "bytes": 514,
+        "sha256": "144ac585b46747e9a9f3e8be2f147e4cf97dea8719a7884303183f1a0d5b8752"
+      },
+      "matrix": [
+        2,
+        0,
+        0,
+        2
+      ],
+      "private_proof_sha256": "c3a8df648628af6ae4cf77be85ff5f32eb6725f885e3e60c1985259cb01fea5c",
+      "purpose": "held",
+      "qualified": true,
+      "resource_count": 6,
+      "sequence": 6
+    },
+    {
+      "all_resources_close_confirmed": true,
+      "held_before_and_after_bound": true,
+      "intent": {
+        "bytes": 514,
+        "sha256": "a1b9952d7eb07466329f52e0b31b14c5bd3a6ce9494f95c436f91cfc5d2e10b0"
+      },
+      "matrix": [
+        2,
+        0,
+        0,
+        2
+      ],
+      "private_proof_sha256": "30663f52f6ef75f2562f3cd098760bb66a8af95358d5684b5a82ce9bf500a50a",
+      "purpose": "held",
+      "qualified": true,
+      "resource_count": 6,
+      "sequence": 7
+    },
+    {
+      "all_resources_close_confirmed": true,
+      "held_before_and_after_bound": true,
+      "intent": {
+        "bytes": 516,
+        "sha256": "32a05a2830c3f99f588233fa735ef5c03670043b10965a60a52ba1294ed2898a"
+      },
+      "matrix": [
+        2,
+        0,
+        0,
+        2
+      ],
+      "private_proof_sha256": "20a3a451fbda1eeecb3dd51640d81d36f53e17423c82cc45b4614f7da9c66bfb",
+      "purpose": "dns-go",
+      "qualified": true,
+      "resource_count": 6,
+      "sequence": 8
+    },
+    {
+      "all_resources_close_confirmed": true,
+      "held_before_and_after_bound": true,
+      "intent": {
+        "bytes": 514,
+        "sha256": "f399e3ce82dfad3513320966e9130949903bb9be66a7cd9c3cafba969bdc185c"
+      },
+      "matrix": [
+        2,
+        0,
+        0,
+        2
+      ],
+      "private_proof_sha256": "58b8f2cbf00b89ed73890634429ea6d7f6312b1e2e0526d061b4aa7ad2b461d7",
+      "purpose": "held",
+      "qualified": true,
+      "resource_count": 6,
+      "sequence": 9
+    },
+    {
+      "all_resources_close_confirmed": true,
+      "held_before_and_after_bound": true,
+      "intent": {
+        "bytes": 517,
+        "sha256": "43d86a5c10598940a989bbc7351528a3c54ffb2d2d2f633761973b5002ec9bd0"
+      },
+      "matrix": [
+        2,
+        0,
+        0,
+        2
+      ],
+      "private_proof_sha256": "dd03778b6874c2f3814c211e936b0a1d9919be1b8a1e1a8a475fa6e8e0dfb938",
+      "purpose": "dns-go",
+      "qualified": true,
+      "resource_count": 6,
+      "sequence": 10
+    },
+    {
+      "all_resources_close_confirmed": true,
+      "held_before_and_after_bound": true,
+      "intent": {
+        "bytes": 517,
+        "sha256": "7423524263d5a0329bc813e799be5c2169ba3e302db2a1c5c408dfb7ef216c4f"
+      },
+      "matrix": [
+        2,
+        0,
+        0,
+        2
+      ],
+      "private_proof_sha256": "fc88d8d5805b85d74039f33662001024000d7e5b55d59ccf8901ba7aba8de5bb",
+      "purpose": "finish",
+      "qualified": true,
+      "resource_count": 6,
+      "sequence": 11
+    }
+  ],
+  "semantic_matrix": [
+    2,
+    0,
+    0,
+    2
+  ],
+  "semantic_resource_cleanup_confirmed": true,
+  "semantic_resource_lifetimes": 66,
+  "source_commit": "9c5e56ace7e4f2a039d3e078bcb81082e44b60df",
+  "source_exact_git_blobs_and_lf": true,
+  "source_files": [
+    {
+      "bytes": 31002,
+      "git_blob": "189a70ee773534147387fc80beaf8de8e42d64e0",
+      "path": ".github/native/windows_identity_actor.cpp",
+      "sha256": "530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553"
+    },
+    {
+      "bytes": 8847,
+      "git_blob": "92e1a015ad2e6773f9922911de21fbce84187c76",
+      "path": ".github/native/windows_identity_dns_raw_udp.hpp",
+      "sha256": "43b8cc7afce3acd91cdd4f23ae7d7075a996f98860447c3e9791e298d33a8a78"
+    },
+    {
+      "bytes": 6678,
+      "git_blob": "253e380beb1a801a2a23de2d51efed00c5a4f5cd",
+      "path": ".github/native/windows_identity_dns_standard_probe.hpp",
+      "sha256": "bce69ff57a173525a9cff2731f4d05fe34b5144daeaa465b0d8bb5181432d28c"
+    },
+    {
+      "bytes": 16902,
+      "git_blob": "18e366eedbd598fa3624768197182e9bd7bb12f9",
+      "path": ".github/native/windows_identity_proxy_bridge_core.hpp",
+      "sha256": "f03e45166265f02a65abc12930efd73634a332596d22aa78cadc1267a80b6356"
+    },
+    {
+      "bytes": 49690,
+      "git_blob": "cdd21a2ae0fe11ae4bee5fe240470c8e31a9774d",
+      "path": ".github/native/windows_identity_proxy_c_actor.cpp",
+      "sha256": "17f8a816028f71667513586b2efd57fc1c46b369e1d7171e74a2cef6e9c543a3"
+    },
+    {
+      "bytes": 4313,
+      "git_blob": "77cb067a1fd2fcab60f82165da7bed2a5ae10a77",
+      "path": ".github/native/windows_identity_proxy_c_contract.hpp",
+      "sha256": "150efbbccdbcb9064eb6d43ddd25608a4a3655c5a408402779dae6216269ff1c"
+    },
+    {
+      "bytes": 25762,
+      "git_blob": "258a2d251441c612f1515923e9f85389519d5b37",
+      "path": ".github/native/windows_identity_proxy_origin_actor.cpp",
+      "sha256": "3d079e77e387ba77545c27f5b5c260f591657ef3a44384426cd2039fa8c04010"
+    },
+    {
+      "bytes": 6338,
+      "git_blob": "df1c4a7ccc4d25fa0a4409a944433c6ec2c8a948",
+      "path": ".github/native/windows_identity_proxy_origin_transport.hpp",
+      "sha256": "bed113e5e20064722cbb2c6d3e71b4d3ca6c4769ebd694c86997abec0af661c4"
+    },
+    {
+      "bytes": 16095,
+      "git_blob": "21a7422a803be5dd11411585d46c04aea5ec395d",
+      "path": ".github/native/windows_identity_proxy_pipe_actor.cpp",
+      "sha256": "26636a6b9979e91452cf6e7d2049d6fbbfa43639a35708ee18d4a71e67fb8dd0"
+    },
+    {
+      "bytes": 9913,
+      "git_blob": "b99c4101d99f4a7c9a2ebaae7a17153982e2bb72",
+      "path": ".github/windows_dns_fixture.py",
+      "sha256": "5a330ae54ec887742ed14c0d2fd1135e486790b686fbc850c3681f04e674273a"
+    },
+    {
+      "bytes": 11174,
+      "git_blob": "4e7c96043c4ed9f6e8fe68b8709080a2acafd5ae",
+      "path": ".github/windows_identity_dns_cases_fixture.py",
+      "sha256": "28b3035e570ef57fbb3a12f9b8034c71be3d9280712a811fdb636fdb388c9d91"
+    },
+    {
+      "bytes": 3083,
+      "git_blob": "2e8e6e79578b090fc9d0960c6dd50be167c53dec",
+      "path": ".github/windows_identity_dns_standard_inventory.ps1",
+      "sha256": "87d98b0463e031376b6c6d29f1a0db375f74639904d34023ee8bcffa8893dbf1"
+    },
+    {
+      "bytes": 34465,
+      "git_blob": "bc81581cd6d325df00a4f23f5cbbab3aec4cacae",
+      "path": ".github/windows_identity_lpac_accesscheck.py",
+      "sha256": "19c0d626e653147276cab9a97c5a0071f1c37b2eeb097c55fbacb39f262ade15"
+    },
+    {
+      "bytes": 64394,
+      "git_blob": "3f8b65e6038fddf087837deee5e4a42fee729df4",
+      "path": ".github/windows_identity_lpac_dns_local.py",
+      "sha256": "aff8bd5d2a6b1dd688934f9f98fe66146d74a5365caf2ca2c53f6b934f10fd53"
+    },
+    {
+      "bytes": 46637,
+      "git_blob": "47e405c9b42343cbc60737301875fb479a47224e",
+      "path": ".github/windows_identity_lpac_identity_cell.py",
+      "sha256": "b7ffce514f00fbd44ce2e4bc77cd93dfe8285e90c608f5f1a82f30b025798105"
+    },
+    {
+      "bytes": 46876,
+      "git_blob": "9b5b4d48e92ba6c1ea6919e830800d7f4040c2da",
+      "path": ".github/windows_identity_lpac_semantic_dns.py",
+      "sha256": "f52c4848446aad15050b84c35cb98c05a57d067833840592e15e92697af4b644"
+    },
+    {
+      "bytes": 12358,
+      "git_blob": "a3b0147a2f3d4e3a49358b0d113d36641c518a21",
+      "path": ".github/windows_identity_lpac_semantic_dns_local.py",
+      "sha256": "b57f78d48c8db35ed1e7eb0f6f3462c3d56dd494e47cd0e2633cce2baeb0c57e"
+    },
+    {
+      "bytes": 183555,
+      "git_blob": "9db1237dd31c442912ca67fd313601933223298c",
+      "path": ".github/windows_identity_model2_controller.py",
+      "sha256": "9ecc846082f03fcbb206e5610e86d9f2af06250f2f1b165187229ea5582cc2c1"
+    },
+    {
+      "bytes": 15307,
+      "git_blob": "e060260538b192537037acaf106197db26984984",
+      "path": ".github/windows_identity_model2_dns.py",
+      "sha256": "748b2e7e4adc7008e83d17e184659e7d428fa41a06958f738190b75133b02847"
+    },
+    {
+      "bytes": 6974,
+      "git_blob": "3120788d9999fc905304bd2a9e821e58aabb0b93",
+      "path": ".github/windows_identity_model2_dns_raw.py",
+      "sha256": "e0d06ceed384433597a47dfa839043ff4572774a8425b842f38f5fa69fc405c0"
+    },
+    {
+      "bytes": 10870,
+      "git_blob": "e7ec1a165e2ca8a8cb430bbcdf3c68759130adb3",
+      "path": ".github/windows_identity_model2_firewall.ps1",
+      "sha256": "0c78f295fe0a5a6ec2d7a04d58dcfb888767a9231928121493853519f1613cdb"
+    },
+    {
+      "bytes": 63254,
+      "git_blob": "251593c841842089436e337671eb2bb4d5c057f7",
+      "path": ".github/windows_identity_model2_live.py",
+      "sha256": "c27260065808dd9f180918b49ba907897a963ff360da9ca72dd9a735c36029fd"
+    },
+    {
+      "bytes": 33250,
+      "git_blob": "3e85e8d85e5cc8a9df36a181554a1cd5381d5ca8",
+      "path": ".github/windows_identity_model2_local.py",
+      "sha256": "e8aa1c1072469bfbf48cafc29ee1d8f09de228aa37ca0734187c9b1af98c6d45"
+    },
+    {
+      "bytes": 21567,
+      "git_blob": "e98efaa676a3faa4515f3fecc6a1e437a39545e6",
+      "path": ".github/windows_identity_model2_local_probe.py",
+      "sha256": "ec14c0d1b185da1deed651bb27726fdc114b4641181cfc29d998f2eac14e56bf"
+    },
+    {
+      "bytes": 25117,
+      "git_blob": "2eec1f2df867d1050cb6df2729d0241932b448ab",
+      "path": ".github/windows_identity_model2_maintenance.py",
+      "sha256": "68b6ce894d0dd544a61e19faf4d52f8388af9973a4f86f4dad35868842e38788"
+    },
+    {
+      "bytes": 67809,
+      "git_blob": "d7ab598e4b3b23163c2e137ae3d6e073e814b683",
+      "path": ".github/windows_identity_ordinary_launcher.py",
+      "sha256": "a890f4740bc2869586278158edad65dd8c649e09afed8c7aab355d842301d4a0"
+    },
+    {
+      "bytes": 40122,
+      "git_blob": "04f26706084f2e5efe0b9fbbbede1c875274237f",
+      "path": ".github/windows_identity_pipe_probe.py",
+      "sha256": "4dc8567d8a64e544d7a4baa873ff08900720320e26c8d6a6fd43ae3e5744dc74"
+    },
+    {
+      "bytes": 52976,
+      "git_blob": "3b46c0a3e9b112287b8c50dd0f202181f52d398e",
+      "path": ".github/windows_identity_proof.py",
+      "sha256": "aada68c3a0c309dffe422cd6271cf80a728e05a3c4a52a6a81293b47b74d2386"
+    },
+    {
+      "bytes": 42871,
+      "git_blob": "34cd3d398909501117d55739161ec64835e0fd68",
+      "path": ".github/windows_identity_proxy_origin_probe.py",
+      "sha256": "33cfddf58caa8877bbe3f6b97132dfa45e9803c88df7c34f17a8501b1b560095"
+    },
+    {
+      "bytes": 14243,
+      "git_blob": "d0025381a60e693a87286b23affbbf9bf4585cc8",
+      "path": ".github/windows_identity_proxy_pipe_ac_guest.py",
+      "sha256": "78777d3a6b210a9e27494fc35f9dc53782adda0594b4f4705dee2c008d8d02e1"
+    },
+    {
+      "bytes": 35656,
+      "git_blob": "c6a637fb87d92225482db26e7f657d1163fe109f",
+      "path": ".github/windows_identity_proxy_pipe_ac_local.py",
+      "sha256": "f5ce0fbc20a727f1c78a513bdac816dc49ae43fb1b24e4f8d7eefcd0b252163b"
+    },
+    {
+      "bytes": 75569,
+      "git_blob": "132ba52cfb7f16906f1affbaeb0fc5944439a640",
+      "path": ".github/windows_identity_proxy_pipe_probe.py",
+      "sha256": "e6bb37aa6f2c5a98dde44d63d097f7921775fd0d7858b95053f33565602df15b"
+    },
+    {
+      "bytes": 46167,
+      "git_blob": "1437f643e51eb22d4e43a9005f75d459d2b07aad",
+      "path": ".github/windows_psec_compartment_smoke.py",
+      "sha256": "6602471c0cf08f977879caef5c34bab20db9b84208f5cdae0a00b7a1f802d019"
+    },
+    {
+      "bytes": 20927,
+      "git_blob": "b07eb4b8591b7f85ba471a5f5c7311af9dd85fbd",
+      "path": "ruleproxy/windows_app_process.py",
+      "sha256": "8e62820f98d9dbe352d988501d211565aceecce84657200c2793b69404cbee33"
+    },
+    {
+      "bytes": 2080,
+      "git_blob": "80ef91e8008d0c5cb7233922dc357cbd10225784",
+      "path": "ruleproxy/windows_runtime_pins.py",
+      "sha256": "2854702df1f2f7bfefce2b772920394033aaefaadf7b45de7b7d4a3fd1d73e65"
+    }
+  ],
+  "source_files_verified": 35,
+  "source_sha256": "a0859d431fe25f8cb93f7d4c4381785770670087f857604073c4b80c92641081",
+  "stage": "semantic-lpac-dns-actual-02-independent-file-audit",
+  "status": "observed",
+  "stdio_file_count": 21,
+  "stdio_files": [
+    {
+      "bytes": 0,
+      "component": "guard",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stream": "controller.stdin"
+    },
+    {
+      "bytes": 0,
+      "component": "guard",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stream": "controller.stdout"
+    },
+    {
+      "bytes": 0,
+      "component": "guard",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stream": "controller.stderr"
+    },
+    {
+      "bytes": 0,
+      "component": "tools/grant-root",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stream": "stdin"
+    },
+    {
+      "bytes": 42,
+      "component": "tools/grant-root",
+      "sha256": "faba33705af92f96bd8f26740daab37c0f8d91dc41af89ec4879ebe57b4ae695",
+      "stream": "stdout"
+    },
+    {
+      "bytes": 0,
+      "component": "tools/grant-root",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stream": "stderr"
+    },
+    {
+      "bytes": 0,
+      "component": "tools/grant-inputs",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stream": "stdin"
+    },
+    {
+      "bytes": 42,
+      "component": "tools/grant-inputs",
+      "sha256": "faba33705af92f96bd8f26740daab37c0f8d91dc41af89ec4879ebe57b4ae695",
+      "stream": "stdout"
+    },
+    {
+      "bytes": 0,
+      "component": "tools/grant-inputs",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stream": "stderr"
+    },
+    {
+      "bytes": 0,
+      "component": "tools/grant-lpac-report",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stream": "stdin"
+    },
+    {
+      "bytes": 42,
+      "component": "tools/grant-lpac-report",
+      "sha256": "faba33705af92f96bd8f26740daab37c0f8d91dc41af89ec4879ebe57b4ae695",
+      "stream": "stdout"
+    },
+    {
+      "bytes": 0,
+      "component": "tools/grant-lpac-report",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stream": "stderr"
+    },
+    {
+      "bytes": 0,
+      "component": "tools/grant-lpac-control",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stream": "stdin"
+    },
+    {
+      "bytes": 42,
+      "component": "tools/grant-lpac-control",
+      "sha256": "faba33705af92f96bd8f26740daab37c0f8d91dc41af89ec4879ebe57b4ae695",
+      "stream": "stdout"
+    },
+    {
+      "bytes": 0,
+      "component": "tools/grant-lpac-control",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stream": "stderr"
+    },
+    {
+      "bytes": 0,
+      "component": "tools/inventory",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stream": "stdin"
+    },
+    {
+      "bytes": 658,
+      "component": "tools/inventory",
+      "sha256": "c204c7ff8b1aa19836e5abf3e45be29e96184e3c8bb720b72ef732e1f39254d5",
+      "stream": "stdout"
+    },
+    {
+      "bytes": 0,
+      "component": "tools/inventory",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stream": "stderr"
+    },
+    {
+      "bytes": 0,
+      "component": "tools/remove",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stream": "stdin"
+    },
+    {
+      "bytes": 44,
+      "component": "tools/remove",
+      "sha256": "3685c2f720b063b95f1dc52a1261ddf81c3267233b6d728dc66c88d1fb2d5c37",
+      "stream": "stdout"
+    },
+    {
+      "bytes": 0,
+      "component": "tools/remove",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stream": "stderr"
+    }
+  ],
+  "task_observations": [
+    {
+      "appcontainer": false,
+      "capability_count": 0,
+      "class46_value": null,
+      "exit_code": 0,
+      "exited": true,
+      "held_admitted": true,
+      "resumed": true,
+      "role": "grant-root"
+    },
+    {
+      "appcontainer": false,
+      "capability_count": 0,
+      "class46_value": null,
+      "exit_code": 0,
+      "exited": true,
+      "held_admitted": true,
+      "resumed": true,
+      "role": "grant-inputs"
+    },
+    {
+      "appcontainer": false,
+      "capability_count": 0,
+      "class46_value": null,
+      "exit_code": 0,
+      "exited": true,
+      "held_admitted": true,
+      "resumed": true,
+      "role": "grant-lpac-report"
+    },
+    {
+      "appcontainer": false,
+      "capability_count": 0,
+      "class46_value": null,
+      "exit_code": 0,
+      "exited": true,
+      "held_admitted": true,
+      "resumed": true,
+      "role": "grant-lpac-control"
+    },
+    {
+      "appcontainer": true,
+      "capability_count": 2,
+      "class46_value": null,
+      "exit_code": 0,
+      "exited": true,
+      "held_admitted": true,
+      "resumed": true,
+      "role": "selected"
+    },
+    {
+      "appcontainer": false,
+      "capability_count": 0,
+      "class46_value": null,
+      "exit_code": 0,
+      "exited": true,
+      "held_admitted": true,
+      "resumed": true,
+      "role": "health"
+    },
+    {
+      "appcontainer": false,
+      "capability_count": 0,
+      "class46_value": null,
+      "exit_code": 0,
+      "exited": true,
+      "held_admitted": true,
+      "resumed": true,
+      "role": "inventory"
+    },
+    {
+      "appcontainer": false,
+      "capability_count": 0,
+      "class46_value": null,
+      "exit_code": 0,
+      "exited": true,
+      "held_admitted": true,
+      "resumed": true,
+      "role": "remove"
+    }
+  ],
+  "token_class46_queried": false,
+  "worker_deadline_seconds": 115,
+  "workload_job_empty": true,
+  "workload_stop_requested": false
+}

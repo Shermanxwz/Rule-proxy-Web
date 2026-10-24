@@ -1,0 +1,99 @@
+{
+  "content": {
+    "AST_test_method_counts": {
+      "tests/test_windows_identity_lpac_pipe_front_native.py": 3,
+      "tests/test_windows_identity_lpac_pipe_origin.py": 22,
+      "tests/test_windows_identity_lpac_pipe_origin_local.py": 12
+    },
+    "actions": {
+      "file_only_and_readonly_git": true,
+      "imports_executed": false,
+      "main_or_candidate_modified": false,
+      "native_API_or_actor_or_network_executed": false,
+      "tests_repeated": false
+    },
+    "baseline_current_git_head": "bf4dcc2ab3913ae46056d34ef76892ec266f596e",
+    "blockers": [],
+    "changed_paths_vs_previous_commit": [
+      ".github/windows_identity_lpac_pipe_origin.py",
+      "tests/test_windows_identity_lpac_pipe_origin.py",
+      "tests/test_windows_identity_lpac_pipe_origin_local.py"
+    ],
+    "decision": "GO-single-flag-installed-source-only",
+    "exact_three_approved_modified_paths": true,
+    "false_freeze": {
+      "bytes": 18707,
+      "name": "lpac-pipe-origin-python-candidate-freeze-05.json",
+      "sha256": "f1dad2816a3e81890173bbd2f764b38f95acfebe876e2cf781459304b2d5abf7"
+    },
+    "frozen_python_review": {
+      "bytes": 5305,
+      "name": "lpac-pipe-origin-python-independent-review-05.json",
+      "sha256": "1e7747454c47e9f54e79ba3f11a39bfcd9edbdef65325978ca20aef2a91f83c9"
+    },
+    "installed_files": {
+      ".github/native/windows_identity_lpac_pipe_front_actor.cpp": {
+        "bytes": 6869,
+        "sha256": "ecc4a793fa1afc33a5c9407486ee9f463bd68132b8090eb259270a89d19ca48d"
+      },
+      ".github/windows_identity_lpac_pipe_origin.py": {
+        "bytes": 67005,
+        "sha256": "452f00595a2d717443a978aa6c9012294598bef3d53fe5ddca212d36599dc1f0"
+      },
+      ".github/windows_identity_lpac_pipe_origin_local.py": {
+        "bytes": 17255,
+        "sha256": "a69fec199a9c7252ed733f3f71e4408afabd0c6f9e7ac36612105ba431e71ce6"
+      },
+      "tests/test_windows_identity_lpac_pipe_front_native.py": {
+        "bytes": 12628,
+        "sha256": "9557ab2e2376c8c08f91dba67245fa43328cb187a4f74b7f0f695ede3ac52444"
+      },
+      "tests/test_windows_identity_lpac_pipe_origin.py": {
+        "bytes": 27151,
+        "sha256": "a7b137ca11d7a55e983b403d35a36876c22de3a39e04b6be4bb441e020c4ab23"
+      },
+      "tests/test_windows_identity_lpac_pipe_origin_local.py": {
+        "bytes": 10358,
+        "sha256": "ac99a2f6513bef1b2208e2b9bb42e2b0fa3862ee50d3911070fe0ae8b52659a4"
+      }
+    },
+    "installed_runtime_source_count": 40,
+    "installed_runtime_source_sha256": "d136e22b2dfbdb991cfbef06d5dd7a54d687135bedbff653ada5e4d01ab88a61",
+    "limitations": [
+      "Installed-source delta only; root is running the full integrated suite separately.",
+      "No repeat of independent artifact decode or old/new pure test suites.",
+      "No actor/backend/API/network/security operation or product/isolation acceptance."
+    ],
+    "native_freeze": {
+      "bytes": 4418,
+      "name": "lpac-pipe-front-native-freeze-01.json",
+      "sha256": "e84fd2d705e089f0f1d30938f687068db3b4ea58d833b4f273fac365809f12ae"
+    },
+    "native_two_files_and_build_inputs_unchanged": true,
+    "no_other_untracked_paths": true,
+    "old37_candidate_main_currentGit_baselineGit_byte_exact": true,
+    "preserved_prior_failures": "Driver input-gate BOM failure and automatic CI path-alias error remain separate original evidence; this source receipt does not repair those historical outcomes.",
+    "promotion": {
+      "change": "False05 core only ACTUAL_READY=False becomes True; all other candidate bytes and other five files exact.",
+      "changed_path": ".github/windows_identity_lpac_pipe_origin.py",
+      "other_runtime_vs_False05_unchanged_count": 39,
+      "runtime_changed_vs_False05_count": 1
+    },
+    "ready_freeze": {
+      "bytes": 7014,
+      "name": "lpac-pipe-origin-ready-source-freeze-02.json",
+      "sha256": "99719b7d6a22a03b59f639fd4cb06a9588701e744d47a1f98c1e9df0b5fd329d"
+    },
+    "runtime_vs_previous_commit": "Only the verified single-BOM decode change; original raw manifest hash gate unchanged.",
+    "schema_version": 1,
+    "stage": "independent-lpac-pipe-origin-Ready-install-delta-review"
+  },
+  "raw_commitment": {
+    "bytes": 3956,
+    "sha256": "b23d1942a9d2114b8a944c4d31d5e51a7161c61df83d0c3e2cb6284b5f2f3bbe"
+  },
+  "schema_version": 1,
+  "stage": "source-evidence-safe-view",
+  "temporal_scope": "Original preparation/review snapshot: its pending/false runtime fields are historical snapshot fields, not the current result.",
+  "transformation": "JSON value projection; account identifiers/user paths redacted if present; no runtime inference"
+}

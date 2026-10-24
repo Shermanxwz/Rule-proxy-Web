@@ -1,0 +1,1458 @@
+{
+  "acceptance_policy_changed": false,
+  "atomic_package_snapshot": false,
+  "ceiling_verdicts": {
+    "download_bytes": true,
+    "package_count": true,
+    "positive_installed_growth_bytes": true
+  },
+  "ceilings": {
+    "download_bytes": 25315786,
+    "package_count": 23,
+    "positive_installed_growth_bytes": 115948544
+  },
+  "complete_size_row_count": 23,
+  "download_bytes": 25315786,
+  "exact_image_verified": true,
+  "frozen_gate_accepted": true,
+  "frozen_gate_completed": true,
+  "frozen_gate_error": null,
+  "frozen_gate_row_index": null,
+  "frozen_gate_stage": null,
+  "observation_limits": {
+    "absolute_seconds": 480,
+    "bytes_per_stream": 524288,
+    "captured_bytes_per_phase": 8388608,
+    "records_per_row": 16,
+    "rows": 256
+  },
+  "packages_installed": false,
+  "partial_download_bytes": 25315786,
+  "partial_positive_installed_growth_bytes": 115948544,
+  "phase": "before_refresh",
+  "positive_installed_growth_bytes": 115948544,
+  "raw_output_exported": false,
+  "recovery_attempted": false,
+  "refresh": {
+    "all_sources_refreshed_verified": false,
+    "attempted": true,
+    "command": {
+      "return_code": 0,
+      "status": "completed",
+      "stderr_bytes": 0,
+      "stdout_bytes": 1883
+    },
+    "completed": true
+  },
+  "rows": [
+    {
+      "complete_sizes": true,
+      "index": 0,
+      "installed": {
+        "installed_bytes": null,
+        "installed_state": false,
+        "line_count": 0,
+        "old_version_in_simulation": false,
+        "previous_bytes_for_growth": 0,
+        "size_decimal": false,
+        "state": "missing",
+        "valid": true,
+        "version_field_present": false,
+        "version_matches_simulated_old": false
+      },
+      "installed_command": {
+        "return_code": 1,
+        "status": "completed",
+        "stderr_bytes": 49,
+        "stdout_bytes": 0
+      },
+      "metadata": {
+        "all_records_valid": true,
+        "download_bytes": 1564600,
+        "installed_bytes": 4978688,
+        "record_count": 1,
+        "record_observation_bound_exceeded": false,
+        "records": [
+          {
+            "architecture": "all",
+            "archive_size_decimal": true,
+            "download_bytes": 1564600,
+            "duplicate_field_count": 0,
+            "installed_bytes": 4978688,
+            "installed_size_decimal": true,
+            "malformed_field_line_count": 0,
+            "numeric_sizes_in_observation_range": true,
+            "package_matches": true,
+            "required_field_counts": {
+              "Architecture": 1,
+              "Installed-Size": 1,
+              "Package": 1,
+              "Size": 1,
+              "Version": 1
+            },
+            "valid": true,
+            "version_matches": true
+          }
+        ],
+        "sizes_agree": true
+      },
+      "metadata_command": {
+        "return_code": 0,
+        "status": "completed",
+        "stderr_bytes": 0,
+        "stdout_bytes": 1339
+      },
+      "safe_simulation_row": true,
+      "stop_reasons": []
+    },
+    {
+      "complete_sizes": true,
+      "index": 1,
+      "installed": {
+        "installed_bytes": null,
+        "installed_state": false,
+        "line_count": 0,
+        "old_version_in_simulation": false,
+        "previous_bytes_for_growth": 0,
+        "size_decimal": false,
+        "state": "missing",
+        "valid": true,
+        "version_field_present": false,
+        "version_matches_simulated_old": false
+      },
+      "installed_command": {
+        "return_code": 1,
+        "status": "completed",
+        "stderr_bytes": 52,
+        "stdout_bytes": 0
+      },
+      "metadata": {
+        "all_records_valid": true,
+        "download_bytes": 31388,
+        "installed_bytes": 148480,
+        "record_count": 1,
+        "record_observation_bound_exceeded": false,
+        "records": [
+          {
+            "architecture": "amd64",
+            "archive_size_decimal": true,
+            "download_bytes": 31388,
+            "duplicate_field_count": 0,
+            "installed_bytes": 148480,
+            "installed_size_decimal": true,
+            "malformed_field_line_count": 0,
+            "numeric_sizes_in_observation_range": true,
+            "package_matches": true,
+            "required_field_counts": {
+              "Architecture": 1,
+              "Installed-Size": 1,
+              "Package": 1,
+              "Size": 1,
+              "Version": 1
+            },
+            "valid": true,
+            "version_matches": true
+          }
+        ],
+        "sizes_agree": true
+      },
+      "metadata_command": {
+        "return_code": 0,
+        "status": "completed",
+        "stderr_bytes": 0,
+        "stdout_bytes": 1900
+      },
+      "safe_simulation_row": true,
+      "stop_reasons": []
+    },
+    {
+      "complete_sizes": true,
+      "index": 2,
+      "installed": {
+        "installed_bytes": null,
+        "installed_state": false,
+        "line_count": 0,
+        "old_version_in_simulation": false,
+        "previous_bytes_for_growth": 0,
+        "size_decimal": false,
+        "state": "missing",
+        "valid": true,
+        "version_field_present": false,
+        "version_matches_simulated_old": false
+      },
+      "installed_command": {
+        "return_code": 1,
+        "status": "completed",
+        "stderr_bytes": 51,
+        "stdout_bytes": 0
+      },
+      "metadata": {
+        "all_records_valid": true,
+        "download_bytes": 158128,
+        "installed_bytes": 355328,
+        "record_count": 1,
+        "record_observation_bound_exceeded": false,
+        "records": [
+          {
+            "architecture": "amd64",
+            "archive_size_decimal": true,
+            "download_bytes": 158128,
+            "duplicate_field_count": 0,
+            "installed_bytes": 355328,
+            "installed_size_decimal": true,
+            "malformed_field_line_count": 0,
+            "numeric_sizes_in_observation_range": true,
+            "package_matches": true,
+            "required_field_counts": {
+              "Architecture": 1,
+              "Installed-Size": 1,
+              "Package": 1,
+              "Size": 1,
+              "Version": 1
+            },
+            "valid": true,
+            "version_matches": true
+          }
+        ],
+        "sizes_agree": true
+      },
+      "metadata_command": {
+        "return_code": 0,
+        "status": "completed",
+        "stderr_bytes": 0,
+        "stdout_bytes": 1676
+      },
+      "safe_simulation_row": true,
+      "stop_reasons": []
+    },
+    {
+      "complete_sizes": true,
+      "index": 3,
+      "installed": {
+        "installed_bytes": null,
+        "installed_state": false,
+        "line_count": 0,
+        "old_version_in_simulation": false,
+        "previous_bytes_for_growth": 0,
+        "size_decimal": false,
+        "state": "missing",
+        "valid": true,
+        "version_field_present": false,
+        "version_matches_simulated_old": false
+      },
+      "installed_command": {
+        "return_code": 1,
+        "status": "completed",
+        "stderr_bytes": 52,
+        "stdout_bytes": 0
+      },
+      "metadata": {
+        "all_records_valid": true,
+        "download_bytes": 21432,
+        "installed_bytes": 62464,
+        "record_count": 1,
+        "record_observation_bound_exceeded": false,
+        "records": [
+          {
+            "architecture": "amd64",
+            "archive_size_decimal": true,
+            "download_bytes": 21432,
+            "duplicate_field_count": 0,
+            "installed_bytes": 62464,
+            "installed_size_decimal": true,
+            "malformed_field_line_count": 0,
+            "numeric_sizes_in_observation_range": true,
+            "package_matches": true,
+            "required_field_counts": {
+              "Architecture": 1,
+              "Installed-Size": 1,
+              "Package": 1,
+              "Size": 1,
+              "Version": 1
+            },
+            "valid": true,
+            "version_matches": true
+          }
+        ],
+        "sizes_agree": true
+      },
+      "metadata_command": {
+        "return_code": 0,
+        "status": "completed",
+        "stderr_bytes": 0,
+        "stdout_bytes": 1926
+      },
+      "safe_simulation_row": true,
+      "stop_reasons": []
+    },
+    {
+      "complete_sizes": true,
+      "index": 4,
+      "installed": {
+        "installed_bytes": null,
+        "installed_state": false,
+        "line_count": 0,
+        "old_version_in_simulation": false,
+        "previous_bytes_for_growth": 0,
+        "size_decimal": false,
+        "state": "missing",
+        "valid": true,
+        "version_field_present": false,
+        "version_matches_simulated_old": false
+      },
+      "installed_command": {
+        "return_code": 1,
+        "status": "completed",
+        "stderr_bytes": 50,
+        "stdout_bytes": 0
+      },
+      "metadata": {
+        "all_records_valid": true,
+        "download_bytes": 36546,
+        "installed_bytes": 110592,
+        "record_count": 1,
+        "record_observation_bound_exceeded": false,
+        "records": [
+          {
+            "architecture": "amd64",
+            "archive_size_decimal": true,
+            "download_bytes": 36546,
+            "duplicate_field_count": 0,
+            "installed_bytes": 110592,
+            "installed_size_decimal": true,
+            "malformed_field_line_count": 0,
+            "numeric_sizes_in_observation_range": true,
+            "package_matches": true,
+            "required_field_counts": {
+              "Architecture": 1,
+              "Installed-Size": 1,
+              "Package": 1,
+              "Size": 1,
+              "Version": 1
+            },
+            "valid": true,
+            "version_matches": true
+          }
+        ],
+        "sizes_agree": true
+      },
+      "metadata_command": {
+        "return_code": 0,
+        "status": "completed",
+        "stderr_bytes": 0,
+        "stdout_bytes": 1543
+      },
+      "safe_simulation_row": true,
+      "stop_reasons": []
+    },
+    {
+      "complete_sizes": true,
+      "index": 5,
+      "installed": {
+        "installed_bytes": null,
+        "installed_state": false,
+        "line_count": 0,
+        "old_version_in_simulation": false,
+        "previous_bytes_for_growth": 0,
+        "size_decimal": false,
+        "state": "missing",
+        "valid": true,
+        "version_field_present": false,
+        "version_matches_simulated_old": false
+      },
+      "installed_command": {
+        "return_code": 1,
+        "status": "completed",
+        "stderr_bytes": 50,
+        "stdout_bytes": 0
+      },
+      "metadata": {
+        "all_records_valid": true,
+        "download_bytes": 21404,
+        "installed_bytes": 70656,
+        "record_count": 1,
+        "record_observation_bound_exceeded": false,
+        "records": [
+          {
+            "architecture": "amd64",
+            "archive_size_decimal": true,
+            "download_bytes": 21404,
+            "duplicate_field_count": 0,
+            "installed_bytes": 70656,
+            "installed_size_decimal": true,
+            "malformed_field_line_count": 0,
+            "numeric_sizes_in_observation_range": true,
+            "package_matches": true,
+            "required_field_counts": {
+              "Architecture": 1,
+              "Installed-Size": 1,
+              "Package": 1,
+              "Size": 1,
+              "Version": 1
+            },
+            "valid": true,
+            "version_matches": true
+          }
+        ],
+        "sizes_agree": true
+      },
+      "metadata_command": {
+        "return_code": 0,
+        "status": "completed",
+        "stderr_bytes": 0,
+        "stdout_bytes": 1221
+      },
+      "safe_simulation_row": true,
+      "stop_reasons": []
+    },
+    {
+      "complete_sizes": true,
+      "index": 6,
+      "installed": {
+        "installed_bytes": null,
+        "installed_state": false,
+        "line_count": 0,
+        "old_version_in_simulation": false,
+        "previous_bytes_for_growth": 0,
+        "size_decimal": false,
+        "state": "missing",
+        "valid": true,
+        "version_field_present": false,
+        "version_matches_simulated_old": false
+      },
+      "installed_command": {
+        "return_code": 1,
+        "status": "completed",
+        "stderr_bytes": 52,
+        "stdout_bytes": 0
+      },
+      "metadata": {
+        "all_records_valid": true,
+        "download_bytes": 220202,
+        "installed_bytes": 525312,
+        "record_count": 1,
+        "record_observation_bound_exceeded": false,
+        "records": [
+          {
+            "architecture": "amd64",
+            "archive_size_decimal": true,
+            "download_bytes": 220202,
+            "duplicate_field_count": 0,
+            "installed_bytes": 525312,
+            "installed_size_decimal": true,
+            "malformed_field_line_count": 0,
+            "numeric_sizes_in_observation_range": true,
+            "package_matches": true,
+            "required_field_counts": {
+              "Architecture": 1,
+              "Installed-Size": 1,
+              "Package": 1,
+              "Size": 1,
+              "Version": 1
+            },
+            "valid": true,
+            "version_matches": true
+          }
+        ],
+        "sizes_agree": true
+      },
+      "metadata_command": {
+        "return_code": 0,
+        "status": "completed",
+        "stderr_bytes": 0,
+        "stdout_bytes": 2005
+      },
+      "safe_simulation_row": true,
+      "stop_reasons": []
+    },
+    {
+      "complete_sizes": true,
+      "index": 7,
+      "installed": {
+        "installed_bytes": null,
+        "installed_state": false,
+        "line_count": 0,
+        "old_version_in_simulation": false,
+        "previous_bytes_for_growth": 0,
+        "size_decimal": false,
+        "state": "missing",
+        "valid": true,
+        "version_field_present": false,
+        "version_matches_simulated_old": false
+      },
+      "installed_command": {
+        "return_code": 1,
+        "status": "completed",
+        "stderr_bytes": 54,
+        "stdout_bytes": 0
+      },
+      "metadata": {
+        "all_records_valid": true,
+        "download_bytes": 405162,
+        "installed_bytes": 1076224,
+        "record_count": 1,
+        "record_observation_bound_exceeded": false,
+        "records": [
+          {
+            "architecture": "amd64",
+            "archive_size_decimal": true,
+            "download_bytes": 405162,
+            "duplicate_field_count": 0,
+            "installed_bytes": 1076224,
+            "installed_size_decimal": true,
+            "malformed_field_line_count": 0,
+            "numeric_sizes_in_observation_range": true,
+            "package_matches": true,
+            "required_field_counts": {
+              "Architecture": 1,
+              "Installed-Size": 1,
+              "Package": 1,
+              "Size": 1,
+              "Version": 1
+            },
+            "valid": true,
+            "version_matches": true
+          }
+        ],
+        "sizes_agree": true
+      },
+      "metadata_command": {
+        "return_code": 0,
+        "status": "completed",
+        "stderr_bytes": 0,
+        "stdout_bytes": 1990
+      },
+      "safe_simulation_row": true,
+      "stop_reasons": []
+    },
+    {
+      "complete_sizes": true,
+      "index": 8,
+      "installed": {
+        "installed_bytes": null,
+        "installed_state": false,
+        "line_count": 0,
+        "old_version_in_simulation": false,
+        "previous_bytes_for_growth": 0,
+        "size_decimal": false,
+        "state": "missing",
+        "valid": true,
+        "version_field_present": false,
+        "version_matches_simulated_old": false
+      },
+      "installed_command": {
+        "return_code": 1,
+        "status": "completed",
+        "stderr_bytes": 49,
+        "stdout_bytes": 0
+      },
+      "metadata": {
+        "all_records_valid": true,
+        "download_bytes": 62750,
+        "installed_bytes": 206848,
+        "record_count": 1,
+        "record_observation_bound_exceeded": false,
+        "records": [
+          {
+            "architecture": "amd64",
+            "archive_size_decimal": true,
+            "download_bytes": 62750,
+            "duplicate_field_count": 0,
+            "installed_bytes": 206848,
+            "installed_size_decimal": true,
+            "malformed_field_line_count": 0,
+            "numeric_sizes_in_observation_range": true,
+            "package_matches": true,
+            "required_field_counts": {
+              "Architecture": 1,
+              "Installed-Size": 1,
+              "Package": 1,
+              "Size": 1,
+              "Version": 1
+            },
+            "valid": true,
+            "version_matches": true
+          }
+        ],
+        "sizes_agree": true
+      },
+      "metadata_command": {
+        "return_code": 0,
+        "status": "completed",
+        "stderr_bytes": 0,
+        "stdout_bytes": 1288
+      },
+      "safe_simulation_row": true,
+      "stop_reasons": []
+    },
+    {
+      "complete_sizes": true,
+      "index": 9,
+      "installed": {
+        "installed_bytes": null,
+        "installed_state": false,
+        "line_count": 0,
+        "old_version_in_simulation": false,
+        "previous_bytes_for_growth": 0,
+        "size_decimal": false,
+        "state": "missing",
+        "valid": true,
+        "version_field_present": false,
+        "version_matches_simulated_old": false
+      },
+      "installed_command": {
+        "return_code": 1,
+        "status": "completed",
+        "stderr_bytes": 48,
+        "stdout_bytes": 0
+      },
+      "metadata": {
+        "all_records_valid": true,
+        "download_bytes": 84760,
+        "installed_bytes": 386048,
+        "record_count": 1,
+        "record_observation_bound_exceeded": false,
+        "records": [
+          {
+            "architecture": "amd64",
+            "archive_size_decimal": true,
+            "download_bytes": 84760,
+            "duplicate_field_count": 0,
+            "installed_bytes": 386048,
+            "installed_size_decimal": true,
+            "malformed_field_line_count": 0,
+            "numeric_sizes_in_observation_range": true,
+            "package_matches": true,
+            "required_field_counts": {
+              "Architecture": 1,
+              "Installed-Size": 1,
+              "Package": 1,
+              "Size": 1,
+              "Version": 1
+            },
+            "valid": true,
+            "version_matches": true
+          }
+        ],
+        "sizes_agree": true
+      },
+      "metadata_command": {
+        "return_code": 0,
+        "status": "completed",
+        "stderr_bytes": 0,
+        "stdout_bytes": 1380
+      },
+      "safe_simulation_row": true,
+      "stop_reasons": []
+    },
+    {
+      "complete_sizes": true,
+      "index": 10,
+      "installed": {
+        "installed_bytes": null,
+        "installed_state": false,
+        "line_count": 0,
+        "old_version_in_simulation": false,
+        "previous_bytes_for_growth": 0,
+        "size_decimal": false,
+        "state": "missing",
+        "valid": true,
+        "version_field_present": false,
+        "version_matches_simulated_old": false
+      },
+      "installed_command": {
+        "return_code": 1,
+        "status": "completed",
+        "stderr_bytes": 53,
+        "stdout_bytes": 0
+      },
+      "metadata": {
+        "all_records_valid": true,
+        "download_bytes": 70698,
+        "installed_bytes": 212992,
+        "record_count": 1,
+        "record_observation_bound_exceeded": false,
+        "records": [
+          {
+            "architecture": "amd64",
+            "archive_size_decimal": true,
+            "download_bytes": 70698,
+            "duplicate_field_count": 0,
+            "installed_bytes": 212992,
+            "installed_size_decimal": true,
+            "malformed_field_line_count": 0,
+            "numeric_sizes_in_observation_range": true,
+            "package_matches": true,
+            "required_field_counts": {
+              "Architecture": 1,
+              "Installed-Size": 1,
+              "Package": 1,
+              "Size": 1,
+              "Version": 1
+            },
+            "valid": true,
+            "version_matches": true
+          }
+        ],
+        "sizes_agree": true
+      },
+      "metadata_command": {
+        "return_code": 0,
+        "status": "completed",
+        "stderr_bytes": 0,
+        "stdout_bytes": 1755
+      },
+      "safe_simulation_row": true,
+      "stop_reasons": []
+    },
+    {
+      "complete_sizes": true,
+      "index": 11,
+      "installed": {
+        "installed_bytes": null,
+        "installed_state": false,
+        "line_count": 0,
+        "old_version_in_simulation": false,
+        "previous_bytes_for_growth": 0,
+        "size_decimal": false,
+        "state": "missing",
+        "valid": true,
+        "version_field_present": false,
+        "version_matches_simulated_old": false
+      },
+      "installed_command": {
+        "return_code": 1,
+        "status": "completed",
+        "stderr_bytes": 48,
+        "stdout_bytes": 0
+      },
+      "metadata": {
+        "all_records_valid": true,
+        "download_bytes": 372570,
+        "installed_bytes": 996352,
+        "record_count": 1,
+        "record_observation_bound_exceeded": false,
+        "records": [
+          {
+            "architecture": "amd64",
+            "archive_size_decimal": true,
+            "download_bytes": 372570,
+            "duplicate_field_count": 0,
+            "installed_bytes": 996352,
+            "installed_size_decimal": true,
+            "malformed_field_line_count": 0,
+            "numeric_sizes_in_observation_range": true,
+            "package_matches": true,
+            "required_field_counts": {
+              "Architecture": 1,
+              "Installed-Size": 1,
+              "Package": 1,
+              "Size": 1,
+              "Version": 1
+            },
+            "valid": true,
+            "version_matches": true
+          }
+        ],
+        "sizes_agree": true
+      },
+      "metadata_command": {
+        "return_code": 0,
+        "status": "completed",
+        "stderr_bytes": 0,
+        "stdout_bytes": 1016
+      },
+      "safe_simulation_row": true,
+      "stop_reasons": []
+    },
+    {
+      "complete_sizes": true,
+      "index": 12,
+      "installed": {
+        "installed_bytes": null,
+        "installed_state": false,
+        "line_count": 0,
+        "old_version_in_simulation": false,
+        "previous_bytes_for_growth": 0,
+        "size_decimal": false,
+        "state": "missing",
+        "valid": true,
+        "version_field_present": false,
+        "version_matches_simulated_old": false
+      },
+      "installed_command": {
+        "return_code": 1,
+        "status": "completed",
+        "stderr_bytes": 49,
+        "stdout_bytes": 0
+      },
+      "metadata": {
+        "all_records_valid": true,
+        "download_bytes": 21092,
+        "installed_bytes": 98304,
+        "record_count": 1,
+        "record_observation_bound_exceeded": false,
+        "records": [
+          {
+            "architecture": "amd64",
+            "archive_size_decimal": true,
+            "download_bytes": 21092,
+            "duplicate_field_count": 0,
+            "installed_bytes": 98304,
+            "installed_size_decimal": true,
+            "malformed_field_line_count": 0,
+            "numeric_sizes_in_observation_range": true,
+            "package_matches": true,
+            "required_field_counts": {
+              "Architecture": 1,
+              "Installed-Size": 1,
+              "Package": 1,
+              "Size": 1,
+              "Version": 1
+            },
+            "valid": true,
+            "version_matches": true
+          }
+        ],
+        "sizes_agree": true
+      },
+      "metadata_command": {
+        "return_code": 0,
+        "status": "completed",
+        "stderr_bytes": 0,
+        "stdout_bytes": 1287
+      },
+      "safe_simulation_row": true,
+      "stop_reasons": []
+    },
+    {
+      "complete_sizes": true,
+      "index": 13,
+      "installed": {
+        "installed_bytes": null,
+        "installed_state": false,
+        "line_count": 0,
+        "old_version_in_simulation": false,
+        "previous_bytes_for_growth": 0,
+        "size_decimal": false,
+        "state": "missing",
+        "valid": true,
+        "version_field_present": false,
+        "version_matches_simulated_old": false
+      },
+      "installed_command": {
+        "return_code": 1,
+        "status": "completed",
+        "stderr_bytes": 61,
+        "stdout_bytes": 0
+      },
+      "metadata": {
+        "all_records_valid": true,
+        "download_bytes": 16508,
+        "installed_bytes": 59392,
+        "record_count": 1,
+        "record_observation_bound_exceeded": false,
+        "records": [
+          {
+            "architecture": "amd64",
+            "archive_size_decimal": true,
+            "download_bytes": 16508,
+            "duplicate_field_count": 0,
+            "installed_bytes": 59392,
+            "installed_size_decimal": true,
+            "malformed_field_line_count": 0,
+            "numeric_sizes_in_observation_range": true,
+            "package_matches": true,
+            "required_field_counts": {
+              "Architecture": 1,
+              "Installed-Size": 1,
+              "Package": 1,
+              "Size": 1,
+              "Version": 1
+            },
+            "valid": true,
+            "version_matches": true
+          }
+        ],
+        "sizes_agree": true
+      },
+      "metadata_command": {
+        "return_code": 0,
+        "status": "completed",
+        "stderr_bytes": 0,
+        "stdout_bytes": 1161
+      },
+      "safe_simulation_row": true,
+      "stop_reasons": []
+    },
+    {
+      "complete_sizes": true,
+      "index": 14,
+      "installed": {
+        "installed_bytes": null,
+        "installed_state": false,
+        "line_count": 0,
+        "old_version_in_simulation": false,
+        "previous_bytes_for_growth": 0,
+        "size_decimal": false,
+        "state": "missing",
+        "valid": true,
+        "version_field_present": false,
+        "version_matches_simulated_old": false
+      },
+      "installed_command": {
+        "return_code": 1,
+        "status": "completed",
+        "stderr_bytes": 58,
+        "stdout_bytes": 0
+      },
+      "metadata": {
+        "all_records_valid": true,
+        "download_bytes": 1255316,
+        "installed_bytes": 7259136,
+        "record_count": 1,
+        "record_observation_bound_exceeded": false,
+        "records": [
+          {
+            "architecture": "amd64",
+            "archive_size_decimal": true,
+            "download_bytes": 1255316,
+            "duplicate_field_count": 0,
+            "installed_bytes": 7259136,
+            "installed_size_decimal": true,
+            "malformed_field_line_count": 0,
+            "numeric_sizes_in_observation_range": true,
+            "package_matches": true,
+            "required_field_counts": {
+              "Architecture": 1,
+              "Installed-Size": 1,
+              "Package": 1,
+              "Size": 1,
+              "Version": 1
+            },
+            "valid": true,
+            "version_matches": true
+          }
+        ],
+        "sizes_agree": true
+      },
+      "metadata_command": {
+        "return_code": 0,
+        "status": "completed",
+        "stderr_bytes": 0,
+        "stdout_bytes": 1774
+      },
+      "safe_simulation_row": true,
+      "stop_reasons": []
+    },
+    {
+      "complete_sizes": true,
+      "index": 15,
+      "installed": {
+        "installed_bytes": null,
+        "installed_state": false,
+        "line_count": 0,
+        "old_version_in_simulation": false,
+        "previous_bytes_for_growth": 0,
+        "size_decimal": false,
+        "state": "missing",
+        "valid": true,
+        "version_field_present": false,
+        "version_matches_simulated_old": false
+      },
+      "installed_command": {
+        "return_code": 1,
+        "status": "completed",
+        "stderr_bytes": 56,
+        "stdout_bytes": 0
+      },
+      "metadata": {
+        "all_records_valid": true,
+        "download_bytes": 1796342,
+        "installed_bytes": 9298944,
+        "record_count": 1,
+        "record_observation_bound_exceeded": false,
+        "records": [
+          {
+            "architecture": "all",
+            "archive_size_decimal": true,
+            "download_bytes": 1796342,
+            "duplicate_field_count": 0,
+            "installed_bytes": 9298944,
+            "installed_size_decimal": true,
+            "malformed_field_line_count": 0,
+            "numeric_sizes_in_observation_range": true,
+            "package_matches": true,
+            "required_field_counts": {
+              "Architecture": 1,
+              "Installed-Size": 1,
+              "Package": 1,
+              "Size": 1,
+              "Version": 1
+            },
+            "valid": true,
+            "version_matches": true
+          }
+        ],
+        "sizes_agree": true
+      },
+      "metadata_command": {
+        "return_code": 0,
+        "status": "completed",
+        "stderr_bytes": 0,
+        "stdout_bytes": 1345
+      },
+      "safe_simulation_row": true,
+      "stop_reasons": []
+    },
+    {
+      "complete_sizes": true,
+      "index": 16,
+      "installed": {
+        "installed_bytes": null,
+        "installed_state": false,
+        "line_count": 0,
+        "old_version_in_simulation": false,
+        "previous_bytes_for_growth": 0,
+        "size_decimal": false,
+        "state": "missing",
+        "valid": true,
+        "version_field_present": false,
+        "version_matches_simulated_old": false
+      },
+      "installed_command": {
+        "return_code": 1,
+        "status": "completed",
+        "stderr_bytes": 47,
+        "stdout_bytes": 0
+      },
+      "metadata": {
+        "all_records_valid": true,
+        "download_bytes": 20128,
+        "installed_bytes": 59392,
+        "record_count": 1,
+        "record_observation_bound_exceeded": false,
+        "records": [
+          {
+            "architecture": "amd64",
+            "archive_size_decimal": true,
+            "download_bytes": 20128,
+            "duplicate_field_count": 0,
+            "installed_bytes": 59392,
+            "installed_size_decimal": true,
+            "malformed_field_line_count": 0,
+            "numeric_sizes_in_observation_range": true,
+            "package_matches": true,
+            "required_field_counts": {
+              "Architecture": 1,
+              "Installed-Size": 1,
+              "Package": 1,
+              "Size": 1,
+              "Version": 1
+            },
+            "valid": true,
+            "version_matches": true
+          }
+        ],
+        "sizes_agree": true
+      },
+      "metadata_command": {
+        "return_code": 0,
+        "status": "completed",
+        "stderr_bytes": 0,
+        "stdout_bytes": 1001
+      },
+      "safe_simulation_row": true,
+      "stop_reasons": []
+    },
+    {
+      "complete_sizes": true,
+      "index": 17,
+      "installed": {
+        "installed_bytes": null,
+        "installed_state": false,
+        "line_count": 0,
+        "old_version_in_simulation": false,
+        "previous_bytes_for_growth": 0,
+        "size_decimal": false,
+        "state": "missing",
+        "valid": true,
+        "version_field_present": false,
+        "version_matches_simulated_old": false
+      },
+      "installed_command": {
+        "return_code": 1,
+        "status": "completed",
+        "stderr_bytes": 47,
+        "stdout_bytes": 0
+      },
+      "metadata": {
+        "all_records_valid": true,
+        "download_bytes": 174648,
+        "installed_bytes": 879616,
+        "record_count": 1,
+        "record_observation_bound_exceeded": false,
+        "records": [
+          {
+            "architecture": "all",
+            "archive_size_decimal": true,
+            "download_bytes": 174648,
+            "duplicate_field_count": 0,
+            "installed_bytes": 879616,
+            "installed_size_decimal": true,
+            "malformed_field_line_count": 0,
+            "numeric_sizes_in_observation_range": true,
+            "package_matches": true,
+            "required_field_counts": {
+              "Architecture": 1,
+              "Installed-Size": 1,
+              "Package": 1,
+              "Size": 1,
+              "Version": 1
+            },
+            "valid": true,
+            "version_matches": true
+          }
+        ],
+        "sizes_agree": true
+      },
+      "metadata_command": {
+        "return_code": 0,
+        "status": "completed",
+        "stderr_bytes": 0,
+        "stdout_bytes": 1125
+      },
+      "safe_simulation_row": true,
+      "stop_reasons": []
+    },
+    {
+      "complete_sizes": true,
+      "index": 18,
+      "installed": {
+        "installed_bytes": null,
+        "installed_state": false,
+        "line_count": 0,
+        "old_version_in_simulation": false,
+        "previous_bytes_for_growth": 0,
+        "size_decimal": false,
+        "state": "missing",
+        "valid": true,
+        "version_field_present": false,
+        "version_matches_simulated_old": false
+      },
+      "installed_command": {
+        "return_code": 1,
+        "status": "completed",
+        "stderr_bytes": 55,
+        "stdout_bytes": 0
+      },
+      "metadata": {
+        "all_records_valid": true,
+        "download_bytes": 11222476,
+        "installed_bytes": 59959296,
+        "record_count": 1,
+        "record_observation_bound_exceeded": false,
+        "records": [
+          {
+            "architecture": "amd64",
+            "archive_size_decimal": true,
+            "download_bytes": 11222476,
+            "duplicate_field_count": 0,
+            "installed_bytes": 59959296,
+            "installed_size_decimal": true,
+            "malformed_field_line_count": 0,
+            "numeric_sizes_in_observation_range": true,
+            "package_matches": true,
+            "required_field_counts": {
+              "Architecture": 1,
+              "Installed-Size": 1,
+              "Package": 1,
+              "Size": 1,
+              "Version": 1
+            },
+            "valid": true,
+            "version_matches": true
+          }
+        ],
+        "sizes_agree": true
+      },
+      "metadata_command": {
+        "return_code": 0,
+        "status": "completed",
+        "stderr_bytes": 0,
+        "stdout_bytes": 2789
+      },
+      "safe_simulation_row": true,
+      "stop_reasons": []
+    },
+    {
+      "complete_sizes": true,
+      "index": 19,
+      "installed": {
+        "installed_bytes": null,
+        "installed_state": false,
+        "line_count": 0,
+        "old_version_in_simulation": false,
+        "previous_bytes_for_growth": 0,
+        "size_decimal": false,
+        "state": "missing",
+        "valid": true,
+        "version_field_present": false,
+        "version_matches_simulated_old": false
+      },
+      "installed_command": {
+        "return_code": 1,
+        "status": "completed",
+        "stderr_bytes": 50,
+        "stdout_bytes": 0
+      },
+      "metadata": {
+        "all_records_valid": true,
+        "download_bytes": 2220842,
+        "installed_bytes": 11318272,
+        "record_count": 1,
+        "record_observation_bound_exceeded": false,
+        "records": [
+          {
+            "architecture": "amd64",
+            "archive_size_decimal": true,
+            "download_bytes": 2220842,
+            "duplicate_field_count": 0,
+            "installed_bytes": 11318272,
+            "installed_size_decimal": true,
+            "malformed_field_line_count": 0,
+            "numeric_sizes_in_observation_range": true,
+            "package_matches": true,
+            "required_field_counts": {
+              "Architecture": 1,
+              "Installed-Size": 1,
+              "Package": 1,
+              "Size": 1,
+              "Version": 1
+            },
+            "valid": true,
+            "version_matches": true
+          }
+        ],
+        "sizes_agree": true
+      },
+      "metadata_command": {
+        "return_code": 0,
+        "status": "completed",
+        "stderr_bytes": 0,
+        "stdout_bytes": 1797
+      },
+      "safe_simulation_row": true,
+      "stop_reasons": []
+    },
+    {
+      "complete_sizes": true,
+      "index": 20,
+      "installed": {
+        "installed_bytes": null,
+        "installed_state": false,
+        "line_count": 0,
+        "old_version_in_simulation": false,
+        "previous_bytes_for_growth": 0,
+        "size_decimal": false,
+        "state": "missing",
+        "valid": true,
+        "version_field_present": false,
+        "version_matches_simulated_old": false
+      },
+      "installed_command": {
+        "return_code": 1,
+        "status": "completed",
+        "stderr_bytes": 45,
+        "stdout_bytes": 0
+      },
+      "metadata": {
+        "all_records_valid": true,
+        "download_bytes": 53144,
+        "installed_bytes": 166912,
+        "record_count": 1,
+        "record_observation_bound_exceeded": false,
+        "records": [
+          {
+            "architecture": "amd64",
+            "archive_size_decimal": true,
+            "download_bytes": 53144,
+            "duplicate_field_count": 0,
+            "installed_bytes": 166912,
+            "installed_size_decimal": true,
+            "malformed_field_line_count": 0,
+            "numeric_sizes_in_observation_range": true,
+            "package_matches": true,
+            "required_field_counts": {
+              "Architecture": 1,
+              "Installed-Size": 1,
+              "Package": 1,
+              "Size": 1,
+              "Version": 1
+            },
+            "valid": true,
+            "version_matches": true
+          }
+        ],
+        "sizes_agree": true
+      },
+      "metadata_command": {
+        "return_code": 0,
+        "status": "completed",
+        "stderr_bytes": 0,
+        "stdout_bytes": 952
+      },
+      "safe_simulation_row": true,
+      "stop_reasons": []
+    },
+    {
+      "complete_sizes": true,
+      "index": 21,
+      "installed": {
+        "installed_bytes": null,
+        "installed_state": false,
+        "line_count": 3,
+        "old_version_in_simulation": false,
+        "previous_bytes_for_growth": 0,
+        "size_decimal": false,
+        "state": "not-installed",
+        "valid": true,
+        "version_field_present": false,
+        "version_matches_simulated_old": false
+      },
+      "installed_command": {
+        "return_code": 0,
+        "status": "completed",
+        "stderr_bytes": 0,
+        "stdout_bytes": 16
+      },
+      "metadata": {
+        "all_records_valid": true,
+        "download_bytes": 297344,
+        "installed_bytes": 340992,
+        "record_count": 1,
+        "record_observation_bound_exceeded": false,
+        "records": [
+          {
+            "architecture": "amd64",
+            "archive_size_decimal": true,
+            "download_bytes": 297344,
+            "duplicate_field_count": 0,
+            "installed_bytes": 340992,
+            "installed_size_decimal": true,
+            "malformed_field_line_count": 0,
+            "numeric_sizes_in_observation_range": true,
+            "package_matches": true,
+            "required_field_counts": {
+              "Architecture": 1,
+              "Installed-Size": 1,
+              "Package": 1,
+              "Size": 1,
+              "Version": 1
+            },
+            "valid": true,
+            "version_matches": true
+          }
+        ],
+        "sizes_agree": true
+      },
+      "metadata_command": {
+        "return_code": 0,
+        "status": "completed",
+        "stderr_bytes": 0,
+        "stdout_bytes": 2718
+      },
+      "safe_simulation_row": true,
+      "stop_reasons": []
+    },
+    {
+      "complete_sizes": true,
+      "index": 22,
+      "installed": {
+        "installed_bytes": null,
+        "installed_state": false,
+        "line_count": 0,
+        "old_version_in_simulation": false,
+        "previous_bytes_for_growth": 0,
+        "size_decimal": false,
+        "state": "missing",
+        "valid": true,
+        "version_field_present": false,
+        "version_matches_simulated_old": false
+      },
+      "installed_command": {
+        "return_code": 1,
+        "status": "completed",
+        "stderr_bytes": 44,
+        "stdout_bytes": 0
+      },
+      "metadata": {
+        "all_records_valid": true,
+        "download_bytes": 5188306,
+        "installed_bytes": 17378304,
+        "record_count": 1,
+        "record_observation_bound_exceeded": false,
+        "records": [
+          {
+            "architecture": "all",
+            "archive_size_decimal": true,
+            "download_bytes": 5188306,
+            "duplicate_field_count": 0,
+            "installed_bytes": 17378304,
+            "installed_size_decimal": true,
+            "malformed_field_line_count": 0,
+            "numeric_sizes_in_observation_range": true,
+            "package_matches": true,
+            "required_field_counts": {
+              "Architecture": 1,
+              "Installed-Size": 1,
+              "Package": 1,
+              "Size": 1,
+              "Version": 1
+            },
+            "valid": true,
+            "version_matches": true
+          }
+        ],
+        "sizes_agree": true
+      },
+      "metadata_command": {
+        "return_code": 0,
+        "status": "completed",
+        "stderr_bytes": 0,
+        "stdout_bytes": 1168
+      },
+      "safe_simulation_row": true,
+      "stop_reasons": []
+    }
+  ],
+  "schema_version": 1,
+  "simulation": {
+    "all_rows_safely_parsed": true,
+    "command": {
+      "return_code": 0,
+      "status": "completed",
+      "stderr_bytes": 0,
+      "stdout_bytes": 4511
+    },
+    "new_count": 23,
+    "not_upgraded_count": 6,
+    "observed_row_count": 23,
+    "removal_line_count": 0,
+    "remove_count": 0,
+    "row_observation_bound_exceeded": false,
+    "safe_parsed_row_count": 23,
+    "selected_line_count": 23,
+    "summary_count": 1,
+    "summary_matches_selected_count": true,
+    "unique_safe_name_count": 23,
+    "unique_selected_names": true,
+    "upgraded_count": 0
+  },
+  "status": "observed",
+  "stock_source_sha256": "f24f413caccc2619182e76ad22b385e134e7403bc9614d3b927812b1ea410e62",
+  "stock_source_verified": true,
+  "stop_reason": null,
+  "totals_complete": true,
+  "vm_created": false
+}

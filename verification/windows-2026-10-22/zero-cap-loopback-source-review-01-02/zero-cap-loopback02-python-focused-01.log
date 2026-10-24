@@ -1,0 +1,35 @@
+test_atomic_publish_reads_closed_pending_and_never_reopens_hot_control (zero_loopback02_core_focused.CoreTests.test_atomic_publish_reads_closed_pending_and_never_reopens_hot_control) ... FAIL
+test_atomic_publish_wrong_pending_bytes_never_become_visible (zero_loopback02_core_focused.CoreTests.test_atomic_publish_wrong_pending_bytes_never_become_visible) ... ok
+test_real_owner_full_shape_all_roles_matched_zero_caps_complete_flow (zero_loopback02_core_focused.CoreTests.test_real_owner_full_shape_all_roles_matched_zero_caps_complete_flow) ... ok
+test_selected_and_ordinary_closed_phase_cannot_predate_its_go (zero_loopback02_core_focused.CoreTests.test_selected_and_ordinary_closed_phase_cannot_predate_its_go) ... ok
+test_main_response_requires_release_and_received_clock_causality (zero_loopback02_core_focused.CoreTests.test_main_response_requires_release_and_received_clock_causality) ... ok
+test_root_physical_go_report_intent_tamper_rejected (zero_loopback02_core_focused.CoreTests.test_root_physical_go_report_intent_tamper_rejected) ... ok
+test_real_owner_guard_composition_full_success_original_clock_and_false_claims (zero_loopback02_guard_focused.LocalTests.test_real_owner_guard_composition_full_success_original_clock_and_false_claims) ... ok
+test_independent_binding_rejects_worker_or_physical_raw_mismatch (zero_loopback02_guard_focused.LocalTests.test_independent_binding_rejects_worker_or_physical_raw_mismatch) ... ok
+
+======================================================================
+FAIL: test_atomic_publish_reads_closed_pending_and_never_reopens_hot_control (zero_loopback02_core_focused.CoreTests.test_atomic_publish_reads_closed_pending_and_never_reopens_hot_control)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<workspace>\work\zero-cap-loopback02-candidate\tests\test_windows_identity_lpac_loopback.py", line 274, in test_atomic_publish_reads_closed_pending_and_never_reopens_hot_control
+    with patch.object(m.local,'bounded',side_effect=read),patch.object(Path,'rename',publish):m.atomic_publish(target,raw,budget,T+8001)
+                                                                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<workspace>\work\zero-cap-loopback02-candidate\.github\windows_identity_lpac_loopback.py", line 840, in atomic_publish
+    temporary.rename(path);budget.require_ms(end)
+    ^^^^^^^^^^^^^^^^^^^^^^
+  File "<workspace>\work\zero-cap-loopback02-candidate\tests\test_windows_identity_lpac_loopback.py", line 272, in publish
+    self.assertEqual(events,[('read',pending.name)]);events.append(('publish',target.name));return rename(path,destination)
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Lists differ: [('read', '.phase-01.bin.pending'), ('read', '.phase-01.bin.pending')] != [('read', '.phase-01.bin.pending')]
+
+First list contains 1 additional elements.
+First extra element 1:
+('read', '.phase-01.bin.pending')
+
+- [('read', '.phase-01.bin.pending'), ('read', '.phase-01.bin.pending')]
++ [('read', '.phase-01.bin.pending')]
+
+----------------------------------------------------------------------
+Ran 8 tests in 5.049s
+
+FAILED (failures=1)

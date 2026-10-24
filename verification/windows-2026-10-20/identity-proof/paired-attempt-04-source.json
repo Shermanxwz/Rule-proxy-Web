@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "sanitized": true,
+  "source_commit": "3482b9caa012b14601e00402ef8fac69e33be0cf",
+  "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39373025025",
+  "artifact_id": 12241697994,
+  "artifact_sha256": "1c2daef36c05ded40cae8d08a9ecc6f7c4dceb17d38aa00d822a9bb2cad41163",
+  "public_report_sha256": "c6fa67cb40edd148450dc71325c389215e856402b6dfbd04508a8399873b5283",
+  "public_report_copy_byte_exact": true,
+  "original_raw_report_republished": false,
+  "unit_tests_passed": 154
+}

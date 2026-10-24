@@ -1,0 +1,252 @@
+// Explicit ABI-2 postassign strategy. This file requests only SE_ENV and AAP.
+// It does not request an atomic inner-Job create attribute or assign a Job.
+// The independent owner must verify continuous inherited outer ownership,
+// then perform its separately journaled once-only held inner assignment.
+// PB_*_V1 payload layouts and opaque/QPC/VOID-close rules remain unchanged.
+#define PB_BUILD_DLL
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
+#include "windows_psec_lpac_bridge_core.hpp"
+#pragma push_macro("except")
+#undef except
+#include "windows_psec_lpac_bridge_spec.hpp"
+#pragma pop_macro("except")
+#include <array>
+#include <cstring>
+#include <new>
+#include <string>
+#include <vector>
+
+namespace {
+using CreateEnvironment=HRESULT (WINAPI*)(const BYTE*,DWORD,DWORD,void**);
+using CloseEnvironment=void (WINAPI*)(void*);
+using QuerySupport=HRESULT (WINAPI*)(std::uint64_t*);
+using QueryVersion=HRESULT (WINAPI*)(DWORD,BYTE*,DWORD*);
+constexpr std::uint64_t magic=0x3158425345435350ULL;
+constexpr DWORD_PTR se_env=0x20023, aap_policy=0x2000f;
+struct Internal {
+    std::uint64_t cookie=magic;
+    pb::Machine state{};
+    HMODULE module=nullptr;
+    CreateEnvironment create=nullptr;
+    CloseEnvironment close=nullptr;
+    QuerySupport support=nullptr;
+    QueryVersion version=nullptr;
+    void* environment=nullptr;
+    HANDLE job=nullptr; // Borrowed; caller retains it until close_environment returns.
+    std::array<std::wstring,4> paths{};
+};
+static_assert(sizeof(Internal)<=sizeof(PB_CONTEXT_V1));
+static_assert(alignof(Internal)<=alignof(PB_CONTEXT_V1));
+Internal* get(PB_CONTEXT_V1* c) noexcept {
+    if (!c || reinterpret_cast<std::uintptr_t>(c)%16) return nullptr;
+    auto p=reinterpret_cast<Internal*>(c->storage);
+    return p->cookie==magic?p:nullptr;
+}
+bool begin_result(PB_RESULT_V1* r,pb::Operation op) noexcept {
+    if (!r) return false;
+    std::memset(r,0,sizeof *r); r->size=sizeof *r; r->version=1; r->operation=op; return true;
+}
+std::uint32_t finish(Internal* c,PB_RESULT_V1* r,pb::Status status) noexcept {
+    r->wrapper_status=status;
+    if (c) {
+        r->environment_state=c->state.environment;
+        r->opaque_outcome_unknown=c->state.opaque_unknown;
+        r->close_invoked_once=c->state.close_invoked;
+        r->close_returned_normally=c->state.close_returned;
+        r->module_close_attempted=c->state.module_close_attempted;
+        r->module_close_confirmed=c->state.module_close_confirmed;
+    }
+    return status;
+}
+pb::Status tick(Internal& c,std::uint64_t& out,bool cleanup=false) noexcept {
+    LARGE_INTEGER f{},t{};
+    if (!QueryPerformanceFrequency(&f) || !QueryPerformanceCounter(&t) || f.QuadPart<=0 || t.QuadPart<0) return pb::clock;
+    out=static_cast<std::uint64_t>(t.QuadPart);
+    return pb::timely(c.state.plan,static_cast<std::uint64_t>(f.QuadPart),out,cleanup);
+}
+std::wstring wide(const std::uint16_t* p,std::uint32_t n) {
+    std::string utf8;
+    if (!pb::path_utf8(p,n,utf8)) return {};
+    return std::wstring(reinterpret_cast<const wchar_t*>(p),n);
+}
+bool job_valid(HANDLE j,bool empty) noexcept {
+    DWORD flags=0;
+    JOBOBJECT_EXTENDED_LIMIT_INFORMATION info{};
+    JOBOBJECT_BASIC_UI_RESTRICTIONS ui{};
+    JOBOBJECT_BASIC_ACCOUNTING_INFORMATION count{};
+    return j && j!=INVALID_HANDLE_VALUE && GetHandleInformation(j,&flags) && !(flags&HANDLE_FLAG_INHERIT)
+        && QueryInformationJobObject(j,JobObjectExtendedLimitInformation,&info,sizeof info,nullptr)
+        && info.BasicLimitInformation.LimitFlags==JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
+        && QueryInformationJobObject(j,JobObjectBasicUIRestrictions,&ui,sizeof ui,nullptr) && ui.UIRestrictionsClass==0
+        && (!empty || (QueryInformationJobObject(j,JobObjectBasicAccountingInformation,&count,sizeof count,nullptr)
+            && count.ActiveProcesses==0));
+}
+struct Attributes {
+    LPPROC_THREAD_ATTRIBUTE_LIST list=nullptr;
+    std::vector<unsigned char> storage;
+    ~Attributes() { if (list) DeleteProcThreadAttributeList(list); }
+    bool init() {
+        SIZE_T size=0;
+        SetLastError(0);
+        const BOOL initial=InitializeProcThreadAttributeList(nullptr,2,0,&size);
+        const DWORD err=GetLastError();
+        if (initial || err!=ERROR_INSUFFICIENT_BUFFER || !size || size>1024*1024) return false;
+        storage.resize(size);
+        auto candidate=reinterpret_cast<LPPROC_THREAD_ATTRIBUTE_LIST>(storage.data());
+        if (!InitializeProcThreadAttributeList(candidate,2,0,&size)) return false;
+        list=candidate; return true;
+    }
+};
+}
+
+PB_EXPORT std::uint32_t PB_CALL pb_abi_version() noexcept { return 2; }
+PB_EXPORT std::uint32_t PB_CALL pb_build_spec(const std::uint16_t* p,std::uint32_t n,
+    std::uint8_t* out,std::uint32_t capacity,std::uint32_t* used) noexcept {
+    if (used) *used=0;
+    try {
+        std::string path;
+        if (!used || !pb::path_utf8(p,n,path)) return pb::bad_argument;
+        const auto b=pb::build_spec(path); *used=static_cast<std::uint32_t>(b.size());
+        if (!out || capacity<b.size() || capacity>65536) return pb::bad_argument;
+        std::memcpy(out,b.data(),b.size()); return pb::ok;
+    } catch (...) { return pb::exception; }
+}
+PB_EXPORT std::uint32_t PB_CALL pb_verify_spec(const std::uint8_t* b,std::uint32_t n,
+    const std::uint16_t* p,std::uint32_t units) noexcept {
+    try { std::string path; return pb::path_utf8(p,units,path) && pb::verify_spec(b,n,path)?pb::ok:pb::bad_argument; }
+    catch (...) { return pb::exception; }
+}
+
+PB_EXPORT std::uint32_t PB_CALL pb_bind(PB_CONTEXT_V1* buffer,const PB_PLAN_V1* plan,PB_RESULT_V1* r) noexcept {
+    if (!begin_result(r,pb::bind)) return pb::bad_argument;
+    if (!buffer || !plan || reinterpret_cast<std::uintptr_t>(buffer)%16) return finish(nullptr,r,pb::bad_argument);
+    for (const auto x:buffer->storage) if (x) return finish(nullptr,r,pb::bad_state);
+    auto c=new (buffer->storage) Internal;
+    try {
+        auto s=c->state.initialize(*plan);
+        if (s!=pb::ok || (s=tick(*c,r->before_qpc))!=pb::ok) return finish(c,r,s);
+        c->module=LoadLibraryExW(L"processmodel.dll",nullptr,LOAD_LIBRARY_SEARCH_SYSTEM32);
+        if (!c->module) { r->win32_error=GetLastError(); return finish(c,r,pb::api_failed); }
+        c->state.bound=true;
+        wchar_t loaded[32768]{},system[32768]{};
+        const auto a=GetModuleFileNameW(c->module,loaded,32768);
+        const auto b=GetSystemDirectoryW(system,32768);
+        if (!a || a>=32768 || !b || b>=32768 || _wcsicmp(loaded,(std::wstring(system)+L"\\processmodel.dll").c_str()))
+            return finish(c,r,pb::readback_failed);
+        c->create=reinterpret_cast<CreateEnvironment>(GetProcAddress(c->module,"CreateProcessSecurityEnvironment"));
+        c->close=reinterpret_cast<CloseEnvironment>(GetProcAddress(c->module,"CloseProcessSecurityEnvironment"));
+        c->support=reinterpret_cast<QuerySupport>(GetProcAddress(c->module,"QueryProcessSecurityEnvironmentSupport"));
+        c->version=reinterpret_cast<QueryVersion>(GetProcAddress(c->module,"IsProcessSecurityEnvironmentVersionSupported"));
+        if (!c->create || !c->close || !c->support || !c->version) return finish(c,r,pb::unsupported);
+        BYTE available=0; DWORD minor=0;
+        r->api_entered=1; r->hresult_valid=1;
+        r->hresult=c->support(&r->support_flags); r->api_returned=1;
+        if (r->hresult!=S_OK) return finish(c,r,pb::api_failed);
+        if ((s=tick(*c,r->after_qpc))!=pb::ok) return finish(c,r,s);
+        r->hresult=c->version(1,&available,&minor);
+        r->schema_major_available=available!=0; r->schema_minor=minor;
+        if (r->hresult!=S_OK) return finish(c,r,pb::api_failed);
+        if ((s=tick(*c,r->after_qpc))!=pb::ok) return finish(c,r,s);
+        r->within_deadline=1;
+        c->state.bind_verified=available==1 && minor>=1 && (r->support_flags&8) && r->hresult==S_OK;
+        return finish(c,r,c->state.bind_verified?pb::ok:pb::unsupported);
+    } catch (...) { return finish(c,r,pb::exception); }
+}
+
+PB_EXPORT std::uint32_t PB_CALL pb_create_environment(PB_CONTEXT_V1* buffer,const std::uint8_t* spec,
+    std::uint32_t n,const std::uint16_t* path,std::uint32_t units,PB_RESULT_V1* r) noexcept {
+    if (!begin_result(r,pb::create_environment)) return pb::bad_argument;
+    auto c=get(buffer); if (!c) return finish(c,r,pb::bad_state);
+    try {
+        std::string expected;
+        if (!pb::path_utf8(path,units,expected) || !pb::verify_spec(spec,n,expected)) return finish(c,r,pb::bad_argument);
+        auto s=tick(*c,r->before_qpc);
+        if (s!=pb::ok || (s=c->state.begin_environment())!=pb::ok) return finish(c,r,s);
+        c->paths[1]=wide(path,units);
+        void* value=nullptr;
+        r->api_entered=1; r->hresult_valid=1;
+        r->hresult=c->create(spec,n,0,&value); r->api_returned=1;
+        const auto result=c->state.environment_result(r->hresult,value!=nullptr);
+        if (result==pb::ok) c->environment=value;
+        // Failed HRESULT+nonnull is untrusted; do not close that opaque value.
+        s=tick(*c,r->after_qpc); r->within_deadline=s==pb::ok;
+        return finish(c,r,s==pb::ok?result:s);
+    } catch (...) { c->state.opaque_unknown=c->state.environment==pb::create_consumed; return finish(c,r,pb::exception); }
+}
+
+PB_EXPORT std::uint32_t PB_CALL pb_create_arm(PB_CONTEXT_V1* buffer,const PB_CHILD_V1* child,
+    PB_PI_V1* output,PB_RESULT_V1* r) noexcept {
+    if (output) std::memset(output,0,sizeof *output);
+    if (!begin_result(r,pb::create_arm)) return pb::bad_argument;
+    auto c=get(buffer); if (!c || !child || !output) return finish(c,r,pb::bad_argument);
+    try {
+        if (child->size!=sizeof *child || child->version!=1 || child->reserved || child->policy>1) return finish(c,r,pb::bad_argument);
+        const std::array<std::wstring,4> paths{wide(child->image,child->image_units),
+            wide(child->inputs_directory,child->inputs_units),wide(child->system_root,child->system_root_units),
+            wide(child->local_appdata,child->local_appdata_units)};
+        for (const auto& p:paths) if (p.empty()) return finish(c,r,pb::bad_argument);
+        const auto j=reinterpret_cast<HANDLE>(child->job);
+        if (paths[1]!=c->paths[1] || paths[0]!=paths[1]+L"\\windows_identity_proxy_c_actor.exe"
+            || !job_valid(j,false)) return finish(c,r,pb::bad_argument);
+        if (!c->state.arm_attempts) { c->paths=paths; c->job=j; }
+        const bool same=paths==c->paths && j==c->job;
+        auto s=tick(*c,r->before_qpc);
+        if (s!=pb::ok || (s=c->state.begin_arm(child->policy,same))!=pb::ok) return finish(c,r,s);
+        Attributes attrs;
+        if (!attrs.init()) { r->win32_error=GetLastError(); c->state.arm_result(false,*output); return finish(c,r,pb::api_failed); }
+        void* environment=c->environment; DWORD policy=child->policy;
+        if (!UpdateProcThreadAttribute(attrs.list,0,se_env,&environment,sizeof environment,nullptr,nullptr)
+            || !UpdateProcThreadAttribute(attrs.list,0,aap_policy,&policy,sizeof policy,nullptr,nullptr)) {
+            r->win32_error=GetLastError(); c->state.arm_result(false,*output); return finish(c,r,pb::api_failed);
+        }
+        STARTUPINFOEXW startup{}; startup.StartupInfo.cb=sizeof startup; startup.lpAttributeList=attrs.list;
+        PROCESS_INFORMATION pi{};
+        std::wstring command=L"\""+paths[0]+L"\"";
+        std::wstring environment_block=L"LOCALAPPDATA="+paths[3]; environment_block.push_back(0);
+        environment_block+=L"SystemRoot="+paths[2]; environment_block.push_back(0); environment_block.push_back(0);
+        if ((s=tick(*c,r->before_qpc))!=pb::ok) { c->state.arm_result(false,*output); return finish(c,r,s); }
+        r->api_entered=1;
+        SetLastError(0);
+        const BOOL returned=CreateProcessW(paths[0].c_str(),command.data(),nullptr,nullptr,FALSE,
+            CREATE_SUSPENDED|EXTENDED_STARTUPINFO_PRESENT|CREATE_UNICODE_ENVIRONMENT|CREATE_NO_WINDOW,
+            environment_block.data(),paths[1].c_str(),&startup.StartupInfo,&pi);
+        const DWORD error=GetLastError(); // Immediate, before QPC/PI reads/attribute cleanup.
+        output->process=reinterpret_cast<std::uint64_t>(pi.hProcess); output->thread=reinterpret_cast<std::uint64_t>(pi.hThread);
+        output->process_id=pi.dwProcessId; output->thread_id=pi.dwThreadId;
+        r->api_returned=1; r->win32_error=returned?0:error;
+        const auto result=c->state.arm_result(returned!=FALSE,*output);
+        s=tick(*c,r->after_qpc); r->within_deadline=s==pb::ok;
+        return finish(c,r,s==pb::ok?result:s);
+    } catch (...) { c->state.arm_failure=true; return finish(c,r,pb::exception); }
+}
+
+PB_EXPORT std::uint32_t PB_CALL pb_close_environment(PB_CONTEXT_V1* buffer,PB_RESULT_V1* r) noexcept {
+    if (!begin_result(r,pb::close_environment)) return pb::bad_argument;
+    auto c=get(buffer); if (!c) return finish(c,r,pb::bad_state);
+    const auto before=tick(*c,r->before_qpc,true);
+    if (c->state.begin_close(!c->job || job_valid(c->job,true))!=pb::ok) return finish(c,r,pb::bad_state);
+    void* value=c->environment; c->environment=nullptr; // Consume before the VOID call. Never retry.
+    r->api_entered=1;
+    c->close(value);
+    r->api_returned=1; c->state.end_close();
+    const auto after=tick(*c,r->after_qpc,true);
+    r->within_deadline=before==pb::ok && after==pb::ok;
+    return finish(c,r,after==pb::ok?before:after);
+}
+
+PB_EXPORT std::uint32_t PB_CALL pb_unbind(PB_CONTEXT_V1* buffer,PB_RESULT_V1* r) noexcept {
+    if (!begin_result(r,pb::unbind)) return pb::bad_argument;
+    auto c=get(buffer); if (!c || !c->state.can_unbind()) return finish(c,r,pb::bad_state);
+    const auto before=tick(*c,r->before_qpc,true);
+    const auto module=c->module; c->module=nullptr; c->state.module_close_attempted=true;
+    r->api_entered=1;
+    const BOOL closed=FreeLibrary(module); const DWORD error=GetLastError();
+    r->api_returned=1; r->win32_error=closed?0:error; c->state.module_close_confirmed=closed!=FALSE;
+    const auto after=tick(*c,r->after_qpc,true); r->within_deadline=before==pb::ok && after==pb::ok;
+    const auto result=finish(c,r,!closed?pb::cleanup_unknown:after==pb::ok?before:after);
+    c->~Internal(); // Caller buffer remains nonzero; it cannot be rebound or replayed.
+    std::memset(buffer->storage,0xa5,sizeof buffer->storage);
+    return result;
+}

@@ -3,6 +3,11 @@ name: PSEC capability diagnostic
 on:
   workflow_dispatch:
     inputs:
+      identity_proof_compile_only:
+        description: Compile the isolated identity proof actor only; no sandbox or network tests
+        required: false
+        type: boolean
+        default: false
       diagnostic_internal_tcp_policy:
         description: Build source-only G3 internal TCP policy controls; never product acceptance
         required: false
@@ -27,6 +32,7 @@ concurrency:
 
 jobs:
   executor:
+    if: github.event_name != 'workflow_dispatch' || !inputs.identity_proof_compile_only
     name: Build the fixed MXC source with one diagnostic capability change
     runs-on: windows-2025
     timeout-minutes: 45
@@ -104,3 +110,33 @@ jobs:
           path: windows-capability-observations.json
           if-no-files-found: error
           retention-days: 14
+
+  identity-proof-compile:
+    if: github.event_name == 'workflow_dispatch' && inputs.identity_proof_compile_only
+    name: Compile native identity proof only
+    runs-on: windows-2025
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Load installed MSVC and compile without executing the actor
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vs = & $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $vs) { throw 'Installed MSVC toolchain not found' }
+          Import-Module "$vs\Common7\Tools\Microsoft.VisualStudio.DevShell.dll"
+          Enter-VsDevShell -VsInstallPath $vs -SkipAutomaticLocation -DevCmdArguments '-arch=x64 -host_arch=x64'
+          ./.github/build_windows_identity_actor.ps1 -OutputDirectory "$PWD\identity-actor-build"
+      - name: Pure Python identity proof unit tests only
+        run: python -B -m unittest discover -s tests -p "test_windows_identity*.py" -v
+      - uses: actions/upload-artifact@v7
+        with:
+          name: identity-actor-compile-only
+          path: |
+            identity-actor-build/windows_identity_actor.exe
+            identity-actor-build/build-manifest.json
+          if-no-files-found: error
+          retention-days: 7
+

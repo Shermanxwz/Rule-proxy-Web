@@ -1,0 +1,64 @@
+{
+  "actions": {
+    "actor_or_process_spawned": false,
+    "file_read_and_hash_git_only": true,
+    "helper_or_wrapper_imported_or_executed": false,
+    "native_API_called": false,
+    "network_or_security_mutation": false,
+    "pure_tests_executed": false,
+    "source_or_main_modified": false
+  },
+  "application_isolation_test": false,
+  "checks": {
+    "READ_CONTROL_SYNCHRONIZE_only": true,
+    "atomic_KOC_Job_and_held_image_identity_before_resume": true,
+    "bounded_self_relative_SD_ACL_SID_projection": true,
+    "exact_status_success_and_valid_handle_required_for_owned_device": true,
+    "fixed_Device_Afd_only": true,
+    "helper_before_and_after_native_call_clock_gates": true,
+    "helper_no_socket_module_import_gate": true,
+    "known_handles_and_LocalFree_consumed_once": true,
+    "no_EA_IOCTL_socket_or_security_write_requested": true,
+    "ordinary_identity_before_open": true,
+    "parent_dependency_import_may_initialize_WSA_explicitly_disclosed": true,
+    "parent_root20_work15_same_absolute_QPC_forwarded": true,
+    "pending_or_partial_unknown_not_promoted": true,
+    "postrun_helper_and_37_source_rechecks": true,
+    "single_process_attempt_no_retry_or_path_fallback": true,
+    "source_pins_checked_before_guard_import": true
+  },
+  "decision": "GO-one-fixed-ordinary-readonly-diagnostic",
+  "inputs": {
+    "afd-device-dacl-readonly-helper-freeze-01.json": {
+      "bytes": 5030,
+      "sha256": "86fb29b41f652a1b8a897c135db7c4faec63d15f250b31f7525e8519411639a8"
+    },
+    "afd-device-readonly-root-review-01.json": {
+      "bytes": 1481,
+      "sha256": "819221831150988a8c0cc2e471af0fcee46a7339601e5d56159e136d1357cca8"
+    },
+    "read_afd_device_dacl_readonly_01.py": {
+      "bytes": 17884,
+      "sha256": "73bba54b6fb35fe7e8f8d6008849dc21b4de9aa6a87cfcfd45c96431501e2e89"
+    },
+    "run_afd_readonly_supervised_01.py": {
+      "bytes": 5027,
+      "sha256": "cd77f37f45686700192436d945702613cb58aa6993fe92fee5db1599601b96c9"
+    }
+  },
+  "limits": [
+    "A source request for a read-only AFD control handle does not prove the driver allocated no internal endpoint.",
+    "This is an ordinary-user descriptor observation, not effective-access testing of a held LPAC token or identification of the cause of socket10013.",
+    "No SOCKET or network IO is requested by these files; this is not a trace proving absence of all library-internal initialization.",
+    "Synchronous calls are not internally cancellable; outer Job exit supervision is not a kernel-side cancellation guarantee.",
+    "Observation_complete requires the helper full result and cleanup/clock gates; worker exit0 alone is not a successful descriptor observation.",
+    "Malformed or missing observation and cleanup uncertainty must remain failed/unknown rather than infer access denial or resource absence."
+  ],
+  "linux_equivalence_proven": false,
+  "product_acceptance": false,
+  "schema_version": 1,
+  "source_commit": "d309ae322cca84360923d6bc51013057991a4218",
+  "source_count": 37,
+  "source_git_byte_exact": true,
+  "stage": "independent-file-only-fixed-afd-readonly-supervisor-review"
+}

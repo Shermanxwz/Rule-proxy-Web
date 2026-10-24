@@ -1,0 +1,23 @@
+{
+  "config_changed": false,
+  "exact_source_line": "RouteProtocolLocal   = 2,",
+  "limitations": [
+    "A numeric protocol enumeration does not identify the writer, timing, event or cause of route changes.",
+    "No machine path is published."
+  ],
+  "line": 116,
+  "numerical_definition": {
+    "RouteProtocolLocal": 2
+  },
+  "read_only_file_lookup": true,
+  "route_or_address_query_called": false,
+  "schema_version": 1,
+  "source": {
+    "WindowsSDKVersion": "10.0.26100.0",
+    "bytes": 8472,
+    "name": "shared/nldef.h",
+    "sha256": "11942b91df8cc1c2fc9928db7ecc686daec2603023d87a9235a4be966738dda3"
+  },
+  "stage": "installed-SDK-primary-file-enumeration-anchor",
+  "windows_API_called": false
+}

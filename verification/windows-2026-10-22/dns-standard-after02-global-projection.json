@@ -1,0 +1,21 @@
+{
+  "after": {
+    "bytes": 7378,
+    "sha256": "f05d91ee76ee8a97ae5ab3bfa092167a8ee560c083255f142e6c453f2edf7ab3"
+  },
+  "before": {
+    "bytes": 7378,
+    "sha256": "f05d91ee76ee8a97ae5ab3bfa092167a8ee560c083255f142e6c453f2edf7ab3"
+  },
+  "comparison_is_runtime_isolation_qualification": false,
+  "dns_unchanged": true,
+  "firewall_profiles_unchanged": true,
+  "raw_bytes_identical": true,
+  "raw_snapshots_published": false,
+  "routes_unchanged": true,
+  "schema_version": 1,
+  "snapshot_scope": "point-in-time read-only structured comparison",
+  "stage": "dns-standard-global-readonly-projection",
+  "user_proxy_unchanged": true,
+  "whole_json_objects_equal": true
+}

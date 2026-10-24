@@ -1,0 +1,150 @@
+{
+  "actual_source_commit": "ec45dffb66cc88bb48578101afb93ce7044a6521",
+  "archive_written": false,
+  "command": {
+    "bytes": 1582,
+    "path": "archive_psec_lpac_matchedcaps_identity_01_command.ps1",
+    "sha256": "9af27432ec8729691fcc4ffb63b1cc84391b13a2144f30da267efbac7a9873e6"
+  },
+  "default_dry_run": {
+    "bridge_pin_count": 37,
+    "broker_outcome_unknown": false,
+    "forensic_used_for_qualification": false,
+    "job_admission_records": 24,
+    "native_api_or_experiment_run": false,
+    "observation_complete": false,
+    "physical_job_admission_receipts": 24,
+    "proof_count": 2,
+    "recovery_required": false,
+    "returned_receipt_files": 7,
+    "runtime_source_count": 36,
+    "security_capabilities_physical_receipts": 1,
+    "security_capabilities_verified": true,
+    "source_commit": "ec45dffb66cc88bb48578101afb93ce7044a6521",
+    "status": "inconclusive",
+    "verified": true,
+    "worker_result_validated": true
+  },
+  "files": [
+    {
+      "bytes": 2658,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-local-01-public.json",
+      "sha256": "6acc10b614f5c35c56ed2adf4e648a7b0f4ea3a74ddbdf3f3e7fb595c9a103b4",
+      "work_preview": "mc-arc01/00.bin"
+    },
+    {
+      "bytes": 1938,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-local-01-preflight.json",
+      "sha256": "05679302bd82c47e831d4a2e24b3dfb34444f923bf2b7bd898c0d321178924a6",
+      "work_preview": "mc-arc01/01.bin"
+    },
+    {
+      "bytes": 5733,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-local-01-runner.py",
+      "sha256": "925ee06bf2f0e0e525e14c31a901166b471349158808315b42cba64b1b60579b",
+      "work_preview": "mc-arc01/02.bin"
+    },
+    {
+      "bytes": 5812,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-local-01-bridge-manifest.json",
+      "sha256": "fbbb268bde396dbe7bbdf7247f062bd2e1892f537f5e553a5ee105d1b52566d7",
+      "work_preview": "mc-arc01/03.bin"
+    },
+    {
+      "bytes": 1005,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-local-01-actor-manifest.json",
+      "sha256": "657c88ef59f8ba9d4c24f5e407696b27615f50c63d58adc5d8dd64f942104e92",
+      "work_preview": "mc-arc01/04.bin"
+    },
+    {
+      "bytes": 7683,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-local-01-compile-input-snapshot.json",
+      "sha256": "4c5d13605371f354a944f64ada5d62a6c2b10ab27176ac69fb88c95e246fb728",
+      "work_preview": "mc-arc01/05.bin"
+    },
+    {
+      "bytes": 77798,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-local-01-archive.py",
+      "sha256": "44dcdbf95cf2c9d3896a8b6c58bc66bcdb4a07461fe6db159fe12a9673fe464f",
+      "work_preview": "mc-arc01/06.bin"
+    },
+    {
+      "bytes": 1640,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-local-01-after-global-capture.ps1",
+      "sha256": "5f40e082036e3daf6ffc5b0fac31f72819cb4a772639ae9ea3cb37ac3cc13d8e",
+      "work_preview": "mc-arc01/07.bin"
+    },
+    {
+      "bytes": 2028,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-local-01-after-global-expanded.ps1",
+      "sha256": "bd561f9afac46198f0f4cf77c435f3d2a30cdd8109d77a4c1aa9a5917d9a88c8",
+      "work_preview": "mc-arc01/08.bin"
+    },
+    {
+      "bytes": 68540,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-local-01-component-projection.json",
+      "sha256": "86065a87980d1776360e8786b9f8b663b263ad9041d0fc6cc386220778b4d7fc",
+      "work_preview": "mc-arc01/09.bin"
+    },
+    {
+      "bytes": 470,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-local-01-global-projection.json",
+      "sha256": "f6b610c5005d9324f2c509401095f08fee8465b48e6cfcd57119b3de03cd372f",
+      "work_preview": "mc-arc01/10.bin"
+    },
+    {
+      "bytes": 78583,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-local-01-job-admissions-projection.json",
+      "sha256": "22eb1115d999487ebf5880f7fee86ac5e5ae55f50deed290c4eddcf0159edf8e",
+      "work_preview": "mc-arc01/11.bin"
+    },
+    {
+      "bytes": 15616,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-local-01-inner-transfers-projection.json",
+      "sha256": "f41b9619c5939a98cb73a876924cc10b81aea27783bc29241e495b9b60747f27",
+      "work_preview": "mc-arc01/12.bin"
+    },
+    {
+      "bytes": 4093,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-local-01-security-capabilities-projection.json",
+      "sha256": "aeb674d97c31792725de4a2d9805632df933b4efb5a35867bced08f8e01d0dc9",
+      "work_preview": "mc-arc01/13.bin"
+    },
+    {
+      "bytes": 4315,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-local-01-summary.json",
+      "sha256": "5b5e4190d913e2b22bf3bae6a3dcaff7056bf84dbb0c2634aa2da51e56441cbb",
+      "work_preview": "mc-arc01/14.bin"
+    },
+    {
+      "bytes": 4185,
+      "path": "verification/windows-2026-10-22/psec-lpac-matchedcaps-identity-local-01-evidence-index.json",
+      "sha256": "b262ea7588476c818ae568d6bd7964cceabe4d45332ca09c50ee0d3c6f8b4f9c",
+      "work_preview": "mc-arc01/15.bin"
+    }
+  ],
+  "main_source_or_outputs_modified": false,
+  "native_api_or_actual_or_network_or_policy_or_recovery_run": false,
+  "original_independent_review": {
+    "bytes": 83295,
+    "path": "psec-lpac-matchedcaps-identity-actual-01-independent-review.json",
+    "sha256": "cbb62758368cb3e3e67ba6bd96619f2774c9c179e0d11ca2d771cc6032a45f52"
+  },
+  "original_public": {
+    "bytes": 2658,
+    "sha256": "6acc10b614f5c35c56ed2adf4e648a7b0f4ea3a74ddbdf3f3e7fb595c9a103b4"
+  },
+  "pathlist": {
+    "bytes": 1503,
+    "count": 16,
+    "path": "stage_psec_lpac_matchedcaps_identity_local_01_paths.txt",
+    "sha256": "bec92b65d7d170ca16a9c9d51c24d35bcf4f0bac7c55b4c76a327a608e930e58"
+  },
+  "reader": {
+    "bytes": 77798,
+    "path": "archive_psec_lpac_matchedcaps_identity_01.py",
+    "sha256": "44dcdbf95cf2c9d3896a8b6c58bc66bcdb4a07461fe6db159fe12a9673fe464f"
+  },
+  "schema_version": 1,
+  "stage": "matchedcaps-actual01-archive-readiness"
+}

@@ -1,0 +1,274 @@
+{
+  "local_2026_10_24_a5_pause_checkpoint": {
+    "DNS_isolation_qualified": false,
+    "Linux_equivalence": false,
+    "evidence_index": "../../verification/windows-2026-10-22/lpac-curl-a5-http-03/index.json",
+    "finite_HTTP_observed": true,
+    "historical_keys_remain_time_scoped": true,
+    "product_acceptance": false,
+    "record": "2026-10-24-windows-pause-handoff.md",
+    "source_commit": "1363b4d787d7ae6b89f3a4cb5120f227ba0bd549",
+    "status": "paused-at-user-request"
+  },
+  "local_2026_10_24_a4_checkpoint": {
+    "source_commit": "0d024290b4f86a3aae042b8b2c5499687fc93928",
+    "source_sha256": "c10559be677975f49baf7f2ddd21e9c370fc17eade2f7b05976f4356b6e7da7f",
+    "actual03_real_version_natural_exit": 0,
+    "actual03_stable_trace_rows": 34,
+    "actual03_complete": false,
+    "actual03_closed_shim_denials": 4,
+    "actual03_cleanup": true,
+    "actual03_recovery_required": false,
+    "HTTP_qualified": false,
+    "DNS_qualified": false,
+    "proxy_qualified": false,
+    "Linux_equivalence": false,
+    "old_activation_and_overall_status_are_original_handoff_history": true,
+    "files": [
+      {
+        "path": "docs/validation/2026-10-24-lpac-curl-a4-loader-01.md",
+        "bytes": 2489,
+        "sha256": "748f4f07b9a40c2a12d82919a976a6c2a01cfba926dc499d6f4865df7914114f"
+      },
+      {
+        "path": "docs/validation/2026-10-24-lpac-curl-a4-loader-02.md",
+        "bytes": 1933,
+        "sha256": "306fa372f9fe512c45a5da79114a911fcaa2b81fc88477be5e1638c3ce6efdf9"
+      },
+      {
+        "path": "docs/validation/2026-10-24-lpac-curl-a4-loader-03.md",
+        "bytes": 4057,
+        "sha256": "29566c98db648e93b6db15b256f83f0e235d6f672b8e6c0d0af9848a9748de62"
+      },
+      {
+        "path": "verification/windows-2026-10-22/lpac-curl-a4-loader-local-01-preflight.json",
+        "bytes": 1723,
+        "sha256": "df0d5e365675687a2a3a3c18427de072d470bef0d5f416b009fa471fe228b278"
+      },
+      {
+        "path": "verification/windows-2026-10-22/lpac-curl-a4-loader-local-01-public.json",
+        "bytes": 3160,
+        "sha256": "409308b39b90f23a4f05e512e9b8660e0deb2b538f9e6a700b0b4ad8e88ead62"
+      },
+      {
+        "path": "verification/windows-2026-10-22/lpac-curl-a4-loader-local-02-preflight.json",
+        "bytes": 1723,
+        "sha256": "e17ab35eaa103446cab746a887f3183209809d70c6715521a18057c882cdcf3a"
+      },
+      {
+        "path": "verification/windows-2026-10-22/lpac-curl-a4-loader-local-02-public.json",
+        "bytes": 3142,
+        "sha256": "66eaf0bf74ba9c9f053ff99ac2b3029652b66fb2167ffabdd11d68097dad9e95"
+      },
+      {
+        "path": "verification/windows-2026-10-22/lpac-curl-a4-loader-local-03-preflight.json",
+        "bytes": 1723,
+        "sha256": "2646ba5bd55106381adc512229e6275bfb9568f16cca9763d66a1821502c60ec"
+      },
+      {
+        "path": "verification/windows-2026-10-22/lpac-curl-a4-loader-local-03-public.json",
+        "bytes": 3138,
+        "sha256": "a3c2cea5359613e97ad2b13cd2d4dc5aed068cc7883b7b2f187ad548c2f49726"
+      },
+      {
+        "path": "verification/windows-2026-10-22/lpac-curl-a4-loader-local-01-recovery01-public.json",
+        "bytes": 1272,
+        "sha256": "f8308fc3bb2f4b7b5c9abcc793823c9a59813e7c56741c9c7ae2d2b179dba846"
+      },
+      {
+        "path": "verification/windows-2026-10-22/lpac-curl-a4-recovery01-safe-review.json",
+        "bytes": 4495,
+        "sha256": "346a094569c284d5088d84a680966167bbd2d3d5479193a1f8d5b34ee2d0df0c"
+      },
+      {
+        "path": "verification/windows-2026-10-22/lpac-curl-a4-loader-actual-02/summary.json",
+        "bytes": 3748,
+        "sha256": "77eb48b41631d875dcfbfdf28647d8af8bc77b8c1f964f4b72461f461009fec6"
+      },
+      {
+        "path": "verification/windows-2026-10-22/lpac-curl-a4-loader-actual-03/summary.json",
+        "bytes": 7749,
+        "sha256": "b14055627de86cc1b8c1c0331319e8bd683f2fba81fe3ead846e6e18551013c7"
+      }
+    ]
+  },
+  "schema_version": 1,
+  "purpose": "Sanitized Windows isolation handoff evidence index; observations are scoped, not overall product acceptance.",
+  "repository_url": "https://github.com/Shermanxwz/Rule-proxy-Web",
+  "archive_url": "https://github.com/Shermanxwz/Rule-proxy-Web/tree/0336310f",
+  "current_activation_state": "Explicit AC-pair activation wiring at source 7c7a839a8acef8a92fbc0bbd0505c0342065bda5 passed the final short gate. No genuine AC-pair runtime was executed; no proxy or product acceptance follows.",
+  "overall_status": {
+    "strict_stage0_passed": false,
+    "observed_windows_build": "26300.9457",
+    "documented_support_floor": "26300.9550",
+    "failed_primitive": "capabilities_empty: observed enabled AgenticAppContainer capability is not empty",
+    "product_acceptance": false,
+    "linux_equivalence_established": false,
+    "proxy_positive_and_proxy_down_fail_closed_established": false
+  },
+  "evidence": [
+    {
+      "id": "tcp_runner_capture",
+      "evidence_level": "actual_guest_bounded",
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39590250893",
+      "head_url": "https://github.com/Shermanxwz/Rule-proxy-Web/commit/00284f60ececc8a9ea4529c92c1216e11c0d6231",
+      "observed": "Three explicit denials at each tested TCP endpoint; 42 ordinary frames per receiver. Runner capture had 17,694 records, ordinary SYN controls, no selected tuple and no unknown flow, with complete owned capture/cleanup.",
+      "does_not_establish": "Only tested runner IPv4 TCP tuples; not all egress, loopback packet capture, actor attribution, DNS or proxy enforcement.",
+      "summary_url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f/verification/windows-2026-10-20/identity-proof/n0a-capture-01-summary.json",
+      "summary_sha256": "b6e66b98496528adcdcbb898af663e4eaf0a04eb5a18aded97979131ee3dc462"
+    },
+    {
+      "id": "udp4_direct",
+      "evidence_level": "actual_guest_bounded",
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39618679419",
+      "head_url": "https://github.com/Shermanxwz/Rule-proxy-Web/commit/176899300f85527eb3d6509fc237049b28a906f5",
+      "observed": "Three selected sendto calls locally accepted; 42 ordinary receiver frames, zero selected. Complete calibrated capture of 16,557 records qualified historical bounded_no_selected_udp_datagram.",
+      "does_not_establish": "Local acceptance is not delivery; narrow exact payload/runner IPv4 endpoint evidence, not API denial, all UDP, DNS or product isolation.",
+      "summary_url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f/verification/windows-2026-10-20/identity-proof/direct-udp-02-summary.json",
+      "summary_sha256": "8183ac598a95efb28f12d4307bbac4b2087a79acd79d02859f13dc78950220e3"
+    },
+    {
+      "id": "udp4_descendant",
+      "evidence_level": "actual_guest_bounded",
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39655961428",
+      "head_url": "https://github.com/Shermanxwz/Rule-proxy-Web/commit/db5712eabc62da1b281a3f73508fee1f3f939c84",
+      "observed": "Fresh parent/child chains verified by controller; three selected sends accepted, 42 ordinary receiver frames, zero selected. Complete 15,854-record capture qualified bounded absence; descendant cleanup confirmed.",
+      "does_not_establish": "One selected direct child only. G audit binds parent; held child evidence is parent-attested. No grandchildren, IPv6 inheritance or host-independent child-token authentication.",
+      "summary_url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f/verification/windows-2026-10-20/identity-proof/direct-udp-parent-runtime-03-summary.json",
+      "summary_sha256": "14011ab1ae3590d029459b8f6b0ab0107e5814655773e5cc7ae1cba7abbc1942"
+    },
+    {
+      "id": "udp6_outer_endpoint_and_record_markers",
+      "evidence_level": "actual_guest_bounded",
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39724691639",
+      "head_url": "https://github.com/Shermanxwz/Rule-proxy-Web/commit/b94a1913c122c398c99318dc3286f255d90f809e",
+      "observed": "Outer schema2/packet schema3: bounded_no_selected_outer_udp_payload=true, marker_scan=[true,0,true], 19,408 records. Three sends accepted,42 ordinary receiver frames,zero selected. Capture complete,22,655,061 retained/drained bytes,no overflow.",
+      "does_not_establish": "A is exact three payloads at pinned outer IPv6 UDP endpoint; B scans literal selected frames across bounded guest-source-MAC records. Shared case nonce is ordinary too. Neither is universal IPv6 no-egress, attribution, encrypted/reassembled-data coverage or valid/benign ICMP proof. Earlier schemas stay unchanged.",
+      "summary_url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f/verification/windows-2026-10-20/identity-proof/direct-udp6-runtime-08-summary.json",
+      "summary_sha256": "e815c6a33f90a5266365fc62183d56da753d21f31fb55d36be64e20f373f0095"
+    },
+    {
+      "id": "stage0b_single_actor_ipc",
+      "evidence_level": "actual_guest_ipc",
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39754568079",
+      "head_url": "https://github.com/Shermanxwz/Rule-proxy-Web/commit/024a84d5a9e87a1551ce7ecea1afa2f9dcc42d80",
+      "observed": "Independent Stage0b IPC qualified: ordinary controller, fresh zero-capability actor, exact32-byte echo,EOF,held exits and nested cleanup. Declared SystemRoot+LOCALAPPDATA child variant observed with COM/known-folder/release/deadline metadata.",
+      "does_not_establish": "Not dual-process bridge, networking or proxy fail-closed. Success does not identify missing LOCALAPPDATA as unique cause of earlier203. QEMU/TPM forced exits-9 were observed, not natural exits.",
+      "summary_url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f/verification/windows-2026-10-20/identity-proof/stage0b-runtime-03-summary.json",
+      "summary_sha256": "b8547d51023a9d8e9b745869f5208d9873492a4b4916efcdf8fab8668fd2bdcc"
+    },
+    {
+      "id": "native_bridge_core",
+      "evidence_level": "compiled_synthetic_conformance",
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39761410816",
+      "head_url": "https://github.com/Shermanxwz/Rule-proxy-Web/commit/a298faa3417e41c79c4a34ebb8e05aefe1e1ad25",
+      "observed": "Windows MSVC and Linux g++ each compiled/executed428 fixed synthetic cases;63 pure tests each. Native pending-write prefixes compared byte-exact before progress.",
+      "does_not_establish": "Transport-free model only: no actual pipes, socket, process security, proxy route or OS isolation.",
+      "summary_url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f/verification/windows-2026-10-20/identity-proof/proxy-native-core-01-summary.json",
+      "summary_sha256": "ae552efc980ed80ec2326a754272e009cfb08fbc1d7227b1e06e9d29968a6572"
+    },
+    {
+      "id": "hosted_native_dual_pipe",
+      "evidence_level": "actual_hosted_non_ac_mechanics",
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39766674740",
+      "head_url": "https://github.com/Shermanxwz/Rule-proxy-Web/commit/7b6e31a90d69e40b51a4c6bb4d19141adbd3aad8",
+      "observed": "Actual hosted Windows anonymous pipes: successful five-frame exchange, mismatched-case refusal, withheld-relay-resume watchdog. Six children created/five resumed,exact held cleanup;91 pure tests per platform.",
+      "does_not_establish": "Elevated controller and non-AppContainer children, not ordinary-user/AC evidence. HTTP is in-memory synthetic; no listener,origin,proxy,DNS or network.",
+      "summary_url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f/verification/windows-2026-10-20/identity-proof/proxy-pipe-mechanism-01-summary.json",
+      "summary_sha256": "ddecdcc424be0cf823f260b246d9c75c8a1b2d2f6d8b8f9698a9b534c44bcf0d"
+    },
+    {
+      "id": "ac_pair_prerequisite_short_gate",
+      "evidence_level": "mixed_attempt_short_gate",
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39772363906/attempts/2",
+      "head_url": "https://github.com/Shermanxwz/Rule-proxy-Web/commit/d9ad11ee2492f51d6d54224197ea442d2c5eecfd",
+      "observed": "Windows attempt1:1013 tests/zero skips,28-case AC PowerShell parity and eight-mode ZIP parity. Linux-only attempt2:1013 tests plus paused-QEMU backing-file/package/cleanup admission. Windows carried forward,not rerun.",
+      "does_not_establish": "AC mode was OFF in this archive; role/profile/ACL/pair integration is pure/mocked. No genuine AC pair or proxy network execution. Backing-file hashes are not resident-memory/source equivalence.",
+      "summary_url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f/verification/windows-2026-10-20/identity-proof/proxy-pipe-ac-gates-02-summary.json",
+      "summary_sha256": "9f84f8f48aec793a5b003214710ed1332471b86abb40d31657a58c1e4ff17a19"
+    }
+  ],
+  "known_failures": [
+    {
+      "id": "dns_request3_api87",
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39602167378",
+      "established": "Observed API87 persists across explicit high/standard-port variants; no fixture query observed. Cancellation-pointer variant also did not resolve it.",
+      "uncertainty": "Underlying API87 cause unknown; not DNS denial or DNS isolation."
+    },
+    {
+      "id": "udp4_first_flow",
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39612273978",
+      "established": "Packet result flow-inconclusive before decoder. Source reproduction found distinct nominal UDPBinding classes across loaders.",
+      "uncertainty": "Deleted first-run bundle cannot be reconstructed; corrected later run does not rewrite it."
+    },
+    {
+      "id": "descendant_preflight_import",
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39651926679",
+      "established": "Before QEMU: actual script-layout import failed due ambient repository-root dependency; isolated import reproduced and exact-path loader corrected.",
+      "uncertainty": "No descendant/runtime evidence from this failed preflight."
+    },
+    {
+      "id": "udp6_hosted_readback",
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39665095939",
+      "established": "Instrumented V6ONLY getter returned success with length1; prior fixedDWORD-only validation rejected before bind/send. Bounded1/4-byte nonzero compatibility later reviewed.",
+      "uncertainty": "Earlier generic v6only_get10022 did not reveal which branch; no retrospective actual API error claim."
+    },
+    {
+      "id": "udp6_scope_zero",
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39682239276",
+      "established": "Instrumented ordinary echo rejected solely by nonzero returned peer scope; selected phase not admitted.",
+      "uncertainty": "Runtime01 hidden cause remains unknown; later receive-context contract is separately versioned."
+    },
+    {
+      "id": "udp6_capture_overflow",
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39689438718",
+      "established": "Capture overflow/incomplete; packet verdict inconclusive. Source/mock reproduction proved sticky-error finalize suppression could consume outer drain time; cleanup repaired separately.",
+      "uncertainty": "Lost packet bytes,overflow onset and exact hidden runtime stack remain unknown."
+    },
+    {
+      "id": "udp6_old_opaque_contracts",
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39720373388",
+      "established": "Earlier complete captures remained inconclusive on NH58/ND strict-profile mismatches; run07 joint NA source=target differed from ordinary witnessed G.",
+      "uncertainty": "Not malformed/universal-invalid NA or actor ownership. New A/B schema does not reinterpret old archives."
+    },
+    {
+      "id": "stage0b_report_blindness",
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39737955113",
+      "established": "Generic report-stage failure; native/probe facts unavailable in old projection.",
+      "uncertainty": "Missing/unverified fields do not prove no child; underlying first-run failure unknown."
+    },
+    {
+      "id": "stage0b_create203",
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39745498662",
+      "established": "Bound probe diagnostic identifies CreateProcessW/create-check path and Win32 code203; native report missing.",
+      "uncertainty": "Underlying OS cause unknown; later environment-variant success is not a same-VM causal proof."
+    },
+    {
+      "id": "ac_short_linux_cancel",
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39772363906",
+      "established": "Linux attempt1 cancelled at five-minute job limit during apt installation; authorized Linux-only retry succeeded with unchanged limit.",
+      "uncertainty": "Unique package-fetch delay cause unknown; retry does not repair original missing evidence."
+    }
+  ],
+  "global_limits": [
+    "Public receipts are source-bound controller attestations, not independent host token inspection.",
+    "Deleted private reports/PCAPs are not reconstructible from this index. No raw identities, paths, nonces, handles, endpoint tuples or credentials are included.",
+    "TCP/UDP packet observations, IPC transport, synthetic HTTP and real proxy networking are distinct claims.",
+    "No DNS/broker isolation, browser compatibility, arbitrary descendants, universal egress prevention, peer authentication or full Windows/Linux equivalence is established.",
+    "No new execution is authorized by this index. Windows Codex must inspect pinned source and obtain authority for any local profile/ACL/process/network test."
+  ],
+  "archive_tree_sha": "6053c7eeb4a099c2ed16f8bbba023ab67c316580",
+  "selection_scope": "Selected decision-relevant milestones and known failures, not an exhaustive list of all published experiments.",
+  "complete_public_evidence_catalogue_url": "https://github.com/Shermanxwz/Rule-proxy-Web/tree/0336310f/verification/windows-2026-10-20/identity-proof",
+  "complete_public_archive_inventory": "windows-isolation-public-archive-inventory.json",
+  "inventory_scope": "Complete published JSON file inventory at the pinned archive, not a claim that every run was independently reparsed for this selected index.",
+  "final_handoff_short_validation": {
+    "source_commit": "7c7a839a8acef8a92fbc0bbd0505c0342065bda5",
+    "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39777404738",
+    "summary_url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/d73e0152fb7ba90afb797cbc23b051520cbfaa9c/verification/windows-2026-10-20/identity-proof/windows-codex-handoff-short-01-summary.json",
+    "summary_sha256": "a04fc574f2700a3ae30ac0947287c334dab007c04126afd79da4a6020c3929a4",
+    "tests_each_platform": 1016,
+    "skips": 0,
+    "ac_pair_executed": false
+  }
+}

@@ -1,0 +1,228 @@
+{
+  "DNS_isolation_tested": false,
+  "WFP_policy_tested": false,
+  "attempt": 2,
+  "capability_absence_is_not_blanket_direct_egress_isolation": true,
+  "command_count": 6,
+  "default_resolver_tested": false,
+  "direct_isolation_tested": false,
+  "failure_interpretation": "WSAStartup returned 10107 before socket creation, connect or send. This is an initialization failure, not a network rejection; its root cause is not established by this observation.",
+  "forensic_is_not_qualification_fallback": true,
+  "global_four_recorded_objects_equal": true,
+  "global_snapshot_bytes_equal": true,
+  "held_task_count": 11,
+  "hostile_same_sid_peer_boundary_tested": false,
+  "independent_file_review": {
+    "bytes": 40162,
+    "sha256": "1f7667177453f7f924891608a57084972d033d5217137580237926ac854b71ea"
+  },
+  "injection_resistance_verified": false,
+  "ipv6_tested": false,
+  "linux_equivalence_proven": false,
+  "loopback_observation": {
+    "DNS_isolation_tested": false,
+    "WFP_policy_tested": false,
+    "ac_accesscheck_verified": true,
+    "ac_granted_access": [
+      3,
+      0,
+      1,
+      2
+    ],
+    "acl_removed": true,
+    "cleanup_tools": true,
+    "default_resolver_tested": false,
+    "direct_isolation_tested": false,
+    "failure": "loopback",
+    "front_held_verified": true,
+    "front_listener_verified": true,
+    "frontend_setup": {
+      "failure": "deadline",
+      "listen_close": "confirmed",
+      "listening_verified": true,
+      "observed": true,
+      "socket_resources_closed": true,
+      "win32_error": null,
+      "wsa_cleanup": "confirmed",
+      "wsa_error": null,
+      "wsa_started": true
+    },
+    "injection_resistance_verified": false,
+    "ipv6_tested": false,
+    "labels_restored": true,
+    "linux_equivalence_proven": false,
+    "lpac_accesscheck_verified": true,
+    "lpac_granted_access": [
+      2,
+      0,
+      0,
+      2
+    ],
+    "main_connect_observed": false,
+    "main_request_observed": false,
+    "main_response_verified": false,
+    "main_tuple_verified": false,
+    "natural_exits": false,
+    "network_tested": true,
+    "observer_resources_cleanup_verified": true,
+    "ordinary_after": true,
+    "ordinary_before": true,
+    "ordinary_held_verified": true,
+    "pipe_theft_resistance_verified": false,
+    "product_acceptance": false,
+    "profile_deleted": true,
+    "proxy_qualified": false,
+    "reachability_verified": false,
+    "release_published": false,
+    "same_sid_tamper_boundary_verified": false,
+    "selected_held_verified": true,
+    "service_brokers_tested": false,
+    "sid_released": true,
+    "udp_tested": false,
+    "workload_cleanup": true,
+    "workload_job_empty": true
+  },
+  "native_report_count": 14,
+  "observed_accesscheck_call_count": 8,
+  "old_atomic01_unknown_and_recovery_required_preserved": true,
+  "old_dns_leak_not_reinterpreted": true,
+  "original_failure": "loopback",
+  "original_observation_complete": false,
+  "original_preflight": {
+    "bytes": 1325,
+    "sha256": "dd31b5b0f60fb8250eceb535b777bad1213d54d08808e37fb0ea46bc4f345e9f"
+  },
+  "original_public": {
+    "bytes": 2731,
+    "sha256": "457c26fdf13707807a5412ff81951bba7b4112129c472c6f09804c073a6813ed"
+  },
+  "original_recovery_required": false,
+  "original_status": "inconclusive",
+  "pipe_theft_resistance_verified": false,
+  "previous_actual01_not_reinterpreted": true,
+  "previous_actual01_public": {
+    "bytes": 2731,
+    "sha256": "a4502dda11fbc39567e53c909ca2e4d8b9c5b5825e92e056fea46fd8cb396b18"
+  },
+  "prior_evidence": [
+    {
+      "bytes": 1660,
+      "original_fields": {
+        "broker_outcome_unknown": {
+          "present": true,
+          "recorded_value": true
+        },
+        "product_acceptance": {
+          "present": true,
+          "recorded_value": false
+        },
+        "recovery_required": {
+          "present": true,
+          "recorded_value": true
+        }
+      },
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-local-01-public.json",
+      "qualification_field_location": "top",
+      "sha256": "cc562d1b045fea336c4257051faa52e63aa415d91556a4ea84f18aa363652f9c",
+      "this_attempt_does_not_reinterpret_or_recover_prior_state": true
+    },
+    {
+      "bytes": 3060,
+      "original_fields": {
+        "broker_outcome_unknown": {
+          "present": false,
+          "recorded_value": null
+        },
+        "product_acceptance": {
+          "present": true,
+          "recorded_value": false
+        },
+        "recovery_required": {
+          "present": false,
+          "recorded_value": null
+        }
+      },
+      "path": "verification/windows-2026-10-22/model2-dns-01-public.json",
+      "qualification_field_location": "result",
+      "sha256": "51d8c38a9acd79c8dee629782b1e091a56bb7ccd6d2209cf28852396401b08b5",
+      "this_attempt_does_not_reinterpret_or_recover_prior_state": true
+    },
+    {
+      "bytes": 3498,
+      "original_fields": {
+        "broker_outcome_unknown": {
+          "present": false,
+          "recorded_value": null
+        },
+        "product_acceptance": {
+          "present": true,
+          "recorded_value": false
+        },
+        "recovery_required": {
+          "present": false,
+          "recorded_value": null
+        }
+      },
+      "path": "verification/windows-2026-10-22/model2-raw-dns-02-public.json",
+      "qualification_field_location": "result",
+      "sha256": "50e9142854e8738fafa768a4c72d4a6b489c2710f269ca4bac6e73efd2302d40",
+      "this_attempt_does_not_reinterpret_or_recover_prior_state": true
+    }
+  ],
+  "product_acceptance": false,
+  "profile": "same-sid-zero-cap-loopback-mechanism-v1",
+  "proxy_qualified": false,
+  "same_sid_tamper_boundary_verified": false,
+  "schema_version": 1,
+  "scope": "one-local-zero-cap-same-sid-loopback-v1",
+  "selected_closed_GO_phase_report_available": true,
+  "selected_control_sharing_failure_before_winsock": false,
+  "selected_final": {
+    "accepted_count": 0,
+    "control_close_verified": true,
+    "failure": "wsa-startup",
+    "listen_close": "not-created",
+    "listening_verified": false,
+    "network_tested": false,
+    "phase_count": 1,
+    "product_acceptance": false,
+    "receipt_count": 0,
+    "socket_resources_closed": true,
+    "win32_error": null,
+    "within_deadline": true,
+    "wsa_cleanup": "not-started",
+    "wsa_error": 10107,
+    "wsa_started": false
+  },
+  "selected_phase": {
+    "connect_attempted": false,
+    "connect_completed": false,
+    "control_close_verified": true,
+    "failure": "wsa-startup",
+    "network_tested": false,
+    "product_acceptance": false,
+    "request_bytes": 0,
+    "request_exact": false,
+    "response_bytes": 0,
+    "response_eof": false,
+    "response_exact": false,
+    "send_attempted": false,
+    "send_shutdown": false,
+    "socket_close": "not-created",
+    "win32_error": null,
+    "within_deadline": true,
+    "wsa_cleanup": "not-started",
+    "wsa_error": 10107
+  },
+  "selected_wsa_startup10107_before_connect_or_send": true,
+  "service_brokers_tested": false,
+  "sharing_failure_is_network_denial": null,
+  "source_commit": "c7145b9d50dc99c14f11764a03ad23f31ce3e638",
+  "source_sha256": "b726d48d6dddfed2533168ac0921add834488f333931f08b75dc6195cd9fc4ac",
+  "stage": "zero-cap-same-sid-loopback-actual-summary",
+  "startup_failure_is_network_denial": false,
+  "tcp_table_count": 1,
+  "udp_tested": false,
+  "validated_worker_result_available": true,
+  "worker_zero_exit_is_not_reachability_success": true
+}

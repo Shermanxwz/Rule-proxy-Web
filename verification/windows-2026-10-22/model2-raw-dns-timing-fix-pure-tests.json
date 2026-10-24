@@ -1,0 +1,69 @@
+{
+  "actor_executed": false,
+  "api6_refresh_count": 3,
+  "archive_parent_commit": "620d80c0e61b8ebc4acf61a05a6a5e5dea160116",
+  "command": "python -I -S -B -m unittest discover -s tests -p test_windows_identity_model2_dns*.py -v",
+  "errors": 0,
+  "failures": 0,
+  "fake_refresh_cost_seconds": 1.3,
+  "files": [
+    {
+      "bytes": 183555,
+      "lf_only": true,
+      "path": ".github/windows_identity_model2_controller.py",
+      "sha256": "9ecc846082f03fcbb206e5610e86d9f2af06250f2f1b165187229ea5582cc2c1"
+    },
+    {
+      "bytes": 24332,
+      "lf_only": true,
+      "path": "tests/test_windows_identity_model2_dns.py",
+      "sha256": "daa816448322357e5374f5c1d6eeebd4df2472009451ae7147d9d36297d99ab9"
+    },
+    {
+      "bytes": 23818,
+      "lf_only": true,
+      "path": "tests/test_windows_identity_model2_dns_raw.py",
+      "sha256": "2071b06a7fb88928d90ef39a06de4ae8fb83f8b1b00962598f52d84ff4d49bc2"
+    }
+  ],
+  "full_local_pure_suite": {
+    "actor_executed": false,
+    "errors": 0,
+    "failures": 0,
+    "log_bytes": 129384,
+    "log_sha256": "f5d33de7a15c7781c040b0a58aae2698469ccdda643960944c7ae724077df67d",
+    "network_executed": false,
+    "seconds": 27.071,
+    "skip_reason": "existing nonprivileged symlink privileges",
+    "skipped": 2,
+    "tests": 720
+  },
+  "inventory_freshness_limit_seconds": 5,
+  "network_executed": false,
+  "new_timing_regressions": 3,
+  "original_api6_tests": 12,
+  "original_deadline_preserved": true,
+  "raw_bind_before_selected_after_inventory_gates_verified": true,
+  "raw_dns01_archived_files_unchanged": true,
+  "raw_dns01_index_sha256": "d360f92bea4a1de5a9f8b08b3675798c988e364d249628504faad8f6582704b0",
+  "raw_refresh_count": 1,
+  "raw_selected_original_phase_seconds": 2,
+  "raw_stale_inventory_stops_before_selected_go": true,
+  "regression_before_production_fix": {
+    "errors": 0,
+    "failures": 2,
+    "failures_observed": [
+      "typed timeout followed by ordinary after hits dns_inventory_freshness",
+      "ordinary before contributes extra raw refresh count"
+    ],
+    "raw_tests": 19
+  },
+  "schema_version": 1,
+  "seconds": 1.005,
+  "selected_firewall_freshness_uses_real_validator": true,
+  "skipped": 0,
+  "source_parent_commit": "0b9df64beb111ac8cb02ad6a4db41bbbeffbd9dd",
+  "stage": "model2-raw-dns-timing-fix-pure-tests",
+  "tests": 31,
+  "timeout_not_promoted_to_denial": true
+}

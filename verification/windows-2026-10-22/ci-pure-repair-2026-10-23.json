@@ -1,0 +1,199 @@
+{
+  "schema_version": 1,
+  "stage": "identity-pure-ci-repair",
+  "date": "2026-10-23",
+  "repair_commit": "6aa32557dc92fa548c1215820f05f0cefe11517f",
+  "repair_scope": "five canonical temporary-root fixtures and one step-local installed compiler environment fix; production runtime sources unchanged by this commit",
+  "repair_file_pins": [
+    {
+      "path": ".github/workflows/windows-identity-proof.yml",
+      "sha256": "49e08e78075fac3ab7379a3ab8603c59e4899d48da47a03b7bc3175a004488a0"
+    },
+    {
+      "path": "tests/test_windows_identity_model2_helper.py",
+      "sha256": "e0625766e3b4596afaa964bf5a21a8b8b1835054340a6ab1ae72888a206dbc85"
+    },
+    {
+      "path": "tests/test_windows_identity_model2_local_probe.py",
+      "sha256": "8db2b1e673408cc13205a9df1ca3eaec23dc38072e3fc6a4f02e9b7a1e35c892"
+    },
+    {
+      "path": "tests/test_windows_identity_model2_owned_tree.py",
+      "sha256": "5657b416017bae633fdde6fc8504cb56a8a5c11297175dabbdfa99521703c905"
+    },
+    {
+      "path": "tests/test_windows_identity_proxy_origin_probe.py",
+      "sha256": "62dd9ce9ff9a1ae6574c350487549138af4897f09bdd69b12723d316c522f754"
+    },
+    {
+      "path": "tests/test_windows_identity_proxy_pipe_ac_local.py",
+      "sha256": "1702ce952e81282f09db86febf3deaac1635166287914ff46ad349139952f455"
+    }
+  ],
+  "root_causes": [
+    {
+      "cause": "Windows TEMP short-name alias differs from canonical checked_path result",
+      "fix": "resolve only test-owned temporary roots before constructing fake paths",
+      "production_path_or_identity_checks_weakened": false
+    },
+    {
+      "cause": "Visual Studio developer-shell environment from prior Actions step did not carry into the pure-test step",
+      "fix": "reload installed x64 DevShell and require cl.exe in that same step; retain full original unittest discovery",
+      "runtime_marker_gates_changed": false
+    }
+  ],
+  "prior_failed_runs": [
+    {
+      "run_id": 39801145227,
+      "job_id": 119901844568,
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39801145227",
+      "ci_conclusion": "failure",
+      "tests_run": 530,
+      "elapsed_seconds": 10.23,
+      "failures": 19,
+      "errors": 6,
+      "decoded_log": {
+        "bytes": 155199,
+        "sha256": "82e5ac5863d195ccb1cb943879c3e018dc636d07cae42b97b31c4194d92dee7b",
+        "raw_kept_private": true
+      },
+      "classification": "pure regression before gated runtime; no DNS API result",
+      "dns_api_failure": false
+    },
+    {
+      "run_id": 39823448696,
+      "job_id": 119980412784,
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39823448696",
+      "ci_conclusion": "failure",
+      "tests_run": 615,
+      "elapsed_seconds": 16.848,
+      "failures": 29,
+      "errors": 9,
+      "decoded_log": {
+        "bytes": 211783,
+        "sha256": "8635cf9c047acee10c19a6763068e08252c3c88824dad6c3d7941f28e8bdf36f",
+        "raw_kept_private": true
+      },
+      "classification": "pure regression before gated runtime; no DNS API result",
+      "dns_api_failure": false
+    },
+    {
+      "run_id": 39827099007,
+      "job_id": 119993150091,
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39827099007",
+      "ci_conclusion": "failure",
+      "tests_run": 645,
+      "elapsed_seconds": 15.984,
+      "failures": 29,
+      "errors": 9,
+      "decoded_log": {
+        "bytes": 218205,
+        "sha256": "b19a0ff90135bb73b5c2bec163135361e75845de8832a9b5a50c44aa59eb1c5b",
+        "raw_kept_private": true
+      },
+      "classification": "pure regression before gated runtime; no DNS API result",
+      "dns_api_failure": false
+    }
+  ],
+  "local_reproduction": {
+    "before": {
+      "tests_run": 75,
+      "failures": 26,
+      "errors": 9,
+      "log": {
+        "bytes": 74290,
+        "sha256": "d6dc65369b4fda9be293620cca528336db1b821ed0040c6e156e2b6e1ba8fd5e",
+        "raw_kept_private": true
+      }
+    },
+    "after": {
+      "tests_run": 75,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "log": {
+        "bytes": 14345,
+        "sha256": "a6d8800c767b98b0289783d60f33036323e29290192408823837934ffdbd6ee2",
+        "raw_kept_private": true
+      }
+    }
+  },
+  "local_full": {
+    "tests_run": 680,
+    "failures": 0,
+    "errors": 0,
+    "skips": 2,
+    "elapsed_seconds": 18.6,
+    "skip_reasons": [
+      "unprivileged symlink creation unavailable",
+      "symlink creation unavailable"
+    ],
+    "compiled_fake_tests_executed": true,
+    "log": {
+      "bytes": 121444,
+      "sha256": "3d07080dedaa73b44cd316ef12994f319eeecc296d9f60183a238e5dd0334868",
+      "raw_kept_private": true
+    },
+    "source_basis": "local pre-commit repair worktree; the exact six changed files are recorded under repair_commit"
+  },
+  "automatic_hosted_ci": {
+    "run_id": 39834757571,
+    "job_id": 120020022446,
+    "url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39834757571",
+    "head_sha": "6aa32557dc92fa548c1215820f05f0cefe11517f",
+    "event": "push",
+    "status": "completed",
+    "conclusion": "success",
+    "tests_run": 680,
+    "failures": 0,
+    "errors": 0,
+    "skips": 0,
+    "elapsed_seconds": 20.712,
+    "log": {
+      "bytes": 160926,
+      "sha256": "3aef4f8922f3c49620419ddedb741ba33daab90a2cffa490b51ffe5f38a9d9fb",
+      "raw_kept_private": true
+    },
+    "native_actor_compile_only": true,
+    "native_actor_executed": false,
+    "compiled_actor_sha256": "937facf7964dc263e4e2b27587a92010de7c5a203769f5da13dbf30723743f48",
+    "runtime_steps": [
+      {
+        "number": 5,
+        "name": "Read-only current and existing linked token ABI preflight",
+        "conclusion": "skipped"
+      },
+      {
+        "number": 6,
+        "name": "Approved Stage 0b inherited-pipe proof in a verified ordinary token",
+        "conclusion": "skipped"
+      },
+      {
+        "number": 7,
+        "name": "Read-only R0 source token field and ABI diagnostics",
+        "conclusion": "skipped"
+      },
+      {
+        "number": 8,
+        "name": "Restricted-caller R0 identity diagnostic, not ordinary-user acceptance",
+        "conclusion": "skipped"
+      },
+      {
+        "number": 9,
+        "name": "Four-cell trusted-actor startup controls, no isolation acceptance",
+        "conclusion": "skipped"
+      }
+    ]
+  },
+  "limits": {
+    "linux_execution_verified_by_this_repair": false,
+    "actor_runtime_tested": false,
+    "dns_api_called": false,
+    "dns_wire_or_answer_verified": false,
+    "vm_started": false,
+    "workflow_manually_dispatched_or_rerun": false,
+    "application_dns_isolation_qualified": false,
+    "product_acceptance": false
+  },
+  "archive_scope": "existing local logs and fetched automatic Actions log/step metadata only; raw logs remain private; original failed runs retained"
+}

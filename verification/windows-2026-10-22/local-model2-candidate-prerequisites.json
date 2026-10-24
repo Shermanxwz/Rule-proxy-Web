@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "stage": "local-model2-candidate-code-prerequisites",
+  "date": "2026-10-22",
+  "source_closure_sha256": "8199affde3e34c75e382c78eb3a82651be1fa22db1b8983dbe98c72b0b561433",
+  "request_sha256": "36d28db4b7fd86d8371116680ed497dedeb6685b3ee1fd23fa4750dafaefe46d",
+  "pure_tests": {
+    "tests_run": 19,
+    "failures": 0,
+    "errors": 0,
+    "skips": 0
+  },
+  "regression_tests": {
+    "original_ac_tests": 65,
+    "original_ac_passed": true,
+    "native_core_pure_tests": 63,
+    "native_core_pure_passed": true
+  },
+  "runtime": {
+    "release_url_http_status": 404,
+    "restored_from_fixed_run": 38660663692,
+    "restored_from_fixed_artifact": 11938733475,
+    "bootstrap_archive_sha256": "8a771727002d5f6f03ff00f5e26f99340fbbd17383dc7405ba99f7dd3388f036",
+    "bundle_sha256": "89a9390d9db7f65c82c52ac8c545bff88d6e7577998bea9e5ab93d86f2be90a0",
+    "executor_sha256": "cd32e225fb858161b66bc23e9d2415843de348edf2cfdfb05cee0e7535dca1a7",
+    "manifest_exact": true,
+    "license_exact": true
+  },
+  "shared_source_extension_scope": "default-preserving library and controller seams for a separate fixed-origin profile",
+  "historical_manifest_rewritten": false,
+  "executor_executed": false,
+  "network_tested": false,
+  "proxy_tested": false,
+  "product_acceptance": false
+}

@@ -1,0 +1,112 @@
+{
+  "actual_admin_profile_rejected": true,
+  "children_cleanup": [
+    {
+      "cleanup_confirmed": true,
+      "handles_closed": true,
+      "killed": false,
+      "process_exited": true
+    },
+    {
+      "cleanup_confirmed": true,
+      "handles_closed": true,
+      "killed": false,
+      "process_exited": true
+    },
+    {
+      "cleanup_confirmed": true,
+      "handles_closed": true,
+      "killed": false,
+      "process_exited": true
+    },
+    {
+      "cleanup_confirmed": true,
+      "handles_closed": true,
+      "killed": false,
+      "process_exited": true
+    },
+    {
+      "cleanup_confirmed": true,
+      "handles_closed": true,
+      "killed": false,
+      "process_exited": true
+    },
+    {
+      "cleanup_confirmed": true,
+      "handles_closed": true,
+      "killed": false,
+      "process_exited": true
+    },
+    {
+      "cleanup_confirmed": true,
+      "handles_closed": true,
+      "killed": false,
+      "process_exited": true
+    }
+  ],
+  "cleanup_confirmed": true,
+  "dns_tested": false,
+  "failure": "none",
+  "fixture_echo_controls": false,
+  "fixture_selected_echo_observed": false,
+  "fixture_send_accepted_count": 0,
+  "hosted_mechanics_complete": false,
+  "ordinary_nonadmin_tested": false,
+  "packet_egress_tested": false,
+  "production_invalid_cli_rejected": true,
+  "production_network_guard_executed": false,
+  "protocol": "udp6",
+  "receivers": [
+    {
+      "cleanup_confirmed": true,
+      "contained_observed": false,
+      "counts": {
+        "datagrams": 0,
+        "echoed": 0,
+        "observed_bytes": 0,
+        "oversized": 0,
+        "rejected": 0,
+        "send_errors": 0,
+        "verified": 0
+      },
+      "datagram_observed": false,
+      "error": false,
+      "socket_closed": true,
+      "thread_stopped": true,
+      "verified_indices": {
+        "after": [],
+        "before": [],
+        "contained": [],
+        "sample": []
+      }
+    },
+    {
+      "cleanup_confirmed": true,
+      "contained_observed": false,
+      "counts": {
+        "datagrams": 0,
+        "echoed": 0,
+        "observed_bytes": 0,
+        "oversized": 0,
+        "rejected": 0,
+        "send_errors": 0,
+        "verified": 0
+      },
+      "datagram_observed": false,
+      "error": false,
+      "socket_closed": true,
+      "thread_stopped": true,
+      "verified_indices": {
+        "after": [],
+        "before": [],
+        "contained": [],
+        "sample": []
+      }
+    }
+  ],
+  "runtime_acceptance": false,
+  "schema": 1,
+  "work_removed": true,
+  "wrong_echo_rejected": false,
+  "wrong_echo_send_accepted": false
+}

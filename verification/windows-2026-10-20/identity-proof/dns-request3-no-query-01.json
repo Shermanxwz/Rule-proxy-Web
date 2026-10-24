@@ -1,0 +1,96 @@
+{
+  "api_called": false,
+  "child_cleanup": {
+    "cleanup_confirmed": true,
+    "exited": true,
+    "handles_closed": true,
+    "killed": false
+  },
+  "cleanup_confirmed": true,
+  "descriptor": {
+    "api_called": false,
+    "dnsapi_file_version": [
+      6,
+      2,
+      26100,
+      33438
+    ],
+    "initialized": {
+      "callback_null": true,
+      "context_null": true,
+      "custom_singleton": true,
+      "custom_udp": true,
+      "flags_zero": true,
+      "interface_zero": true,
+      "ipv4": true,
+      "legacy_null": true,
+      "loopback": true,
+      "options_exact": true,
+      "port_roundtrip": true,
+      "query_name_bound": true,
+      "query_type_a": true,
+      "request_version": true,
+      "reserved_zero": true,
+      "result_version": true,
+      "result_zero": true,
+      "template_null": true
+    },
+    "layout": {
+      "alignments": [
+        8,
+        8,
+        8
+      ],
+      "custom_offsets": [
+        0,
+        8,
+        16,
+        24
+      ],
+      "request_offsets": [
+        0,
+        8,
+        16,
+        24,
+        32,
+        40,
+        48,
+        56,
+        64,
+        68,
+        72,
+        80
+      ],
+      "result_offsets": [
+        0,
+        4,
+        8,
+        16,
+        24
+      ],
+      "sizes": [
+        88,
+        32,
+        56
+      ]
+    },
+    "mode": "describe",
+    "module_existing": true,
+    "runtime_acceptance": false,
+    "schema": 1,
+    "system_path_verified": true,
+    "test_only": true,
+    "version_available": true
+  },
+  "diagnostics_complete": true,
+  "failure": "none",
+  "mode": "describe",
+  "os_version": {
+    "build": 26100,
+    "major": 10,
+    "minor": 0
+  },
+  "runtime_acceptance": false,
+  "schema": 1,
+  "work_removed": true
+}

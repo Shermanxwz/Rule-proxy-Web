@@ -1,0 +1,12 @@
+{
+  "copy_is_original_bytes": true,
+  "executed_by_archiver": false,
+  "raw_commitment": {
+    "bytes": 2990,
+    "sha256": "9720c4a6748901ab9949964d756e82697a21cd828f4189621a86c6f22cac25d5"
+  },
+  "view_commitment": {
+    "bytes": 2990,
+    "sha256": "9720c4a6748901ab9949964d756e82697a21cd828f4189621a86c6f22cac25d5"
+  }
+}

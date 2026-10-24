@@ -1,0 +1,57 @@
+{
+  "actual_observations": {
+    "alignments": [
+      8,
+      8,
+      8
+    ],
+    "all_18_initialized_predicates": true,
+    "api_called": false,
+    "child_exit_observed": true,
+    "dnsapi_current_backing_file_version": [
+      6,
+      2,
+      26100,
+      33438
+    ],
+    "existing_module_system_path_verified": true,
+    "handles_closed": true,
+    "official_sdk": "10.0.26100.0",
+    "os_version": [
+      10,
+      0,
+      26100
+    ],
+    "struct_sizes": {
+      "custom_server": 56,
+      "request3": 88,
+      "result": 32
+    },
+    "temporary_work_removed": true
+  },
+  "conclusion": "success",
+  "experiment": "dns-request3-no-query-provenance",
+  "head": "b770b658826de5e8b2adce24107b5e4548c406dd",
+  "interpretation": "Official installed SDK layout and shared initialization match the observed expected shape. Current backing-file version metadata was obtained only after verifying the already-loaded module path privately. These observations do not prove mapped-image identity, API eligibility, the cause of earlier API87, a successful DNS exchange or isolation. This separate diagnostic job does not retroactively measure DNSAPI metadata or mapped bytes in the earlier API87 jobs; file-version major6.2 does not imply Windows8.",
+  "limits": {
+    "backing_file_version_is_not_os_version": true,
+    "dns_isolation_tested": false,
+    "dns_mechanism_positive_established": false,
+    "earlier_api_jobs_dnsapi_version_observed": false,
+    "full_guest_or_production_integration": false,
+    "mapped_image_hash_verified": false,
+    "no_dns_query_or_nrpt_call": true,
+    "no_responder_socket": true,
+    "previous_api87_cause_identified": false,
+    "previous_pair_rerun": false,
+    "test_only": true
+  },
+  "linux_tests": 49,
+  "privacy": "Closed layout counts/booleans/numeric versions and public CI/code metadata; no module path, query name, endpoint port, raw log, address or credentials.",
+  "result_sha256": "ab483f141d6edc1928de289486bd1661e84a850220ed5b726fff27b7774752e1",
+  "reviewed_manifest_sha256": "d50f96354153c858a5e2efd791c5dbf8d165b230795425b50841692a7fd3de3e",
+  "run_id": 39598090604,
+  "schema": 1,
+  "skipped": 0,
+  "windows_tests": 49
+}

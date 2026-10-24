@@ -1,0 +1,52 @@
+{
+  "conclusion": "failure",
+  "experiment": "dns-request3-fixed-loopback2-port-pair",
+  "head": "35acc290acd6384a205eb6d918a3fd549deb7399",
+  "interpretation": "Changing the explicit custom UDP server port from an owned high port to owned port53 at the same fixed alternate loopback address did not resolve API87. This port hypothesis is closed; no further query variant or address search was launched. No DNS-isolation or network-denial result follows.",
+  "limits": {
+    "DNS_isolation_tested": false,
+    "DNS_mechanism_positive": false,
+    "continuous_existing_service_liveness_proven": false,
+    "current_job_inventory_only": true,
+    "full_guest_or_production_integration": false,
+    "global_settings_changed": false,
+    "harness_default_resolver_fallback": false,
+    "packet_capture_performed": false,
+    "prior_job_endpoint_disappearance_cause_known": false,
+    "result_status_zero": "Zero matches the initialized value; it is not successful resolution.",
+    "underlying_API87_cause_known": false
+  },
+  "observations": {
+    "afterclose_preserved": true,
+    "all_responder_counts_zero": true,
+    "all_six_owned_children_cleanup_confirmed": true,
+    "baseline_udp53_count": 0,
+    "both_nonpending": true,
+    "high_port_api_status": 87,
+    "nrpt_empty": true,
+    "owned_target_verified": true,
+    "pair_complete": true,
+    "postbind_preserved": true,
+    "query_observed": false,
+    "responders_socket_thread_cleanup_confirmed": true,
+    "standard_port_api_status": 87,
+    "work_removed": true
+  },
+  "privacy": "Closed API statuses/counts/cleanup and public CI/source metadata only. No endpoint rows, owning PIDs, nonce, raw exception, credentials or packet bytes.",
+  "result_sha256": "8ac4cac542cbbcb17f9307a4e849c0b7c478af8ddd0a187168427052b4c524d1",
+  "reviewed_manifest_sha256": "d7d8d94f21c197269b7db3851862056a4a2a141693e4534cceea0bcf33e032e8",
+  "run_id": 39602167378,
+  "schema": 1,
+  "test_status": {
+    "CI_rerun_performed": false,
+    "linux_failure": "documentation literal forwarding absent after final wording edit",
+    "linux_failures": 1,
+    "linux_tests_run": 70,
+    "local_70_pass_preceded_final_doc_wording": true,
+    "official_sdk_compile": "passed",
+    "subsequent_doc_only_local_test_count": 70,
+    "subsequent_doc_only_local_tests_passed": true,
+    "subsequent_doc_only_local_tests_skipped": 0,
+    "windows_later_unit_stage": "not_run_after_API_failure"
+  }
+}

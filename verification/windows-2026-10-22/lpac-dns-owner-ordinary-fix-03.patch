@@ -1,0 +1,85 @@
+diff --git a/.github/windows_identity_lpac_dns_local.py b/.github/windows_identity_lpac_dns_local.py
+--- a/.github/windows_identity_lpac_dns_local.py
++++ b/.github/windows_identity_lpac_dns_local.py
+@@ -204,12 +204,16 @@
+ 
+ def held_identity(api,row,parent,catalog,sid,lpac):
+     identity=api.identity(row['token']);caps=[{'sid':s,'attributes':a} for s,a in api.groups(row['token'],30,'TokenCapabilities')]
+-    flag=api.lpac_flag(row['token'])
+     if lpac:
+         live.selected_identity(identity,caps,parent,PROFILE,catalog)
++        flag=api.lpac_flag(row['token'])
+         require(identity['appcontainer_sid']==sid and identity['integrity_rid']==4096 and flag==1,'held_lpac')
+     else:
+-        require(launcher.token_is_ordinary(identity) and launcher.same_identity(identity,parent) and caps==[] and flag==0,'held_ordinary')
++        # Non-AppContainer identity already excludes LPAC. Class46 is not a
++        # supported ordinary-token prerequisite on this host (actual ERROR87).
++        # Keep null to mean NOT QUERIED; never invent a successful zero readback.
++        require(launcher.token_is_ordinary(identity) and launcher.same_identity(identity,parent) and caps==[],'held_ordinary')
++        flag=None
+     if row.get('identity') is not None:require(identity==row['identity'] and caps==row['capabilities'],'held_token_changed')
+     return identity,caps,flag
+ 
+@@ -521,13 +525,15 @@
+             for k in ('attempted','assigned','exited','lpac_expected','resumed','admitted','process_returned'):require(type(row[k]) is bool,'task_bool')
+             require(row['lpac_expected']==(row['name']=='selected') and ac.digest(row['image_sha256']),'task_image')
+             require(row['lpac'] is None or type(row['lpac']) is int and row['lpac'] in (0,1),'task_lpac')
++            require(row['lpac_expected'] or row['lpac'] is None,'ordinary_lpac_not_queried')
+             for k in ('pid','created','admission_qpc','resume_qpc'):
+                 require(row[k] is None or live.integer(row[k],1,live.MAX_SIGNED),'task_integer')
+             require(row['exit_code'] is None or live.integer(row['exit_code']),'task_exit')
+             require(type(row['go_qpc']) is list and len(row['go_qpc'])<=2 and all(live.integer(x,c['start_qpc'],c['deadline_qpc']-1) for x in row['go_qpc']),'task_go')
+             require(not row['resumed'] or row['admitted'] and row['assigned'] and row['admission_qpc']<=row['resume_qpc']<c['deadline_qpc'],'task_resume_gate')
+             require(not row['admitted'] or row['attempted'] and row['pid'] is not None and row['created'] is not None
+-                and row['identity'] is not None and row['capabilities'] is not None and row['lpac']==int(row['name']=='selected'),'task_admission')
++                and row['identity'] is not None and row['capabilities'] is not None
++                and (row['lpac']==1 if row['name']=='selected' else row['lpac'] is None),'task_admission')
+             if row['admitted'] and row['name'] in ('selected','health'):
+                 require(row['image_sha256']==c['actor_sha256'],'actor_task')
+                 if row['name']=='selected':
+diff --git a/tests/test_windows_identity_lpac_dns_local.py b/tests/test_windows_identity_lpac_dns_local.py
+--- a/tests/test_windows_identity_lpac_dns_local.py
++++ b/tests/test_windows_identity_lpac_dns_local.py
+@@ -117,6 +117,16 @@
+     def groups(self,token,*args):return [(CATALOG[k],4) for k in ('AgenticAppContainer','privateNetworkClientServer')] if self.rows[token-2]['lpac'] else []
+     def lpac_flag(self,token):
+         selected=self.rows[token-2]['lpac'];self.events.append(('lpac-query',selected))
++        if self.fault in ('ordinary46-87','selected46-87'):
++            native=m.launcher.NativeAPI.__new__(m.launcher.NativeAPI)
++            def information(held_token,kind,value,size,returned):
++                assert held_token==token and kind==46 and size==4
++                if (not selected and self.fault=='ordinary46-87') or (selected and self.fault=='selected46-87'):
++                    C.set_last_error(87);return 0
++                C.cast(value,C.POINTER(C.c_uint32))[0]=1;C.cast(returned,C.POINTER(C.c_uint32))[0]=4;return 1
++            native.a=NS(GetTokenInformation=information)
++            adapter=m.LPACAPI.__new__(m.LPACAPI);adapter.native=native
++            return adapter.lpac_flag(token)
+         if selected and self.fault in ('lpac0','lpacgo'):
+             if self.fault=='lpac0' or any(isinstance(x,tuple) and x[0]=='go' for x in self.events):return 0
+         return int(selected)
+@@ -194,6 +204,25 @@
+         owner,api,j=self.owner('lpacgo');self.assertTrue(j['selected_lpac_held'])
+         self.assertEqual([x['label'] for x in j['go']],['before']);self.assertFalse(j['selected_access_denial'])
+         m.validate_result(j,owner.c)
++
++    def test_ordinary_class46_api87_is_never_called_after_exact_nonac_identity(self):
++        owner,api,j=self.owner('ordinary46-87');m.validate_result(j,owner.c)
++        self.assertIsNone(j['failure']);self.assertTrue(j['natural_exits']);self.assertTrue(j['profile_deleted'])
++        self.assertNotIn(('lpac-query',False),api.events)
++        self.assertTrue(all(r['lpac'] is None for r in j['tasks']+j['cleanup_tasks'] if r['name']!='selected'))
++        self.assertTrue(next(r for r in j['tasks'] if r['name']=='selected')['lpac']==1)
++
++    def test_selected_class46_api87_still_prevents_resume_and_every_go(self):
++        owner,api,j=self.owner('selected46-87');m.validate_result(j,owner.c)
++        self.assertFalse(j['selected_lpac_held']);self.assertEqual(j['go'],[])
++        self.assertNotIn(('resume',True),api.events);self.assertIn(('lpac-query',True),api.events)
++        self.assertTrue(j['profile_deleted'])
++
++    def test_ordinary_report_cannot_fabricate_a_class46_zero_readback(self):
++        owner,api,j=self.owner();m.validate_result(j,owner.c)
++        for field,index in (('tasks',0),('tasks',5),('cleanup_tasks',0)):
++            value=copy.deepcopy(j);value[field][index]['lpac']=0
++            with self.subTest(field=field,index=index),self.assertRaises(ValueError):m.validate_result(value,owner.c)
+ 
+     def test_unknown_create_preserves_profile_and_does_not_fake_cleanup(self):
+         owner,api,j=self.owner('unknowncreate');self.assertFalse(j['workload_cleanup']);self.assertFalse(j['profile_deleted'])

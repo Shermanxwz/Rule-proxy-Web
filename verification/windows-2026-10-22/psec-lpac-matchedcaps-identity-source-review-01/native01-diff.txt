@@ -1,0 +1,312 @@
+--- .github/native/windows_psec_lpac_bridge.hpp
++++ .github/native/windows_psec_lpac_matchedcaps_bridge.hpp
+@@ -1,10 +1,10 @@
+ #pragma once
+-// Work-only CPSE identity bridge. No process is ever resumed by this module.
++// ABI-3 matched-capabilities CPSE identity bridge. No process is ever resumed by this module.
+ #include <cstddef>
+ #include <cstdint>
+ #if defined(_WIN32)
+ #define PB_CALL __stdcall
+-#if defined(PB_BUILD_DLL)
++#if defined(PB3_BUILD_DLL)
+ #define PB_EXPORT extern "C" __declspec(dllexport)
+ #else
+ #define PB_EXPORT extern "C"
+@@ -32,6 +32,18 @@
+     const std::uint16_t* local_appdata;
+     std::uint32_t local_appdata_units;
+ };
++// Caller supplies these borrowed buffers; native copies validated SID bytes into
++// its context before constructing attributes. No caller SID pointer survives a call.
++// Agentic and PNCS positions are fixed; count is exactly two, attributes exactly 4.
++struct PB_SC_INPUT_V3 {
++    std::uint32_t size, version, capability_count, reserved;
++    const std::uint8_t* package_sid;
++    std::uint32_t package_bytes, reserved2;
++    const std::uint8_t* agentic_sid;
++    std::uint32_t agentic_bytes, agentic_attributes;
++    const std::uint8_t* pncs_sid;
++    std::uint32_t pncs_bytes, pncs_attributes;
++};
+ struct PB_PI_V1 {
+     std::uint64_t process, thread;
+     std::uint32_t process_id, thread_id;
+@@ -53,6 +65,10 @@
+ static_assert(sizeof(PB_PLAN_V1) == 48 && offsetof(PB_PLAN_V1, frequency) == 8);
+ static_assert(sizeof(PB_CHILD_V1) == 88 && offsetof(PB_CHILD_V1, job) == 16);
+ static_assert(offsetof(PB_CHILD_V1, image) == 24 && offsetof(PB_CHILD_V1, local_appdata_units) == 80);
++static_assert(sizeof(PB_SC_INPUT_V3) == 64 && alignof(PB_SC_INPUT_V3) == 8);
++static_assert(offsetof(PB_SC_INPUT_V3, package_sid) == 16 && offsetof(PB_SC_INPUT_V3, package_bytes) == 24);
++static_assert(offsetof(PB_SC_INPUT_V3, agentic_sid) == 32 && offsetof(PB_SC_INPUT_V3, agentic_attributes) == 44);
++static_assert(offsetof(PB_SC_INPUT_V3, pncs_sid) == 48 && offsetof(PB_SC_INPUT_V3, pncs_attributes) == 60);
+ static_assert(sizeof(PB_PI_V1) == 24 && offsetof(PB_PI_V1, process_id) == 16);
+ static_assert(sizeof(PB_RESULT_V1) == 96 && offsetof(PB_RESULT_V1, before_qpc) == 40);
+ 
+@@ -64,7 +80,11 @@
+ PB_EXPORT std::uint32_t PB_CALL pb_bind(PB_CONTEXT_V1*, const PB_PLAN_V1*, PB_RESULT_V1*) noexcept;
+ PB_EXPORT std::uint32_t PB_CALL pb_create_environment(PB_CONTEXT_V1*, const std::uint8_t*,
+     std::uint32_t, const std::uint16_t*, std::uint32_t, PB_RESULT_V1*) noexcept;
+-PB_EXPORT std::uint32_t PB_CALL pb_create_arm(PB_CONTEXT_V1*, const PB_CHILD_V1*,
+-    PB_PI_V1*, PB_RESULT_V1*) noexcept;
++// role 0=bootstrap: policy 0, SC null. role 1=measured AC: policy 0, SC required.
++// role 2=measured LPAC: policy 1, byte-identical SC required. Order is once-only.
++// External owner must independently admit suspended bootstrap/arms; this DLL
++// neither grants admission nor assigns a Job or resumes any process.
++PB_EXPORT std::uint32_t PB_CALL pb_create_matched_child(PB_CONTEXT_V1*, const PB_CHILD_V1*,
++    std::uint32_t role, const PB_SC_INPUT_V3*, PB_PI_V1*, PB_RESULT_V1*) noexcept;
+ PB_EXPORT std::uint32_t PB_CALL pb_close_environment(PB_CONTEXT_V1*, PB_RESULT_V1*) noexcept;
+ PB_EXPORT std::uint32_t PB_CALL pb_unbind(PB_CONTEXT_V1*, PB_RESULT_V1*) noexcept;
+--- .github/native/windows_psec_lpac_bridge_core.hpp
++++ .github/native/windows_psec_lpac_matchedcaps_bridge_core.hpp
+@@ -1,11 +1,15 @@
+ #pragma once
+-#include "windows_psec_lpac_bridge.hpp"
++#include "windows_psec_lpac_matchedcaps_bridge.hpp"
+ #include <limits>
++#include <array>
++#include <algorithm>
++#include <cstring>
+ 
+ namespace pb {
+ enum Status : std::uint32_t {
+     ok=0, bad_argument=1, bad_state=2, unsupported=3, clock=4,
+-    deadline=5, api_failed=6, readback_failed=7, cleanup_unknown=8, exception=9
++    deadline=5, api_failed=6, readback_failed=7, cleanup_unknown=8, exception=9,
++    precreate_failed=10
+ };
+ enum Operation : std::uint32_t { bind=1, create_environment=2, create_arm=3, close_environment=4, unbind=5 };
+ enum Environment : std::uint32_t { none=0, create_consumed=1, owned=2, close_consumed=3 };
+@@ -29,6 +33,65 @@
+ }
+ inline bool empty_pi(const PB_PI_V1& p) noexcept {
+     return !p.process && !p.thread && !p.process_id && !p.thread_id;
++}
++
++enum Role : std::uint32_t { bootstrap=0, measured_ac=1, measured_lpac=2 };
++
++// Fixed-name capability SID bytes, NOT user/package identity. Agentic's bytes
++// are the historical OS DeriveCapabilitySidsFromName(AgenticAppContainer)
++// observation pinned in ABI-3's receipt; the Python outer must independently
++// derive the same fixed-name catalog on the current host before any runtime.
++// PNCS is the documented well-known S-1-15-3-3 capability.
++constexpr std::array<std::uint8_t,48> agentic_sid_bytes{{
++    0x01,0x0a,0x00,0x00,0x00,0x00,0x00,0x0f,0x03,0x00,0x00,0x00,
++    0x00,0x04,0x00,0x00,0xaf,0x2e,0xa0,0x1f,0xa2,0xd1,0xe1,0xb9,
++    0xc9,0x13,0x49,0x0d,0x22,0x00,0xf0,0x62,0xd5,0xfd,0x08,0x20,
++    0x6a,0xbf,0xee,0x07,0x9a,0x49,0x43,0x51,0x19,0x27,0x70,0xf4}};
++constexpr std::array<std::uint8_t,16> pncs_sid_bytes{{
++    0x01,0x02,0x00,0x00,0x00,0x00,0x00,0x0f,0x03,0x00,0x00,0x00,
++    0x03,0x00,0x00,0x00}};
++constexpr std::size_t maximum_sid_bytes=68;
++struct SecuritySnapshot {
++    std::array<std::uint8_t,maximum_sid_bytes> package{},agentic{},pncs{};
++    std::uint32_t package_bytes=0,agentic_bytes=0,pncs_bytes=0;
++};
++inline bool sid_shape(const std::uint8_t* p, std::uint32_t n,
++    std::uint32_t first_subauthority) noexcept {
++    if (!p || n<12 || n>maximum_sid_bytes || p[0]!=1 || !p[1] || p[1]>15
++        || n!=8u+4u*p[1] || p[2] || p[3] || p[4] || p[5] || p[6] || p[7]!=15)
++        return false;
++    const auto first=std::uint32_t(p[8]) | std::uint32_t(p[9])<<8
++        | std::uint32_t(p[10])<<16 | std::uint32_t(p[11])<<24;
++    return first==first_subauthority;
++}
++inline bool security_input(const PB_SC_INPUT_V3& input, SecuritySnapshot& output) noexcept {
++    if (input.size!=sizeof input || input.version!=3 || input.capability_count!=2
++        || input.reserved || input.reserved2 || input.agentic_attributes!=4 || input.pncs_attributes!=4
++        || input.package_bytes<20 || input.package_bytes>maximum_sid_bytes
++        || input.agentic_bytes!=agentic_sid_bytes.size() || input.pncs_bytes!=pncs_sid_bytes.size()
++        || !input.package_sid || !input.agentic_sid || !input.pncs_sid
++        || !sid_shape(input.package_sid,input.package_bytes,2)
++        || !sid_shape(input.agentic_sid,input.agentic_bytes,3)
++        || !sid_shape(input.pncs_sid,input.pncs_bytes,3)) return false;
++    SecuritySnapshot copy{};
++    copy.package_bytes=input.package_bytes;
++    copy.agentic_bytes=input.agentic_bytes;
++    copy.pncs_bytes=input.pncs_bytes;
++    // Copy first: later attribute construction never observes caller buffers.
++    std::memcpy(copy.package.data(),input.package_sid,copy.package_bytes);
++    std::memcpy(copy.agentic.data(),input.agentic_sid,copy.agentic_bytes);
++    std::memcpy(copy.pncs.data(),input.pncs_sid,copy.pncs_bytes);
++    if (!sid_shape(copy.package.data(),copy.package_bytes,2)
++        || !sid_shape(copy.agentic.data(),copy.agentic_bytes,3)
++        || !sid_shape(copy.pncs.data(),copy.pncs_bytes,3)
++        || !std::equal(agentic_sid_bytes.begin(),agentic_sid_bytes.end(),copy.agentic.begin())
++        || !std::equal(pncs_sid_bytes.begin(),pncs_sid_bytes.end(),copy.pncs.begin())) return false;
++    output=copy;
++    return true;
++}
++inline bool same_security(const SecuritySnapshot& a, const SecuritySnapshot& b) noexcept {
++    return a.package_bytes==b.package_bytes && a.agentic_bytes==b.agentic_bytes && a.pncs_bytes==b.pncs_bytes
++        && a.package==b.package && a.agentic==b.agentic && a.pncs==b.pncs;
+ }
+ 
+ // Production and fake tests share this once-only authority state machine.
+@@ -58,9 +121,10 @@
+         if (hr>=0 || nonnull) opaque_unknown=true;
+         return hr<0?api_failed:readback_failed;
+     }
+-    Status begin_arm(unsigned policy, bool same_inputs) noexcept {
++    Status begin_arm(unsigned role, unsigned policy, bool same_inputs, bool has_security) noexcept {
+         if (!bound || environment!=owned || opaque_unknown || arm_failure
+-            || arm_attempts!=arm_returns || arm_attempts>=2 || policy!=arm_attempts || !same_inputs)
++            || arm_attempts!=arm_returns || arm_attempts>=3 || role!=arm_attempts
++            || policy!=(role==2?1u:0u) || has_security!=(role!=0) || !same_inputs)
+             return bad_state;
+         ++arm_attempts; return ok;
+     }
+@@ -71,6 +135,12 @@
+         arm_failure=true;
+         // Kernel outputs, including partial ones, remain the caller's cleanup responsibility.
+         return returned_true?readback_failed:api_failed;
++    }
++    // Used only at the two proven attribute-setup failure sites before Create.
++    // No API-return fact is manufactured; a nonzero PI can never enter this case.
++    Status precreate_result(const PB_PI_V1& pi) noexcept {
++        if (!empty_pi(pi)) return bad_state;
++        return arm_result(false,pi)==api_failed?precreate_failed:bad_state;
+     }
+     Status begin_close(bool owned_job_empty) noexcept {
+         if (environment!=owned || opaque_unknown || close_invoked
+--- .github/native/windows_psec_lpac_postassign_bridge.cpp
++++ .github/native/windows_psec_lpac_matchedcaps_bridge.cpp
+@@ -1,13 +1,14 @@
+-// Explicit ABI-2 postassign strategy. This file requests only SE_ENV and AAP.
+-// It does not request an atomic inner-Job create attribute or assign a Job.
+-// The independent owner must verify continuous inherited outer ownership,
+-// then perform its separately journaled once-only held inner assignment.
+-// PB_*_V1 payload layouts and opaque/QPC/VOID-close rules remain unchanged.
+-#define PB_BUILD_DLL
++// ABI-3: one CPSE, three never-resumed held roles. Bootstrap has SE_ENV+AAP0;
++// both measured arms have identical native-copied SECURITY_CAPABILITIES and
++// SE_ENV; only AAP0/1 differs. This is a bounded compatibility hypothesis.
++// No JOB_LIST attribute, Job assignment, Resume, token mutation or network API.
++// The external owner separately verifies inherited outer membership and makes
++// one explicit held inner assignment, then admits identity/observer semantics.
++#define PB3_BUILD_DLL
+ #define WIN32_LEAN_AND_MEAN
+ #define NOMINMAX
+ #include <windows.h>
+-#include "windows_psec_lpac_bridge_core.hpp"
++#include "windows_psec_lpac_matchedcaps_bridge_core.hpp"
+ #pragma push_macro("except")
+ #undef except
+ #include "windows_psec_lpac_bridge_spec.hpp"
+@@ -23,7 +24,7 @@
+ using CloseEnvironment=void (WINAPI*)(void*);
+ using QuerySupport=HRESULT (WINAPI*)(std::uint64_t*);
+ using QueryVersion=HRESULT (WINAPI*)(DWORD,BYTE*,DWORD*);
+-constexpr std::uint64_t magic=0x3158425345435350ULL;
++constexpr std::uint64_t magic=0x3358425345435350ULL;
+ constexpr DWORD_PTR se_env=0x20023, aap_policy=0x2000f;
+ struct Internal {
+     std::uint64_t cookie=magic;
+@@ -36,6 +37,8 @@
+     void* environment=nullptr;
+     HANDLE job=nullptr; // Borrowed; caller retains it until close_environment returns.
+     std::array<std::wstring,4> paths{};
++    pb::SecuritySnapshot security{};
++    bool security_bound=false;
+ };
+ static_assert(sizeof(Internal)<=sizeof(PB_CONTEXT_V1));
+ static_assert(alignof(Internal)<=alignof(PB_CONTEXT_V1));
+@@ -87,21 +90,34 @@
+     LPPROC_THREAD_ATTRIBUTE_LIST list=nullptr;
+     std::vector<unsigned char> storage;
+     ~Attributes() { if (list) DeleteProcThreadAttributeList(list); }
+-    bool init() {
++    bool init(DWORD count,DWORD& error) {
++        error=0;
+         SIZE_T size=0;
+         SetLastError(0);
+-        const BOOL initial=InitializeProcThreadAttributeList(nullptr,2,0,&size);
+-        const DWORD err=GetLastError();
+-        if (initial || err!=ERROR_INSUFFICIENT_BUFFER || !size || size>1024*1024) return false;
++        const BOOL initial=InitializeProcThreadAttributeList(nullptr,count,0,&size);
++        error=GetLastError();
++        if (initial || error!=ERROR_INSUFFICIENT_BUFFER || !size || size>1024*1024) return false;
+         storage.resize(size);
+         auto candidate=reinterpret_cast<LPPROC_THREAD_ATTRIBUTE_LIST>(storage.data());
+-        if (!InitializeProcThreadAttributeList(candidate,2,0,&size)) return false;
+-        list=candidate; return true;
++        SetLastError(0);
++        const BOOL initialized=InitializeProcThreadAttributeList(candidate,count,0,&size);
++        error=GetLastError();
++        if (!initialized) return false;
++        list=candidate; error=0; return true;
+     }
+ };
+-}
+-
+-PB_EXPORT std::uint32_t PB_CALL pb_abi_version() noexcept { return 2; }
++std::uint32_t precreate_failure(Internal& c,const PB_PI_V1& pi,PB_RESULT_V1* r,DWORD error) noexcept {
++    r->win32_error=error;
++    const auto result=c.state.precreate_result(pi);
++    const auto sampled=tick(c,r->after_qpc);
++    r->within_deadline=sampled==pb::ok;
++    // Keep the known pre-Create classification. A late/unknown clock still has
++    // within_deadline=0 and cannot satisfy the owner's timely admission gate.
++    return finish(&c,r,result);
++}
++}
++
++PB_EXPORT std::uint32_t PB_CALL pb_abi_version() noexcept { return 3; }
+ PB_EXPORT std::uint32_t PB_CALL pb_build_spec(const std::uint16_t* p,std::uint32_t n,
+     std::uint8_t* out,std::uint32_t capacity,std::uint32_t* used) noexcept {
+     if (used) *used=0;
+@@ -176,13 +192,14 @@
+     } catch (...) { c->state.opaque_unknown=c->state.environment==pb::create_consumed; return finish(c,r,pb::exception); }
+ }
+ 
+-PB_EXPORT std::uint32_t PB_CALL pb_create_arm(PB_CONTEXT_V1* buffer,const PB_CHILD_V1* child,
+-    PB_PI_V1* output,PB_RESULT_V1* r) noexcept {
++PB_EXPORT std::uint32_t PB_CALL pb_create_matched_child(PB_CONTEXT_V1* buffer,const PB_CHILD_V1* child,
++    std::uint32_t role,const PB_SC_INPUT_V3* security_input,PB_PI_V1* output,PB_RESULT_V1* r) noexcept {
+     if (output) std::memset(output,0,sizeof *output);
+     if (!begin_result(r,pb::create_arm)) return pb::bad_argument;
+     auto c=get(buffer); if (!c || !child || !output) return finish(c,r,pb::bad_argument);
+     try {
+-        if (child->size!=sizeof *child || child->version!=1 || child->reserved || child->policy>1) return finish(c,r,pb::bad_argument);
++        if (child->size!=sizeof *child || child->version!=1 || child->reserved || child->policy>1
++            || role>pb::measured_lpac || (role==pb::bootstrap)!=(security_input==nullptr)) return finish(c,r,pb::bad_argument);
+         const std::array<std::wstring,4> paths{wide(child->image,child->image_units),
+             wide(child->inputs_directory,child->inputs_units),wide(child->system_root,child->system_root_units),
+             wide(child->local_appdata,child->local_appdata_units)};
+@@ -192,14 +209,33 @@
+             || !job_valid(j,false)) return finish(c,r,pb::bad_argument);
+         if (!c->state.arm_attempts) { c->paths=paths; c->job=j; }
+         const bool same=paths==c->paths && j==c->job;
++        pb::SecuritySnapshot candidate_security{};
++        if (security_input && !pb::security_input(*security_input,candidate_security))
++            return finish(c,r,pb::bad_argument);
++        if (role==pb::measured_lpac && (!c->security_bound || !pb::same_security(c->security,candidate_security)))
++            return finish(c,r,pb::bad_argument);
+         auto s=tick(*c,r->before_qpc);
+-        if (s!=pb::ok || (s=c->state.begin_arm(child->policy,same))!=pb::ok) return finish(c,r,s);
++        if (s!=pb::ok || (s=c->state.begin_arm(role,child->policy,same,security_input!=nullptr))!=pb::ok) return finish(c,r,s);
++        if (role==pb::measured_ac) { c->security=candidate_security; c->security_bound=true; }
+         Attributes attrs;
+-        if (!attrs.init()) { r->win32_error=GetLastError(); c->state.arm_result(false,*output); return finish(c,r,pb::api_failed); }
++        DWORD attribute_error=0;
++        if (!attrs.init(role==pb::bootstrap?2u:3u,attribute_error))
++            return precreate_failure(*c,*output,r,attribute_error);
+         void* environment=c->environment; DWORD policy=child->policy;
++        SID_AND_ATTRIBUTES capabilities[2]{};
++        SECURITY_CAPABILITIES security{};
++        if (role!=pb::bootstrap) {
++            capabilities[0].Sid=c->security.agentic.data(); capabilities[0].Attributes=4;
++            capabilities[1].Sid=c->security.pncs.data(); capabilities[1].Attributes=4;
++            security.AppContainerSid=c->security.package.data();
++            security.Capabilities=capabilities; security.CapabilityCount=2; security.Reserved=0;
++        }
+         if (!UpdateProcThreadAttribute(attrs.list,0,se_env,&environment,sizeof environment,nullptr,nullptr)
++            || (role!=pb::bootstrap && !UpdateProcThreadAttribute(attrs.list,0,PROC_THREAD_ATTRIBUTE_SECURITY_CAPABILITIES,
++                &security,sizeof security,nullptr,nullptr))
+             || !UpdateProcThreadAttribute(attrs.list,0,aap_policy,&policy,sizeof policy,nullptr,nullptr)) {
+-            r->win32_error=GetLastError(); c->state.arm_result(false,*output); return finish(c,r,pb::api_failed);
++            const DWORD error=GetLastError(); // Immediate, before state or QPC calls.
++            return precreate_failure(*c,*output,r,error);
+         }
+         STARTUPINFOEXW startup{}; startup.StartupInfo.cb=sizeof startup; startup.lpAttributeList=attrs.list;
+         PROCESS_INFORMATION pi{};

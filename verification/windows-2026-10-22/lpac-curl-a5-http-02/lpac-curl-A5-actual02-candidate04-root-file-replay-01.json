@@ -1,0 +1,32 @@
+{
+  "API_called": false,
+  "candidate": {
+    "bytes": 37194,
+    "sha256": "9af96728db9f2db381b114f4241fe44d1837dfea90ba54c2c839c0e7ab8bfcef"
+  },
+  "complete_validator": {
+    "failure": "proxy",
+    "original_worker_still_missing": true,
+    "valid": true
+  },
+  "forensic": {
+    "bytes": 684967,
+    "sha256": "321adad32b7a82afd5630b912fd2e9f1d0d8050350f517afc143cd8c3e8ddef9"
+  },
+  "forensic_not_promoted_to_original_worker": true,
+  "memory": {
+    "base_bound": true,
+    "config_bytes": 2048,
+    "memory_complete": true,
+    "payload_pointer": true,
+    "payload_readonly": true,
+    "valid": true
+  },
+  "original_public_changed": false,
+  "original_worker_report_present": false,
+  "schema_version": 1,
+  "source_count": 115,
+  "source_sha256": "fe618f6db5951c40d9122fef04bd1dd669ad79238f332eb73fabb3b2df98475a",
+  "stage": "Root-diagnostic-candidate04-file-replay",
+  "target_or_tests_run": false
+}

@@ -1,0 +1,571 @@
+{
+  "closed_results": [
+    {
+      "checks": 72,
+      "empty_configuration_rejected": true,
+      "guest_entrypoint_executed": false,
+      "native_acceptance": false,
+      "network_executed": false,
+      "schema_version": 1
+    },
+    {
+      "checks": 48,
+      "passed": true,
+      "process_and_transport_mocked": true,
+      "runtime_acceptance": false,
+      "schema_version": 1,
+      "udp_guest_execution": false
+    },
+    {
+      "inert_boundary_mocks": true,
+      "members": [
+        10,
+        14,
+        15,
+        17
+      ],
+      "negative_cases": 4,
+      "runtime_artifact": false,
+      "schema_version": 1
+    },
+    {
+      "checks": 31,
+      "cleanup_confirmed": true,
+      "guest_entrypoint_executed": false,
+      "inert_boundary_mocks": true,
+      "passed": true,
+      "runtime_artifact": false,
+      "schema_version": 1,
+      "stage": "forbidden"
+    },
+    {
+      "actual_admin_profile_rejected": true,
+      "children_cleanup": [
+        {
+          "cleanup_confirmed": true,
+          "handles_closed": true,
+          "killed": false,
+          "process_exited": true
+        },
+        {
+          "cleanup_confirmed": true,
+          "handles_closed": true,
+          "killed": false,
+          "process_exited": true
+        },
+        {
+          "cleanup_confirmed": true,
+          "handles_closed": true,
+          "killed": false,
+          "process_exited": true
+        },
+        {
+          "cleanup_confirmed": true,
+          "handles_closed": true,
+          "killed": false,
+          "process_exited": true
+        },
+        {
+          "cleanup_confirmed": true,
+          "handles_closed": true,
+          "killed": false,
+          "process_exited": true
+        },
+        {
+          "cleanup_confirmed": true,
+          "handles_closed": true,
+          "killed": false,
+          "process_exited": true
+        },
+        {
+          "cleanup_confirmed": true,
+          "handles_closed": true,
+          "killed": false,
+          "process_exited": true
+        }
+      ],
+      "cleanup_confirmed": true,
+      "dns_tested": false,
+      "failure": "none",
+      "fixture_echo_controls": true,
+      "fixture_send_accepted_count": 3,
+      "hosted_mechanics_complete": true,
+      "ordinary_nonadmin_tested": false,
+      "packet_egress_tested": false,
+      "production_invalid_cli_rejected": true,
+      "production_network_guard_executed": false,
+      "receivers": [
+        {
+          "cleanup_confirmed": true,
+          "contained_observed": true,
+          "counts": {
+            "datagrams": 45,
+            "echoed": 45,
+            "observed_bytes": 2198,
+            "oversized": 0,
+            "rejected": 0,
+            "send_errors": 0,
+            "verified": 45
+          },
+          "datagram_observed": true,
+          "error": false,
+          "socket_closed": true,
+          "thread_stopped": true,
+          "verified_indices": {
+            "after": [
+              0
+            ],
+            "before": [
+              0
+            ],
+            "contained": [
+              0,
+              1,
+              2
+            ],
+            "sample": [
+              0,
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10,
+              11,
+              12,
+              13,
+              14,
+              15,
+              16,
+              17,
+              18,
+              19,
+              20,
+              21,
+              22,
+              23,
+              24,
+              25,
+              26,
+              27,
+              28,
+              29,
+              30,
+              31,
+              32,
+              33,
+              34,
+              35,
+              36,
+              37,
+              38,
+              39
+            ]
+          }
+        },
+        {
+          "cleanup_confirmed": true,
+          "contained_observed": false,
+          "counts": {
+            "datagrams": 1,
+            "echoed": 1,
+            "observed_bytes": 48,
+            "oversized": 0,
+            "rejected": 0,
+            "send_errors": 0,
+            "verified": 1
+          },
+          "datagram_observed": true,
+          "error": false,
+          "socket_closed": true,
+          "thread_stopped": true,
+          "verified_indices": {
+            "after": [],
+            "before": [
+              0
+            ],
+            "contained": [],
+            "sample": []
+          }
+        }
+      ],
+      "runtime_acceptance": false,
+      "schema": 1,
+      "work_removed": true,
+      "wrong_echo_rejected": true,
+      "wrong_echo_send_accepted": true
+    }
+  ],
+  "conclusion": "success",
+  "direct_workflow": {
+    "compile": "skipped",
+    "host_unit": "skipped",
+    "native": "skipped",
+    "run_id": 39611537317
+  },
+  "entries": [
+    {
+      "bytes": 24628,
+      "git_blob": "83e6998d8e11c770b9df08f8f5bc6e2e6f9f42c2",
+      "path": ".github/windows_n0a_udp.py",
+      "sha256": "f960b24954cb82a73f5413e48e7245148884fbdede92396e64053b9c1ef316e3"
+    },
+    {
+      "bytes": 34430,
+      "git_blob": "813c6052abc508b5df8340a737814462cc104234",
+      "path": ".github/workflows/windows-identity-direct-stage0.yml",
+      "sha256": "00814b2efaf6025ee630d63a26ffd4ee4557e915fec88cd240b3bb9f7d8ba929"
+    },
+    {
+      "bytes": 17316,
+      "git_blob": "461e1b905031fcb12a6d4aa1add791843aca30ff",
+      "path": "tests/test_windows_n0a_workflow.py",
+      "sha256": "7885b33f71021133fffac0c27fde1f676cfda50b6aea7cc611c3dafd900969fd"
+    },
+    {
+      "bytes": 7101,
+      "git_blob": "8e886f8d893af166764fb59ed7bdc21457f7662f",
+      "path": "tests/test_windows_n0a_udp_workflow.py",
+      "sha256": "4af658d63378938eca98fed98cd5e9ffeff3f74fd6921a0197da4502e0db34b5"
+    },
+    {
+      "bytes": 12917,
+      "git_blob": "e99abafadec3354580cdaf76696d466ee2e049a0",
+      "path": "tests/test_windows_client_n0a_udp.py",
+      "sha256": "2c4e29cd43013bbe31db975b2e4bbb3382836d2ff69fa05dbbdac09841b40fad"
+    },
+    {
+      "bytes": 8340,
+      "git_blob": "5a11d1e09a39512b58ba0c0c8fbbba94b449c8e1",
+      "path": "docs/validation/2026-10-21-direct-udp-adapter.md",
+      "sha256": "3537d2533db3b3fbc35ce7553a874c6588f2e2d430743794512899e1318532ed"
+    }
+  ],
+  "head_sha": "d80343364ad77717691b96e31ccd38b74cab4637",
+  "jobs": {
+    "linux": {
+      "id": 119261375603,
+      "skipped": 0,
+      "tests": 346
+    },
+    "windows": {
+      "id": 119261375500,
+      "skipped": 0,
+      "tests": 346
+    }
+  },
+  "limits": [
+    "Source activation is not a runtime result; no full Windows guest, UDP contained process or guest private upload was executed.",
+    "Production network CLI was not executed in hosted gates. TEST_ONLY owned-loopback mechanics and profile-only checks do not establish nonadmin or PSEC enforcement.",
+    "PowerShell transport uses owned mocks; ZIP parity uses inert authentication-boundary inputs.",
+    "All16 runtime marker subsets and branch/event negatives plus actual inert Bash argv/SHA handoff passed; this does not prove a future runtime payload fits capacity.",
+    "Actual P<=24MiB planning admission and65MiB reserve remain mandatory before QEMU; current runtime payload size not yet observed.",
+    "Original120min/6600s job/work and120s cleanup reserve, guest120s work budget and existing at-most10s reporting allowance,64MiB capture cap, actor/policy/three attempts/account scope unchanged.",
+    "No private flow/PCAP/native report/log values are published. Original Stage0 report remains separate and strict acceptance unchanged.",
+    "No DNS/broker/generalUDP/Linux/product claim; a separate root one-run clearance is still required."
+  ],
+  "manifest_sha256": "363f944f66ed202a839e6389ba78d9016b43ba68ef53b843f2206541ed070ea3",
+  "run_id": 39611537232,
+  "schema_version": 1,
+  "scope": "UDP activation source short gates only; no full guest runtime",
+  "unchanged_pins": [
+    {
+      "bytes": 99720,
+      "git_blob": "9b345a3a75b227e06bd13feb20d1688add0e2e5d",
+      "path": ".github/windows_identity_direct_stage0.py",
+      "sha256": "bc62d6b4059f782cb7a84231f3b67c27b14e7ae276ec0cc94aa18522a5951f28"
+    },
+    {
+      "bytes": 9359,
+      "git_blob": "b73e2d7f87955564ed4db3246da8c19a4094cc2c",
+      "path": ".github/windows_n0a_udp_capture_adapter.py",
+      "sha256": "71a37f834958c5d9add4de2ef884067c9ffc37bcf4583437d1f09958b5b7f213"
+    },
+    {
+      "bytes": 3379,
+      "git_blob": "825889150796de73ebe0a237cb11f727df761968",
+      "path": "tests/test_windows_client_n0a_udp_host.py",
+      "sha256": "0dd957368acbd22681b543f067ecf2531da858ec687f288ba784fed066f455c0"
+    },
+    {
+      "bytes": 10587,
+      "git_blob": "765c1d1b7d1a03c1f401d0c9ae565f049986316d",
+      "path": "tests/test_windows_client_n0a_udp_capture_adapter.py",
+      "sha256": "9b191fc608a1527539c0796532b2e1e6626c36ee75d71b4b124f4dfbae5428f7"
+    },
+    {
+      "bytes": 36195,
+      "git_blob": "3cdb8a246559266697cf600fe6170d618e6edc69",
+      "path": "tests/test_windows_client_n0a_host.py",
+      "sha256": "feac07d91bd223c8e61b8428897b804ec61551bbe72ac3d38543f16514df6084"
+    },
+    {
+      "bytes": 14179,
+      "git_blob": "7903ff5239ee0942ac823e06c43050aacb5820ba",
+      "path": ".github/windows_n0a_udp_guest.py",
+      "sha256": "3b4cc7c279ebd055a61b5a010077ea3a8e23c1fa688677e9be7920af48118865"
+    },
+    {
+      "bytes": 12733,
+      "git_blob": "f647c0f83771160aa52c71fc91aaf15579306072",
+      "path": "tests/test_windows_client_n0a_udp_guest.py",
+      "sha256": "e47906546b2fa97d01594962287ce9270d5f550d67c1a52eef0383294b435c94"
+    },
+    {
+      "bytes": 7861,
+      "git_blob": "6e3b501e40c098922c113dbc4aba51b5abdfeb74",
+      "path": ".github/windows_n0a_udp_flow.py",
+      "sha256": "8fdd238a101fad48cafd80161fb1acbcf370864907b0d99647287c5bba262e80"
+    },
+    {
+      "bytes": 6934,
+      "git_blob": "e18599809492ed413f373fcaef10d5b553d38c81",
+      "path": "tests/test_windows_client_n0a_udp_flow.py",
+      "sha256": "ae1b8007eed6648b194b3cc5f7205fba6403245a9c0fcad2ca0cfae9fc3d9033"
+    },
+    {
+      "bytes": 50313,
+      "git_blob": "39b20ccbe3f2a26f2a3c5e7e03dfa414768a891d",
+      "path": ".github/windows-identity-direct-stage0-run.ps1",
+      "sha256": "c29c4ee0bbfcc81c9698ae893a8cd26a9f65f82741e5433eae24d5fc46b5979f"
+    },
+    {
+      "bytes": 11635,
+      "git_blob": "ed62fbc2ad7f6ee58f425f6cd4a8f1a8498c6f5f",
+      "path": ".github/test-windows-udp-guest-gates.ps1",
+      "sha256": "96566cfe7c5808cba968666fee587c440f58033f02d14aae1950c49df6a3c001"
+    },
+    {
+      "bytes": 3559,
+      "git_blob": "d8cd20a3099a6dfeec7550cfb5e141e44906d83b",
+      "path": "tests/test_windows_udp_guest_transport.py",
+      "sha256": "bae63a6391a218f6e7ca4118a8724f8f31c9ed2c36f79dc1d2b1a8c2a29a0a09"
+    },
+    {
+      "bytes": 16030,
+      "git_blob": "14f1550a00ed4b712d89fca5941b32d4d05d5561",
+      "path": ".github/test-windows-n0a-guest-gates.ps1",
+      "sha256": "0169e129951e2f4c12f76f84f6d9014930fa983bae765450772c87e3f1cd7e70"
+    },
+    {
+      "bytes": 3475,
+      "git_blob": "6c2e1e43976774a8033595902f340de8011a3570",
+      "path": ".github/test_windows_udp_payload.py",
+      "sha256": "e3109183bfd134169ab3dc94e055c3f76ef0086edba9d78d5f204a3bb6cf21b4"
+    },
+    {
+      "bytes": 5389,
+      "git_blob": "807d5d3271fe4817ab857bf55a579fca36d163da",
+      "path": ".github/test-windows-udp-payload-gates.ps1",
+      "sha256": "e456ad7fc3098a1bb83b48045fff23cae703b8a1fe09b133880a062eff21b378"
+    },
+    {
+      "bytes": 3979,
+      "git_blob": "d541495f5047d2edf8f7f2867b78974e74e5b0f8",
+      "path": "tests/test_windows_udp_payload.py",
+      "sha256": "65941cb776c3b90d93ee898a63c76ad9485db56714e657b0690e224ffe7b87b0"
+    },
+    {
+      "bytes": 8209,
+      "git_blob": "7d0ba6534e963a9a07708a11a9a16f9de0a2fe0c",
+      "path": ".github/workflows/windows-n0a-udp-gates.yml",
+      "sha256": "a72a252373bdd43085daa4adfa4d41f45faa7440cd53ef6f20602bb0d2bb5f63"
+    },
+    {
+      "bytes": 14512,
+      "git_blob": "3d064e557efd5c01d89fe31cb14de1c667fa1d6d",
+      "path": ".github/native/windows_n0a_udp_actor.cpp",
+      "sha256": "dea64f0f25d60930be13c4f9e24b41f7535d1021476e6180d6bfe3361b40d0f2"
+    },
+    {
+      "bytes": 1332,
+      "git_blob": "e3fd2d744dd387f8cd04724196b423710f3fe1d7",
+      "path": ".github/native/windows_n0a_udp_fixture.cpp",
+      "sha256": "9465f6fd4399b4e7edc357dcfaf7769905aa74392c423f05142fa9f49896bbae"
+    },
+    {
+      "bytes": 2821,
+      "git_blob": "d606f9acb738fc63bb18db1d2c2c9ac8390abacc",
+      "path": ".github/build_windows_n0a_udp_actor.ps1",
+      "sha256": "3b3c590bd47fdb7ebb0266286c190aaa0621336d1a62ea0aa4e8b855f8902297"
+    },
+    {
+      "bytes": 3040,
+      "git_blob": "f71f0dbe0eeea86e5663b68b65f6f98ae2b0b791",
+      "path": ".github/build_windows_n0a_udp_fixture.ps1",
+      "sha256": "9ccf8b9d4468f129198caa1f39d9fcce2b560bc30dc5bc94c3ff349d8ec3b887"
+    },
+    {
+      "bytes": 11576,
+      "git_blob": "aec3512a8ea2483d6c8164304f0316ad5cb6e617",
+      "path": ".github/test_windows_n0a_udp.py",
+      "sha256": "badd87aae1ab62a4522bc65e8dd4ecaf9f955ba0dbba85a4628f9d66c64fbdd9"
+    },
+    {
+      "bytes": 14354,
+      "git_blob": "7d088e1c925ff2b77231a2b2437c031517ec80bd",
+      "path": ".github/windows_n0a_udp_packet.py",
+      "sha256": "f57981ebf1989e5cf7e4e1f29d4e9d1ff9b8ffcb6593d86aaed36d29e307c4db"
+    },
+    {
+      "bytes": 7837,
+      "git_blob": "50665f8c8dbcec57a0e2a2b7053c61cab63afac5",
+      "path": "tests/test_windows_n0a_udp_actor.py",
+      "sha256": "9fc43eba1c3781506363816ca416937fdc9963bcb36f2867be9f1c6e4e9900ff"
+    },
+    {
+      "bytes": 8745,
+      "git_blob": "409f3e0059db7c7d53246aaaf26d60074b5f8245",
+      "path": "tests/test_windows_n0a_udp_gate.py",
+      "sha256": "cd71436bf53fe6a9a3edc3cd9cd4b50c3027aac424f2cee87d1e6551557786dd"
+    },
+    {
+      "bytes": 12702,
+      "git_blob": "0ad9c2744e7e7305e1fbc4f8549ce83483279346",
+      "path": "tests/test_windows_client_n0a_udp_packet.py",
+      "sha256": "e5ed386613cb95a8f40ed7b16a2dcd775cedb649764a29c05cdf46dbdbb8828d"
+    },
+    {
+      "bytes": 5887,
+      "git_blob": "80517cfddaed4a7c84b547d9fe2e8428d8d9c808",
+      "path": "docs/validation/2026-10-21-direct-udp-mechanism.md",
+      "sha256": "1f18fcbfaae3eb6674b3a86df73e19b743c81a7c8e29ef3cd6f14aebc3a20d5a"
+    },
+    {
+      "bytes": 37779,
+      "git_blob": "cc39ad4f598d746fa928deeadecb8182129f2a75",
+      "path": ".github/test_windows_dns_request3.py",
+      "sha256": "4c0809c559051954cb783d6986bc75e4f7acd1ac6e234438f83a165ee6edbcb3"
+    },
+    {
+      "bytes": 35975,
+      "git_blob": "45891a62d4fa9e12489785f9c8ce5f8394cb4874",
+      "path": "tests/test_windows_dns_request3.py",
+      "sha256": "6c28bdbccf60300b14099852e607de25586c44fea7d7a93495874c075347c9cf"
+    },
+    {
+      "bytes": 4292,
+      "git_blob": "d099e927764eaad141a78c51d4996559f5f5b415",
+      "path": ".github/workflows/windows-dns-request3-gates.yml",
+      "sha256": "4e9c90c64e96ca0b7d190dafce08a5a29cf0c1171435ec1cc149e7352ae180be"
+    },
+    {
+      "bytes": 11251,
+      "git_blob": "b6cc0c05907e30a04d61e8c956c746fb6551dd4a",
+      "path": "tests/test_windows_dns_workflow.py",
+      "sha256": "15eaa8bba30a02b9f21ca6f2e55f28a261eab0457184013396c8d9344b608921"
+    },
+    {
+      "bytes": 15311,
+      "git_blob": "1121b2209e8a9346c25db4d398b1a8e733d6ca9c",
+      "path": "docs/validation/2026-10-21-dns-request3-mechanism.md",
+      "sha256": "657a8a55221da8ae35c5ea24dd42b4ba5ea9889bdaf92e219ef543afb4e68a76"
+    },
+    {
+      "bytes": 15494,
+      "git_blob": "c345efdc4fded998d13b01041aa5f6c0e5b15bc3",
+      "path": ".github/native/windows_n0a_dns_fixture.cpp",
+      "sha256": "852c8e56e17a84b7df8a6ebf74d30c493eafcb2aa9f2cb900e151302a5b0dfad"
+    },
+    {
+      "bytes": 9913,
+      "git_blob": "b99c4101d99f4a7c9a2ebaae7a17153982e2bb72",
+      "path": ".github/windows_dns_fixture.py",
+      "sha256": "5a330ae54ec887742ed14c0d2fd1135e486790b686fbc850c3681f04e674273a"
+    },
+    {
+      "bytes": 10078,
+      "git_blob": "4f94e3cf23cf399b9ff5ffdd318b07e8ba885c65",
+      "path": "tests/test_windows_client_dns_fixture.py",
+      "sha256": "d85375c975a79f2a7b2b62f3226053e7eea91780f942c8a0534fc0525e0f3ce5"
+    },
+    {
+      "bytes": 4439,
+      "git_blob": "62d3d16ba83b727eb2c8fa1d1cf98e8bd09e0a00",
+      "path": ".github/build_windows_n0a_dns_fixture.ps1",
+      "sha256": "e086977cc8c51b16adabe3ec9d4b5d7ef42dec6f2c2b03433c077e9d86609c6b"
+    },
+    {
+      "bytes": 11209,
+      "git_blob": "3d25d7a41c428aeeff9ad31c4caf7a7f7871897d",
+      "path": ".github/windows_n0a_capture_adapter.py",
+      "sha256": "7636e345ce560bba586a57408665b991a4d3711155dfe43b56dee3b4a45ae4a7"
+    },
+    {
+      "bytes": 18724,
+      "git_blob": "eca378928de2bb7b41fc61c127fbe1e207485cd3",
+      "path": "tests/test_windows_client_n0a_capture_adapter.py",
+      "sha256": "53891b9b5ecd4c1845eb6fa3a66e6db65d9c5d9d28ebf950e29fb9523560f22c"
+    },
+    {
+      "bytes": 5184,
+      "git_blob": "12662e445b8ee1e6c6150ecac56112b863bac514",
+      "path": "docs/validation/2026-10-21-n0a-runner-capture-integration.md",
+      "sha256": "c2c02bda493a809ad31d6f27e3d4a94275e3b0385afaba181f0af6337ffc4b8e"
+    },
+    {
+      "bytes": 8588,
+      "git_blob": "af899db3cc73973eb6e3caf5236e33560f16085b",
+      "path": "tests/test_windows_client_direct_workflow.py",
+      "sha256": "0f4a9874c991076fbf597dcac42c2cb4a30a002bebd9afbaf6044df8904556aa"
+    },
+    {
+      "bytes": 18967,
+      "git_blob": "cdfdde9895c41d32e5a0a7dc92e224203a7aebaf",
+      "path": ".github/windows_n0a_guest.py",
+      "sha256": "134fac0466a346cd7d1f12e21a6c4650e4f9fe7d33fdb8e883da622fb57d3ba8"
+    },
+    {
+      "bytes": 33073,
+      "git_blob": "3273087ee53cd211527f18e4564affb26fd56867",
+      "path": ".github/windows_n0a_control.py",
+      "sha256": "6ad3df0c9f1a30dccaef65b1fb60c9e2b532ef270a6d5881fb69ecd15ae5e9b2"
+    },
+    {
+      "bytes": 10883,
+      "git_blob": "759e4c1df1003b7453937658eefa6514d15049c7",
+      "path": ".github/windows_n0a_flow.py",
+      "sha256": "86bfa33548cd14adac834ce7625a7f3d7b9c3271161d71ae811da1988e3cc794"
+    },
+    {
+      "bytes": 29652,
+      "git_blob": "7f06a291a7c31fda86465048e21da592f5f953e7",
+      "path": ".github/windows_n0a_capture_child.py",
+      "sha256": "51fc2c273962b6c61a16efa577eea9d559cc2eabba1fcd9c40c804008903a78d"
+    },
+    {
+      "bytes": 13064,
+      "git_blob": "959a9a859c4c5c7c153d47500aab9374712fd6c3",
+      "path": ".github/windows_n0a_packet.py",
+      "sha256": "c81839410302ec5c2967fff526c257cd6520ffaf52501846cfac6236a8adbddd"
+    },
+    {
+      "bytes": 15377,
+      "git_blob": "243e4bebd4a86d7805d3e568aaa7d3d622a43e05",
+      "path": ".github/native/windows_n0a_actor.cpp",
+      "sha256": "33a276721db4d46bd79f47fabd3bb5b8e126e1a8c259280e690b8dd2caaea465"
+    },
+    {
+      "bytes": 31002,
+      "git_blob": "189a70ee773534147387fc80beaf8de8e42d64e0",
+      "path": ".github/native/windows_identity_actor.cpp",
+      "sha256": "530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553"
+    },
+    {
+      "bytes": 7507,
+      "git_blob": "ec442d23bd5869d9d89b3005a8e47abe070d0950",
+      "path": ".github/workflows/windows-n0a-connect-gates.yml",
+      "sha256": "28eb502703be16450d1c188123a3c7ec63021d1fbf95717a9c9bd3bf4f6ea476"
+    },
+    {
+      "bytes": 52976,
+      "git_blob": "3b46c0a3e9b112287b8c50dd0f202181f52d398e",
+      "path": ".github/windows_identity_proof.py",
+      "sha256": "aada68c3a0c309dffe422cd6271cf80a728e05a3c4a52a6a81293b47b74d2386"
+    }
+  ]
+}

@@ -1,0 +1,114 @@
+{
+  "entry": {
+    "bytes": 25426,
+    "name": "recover_lpac_curl_a4_actual01_01.py",
+    "sha256": "e6673a9dc5434be56e809dc0724b9fe399b20e62ed71f86857f08f6837ecec58"
+  },
+  "global_snapshots": {
+    "after": {
+      "bytes": 7655,
+      "name": "lpac-curl-a4-recovery01-after-a4r01-global-snapshot.json",
+      "sha256": "e2628e54697b73876c68b6ad3a055f407b8518023f42f239e1668599eba9b1e0"
+    },
+    "before": {
+      "bytes": 7655,
+      "name": "lpac-curl-a4-recovery01-before-a4r01-global-snapshot.json",
+      "sha256": "e2628e54697b73876c68b6ad3a055f407b8518023f42f239e1668599eba9b1e0"
+    },
+    "historical_unattributed_route_drift_not_erased": true,
+    "objects": {
+      "dns": true,
+      "firewall_profiles": true,
+      "routes": true,
+      "user_proxy": true
+    },
+    "original_bytes_equal": true
+  },
+  "limits": [
+    "The frozen ordinary worker records no exact live old generations, old Job absence, matching SID derivations, per-node ACL absence and four label-absence checks; individual query raw returns/ACL bytes were not recorded.",
+    "The delete helper returned normally; a separate external profile-absence query was not made.",
+    "The outer raw nested_resource_cleanup_incomplete scalar remains true; explicit process/Job/handle closure fields and the separate worker facts are reported without rewriting it.",
+    "The original actual01 remains an inconclusive base_probe attempt with recovery_required=true; this new recovery does not grant loader, application, networking, DNS, Linux, hostile-same-SID or crash-safety acceptance."
+  ],
+  "original_public": {
+    "bytes": 3160,
+    "sha256": "409308b39b90f23a4f05e512e9b8660e0deb2b538f9e6a700b0b4ad8e88ead62"
+  },
+  "original_worker": {
+    "bytes": 125664,
+    "sha256": "46666662396d26e583a8441ebd90a77c487f78a49c2ba15d60422513659f6040"
+  },
+  "readbacks": {
+    "all_three_record_times_in_original_work85_and_ordered": true,
+    "current_file_only_node_count": 270,
+    "old_roles_reported_process_absent": [
+      "before",
+      "grant-root",
+      "grant-package",
+      "grant-output",
+      "selected",
+      "after",
+      "remove"
+    ],
+    "profile_sid_rebound_before_delete": true,
+    "recorded_explicit_label_count": 0,
+    "recorded_original_SID_ACE_count": 0,
+    "recorded_tree_nodes": 270,
+    "selected_output_label_nodes": 4,
+    "single_source_bound_delete_intent_and_normal_helper_return": true
+  },
+  "recovery_outer": {
+    "bytes": 620,
+    "name": "outer-launch.json",
+    "sha256": "ff53c92345fec47b96d43bed47d8ef53eb8dd258f730c35e308e705469303801"
+  },
+  "recovery_public": {
+    "bytes": 1272,
+    "name": "lpac-curl-a4-loader-local-01-recovery01-public.json",
+    "sha256": "f8308fc3bb2f4b7b5c9abcc793823c9a59813e7c56741c9c7ae2d2b179dba846"
+  },
+  "recovery_worker": {
+    "bytes": 1984,
+    "name": "worker-report.json",
+    "sha256": "986fb79079a5d9d3e40aa76e92f23783de7e06052cfe7e6cc223f483f1ade1bc"
+  },
+  "result": {
+    "original_bytes_unchanged": true,
+    "original_public_recovery_required_still_true": true,
+    "original_worker_acl_removed_and_profile_deleted_still_false": true,
+    "outer_process_exit0_and_known_job_handle_cleanup": true,
+    "recorded_scoped_facts": {
+      "all_original_sid_ACEs_absent": true,
+      "artifact_tree_bound": true,
+      "current_ordinary_device_bound": true,
+      "exact_profile_sid_derived_and_released": true,
+      "old_exact_generations_not_live": true,
+      "original_files_and_source_bound": true,
+      "original_outer_job_absent": true,
+      "original_resources_known_closed": true,
+      "profile_delete_returned_success": true,
+      "profile_sid_rebound_before_delete": true,
+      "selected_output_labels_absent": true
+    },
+    "separate_recovery_passed": true,
+    "worker_report_bound": true
+  },
+  "reviewer_actions": {
+    "API_or_cleanup_or_project_import_or_tests": false,
+    "file_hash_struct_JSON_source_only": true
+  },
+  "schema_version": 1,
+  "source_commit": "10ac2233d03bb63fe45dbbcfe5a02043c452fe25",
+  "source_count": 90,
+  "source_sha256": "b13649fe56b7ba06100496fa1ba1461b92140af2f9ee9b9462e9971b4e233f47",
+  "stage": "A4-actual01-separate-profile-recovery-safe-review",
+  "unproved": {
+    "curl_or_private_DLL_executed": false,
+    "external_profile_absence_independently_verified": false,
+    "icacls_or_label_write_executed": false,
+    "network_experiment_run": false,
+    "old_PID_terminated": false,
+    "original_recovery_required_cleared": false,
+    "product_acceptance": false
+  }
+}

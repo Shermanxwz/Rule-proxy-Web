@@ -1,0 +1,309 @@
+diff --git a/.github/windows_identity_lpac_dns_local.py b/.github/windows_identity_lpac_dns_local.py
+--- a/.github/windows_identity_lpac_dns_local.py
++++ b/.github/windows_identity_lpac_dns_local.py
+@@ -140,6 +140,8 @@
+         require(type(value) is int and value in (0,1),'lpac_scalar');return value
+ 
+     def atomic_spawn(self,info,argv,cwd,job,owners,state,*,environment,stdio=(),profile_pointer=None,catalog=None):
++        # Observation only: attempted/ownership/cleanup policy is unchanged.
++        state.update(create_status='not_entered',create_winerror=None,create_information='not_observed')
+         require(type(environment) is str and environment.endswith('\0\0') and len(stdio) in (0,3),'constructor')
+         lpac=profile_pointer is not None
+         if lpac:
+@@ -173,11 +175,19 @@
+                 self.native.check(self.k.UpdateProcThreadAttribute(attrs,0,0x20002,handles,C.sizeof(handles),None,None),'UpdateProcThreadAttribute(stdio)')
+                 startup.StartupInfo.dwFlags=0x100
+                 startup.StartupInfo.hStdInput,startup.StartupInfo.hStdOutput,startup.StartupInfo.hStdError=stdio
++            commandline=C.create_unicode_buffer(subprocess.list2cmdline(argv));env=C.create_unicode_buffer(environment)
+             def create():
+-                ok=self.k.CreateProcessW(argv[0],C.create_unicode_buffer(subprocess.list2cmdline(argv)),None,None,bool(stdio),
+-                    self.proc._CREATE_SUSPENDED|self.proc._CREATE_UNICODE_ENVIRONMENT|self.proc._EXTENDED_STARTUPINFO_PRESENT|0x08000000,
+-                    C.create_unicode_buffer(environment),str(cwd),C.byref(startup),C.byref(info))
+-                return ok,C.get_last_error() if not ok else 0
++                try:
++                    ok=self.k.CreateProcessW(argv[0],commandline,None,None,bool(stdio),
++                        self.proc._CREATE_SUSPENDED|self.proc._CREATE_UNICODE_ENVIRONMENT|self.proc._EXTENDED_STARTUPINFO_PRESENT|0x08000000,
++                        env,str(cwd),C.byref(startup),C.byref(info))
++                except BaseException:
++                    state['create_status']='exception';raise
++                code=C.get_last_error() if not ok else 0
++                information='all_zero' if not any((info.hProcess,info.hThread,info.dwProcessId,info.dwThreadId)) else 'nonzero'
++                state.update(create_status='returned_true' if ok else 'returned_false',create_winerror=None if ok else code,
++                    create_information=information)
++                return ok,code
+             def check(result):
+                 if not result[0]:raise launcher.NativeFailure('CreateProcessW(atomic-LPAC)',result[1])
+             helpers.create_suspended_owned(create,check,info,owners,state)
+@@ -241,6 +251,16 @@
+     # uses C's already bounded larger traversal, retaining its no-reparse gate.
+     return contracts.owned_tree(root,max_nodes=256,max_depth=12,max_bytes=16*1024*1024)
+ 
++def known_no_child(row,*,start):
++    """A failed API call receipt, never a process-exit or cancellation receipt."""
++    observation=row['create_observation']
++    return (row['attempted'] and observation['status']=='returned_false' and live.integer(observation['winerror'],1)
++        and observation['process_information']=='all_zero'
++        and live.integer(observation['returned_qpc'],start,observation['work_cutoff']-1)
++        and not any(row[k] for k in ('process_returned','assigned','admitted','resumed','exited'))
++        and all(row[k] is None for k in ('pid','created','identity','capabilities','lpac','exit_code','admission_qpc','resume_qpc'))
++        and row['go_qpc']==[])
++
+ class Owner:
+     def __init__(self,root,c,parent,api,budget,*,fixture_factory=None):
+         self.root,self.c,self.parent,self.api,self.budget=root,c,parent,api,budget
+@@ -263,12 +283,13 @@
+             deadline=self.c['deadline_qpc'],source_sha256=self.c['source_sha256'],qpc=self.budget.read(),action=label)))
+ 
+     def task(self,name,argv,work,*,lpac=False,stdio=False,owners=None,children=None,job=None,cleanup=False):
+-        self.budget.require_ms(self.budget.cutoff(3 if cleanup else 25))
++        work_cutoff=self.budget.cutoff(3 if cleanup else 25);self.budget.require_ms(work_cutoff)
+         owners=self.owners if owners is None else owners;children=self.children if children is None else children;job=self.job if job is None else job
+         image=launcher.checked_path(argv[0]);image_hash=sha(local.bounded(image,8*1024*1024))
+         if name in ('selected','health'):require(image_hash==self.c['actor_sha256'],'actor_changed')
+         info=self.api.process_info();row=dict(info=info,attempted=False,assigned=False,exited=False,exit_code=None,pid=None,created=None,
+             process_returned=False,
++            create_observation=dict(status='not_entered',winerror=None,process_information='not_observed',returned_qpc=None,work_cutoff=work_cutoff),
+             token=None,identity=None,capabilities=None,lpac=None,lpac_expected=lpac,resumed=False,admitted=False,
+             image_sha256=image_hash,admission_qpc=None,resume_qpc=None,go_qpc=[],name=name)
+         children.append(row)
+@@ -284,6 +305,11 @@
+             finally:
+                 row['attempted']=state['creation_attempted'];row['process_returned']=bool(info.hProcess)
+                 if info.dwProcessId:row['pid']=int(info.dwProcessId)
++                row['create_observation']=dict(status=state.get('create_status','not_entered'),winerror=state.get('create_winerror'),
++                    process_information=state.get('create_information','not_observed'),returned_qpc=None,work_cutoff=work_cutoff)
++                if row['create_observation']['status'] in ('returned_false','returned_true'):
++                    try:row['create_observation']['returned_qpc']=self.budget.read()
++                    except BaseException:pass # No trustworthy return clock => cannot become known-no-child.
+         finally:
+             uncertain=False
+             for h in tuple(stdio_owners.pending):
+@@ -458,7 +484,8 @@
+                 try:self.sticky()
+                 except BaseException:self.j['fixture_cleanup']=False
+         try:
+-            clean,empty,stop=ac._cleanup(self.api,live.CleanupView(self.budget,self.budget.cutoff(8)),self.job,self.children,self.owners)
++            cleanup_children=[row for row in self.children if not known_no_child(row,start=self.c['start_qpc'])]
++            clean,empty,stop=ac._cleanup(self.api,live.CleanupView(self.budget,self.budget.cutoff(8)),self.job,cleanup_children,self.owners)
+             self.j.update(workload_cleanup=clean,workload_job_empty=empty,workload_stop=stop)
+         except BaseException:clean=False
+         if clean and self.j['fixture_cleanup'] and not self.api.controls_uncertain:
+@@ -471,7 +498,8 @@
+                     self.scope_acl(removed=True);self.j['acl_removed']=True
+                 except BaseException:pass
+                 finally:
+-                    try:self.j['cleanup_tools']=ac._cleanup(self.api,live.CleanupView(self.budget,self.budget.cutoff(3)),job,children,toolowners)[0]
++                    try:self.j['cleanup_tools']=ac._cleanup(self.api,live.CleanupView(self.budget,self.budget.cutoff(3)),job,
++                        [row for row in children if not known_no_child(row,start=self.c['start_qpc'])],toolowners)[0]
+                     except BaseException:self.j['cleanup_tools']=False
+                     self.j['cleanup_tasks']=[task_projection(r) for r in children]
+                 if self.j['acl_removed'] and self.j['cleanup_tools'] and not self.api.controls_uncertain:
+@@ -487,7 +515,7 @@
+ 
+ def task_projection(r):
+     return {k:r[k] for k in ('name','attempted','assigned','exited','exit_code','pid','created','identity','capabilities','lpac','lpac_expected',
+-        'resumed','admitted','image_sha256','admission_qpc','resume_qpc','go_qpc','process_returned')}
++        'resumed','admitted','image_sha256','admission_qpc','resume_qpc','go_qpc','process_returned','create_observation')}
+ 
+ def config_validate(c):
+     keys={'schema_version','scope',*NONCES,'start_qpc','frequency','root_deadline_qpc','deadline_qpc','guard_job_name','source_hashes',
+@@ -515,7 +543,7 @@
+     require(all(type(j[k]) is bool for k in booleans) and (j['profile_sid'] is None or ac.ac_profile_sid(j['profile_sid']))
+         and (not j['profile_created'] or ac.ac_profile_sid(j['profile_sid'])),'result_facts')
+     rowkeys={'name','attempted','assigned','exited','exit_code','pid','created','identity','capabilities','lpac','lpac_expected',
+-        'resumed','admitted','image_sha256','admission_qpc','resume_qpc','go_qpc','process_returned'}
++        'resumed','admitted','image_sha256','admission_qpc','resume_qpc','go_qpc','process_returned','create_observation'}
+     tasks={}
+     for field,allowed in (('tasks',{'grant-root','grant-inputs','grant-lpac-report','grant-lpac-control','selected','health','inventory'}),('cleanup_tasks',{'remove'})):
+         rows=j[field];require(type(rows) is list and len(rows)<=len(allowed),'task_bound')
+@@ -523,6 +551,16 @@
+         for row in rows:
+             require(type(row) is dict and set(row)==rowkeys and row['name'] in allowed and row['name'] not in names,'task_schema');names.add(row['name'])
+             for k in ('attempted','assigned','exited','lpac_expected','resumed','admitted','process_returned'):require(type(row[k]) is bool,'task_bool')
++            observation=row['create_observation']
++            require(type(observation) is dict and set(observation)=={'status','winerror','process_information','returned_qpc','work_cutoff'}
++                and observation['status'] in ('not_entered','exception','returned_false','returned_true'),'create_observation')
++            require((observation['status']=='not_entered')==(not row['attempted']),'create_attempt_observation')
++            require(live.integer(observation['winerror']) if observation['status']=='returned_false' else observation['winerror'] is None,'create_error_observation')
++            require(observation['process_information'] in ('not_observed','all_zero','nonzero')
++                and ((observation['process_information']=='not_observed')==(observation['status'] in ('not_entered','exception'))),'create_information_observation')
++            require(type(observation['work_cutoff']) is int and observation['work_cutoff']==c['deadline_qpc']-(3 if field=='cleanup_tasks' else 25)*c['frequency']
++                and (observation['returned_qpc'] is None or live.integer(observation['returned_qpc'],c['start_qpc'],live.MAX_SIGNED)),'create_clock_observation')
++            require(observation['status'] not in ('not_entered','exception') or observation['returned_qpc'] is None,'create_unreturned_clock')
+             require(row['lpac_expected']==(row['name']=='selected') and ac.digest(row['image_sha256']),'task_image')
+             require(row['lpac'] is None or type(row['lpac']) is int and row['lpac'] in (0,1),'task_lpac')
+             require(row['lpac_expected'] or row['lpac'] is None,'ordinary_lpac_not_queried')
+@@ -533,6 +571,7 @@
+             require(not row['resumed'] or row['admitted'] and row['assigned'] and row['admission_qpc']<=row['resume_qpc']<c['deadline_qpc'],'task_resume_gate')
+             require(not row['admitted'] or row['attempted'] and row['pid'] is not None and row['created'] is not None
+                 and row['identity'] is not None and row['capabilities'] is not None
++                and observation['status']=='returned_true' and observation['process_information']=='nonzero'
+                 and (row['lpac']==1 if row['name']=='selected' else row['lpac'] is None),'task_admission')
+             if row['admitted'] and row['name'] in ('selected','health'):
+                 require(row['image_sha256']==c['actor_sha256'],'actor_task')
+@@ -545,7 +584,8 @@
+                 else:require(launcher.token_is_ordinary(row['identity']) and row['capabilities']==[],'task_ordinary')
+             if field=='tasks':tasks[row['name']]=row
+         if j['workload_cleanup'] and field=='tasks' or j['cleanup_tools'] and field=='cleanup_tasks':
+-            require(all(not r['attempted'] or r['process_returned'] and r['exited'] and r['exit_code'] is not None for r in rows),'cleanup_task_exit')
++            require(all(not r['attempted'] or known_no_child(r,start=c['start_qpc'])
++                or r['process_returned'] and r['exited'] and r['exit_code'] is not None for r in rows),'cleanup_task_exit')
+     require(not j['selected_lpac_held'] or 'selected' in tasks and tasks['selected']['admitted'] and tasks['selected']['lpac']==1,'selected_held')
+     require(not j['workload_cleanup'] or j['workload_job_empty'],'cleanup_job')
+     if j['natural_exits']:
+diff --git a/tests/test_windows_identity_lpac_dns_local.py b/tests/test_windows_identity_lpac_dns_local.py
+--- a/tests/test_windows_identity_lpac_dns_local.py
++++ b/tests/test_windows_identity_lpac_dns_local.py
+@@ -78,14 +78,18 @@
+         self.root=root;self.fault=fault;self.now=T+100;self.next=100;self.rows={};self.closed=[];self.events=[];self.controls_uncertain=False
+         self.profile_sid=ACSID;self.granted=False;self.removed=False;self.deleted=False
+         self.native=NS(environment=lambda work:'SystemRoot='+str(root/'win')+'\0TEMP='+str(work/'temp')+'\0TMP='+str(work/'temp')+'\0\0')
+-    def qpc(self):return self.now
++    def qpc(self):
++        if getattr(self,'qpc_fail_once',False):self.qpc_fail_once=False;raise OSError('pure clock unavailable')
++        return self.now
+     def qpc_frequency(self):return F
+-    def process_info(self):return NS(hProcess=None,hThread=None,dwProcessId=0)
++    def process_info(self):return NS(hProcess=None,hThread=None,dwProcessId=0,dwThreadId=0)
+     def close(self,h):
+         if h in self.closed:raise AssertionError('duplicate close')
+         self.closed.append(h)
+         if self.fault=='stdio-close' and h>10000 and not hasattr(self,'stdio_failed'):
+             self.stdio_failed=True;raise OSError('one close unknown')
++        if self.fault=='create-false-close' and getattr(self,'create_false_seen',False) and not hasattr(self,'close_failed'):
++            self.close_failed=True;raise OSError('one owned handle close unknown')
+     def owned_job(self,owners):self.next+=10;owners.add(self.next);return self.next
+     def catalog(self):return CATALOG
+     def create_profile(self,name,state):state.update(attempted=True,returned=True,created=True,pointer=77,sid=ACSID);return ACSID
+@@ -94,9 +98,22 @@
+     def release_profile_sid(self,state):state['pointer']=None
+     def acl_read(self,path,sid):return m.expected_acl(self.root,path) if self.granted and not self.removed else []
+     def atomic_spawn(self,info,argv,cwd,job,owners,state,**kw):
+-        state['creation_attempted']=True
++        state.update(creation_attempted=True,create_status='returned_true',create_winerror=None,create_information='nonzero')
+         if self.fault=='unknowncreate' and kw['profile_pointer']:
++            state.update(create_status='exception',create_information='not_observed')
+             self.events.append('unknowncreate');raise OSError('unknown create')
++        if (self.fault is not None and self.fault.startswith('create-false') and kw['profile_pointer']
++                or self.fault=='remove-create-false' and '/remove:g' in argv):
++            state.update(create_status='returned_false',create_winerror=5,create_information='all_zero')
++            self.create_false_seen=True
++            if self.fault=='create-false-error0':state['create_winerror']=0
++            if self.fault=='create-false-thread':
++                info.hThread=9999;owners.add(info.hThread);state['create_information']='nonzero'
++            if self.fault=='create-false-pid':info.dwProcessId=9999;state['create_information']='nonzero'
++            if self.fault=='create-false-threadid':info.dwThreadId=9999;state['create_information']='nonzero'
++            if self.fault=='create-false-late':self.now=D-25*F
++            if self.fault=='create-false-clock':self.qpc_fail_once=True
++            raise m.launcher.NativeFailure('CreateProcessW(atomic-LPAC)',state['create_winerror'])
+         self.next+=10;info.hProcess=self.next;info.hThread=self.next+1;info.dwProcessId=self.next
+         owners.add(info.hProcess);owners.add(info.hThread)
+         self.rows[info.hProcess]=dict(argv=argv,job=job,lpac=kw['profile_pointer'] is not None,exited=False,kwargs=kw)
+@@ -153,7 +170,9 @@
+         for r in self.rows.values():
+             if r['job']==job:r['exited']=True
+     def terminate_process(self,h):self.rows[h]['exited']=True
+-    def job_empty(self,job):return not any(not r['exited'] and r['job']==job for r in self.rows.values())
++    def job_empty(self,job):
++        if self.fault=='create-false-job':return False
++        return not any(not r['exited'] and r['job']==job for r in self.rows.values())
+     def sleep_ms(self,n):self.now+=n
+ 
+ class LPACOwnerTests(unittest.TestCase):
+@@ -228,6 +247,44 @@
+         owner,api,j=self.owner('unknowncreate');self.assertFalse(j['workload_cleanup']);self.assertFalse(j['profile_deleted'])
+         self.assertFalse(api.deleted);self.assertEqual(j['go'],[]);m.validate_result(j,owner.c)
+ 
++    def test_precise_failed_create_cleans_without_fabricating_a_process_exit(self):
++        owner,api,j=self.owner('create-false');m.validate_result(j,owner.c)
++        selected=next(row for row in j['tasks'] if row['name']=='selected')
++        self.assertEqual(selected['create_observation'],dict(status='returned_false',winerror=5,process_information='all_zero',returned_qpc=api.now,work_cutoff=D-25*F))
++        self.assertTrue(selected['attempted']);self.assertFalse(selected['process_returned'])
++        self.assertTrue(j['workload_cleanup']);self.assertTrue(j['profile_deleted']);self.assertEqual(j['go'],[])
++        self.assertFalse(selected['exited']);self.assertIsNone(selected['exit_code']);self.assertTrue(m.known_no_child(selected,start=T))
++        self.assertEqual(j['native'],[]);self.assertIsNone(j['inventory']);self.assertIsNone(j['fixture_final'])
++
++    def test_error0_partial_information_late_unknown_clock_and_exception_are_not_excluded(self):
++        for fault in ('create-false-error0','create-false-thread','create-false-pid','create-false-threadid',
++            'create-false-late','create-false-clock','unknowncreate'):
++            with self.subTest(fault=fault):
++                owner,api,j=self.owner(fault);m.validate_result(j,owner.c)
++                selected=next(row for row in j['tasks'] if row['name']=='selected')
++                self.assertFalse(m.known_no_child(selected,start=T));self.assertTrue(selected['attempted'])
++                self.assertFalse(j['workload_cleanup']);self.assertFalse(j['profile_deleted']);self.assertEqual(j['go'],[])
++
++    def test_known_no_child_does_not_bypass_job_empty_handle_close_or_acl_remove(self):
++        for fault in ('create-false-job','create-false-close','remove-create-false'):
++            with self.subTest(fault=fault):
++                owner,api,j=self.owner(fault);m.validate_result(j,owner.c)
++                self.assertFalse(j['profile_deleted'])
++                if fault=='remove-create-false':
++                    self.assertFalse(j['acl_removed']);self.assertTrue(j['cleanup_tools'])
++                    row=j['cleanup_tasks'][0];self.assertTrue(m.known_no_child(row,start=T))
++                    self.assertFalse(row['exited']);self.assertIsNone(row['exit_code'])
++                else:self.assertFalse(j['workload_cleanup'])
++
++    def test_create_observation_is_closed_and_cannot_replace_a_full_create_success(self):
++        owner,api,j=self.owner();m.validate_result(j,owner.c)
++        for observation in (dict(status='returned_false',winerror=5),dict(status='returned_true',winerror=0),
++            dict(status='not_entered',winerror=None),dict(status='returned_true',winerror=None,raw='forbidden')):
++            value=copy.deepcopy(j);next(row for row in value['tasks'] if row['name']=='selected')['create_observation']=observation
++            with self.subTest(observation=observation),self.assertRaises(ValueError):m.validate_result(value,owner.c)
++        value=copy.deepcopy(j);next(row for row in value['tasks'] if row['name']=='selected')['create_observation']['process_information']='all_zero'
++        with self.assertRaises(ValueError):m.validate_result(value,owner.c)
++
+     def test_independent_wire_survives_malformed_native_and_outer_projection(self):
+         owner,api,j=self.owner('malformed');self.assertTrue(j['selected_wire_query_observed']);m.validate_result(j,owner.c)
+         v=public_base()
+@@ -322,6 +379,51 @@
+             with self.subTest(label=label),self.assertRaises(ValueError):m.validate_result(v,owner.c)
+ 
+ class ConstructorTests(unittest.TestCase):
++    def make_create_boundary(self,create):
++        class Func:
++            def __init__(self,fn):self.fn=fn
++            def __call__(self,*args):return self.fn(*args)
++        counter=[1000]
++        def init(attrs,count,flags,size):C.cast(size,C.POINTER(C.c_size_t))[0]=256;return int(attrs is not None)
++        def convert(text,out):counter[0]+=1000;C.cast(out,C.POINTER(C.c_void_p))[0]=counter[0];return 1
++        api=m.LPACAPI.__new__(m.LPACAPI);api.proc=proc;api.controls_uncertain=False;api.native=NS(check=m.launcher.NativeAPI.check)
++        api.k=NS(InitializeProcThreadAttributeList=init,UpdateProcThreadAttribute=lambda *args:1,
++            DeleteProcThreadAttributeList=lambda *args:C.set_last_error(4321),CreateProcessW=create,LocalFree=lambda p:None)
++        api.a=NS(ConvertStringSidToSidW=Func(convert));return api
++
++    def test_actual_create_false_records_immediate_error_before_cleanup_can_clobber_it(self):
++        for code in (0,5,87):
++            def create(*args):C.set_last_error(code);return 0
++            api=self.make_create_boundary(create);state={};owners=m.helpers.OneShotHandles(lambda h:None)
++            with self.subTest(code=code),self.assertRaises(m.launcher.NativeFailure) as error:
++                api.atomic_spawn(proc._ProcessInfo(),['fixed.exe'],'owned',77,owners,state,
++                    environment='SystemRoot=C:\\Windows\0\0',profile_pointer=55,catalog=CATALOG)
++            self.assertEqual(error.exception.winerror,code)
++            self.assertEqual((state['create_status'],state['create_winerror']),('returned_false',code))
++            self.assertEqual(state['create_information'],'all_zero')
++            self.assertTrue(state['creation_attempted']);self.assertEqual(owners.pending,set())
++
++    def test_actual_create_exception_records_unknown_without_a_guessed_stale_error(self):
++        def create(*args):C.set_last_error(123);raise OSError('pure callback exception')
++        api=self.make_create_boundary(create);state={};owners=m.helpers.OneShotHandles(lambda h:None)
++        with self.assertRaises(OSError):api.atomic_spawn(proc._ProcessInfo(),['fixed.exe'],'owned',77,owners,state,
++            environment='SystemRoot=C:\\Windows\0\0',profile_pointer=55,catalog=CATALOG)
++        self.assertEqual((state['create_status'],state['create_winerror']),('exception',None))
++        self.assertEqual(state['create_information'],'not_observed')
++        self.assertTrue(state['creation_attempted']);self.assertEqual(owners.pending,set())
++
++    def test_actual_false_api_reads_all_four_process_information_fields(self):
++        for field in ('hProcess','hThread','dwProcessId','dwThreadId'):
++            def create(*args):
++                value=C.cast(args[-1],C.POINTER(proc._ProcessInfo)).contents;setattr(value,field,1234)
++                C.set_last_error(5);return 0
++            api=self.make_create_boundary(create);state={};owners=m.helpers.OneShotHandles(lambda h:None)
++            with self.subTest(field=field),self.assertRaises(m.launcher.NativeFailure):
++                api.atomic_spawn(proc._ProcessInfo(),['fixed.exe'],'owned',77,owners,state,
++                    environment='SystemRoot=C:\\Windows\0\0',profile_pointer=55,catalog=CATALOG)
++            self.assertEqual(state['create_information'],'nonzero')
++            self.assertEqual(set(owners.pending),{1234} if field in ('hProcess','hThread') else set())
++
+     def test_actual_constructor_sets_exact_optout_two_caps_atomic_job_and_no_inherited_handles(self):
+         seen={};freed=[];sidmem=[]
+         class Func:

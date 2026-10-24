@@ -1,0 +1,106 @@
+{
+  "abi_library_version": 3,
+  "abi_security_input_bytes": 64,
+  "abi_security_input_version": 3,
+  "actor_never_resume_source_invariant": true,
+  "api_or_experiment_run_by_reader": false,
+  "atomic_inner_creation_proven": false,
+  "attempt": 1,
+  "bootstrap_held_admitted": true,
+  "bootstrap_primary_available": true,
+  "bootstrap_record_available": true,
+  "bootstrap_self_report_or_actor_execution_used": false,
+  "canonical_pointer_free_input_sha256": "1de97d32949b133d7140149186a869664ae4e6c830a496f64b8444b5bab1473d",
+  "capability_profile": "AgenticAppContainer+privateNetworkClientServer",
+  "complete_two_measured_inputs_recorded": true,
+  "constructor_policy": "bootstrap-held-primary-matched-security-capabilities-aap-only-v1",
+  "continuous_outer_supervision_proven": false,
+  "creation_transfer_crash_gap_resolved": false,
+  "dns_tested": false,
+  "exact_os_catalog_count": 2,
+  "exception_message_published": false,
+  "exception_recorded": false,
+  "external_held_primary_source_bound": true,
+  "freeze_decision_tick_recorded": true,
+  "freeze_decision_within_original_work_deadline": true,
+  "held_worker_result_available": true,
+  "input_sid_byte_metadata": [
+    {
+      "attributes": null,
+      "bytes": 40,
+      "principal": "held-bootstrap-AppContainer",
+      "raw_bytes_or_sid_published": false,
+      "sha256": "c6f839a2e1328254c9a08d7a667ac600dfa02a13f412ba81319ae228cd4bcb63"
+    },
+    {
+      "attributes": 4,
+      "bytes": 48,
+      "principal": "AgenticAppContainer",
+      "raw_bytes_or_sid_published": false,
+      "sha256": "5ae541dee4da85dd70321b5de0c4d0dd46fa48b1411ddcfd9ac2b8b20939db52"
+    },
+    {
+      "attributes": 4,
+      "bytes": 16,
+      "principal": "privateNetworkClientServer",
+      "raw_bytes_or_sid_published": false,
+      "sha256": "5718f9be416bb50b85c46d9107f01d7594032cc2d04c4464ca05ff372c15df2f"
+    }
+  ],
+  "linux_equivalence_proven": false,
+  "measured_arms": [
+    {
+      "bootstrap_rechecked_before_create": true,
+      "bootstrap_rechecked_before_primary": true,
+      "constructor_attempted": true,
+      "held_admitted": true,
+      "input_sha256": "1de97d32949b133d7140149186a869664ae4e6c830a496f64b8444b5bab1473d",
+      "never_resumed": true,
+      "primary_snapshot_available": true,
+      "raw_generation_or_qpc_published": false,
+      "role": "ac",
+      "same_frozen_sc_input": true
+    },
+    {
+      "bootstrap_rechecked_before_create": true,
+      "bootstrap_rechecked_before_primary": true,
+      "constructor_attempted": true,
+      "held_admitted": true,
+      "input_sha256": "1de97d32949b133d7140149186a869664ae4e6c830a496f64b8444b5bab1473d",
+      "never_resumed": true,
+      "primary_snapshot_available": true,
+      "raw_generation_or_qpc_published": false,
+      "role": "lpac",
+      "same_frozen_sc_input": true
+    }
+  ],
+  "network_tested": false,
+  "physical_held_bound_receipt_count": 1,
+  "physical_receipt_count": 1,
+  "physical_receipts": [
+    {
+      "bound_to_validated_held_worker_result": true,
+      "bytes": 2163,
+      "raw_private_text_published": false,
+      "sha256": "e25fd757ced1dac447782a2c52fe920824f5716cf6c8d94337b0009ee82a9db5",
+      "unvalidated_forensic_only": false,
+      "used_for_independent_qualification": false
+    }
+  ],
+  "private_exception_sha256": null,
+  "product_acceptance": false,
+  "proxy_tested": false,
+  "psec_network_preservation_proven": false,
+  "raw_sid_capability_bytes_pid_handle_path_or_qpc_published": false,
+  "required_capability_attributes": 4,
+  "same_input_for_all_recorded_measured_arms": true,
+  "schema_version": 1,
+  "scope": "one-local-cpse-deny-all-outer-guarded-matched-secaps-identity-v1",
+  "security_capabilities_input_does_not_prove_psec_policy_preservation": true,
+  "security_capabilities_verified": true,
+  "source_commit": "ec45dffb66cc88bb48578101afb93ce7044a6521",
+  "source_sha256": "f77fdff1de75ba53d6dca04d65659deb43fd6bdc91c2feaf1c6a03ade7c008db",
+  "stage": "psec-matchedcaps-held-bootstrap-security-capabilities-safe-projection",
+  "unbound_files_used_for_qualification": false,
+  "worker_result_validated": true
+}

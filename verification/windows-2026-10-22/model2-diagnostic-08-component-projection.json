@@ -1,0 +1,324 @@
+{
+  "schema_version": 1,
+  "stage": "model2-diagnostic-safe-component-projection",
+  "attempt": 8,
+  "date": "2026-10-23",
+  "execution_mode": "profiles-off-diagnostic",
+  "source_commit": "24c4cc4aff6fbc00974ff396733e5ca28cb4e830",
+  "source_closure_sha256": "c8d3768c6b8d3b673b9b31a040843bac845e65d59a9035feb5898e273f7cc096",
+  "actor_sha256": "ffa42e35f5107fd38dcae91e7e9b2c867136033f7a5832e613bf55d9a74584aa",
+  "manifest_sha256": "cb0d1cadd801abcc45e11ee1acebedc97c67528e79faa76f5b12b11dbaddd4ff",
+  "public_sha256": "71488cad7ba671091c27cdd264ba7f90ff7169f3b8642f3a70b25ff88fa67278",
+  "ownership_journal": {
+    "bytes": 25210,
+    "sha256": "cbe64f2881db22d7d9fca6d0988eaf1a5e68bebd6f1c6b23530a7f9c71b9241d",
+    "closed_schema_verified": true,
+    "controller_pid_source_artifact_clock_and_public_binding_verified": true,
+    "all_native_descriptor_bytes_and_digests_verified": true,
+    "native_descriptor_count": 18,
+    "all_go_file_digests_verified": true,
+    "go_count": 5
+  },
+  "selected": {
+    "ready_native_report": {
+      "bytes": 1013,
+      "sha256": "6567461591f49a5dda147fb9fb26ec00cfea6d2ad69bc8422b07d021d5bec62b"
+    },
+    "final_native_report": {
+      "bytes": 1094,
+      "sha256": "c5a811cfa06bdb478451b39cc5843159946d1658bf07bef8a889d7a76ec7959e"
+    },
+    "ready_identity_and_exact_declared_agentic_pncs_capabilities_verified": true,
+    "held_before_network_go": true,
+    "held_before_first_resume": false,
+    "same_held_process_generation_and_identity_for_both_phases_and_finish": true,
+    "network_initialized_before_go": false,
+    "finished": true,
+    "phase_count": 2,
+    "natural_exit_code": 0
+  },
+  "proxy_positive": {
+    "native_report": {
+      "bytes": 1500,
+      "sha256": "d25a57f5cc23c97963ec10a1d7b47182af01f5467fa7c8ce79d9e77ae04c20db"
+    },
+    "operation": "proxy-get",
+    "predeclared_case_and_original_clock_bound": true,
+    "transport": {
+      "wsa_startup": true,
+      "wsa_cleanup": true,
+      "inheritance_cleared": true,
+      "socket_created": true,
+      "connect_attempted": true,
+      "connect_completed": true,
+      "peer_loopback": true,
+      "request_complete": true,
+      "send_shutdown": true,
+      "response_exact": true,
+      "response_eof": true,
+      "request_bytes": 129,
+      "response_bytes": 90,
+      "socket_close": "confirmed",
+      "failure": null,
+      "wsa_error": null
+    },
+    "response_body_exact_and_eof_verified": true,
+    "selected_local_tuple_matches_front_accepted_tuple": true,
+    "real_selected_socket_request_reached_pncs_front": true,
+    "passed_component": true
+  },
+  "front": {
+    "native_report": {
+      "bytes": 2449,
+      "sha256": "66a77ea14f7d3b6d8500c40d11ed561e2dfa24ee3dd78263f778ce60184ee6a7"
+    },
+    "exact_pncs_identity_verified": true,
+    "actual_http_socket_boundary": "real-client-request-and-response-socket",
+    "listener_close": "confirmed",
+    "client": {
+      "request_bytes": 129,
+      "request_exact": true,
+      "request_eof": true,
+      "response_bytes": 90,
+      "response_complete": true,
+      "send_shutdown": true,
+      "connection_close": "confirmed"
+    },
+    "pipe_eof": true,
+    "pipe_mechanics_validated_without_zero_capability_projection": true,
+    "natural_exit_code": 0
+  },
+  "relay": {
+    "native_report": {
+      "bytes": 1772,
+      "sha256": "b55afcfba2817eac42289eac722544a96a7aaafc94e5b4ca4c7e1c20239513c8"
+    },
+    "ordinary_zero_capability_identity_verified": true,
+    "transport": {
+      "wsa_startup": true,
+      "wsa_cleanup": true,
+      "inheritance_cleared": true,
+      "socket_created": true,
+      "connect_attempted": true,
+      "connect_completed": true,
+      "peer_loopback": true,
+      "request_complete": true,
+      "send_shutdown": true,
+      "response_exact": true,
+      "response_eof": true,
+      "request_bytes": 95,
+      "response_bytes": 90,
+      "socket_close": "confirmed",
+      "failure": null,
+      "wsa_error": null
+    },
+    "real_canonical_request_and_exact_response_verified": true,
+    "relay_local_tuple_matches_positive_origin_receipt_tuple": true,
+    "natural_exit_code": 0
+  },
+  "direct_observation": {
+    "native_report": {
+      "bytes": 1508,
+      "sha256": "7e8289a91e5219e86c49e2c3f71f40ce3e5c95076831f83fc32ce6f5b6cdddd8"
+    },
+    "operation": "direct-tcp",
+    "same_held_selected_as_positive": true,
+    "predeclared_case_and_fixed_origin_bound": true,
+    "transport": {
+      "wsa_startup": true,
+      "wsa_cleanup": true,
+      "inheritance_cleared": true,
+      "socket_created": true,
+      "connect_attempted": true,
+      "connect_completed": false,
+      "peer_loopback": false,
+      "request_complete": false,
+      "send_shutdown": false,
+      "response_exact": false,
+      "response_eof": false,
+      "request_bytes": 0,
+      "response_bytes": 0,
+      "socket_close": "confirmed",
+      "failure": "connect",
+      "wsa_error": 10013
+    },
+    "access_denied_observed": true,
+    "forbidden_case_received_in_available_origin_receipts": false,
+    "before_and_during_origin_health_controls_passed": true,
+    "after_origin_health_control_completed": false,
+    "complete_direct_deny_qualification": false
+  },
+  "origin_controls": {
+    "before": {
+      "meaning": "before",
+      "native_report": {
+        "bytes": 514,
+        "sha256": "4a1ac2f65eb895463ad795432e15d7e1bfc32f5bcbdc5ab74fd68b98cd63f03a"
+      },
+      "predeclared_case_bound": true,
+      "native_identity_clock_and_owned_origin_bound": true,
+      "request_bytes": 95,
+      "request_exact": true,
+      "request_eof": true,
+      "response_bytes": 90,
+      "response_complete": true,
+      "send_shutdown": true,
+      "connection_close": "confirmed",
+      "failure": null,
+      "wsa_error": null,
+      "passed": true
+    },
+    "positive": {
+      "meaning": "positive-relay",
+      "native_report": {
+        "bytes": 514,
+        "sha256": "167748e02a05b2ed65500f17fe8d6574fbb4ead814b4a35aa92de584b217c89f"
+      },
+      "predeclared_case_bound": true,
+      "native_identity_clock_and_owned_origin_bound": true,
+      "request_bytes": 95,
+      "request_exact": true,
+      "request_eof": true,
+      "response_bytes": 90,
+      "response_complete": true,
+      "send_shutdown": true,
+      "connection_close": "confirmed",
+      "failure": null,
+      "wsa_error": null,
+      "passed": true
+    },
+    "during": {
+      "meaning": "during",
+      "native_report": {
+        "bytes": 514,
+        "sha256": "34facf47a58200b44bb61a4864468a8187a22d0ffeeffcb0c55466787022adf0"
+      },
+      "predeclared_case_bound": true,
+      "native_identity_clock_and_owned_origin_bound": true,
+      "request_bytes": 95,
+      "request_exact": true,
+      "request_eof": true,
+      "response_bytes": 90,
+      "response_complete": true,
+      "send_shutdown": true,
+      "connection_close": "confirmed",
+      "failure": null,
+      "wsa_error": null,
+      "passed": true
+    },
+    "health_before_native_report": {
+      "bytes": 1260,
+      "sha256": "f29d9226e7841bab1d244ee288d9444b22d4e18325682f5bec85f0ada890caf8"
+    },
+    "health_during_native_report": {
+      "bytes": 1260,
+      "sha256": "b482fd72be1a34b4e91e1d8438a0f34f32f072cb07e746276d6680f7619c4e22"
+    },
+    "health_local_tuples_match_corresponding_origin_receipts": true,
+    "all_observed_cases_match_predeclared_cases_in_order": true,
+    "after_completed": false,
+    "origin_and_health_final_reports_exist": false,
+    "aggregate_origin_healthy": false
+  },
+  "failure": {
+    "invariant": "actual_tier",
+    "phase": "selected",
+    "controller_error": {
+      "bytes": 201,
+      "sha256": "83afec7df62921d8af96c25e51041165d1a647afa29c268ce34bf9396940fdc6"
+    },
+    "legacy_parser_expected_single_base_container_log": true,
+    "actual_stdout_bytes": 0,
+    "actual_stderr_bytes": 0,
+    "actual_tier_log_verified": false,
+    "after_control_was_not_reached": true
+  },
+  "exits": {
+    "selected": 0,
+    "g_live": 0,
+    "system_conhost": 0,
+    "front": 0,
+    "relay": 0,
+    "system_conhost_natural_exit_observed": true,
+    "system_conhost_stop_requested": false,
+    "origin_cleanup_termination_exit_code": 1,
+    "health_cleanup_termination_exit_code": 1
+  },
+  "cleanup": {
+    "acl_removed": true,
+    "all_workloads_exited": true,
+    "cleanup": true,
+    "maintenance_cleanup_confirmed": true,
+    "maintenance_handles_closed": true,
+    "profile_deleted": true,
+    "sid_released": true,
+    "workload_cleanup_confirmed": true,
+    "workload_job_empty": true
+  },
+  "outer_cleanup": {
+    "controller_exit_verified": true,
+    "controller_held_verified": true,
+    "guard_job_verified": true,
+    "outer_cleanup_verified": true,
+    "recovery_required": false,
+    "tree_retained": true
+  },
+  "checks": {
+    "artifacts": true,
+    "cleanup": true,
+    "declared_caps": true,
+    "direct_deny": true,
+    "firewall_exact": false,
+    "guard_held": true,
+    "live_probe": true,
+    "ordinary": true,
+    "origin_healthy": false,
+    "positive": true,
+    "proxy_death": false,
+    "same_selected": true,
+    "selected_held": true,
+    "sources": true,
+    "wrong_peer": false,
+    "wrong_port": false
+  },
+  "diagnostic": {
+    "direct_attempted": true,
+    "direct_connected": false,
+    "direct_denied_by_access": true,
+    "effective_full_verified": false,
+    "exact_rule_scope_verified": true,
+    "forbidden_nonce_received": false,
+    "observation_complete": false,
+    "positive_verified": true,
+    "profiles_off_verified": true,
+    "requested": true
+  },
+  "observations": {
+    "origin_nonce_received": true,
+    "real_http_accepted": true,
+    "selected_network_attempted": true
+  },
+  "violations": {
+    "direct_connected": false,
+    "fallback_after_death": false,
+    "forbidden_receiver_accepted": false,
+    "wrong_peer_connected": false,
+    "wrong_port_connected": false
+  },
+  "diagnostic_completed": false,
+  "status": "inconclusive",
+  "scope": {
+    "original_stage0": false,
+    "first_chain_verified": false,
+    "direct_deny_verified": false,
+    "local_c_qualified": false,
+    "product_acceptance": false,
+    "system_dns_tested": false,
+    "service_brokers_tested": false,
+    "winhttp_tested": false,
+    "application_adapter_tested": false
+  },
+  "strict_isolation_qualified": false,
+  "private_identifiers_paths_ports_qpc_and_nonce_values_published": false,
+  "archive_scope": "read-and-copy-only; component observations do not promote failed aggregate acceptance"
+}

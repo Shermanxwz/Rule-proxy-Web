@@ -1,0 +1,79 @@
+{
+  "absolute_machine_path_published": false,
+  "actions": {
+    "CPSE_called": false,
+    "actor_or_process_experiment": false,
+    "dll_loaded": false,
+    "file_bytes_read": true,
+    "native_api_called": false,
+    "network_executed": false,
+    "os_or_global_settings_changed": false
+  },
+  "authenticode_signature_verified": false,
+  "bytes": 417792,
+  "certificate_table_present": false,
+  "dll_characteristic": true,
+  "file_version": [
+    10,
+    0,
+    26100,
+    9711
+  ],
+  "imports_or_user_strings_published": false,
+  "limits": "PE export presence and static version/hash do not prove API-set availability, call success, CPSE+LPAC acceptance, resource recovery, policy enforcement or DLL signing validity.",
+  "named_export_count": 25,
+  "optional_exports": {
+    "CancelProcessSecurityEnvironmentTerminateOnClose": {
+      "forwarded": false,
+      "forwarder": null,
+      "ordinal": 2,
+      "present": true,
+      "rva": 62864
+    }
+  },
+  "pe_machine": "AMD64",
+  "product_version": [
+    10,
+    0,
+    26100,
+    9711
+  ],
+  "reader_sha256": "0528bd9e78df783275e4571a8b2f0bf06209f617526facf9f75bde0f4976c32d",
+  "required_exports": {
+    "CloseProcessSecurityEnvironment": {
+      "forwarded": false,
+      "forwarder": null,
+      "ordinal": 4,
+      "present": true,
+      "rva": 64928
+    },
+    "CreateProcessSecurityEnvironment": {
+      "forwarded": false,
+      "forwarder": null,
+      "ordinal": 6,
+      "present": true,
+      "rva": 71232
+    },
+    "IsProcessSecurityEnvironmentVersionSupported": {
+      "forwarded": false,
+      "forwarder": null,
+      "ordinal": 12,
+      "present": true,
+      "rva": 106256
+    },
+    "QueryProcessSecurityEnvironmentSupport": {
+      "forwarded": false,
+      "forwarder": null,
+      "ordinal": 13,
+      "present": true,
+      "rva": 106048
+    }
+  },
+  "schema_version": 1,
+  "sha256": "83d1a458fc056d4d20931019dffb384a33bcdfd1c6759070b0885c5577dd44db",
+  "stage": "read-only-system-processmodel-pe-metadata",
+  "target": "System32/processmodel.dll",
+  "version_file_flags": 0,
+  "version_file_type": 2,
+  "version_resource_count": 1
+}

@@ -1,0 +1,111 @@
+{
+  "cleanup": {
+    "hosted_udp6_cleanup": true,
+    "hosted_udp6_process_owners": 7,
+    "hosted_udp6_receiver_owners": 2,
+    "linux_paused_qemu": {
+      "cleanup_confirmed": true,
+      "control_closed": true,
+      "failure": false,
+      "forced_kill": false,
+      "guest_executed": false,
+      "packet_egress_tested": false,
+      "passed": true,
+      "paused_observed": true,
+      "process_exit_observed": true,
+      "provenance": {
+        "admitted": true,
+        "close_confirmed": true,
+        "failure": false,
+        "libslirp": {
+          "architecture": "amd64",
+          "local_integrity_verified": true,
+          "name": "libslirp0",
+          "sha256": "1f71a24af59f3aa76c1e0bcf7852de08c1c21c40524479b9d5df404d903b2280",
+          "version": "4.7.0-1ubuntu3.1"
+        },
+        "pre_stop_verified": true,
+        "qemu": {
+          "architecture": "amd64",
+          "local_integrity_verified": true,
+          "name": "qemu-system-x86",
+          "sha256": "8a35ccba41582fc6c38b9df85fc9e35fa1d42f414d2d7d8090ee9b2f5e7c0854",
+          "version": "1:8.2.2+ds-0ubuntu1.18"
+        },
+        "resident_bytes_verified": false,
+        "schema_version": 1,
+        "source_equivalence_verified": false
+      },
+      "qemu_8_2_2": true,
+      "schema_version": 1,
+      "work_removed": true
+    },
+    "stage0b_ps_mock_cleanup": true,
+    "zip_fixture_cleanup": true
+  },
+  "conclusion": "success",
+  "diagnostic_bounds": {
+    "existing_public_cap_bytes": 4096,
+    "host_independent_ceiling_bytes": 3226,
+    "public_independent_ceiling_bytes": 2340,
+    "stdout_cap_bytes": 1024,
+    "stdout_independent_ceiling_bytes": 809,
+    "wire_independent_ceiling_bytes": 2787
+  },
+  "exact_result_sha256": "3fa27b676a638710927dca73d05e41a33ff8fe873fb1274a010ba279dc8862f1",
+  "experiment": "Stage0b single child environment variant short validation",
+  "fixture_freeze_sha256": "b29e5271f82439137b55f737712a8261b6b478a64915d720ae2ef9cb22c07ad0",
+  "head": "258c44547f5c40121db4a2465a6186169b5957bc",
+  "interpretation": [
+    "The actual Windows PowerShell fixture explicitly enumerated batches of 70 and 74, checked exactly 144 cases and completed all parity checks. Its synthetic legacy-root-array test observed nesting=true on this job. That is a present fixture counterexample, not recovery of the previous failed run's hidden batch count or exception. All original 144 report values and expected outcomes were preserved; one duplicate case label was renamed. The failed short gate is archived at b59459ac6ac6e17065f8719d6c70c74b56bc5c20.",
+    "Both platforms passed all 945 required tests with zero skips. Windows passed the isolated production-input verifier, all PowerShell checks, seven real ZIP/extraction modes including 14-member Stage0b, and existing owned IPv6 TEST_ONLY loopback mechanisms. These are overlapping scoped tests, not full-repository or genuine Stage0b runtime acceptance.",
+    "The new helper and child environment remain pure/mock-tested only. Actual CoInitializeEx, SHGetKnownFolderPath, same-user local-path validation and the new two-key child block have not run in this gate. The known-folder API is not a proven fix for historical error 203. Current caller environment, single CreateProcess, zero capabilities, inherited handles, identity/image/jobs, deadlines and cleanup acceptance remain unchanged.",
+    "The proposed future single variant would add only verified current-user LOCALAPPDATA to the existing child SystemRoot block, without changing the four-key caller block or inheriting arbitrary environment. No fallback, retry, new token or global environment mutation is permitted. A successful future variant would not prove unique causality or exclude caller, cache, order or OS-build effects.",
+    "Public schema 3 records bounded lookup, COM and release attempts/returns, exact child keyset and deadline facts, never the private known-folder path. Successful cleanup calls are call-return observations, not independent deallocation proof. HRESULT values use strict unsigned 32-bit projection. Original identity/pipe/EOF/exit/cleanup conjunctions remain required.",
+    "Linux tiny paused owned QEMU and hosted TEST_ONLY IPv6 loopback are auxiliary mechanisms, not Windows guest or Stage0b results. Main receiver echoed 45 frames, wrong-echo control returned one and was rejected; seven process owners and two receiver owners were cleaned. Production valid network CLI was not executed; existing invalid-CLI/profile-only controls remain distinct.",
+    "Original PSEC Stage0 and both earlier real Stage0b failures remain immutable. No IPC, network, proxy or product qualification follows. Any genuine guest variant requires a separate one-run decision after this audit; no automatic runtime is triggered."
+  ],
+  "privacy": {
+    "closed_counts_booleans_public_ci_package_digests_only": true,
+    "raw_logs_paths_nonces_sids_pids_credentials_excluded": true
+  },
+  "run_id": 39753556185,
+  "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39753556185",
+  "schema_version": 1,
+  "scope": {
+    "actual_stage0b_pipe_executed": false,
+    "all_source_pins": 422,
+    "child_environment_variant_runtime_executed": false,
+    "followup_fixture_files": 2,
+    "knownfolder_helper_actual_api_executed": false,
+    "proxy_executed": false,
+    "source_change_files": 11,
+    "windows_vm_executed": false,
+    "workflow_native_actor_app_process_and_host_production_unchanged": true
+  },
+  "source_freeze_sha256": "4d2b3bfc765ac944610ca65a7a372fd29b3a3c8453b686d083ebac401f76d34d",
+  "tests": {
+    "actual_python_to_powershell_cases": 144,
+    "linux_required": 945,
+    "other_ps_checks": [
+      80,
+      48,
+      60,
+      57
+    ],
+    "skips": 0,
+    "stage0b_ps_checks": 215,
+    "windows_required": 945,
+    "zip_checks": 82,
+    "zip_members": [
+      10,
+      14,
+      15,
+      17,
+      22,
+      17,
+      14
+    ],
+    "zip_negatives": 16
+  }
+}

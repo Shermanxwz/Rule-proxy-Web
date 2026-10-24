@@ -1,0 +1,13 @@
+test_atomic_publish_reads_closed_pending_and_never_reopens_hot_control (zero_loopback02_core_focused.CoreTests.test_atomic_publish_reads_closed_pending_and_never_reopens_hot_control) ... ok
+test_atomic_publish_wrong_pending_bytes_never_become_visible (zero_loopback02_core_focused.CoreTests.test_atomic_publish_wrong_pending_bytes_never_become_visible) ... ok
+test_real_owner_full_shape_all_roles_matched_zero_caps_complete_flow (zero_loopback02_core_focused.CoreTests.test_real_owner_full_shape_all_roles_matched_zero_caps_complete_flow) ... ok
+test_selected_and_ordinary_closed_phase_cannot_predate_its_go (zero_loopback02_core_focused.CoreTests.test_selected_and_ordinary_closed_phase_cannot_predate_its_go) ... ok
+test_main_response_requires_release_and_received_clock_causality (zero_loopback02_core_focused.CoreTests.test_main_response_requires_release_and_received_clock_causality) ... ok
+test_root_physical_go_report_intent_tamper_rejected (zero_loopback02_core_focused.CoreTests.test_root_physical_go_report_intent_tamper_rejected) ... ok
+test_real_owner_guard_composition_full_success_original_clock_and_false_claims (zero_loopback02_guard_focused.LocalTests.test_real_owner_guard_composition_full_success_original_clock_and_false_claims) ... ok
+test_independent_binding_rejects_worker_or_physical_raw_mismatch (zero_loopback02_guard_focused.LocalTests.test_independent_binding_rejects_worker_or_physical_raw_mismatch) ... ok
+
+----------------------------------------------------------------------
+Ran 8 tests in 6.952s
+
+OK

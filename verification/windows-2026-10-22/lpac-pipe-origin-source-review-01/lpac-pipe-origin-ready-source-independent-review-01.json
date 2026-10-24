@@ -1,0 +1,96 @@
+{
+  "content": {
+    "AST_only": {
+      "installed_Python_parsed_without_import": true,
+      "test_method_counts": {
+        "tests/test_windows_identity_lpac_pipe_front_native.py": 3,
+        "tests/test_windows_identity_lpac_pipe_origin.py": 21,
+        "tests/test_windows_identity_lpac_pipe_origin_local.py": 12
+      }
+    },
+    "actions": {
+      "file_only_and_readonly_git": true,
+      "imports_executed": false,
+      "main_or_candidate_modified": false,
+      "native_API_or_actor_or_network_executed": false,
+      "tests_repeated": false
+    },
+    "baseline_current_git_head": "eda726acca449b9e8b21c8ec3bc061d77165a964",
+    "blockers": [],
+    "decision": "GO-single-flag-installed-source-only",
+    "false_freeze": {
+      "bytes": 17728,
+      "name": "lpac-pipe-origin-python-candidate-freeze-03.json",
+      "sha256": "986aa220427ee48dad5b26da740066a573b0316e61b41bea7e9fa9a08d9186f0"
+    },
+    "frozen_python_review": {
+      "bytes": 5775,
+      "name": "lpac-pipe-origin-python-independent-review-03.json",
+      "sha256": "19a96c47252596f02e6ea25fedb903de2c8eb5b684ec00d59042969d06292970"
+    },
+    "git_status_exact_six_new_paths": true,
+    "installed_files": {
+      ".github/native/windows_identity_lpac_pipe_front_actor.cpp": {
+        "bytes": 6869,
+        "sha256": "ecc4a793fa1afc33a5c9407486ee9f463bd68132b8090eb259270a89d19ca48d"
+      },
+      ".github/windows_identity_lpac_pipe_origin.py": {
+        "bytes": 66975,
+        "sha256": "da0e7a479b0803d4550f0a77ba15603023414f877f7a7ad81e98b01dc2a9bd5c"
+      },
+      ".github/windows_identity_lpac_pipe_origin_local.py": {
+        "bytes": 17255,
+        "sha256": "a69fec199a9c7252ed733f3f71e4408afabd0c6f9e7ac36612105ba431e71ce6"
+      },
+      "tests/test_windows_identity_lpac_pipe_front_native.py": {
+        "bytes": 12628,
+        "sha256": "9557ab2e2376c8c08f91dba67245fa43328cb187a4f74b7f0f695ede3ac52444"
+      },
+      "tests/test_windows_identity_lpac_pipe_origin.py": {
+        "bytes": 25701,
+        "sha256": "cc7e00b425eeb5b7aa60cd958f02d35d78804209ddb3c3685d2807bab7fa8152"
+      },
+      "tests/test_windows_identity_lpac_pipe_origin_local.py": {
+        "bytes": 10315,
+        "sha256": "e813cb0866c4ab1e8f1fdc8ed586cb9c53c4fa402f5e2d09c23157bb8fa396a3"
+      }
+    },
+    "installed_runtime_source_count": 40,
+    "installed_runtime_source_sha256": "0844e0bb4900ea0146094f4abf3ed4c564eae0825379950e4e9b87ec2961f146",
+    "limitations": [
+      "This receipt verifies installed bytes and the single flag promotion.",
+      "Root integrated suite is running separately; this review does not repeat or predict its outcome.",
+      "No native actor/API/network/security change or runtime experiment is performed by this review.",
+      "No product, Linux, arbitrary application, selected network or DNS isolation acceptance."
+    ],
+    "native_freeze": {
+      "bytes": 4418,
+      "name": "lpac-pipe-front-native-freeze-01.json",
+      "sha256": "e84fd2d705e089f0f1d30938f687068db3b4ea58d833b4f273fac365809f12ae"
+    },
+    "old37_candidate_main_currentGit_and_baselineGit_byte_exact": true,
+    "promotion": {
+      "change": "Only ACTUAL_READY=False becomes True; all other bytes and other five files remain exact.",
+      "changed_path": ".github/windows_identity_lpac_pipe_origin.py",
+      "other_new_files_unchanged_count": 5,
+      "other_runtime_unchanged_count": 39,
+      "runtime_changed_count": 1
+    },
+    "ready_freeze": {
+      "bytes": 6945,
+      "name": "lpac-pipe-origin-ready-source-freeze-01.json",
+      "sha256": "0358797358a256495b50885698bebddecb53369f25be05755da80ad240e4be83"
+    },
+    "schema_version": 1,
+    "stage": "independent-lpac-pipe-origin-Ready-install-delta-review",
+    "tracked_files_unchanged": true
+  },
+  "raw_commitment": {
+    "bytes": 3574,
+    "sha256": "e5b103fa62615e1307768fbea60bf2e5e0f48f4b5ee9958e81b4b72de8b20857"
+  },
+  "schema_version": 1,
+  "stage": "source-evidence-safe-view",
+  "temporal_scope": "Original preparation/review snapshot: its pending/false runtime fields are historical snapshot fields, not the current result.",
+  "transformation": "JSON value projection; account identifiers/user paths redacted if present; no runtime inference"
+}

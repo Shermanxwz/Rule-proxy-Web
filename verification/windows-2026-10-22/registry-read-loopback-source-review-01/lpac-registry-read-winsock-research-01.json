@@ -1,0 +1,76 @@
+{
+  "actions": {
+    "acl_or_rule_changed": false,
+    "actor_run": false,
+    "main_modified": false,
+    "network_api_called": false,
+    "only_sid_derivation_heap_allocations_and_local_acl_reads": true,
+    "profile_created": false,
+    "token_opened_or_created": false
+  },
+  "capability_boundary": "registryRead potentially grants reads to every registry object carrying this capability ACE, not only the two catalog roots. It is not the InternetClient or PNCS well-known capability, and this observation does not prove network authorization or isolation.",
+  "facts": [
+    "Microsoft 10107 is WSASYSCALLFAILURE generic system-call failure, not 10106 provider-failed-init.",
+    "Both observed Winsock catalog root DACLs contain registryRead ReadKey and AAP ReadKey, with no ARAP or tested lpacNetwork/lpacNetworking ACE.",
+    "Both observed system DLL DACLs contain ARAP ReadAndExecute.",
+    "The listed Chromium policy setup adds registryRead before type-specific capabilities; the named-capability implementation matches the actual local derivation."
+  ],
+  "hypothesis": "A zero-cap LPAC may be unable to read catalog registry objects and thereby fail Winsock initialization. No effective-access check or failing-call trace was performed; 10107 does not identify a unique cause.",
+  "prior_partial_acl_receipt": {
+    "note": "First capture classified registry item via PSIsContainer under Windows PowerShell; registry rows failed during non-registry file metadata branch. Original partial receipt preserved; fresh02 uses static target type and reads all four. No security object was modified.",
+    "receipt": {
+      "bytes": 7175,
+      "path": "lpac-winsock-catalog-acl-readonly-01.json",
+      "sha256": "16ec772442074ff72e8693b8fe7cad8869c2d5a4f569f04eb7d6c990b5e50158"
+    }
+  },
+  "receipts": {
+    "derive_lpac_capability_names_readonly_01.py": {
+      "bytes": 3492,
+      "path": "derive_lpac_capability_names_readonly_01.py",
+      "sha256": "78e85c92b83b39141e491fa79b2e8fd1ffefed834a19b741019d1526356a815a"
+    },
+    "lpac-named-capability-derivation-readonly-01.json": {
+      "bytes": 2160,
+      "path": "lpac-named-capability-derivation-readonly-01.json",
+      "sha256": "78bd5fdd211fb3af745c85b211bffcbcb9afcd3dcda9e96b70f8f5e81d721bb8"
+    },
+    "lpac-winsock-catalog-acl-readonly-02.json": {
+      "bytes": 4853,
+      "path": "lpac-winsock-catalog-acl-readonly-02.json",
+      "sha256": "db26047e852bccb003d378289a650e41ca212e7a6d742f0ff0af8e0d5233d59e"
+    },
+    "lpac-winsock-primary-sources-01.json": {
+      "bytes": 2627,
+      "path": "lpac-winsock-primary-sources-01.json",
+      "sha256": "5ba88644aeb2fb21b3677db9281e52dde1c9a8d0e84ab331b39c3c7abdf7056a"
+    },
+    "read_lpac_winsock_catalog_acl_02.ps1": {
+      "bytes": 3029,
+      "path": "read_lpac_winsock_catalog_acl_02.ps1",
+      "sha256": "233d1e05796931f6dd7f229524e1e6ef596c82fcb4b7d9ff8f0cce9777165a39"
+    }
+  },
+  "registry_read": {
+    "attributes_for_new_candidate": 4,
+    "derivation": "uppercase ASCII name encoded UTF-16LE; SHA256 digest interpreted as eight little-endian DWORDs after RID3 and RID1024 under authority15",
+    "name": "registryRead",
+    "sid": "S-1-15-3-1024-1065365936-1281604716-3511738428-1654721687-432734479-3232135806-4053264122-3456934681",
+    "sid_bytes": 48,
+    "sid_raw_hex": "010a00000000000f0300000000040000b031803f6cbc634c3ce050d1970ca1620f01cb197e7aa6c0fae697f119a30cce",
+    "sid_sha256": "66ad18b3326a9cb33bf2c59d57d4029ce756e0634c6d0fb3cfe09d6550a213f5"
+  },
+  "rejected_unjustified_step": "No primary source or observed ACL supports treating lpacNetworking/lpacNetwork as the required capability here; arbitrary names still derive SIDs.",
+  "schema_version": 1,
+  "smallest_new_scope_hard_requirements": [
+    "Independent predeclared scope/profile and fresh attempt; original zero-cap scope and actual02 evidence stay unchanged.",
+    "Selected exact fresh profile SID/low IL/primary/session/user and exactly registryRead attrs4; AC frontend same profile SID with zero caps; ordinary controls zero caps.",
+    "No PNCS, InternetClient, Agentic, capability fallback, inherited parent environment, global ACL or network policy mutation.",
+    "Both exact Jobs and held generation/image/token; real AC and LPAC four-descriptor matrices before any actor resume and under original root120/worker115/finite phase deadlines.",
+    "Original two fresh report-subtree LowMIC and exact package ACL lifecycle, cold pending control publication, physical GO/TCP/native receipts and once resource cleanup all retained.",
+    "Independent ordinary before/after control; fixed 64-byte request/response with EOF, cross-PID held tuple and withheld zero-response release gate.",
+    "WSAStartup failure remains typed setup observation, never a network access-denial result.",
+    "All direct/DNS/IPv6/UDP/broker/proxy/product/Linux/adversarial-same-SID qualifications remain false."
+  ],
+  "stage": "readonly-registry-read-lpac-winsock-hypothesis"
+}

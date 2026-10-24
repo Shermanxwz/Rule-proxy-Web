@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "sanitized": true,
+  "byte_exact": false,
+  "stage": "paired-startup-attempt01-build-metadata-blocked",
+  "source_commit": "318c5380ac62d8a06951436339ccf8d3705f15b8",
+  "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39371248897",
+  "both_native_variants_compiled": true,
+  "runtime_skipped": true,
+  "token_preflight_skipped": true,
+  "dependency_guard_failed": true,
+  "failing_dependency_target_known": false,
+  "native_import_inspection_executed_binaries": false,
+  "independent_import_reader": "GNU objdump -p",
+  "full": {
+    "artifact_id": 12240669478,
+    "artifact_sha256": "feef2b7d36e1bcc0cedfaad6ccac37153892ca7b2de0621bee3cde72ba7a4ed1",
+    "binary_sha256": "73e20d2be8037de54a82da2ddef7880e1cd02f093488d3c3f874dcf51dbbbf54",
+    "dlls": [
+      "ADVAPI32.dll",
+      "WINHTTP.dll",
+      "KERNEL32.dll"
+    ]
+  },
+  "identity_only": {
+    "artifact_id": 12241352054,
+    "artifact_sha256": "8c32b68b01bf5ae5830efa5e6ff3c8ac6b6df1e7bc34848264166b2e526fb53e",
+    "binary_sha256": "04c1ec7d7be69373d0dc654da6ad3eb6be2059683270907edf5096f369dfd01b",
+    "dlls": [
+      "ADVAPI32.dll",
+      "KERNEL32.dll"
+    ]
+  },
+  "ordinary_user_acceptance": false,
+  "restricted_caller_r0_passed": false,
+  "psec_acceptance": false,
+  "product_acceptance": false
+}

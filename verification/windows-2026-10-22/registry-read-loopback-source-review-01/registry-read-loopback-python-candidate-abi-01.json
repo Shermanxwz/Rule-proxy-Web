@@ -1,0 +1,58 @@
+{
+  "actual_ready": false,
+  "api_version": 1,
+  "boundary": "Only trusted-actor finite loopback reachability. registryRead may grant other existing same-capability-ACE registry reads. Not matched capabilities/AAP-only, Internet/PNCS, DNS/proxy/isolation or adversarial same-SID proof.",
+  "capability_profile": {
+    "frontend": [],
+    "ordinary_controls": [],
+    "selected": [
+      {
+        "attributes": 4,
+        "name": "registryRead",
+        "sid": "S-1-15-3-1024-1065365936-1281604716-3511738428-1654721687-432734479-3232135806-4053264122-3456934681"
+      }
+    ]
+  },
+  "control_magic": "RCL1",
+  "distinct_high_ports": 2,
+  "entry_flag": "--run-local-registry-read-same-sid-loopback",
+  "explicit_ack_fields": [
+    "fresh_profile_owned_acl_acknowledged",
+    "registry_read_capability_no_fallback_acknowledged",
+    "registry_read_broad_existing_acl_acknowledged",
+    "trusted_actor_mechanism_only_acknowledged",
+    "same_sid_shared_principal_acknowledged",
+    "residue_review_acknowledged"
+  ],
+  "go_bytes": 128,
+  "native_argv_count": 15,
+  "native_sources": [
+    ".github/native/windows_identity_lpac_registry_loopback_actor.cpp",
+    ".github/native/windows_identity_lpac_registry_loopback_contract.hpp"
+  ],
+  "nonces": 8,
+  "ordinary_outer_launch_raw_commitment_and_physical_root_tcp_revalidation_preserved": true,
+  "original_atomic_pending_before_rename_readback_and_causal_go_release_checks_preserved": true,
+  "packet_magic": "RLP1",
+  "phase_max_seconds": 8,
+  "profile": "same-sid-registry-read-lpac-loopback-mechanism-v1",
+  "python_sources": [
+    ".github/windows_identity_lpac_registry_loopback.py",
+    ".github/windows_identity_lpac_registry_loopback_local.py"
+  ],
+  "request_response_bytes": 64,
+  "role_names": [
+    "front-listener",
+    "selected-client",
+    "ordinary-listener",
+    "ordinary-client"
+  ],
+  "root_seconds": 120,
+  "schema_version": 1,
+  "scope": "one-local-registry-read-same-sid-loopback-v1",
+  "shared_identity_cell_dependencies": 33,
+  "source_count": 37,
+  "stage": "registry-read-lpac-loopback-python-abi",
+  "work_cutoff_seconds_from_start": 85,
+  "worker_seconds": 115
+}

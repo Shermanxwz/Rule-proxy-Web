@@ -1,0 +1,94 @@
+{
+  "conclusion": "success",
+  "freeze_sha256": "b70554505abe5996f82fd99cef70f1317c66fbff9dbd1c809d4b195883183a93",
+  "head": "a298faa3417e41c79c4a34ebb8e05aefe1e1ad25",
+  "linux": {
+    "closed_records": [
+      {
+        "cases": 428,
+        "model_only": true,
+        "schema_version": 1
+      },
+      {
+        "cases": 428,
+        "cleanup_confirmed": true,
+        "conformance_verified": true,
+        "exit_observed": true,
+        "failure": null,
+        "handles_closed": true,
+        "model_only": true,
+        "reader_stopped": true,
+        "runtime_acceptance": false,
+        "schema_version": 1
+      }
+    ],
+    "compiler": "g++",
+    "pure_tests": 63,
+    "skips": 0
+  },
+  "local_regression": {
+    "required_tests": 1008,
+    "skips": 0
+  },
+  "prior_local_execution": {
+    "exact_result_sha256": "feb366b0abcd6f4a5739999ecd60960339074dc215a1e1274bd5459f5a0b4002",
+    "output_sha256": "5db59f546405e9f2651e5ef97f9e5d4168c1ea93a373faa40fa07c15056ba8e0",
+    "receipt": {
+      "cases": 428,
+      "cleanup_confirmed": true,
+      "conformance_passed": true,
+      "created": true,
+      "exit_code": 0,
+      "exit_observed": true,
+      "failure": null,
+      "kill_attempted": false,
+      "kill_failed": false,
+      "model_only": true,
+      "overflow": false,
+      "passed": true,
+      "pipe_close_attempted": true,
+      "pipe_close_returned": true,
+      "runtime_acceptance": false,
+      "schema_version": 1,
+      "spawn_attempted": true,
+      "stdout_bytes": 8938,
+      "stdout_eof": true,
+      "timed_out": false,
+      "wait_failed": false
+    }
+  },
+  "run_id": 39761410816,
+  "schema_version": 1,
+  "sidecar": {
+    "conclusion": "success",
+    "identity_actor_compiled": true,
+    "pure_tests": 381,
+    "run_id": 39761410725,
+    "skips": 0,
+    "token_pipe_restricted_paired_runtime_steps": "skipped"
+  },
+  "windows": {
+    "closed_records": [
+      {
+        "cases": 428,
+        "model_only": true,
+        "schema_version": 1
+      },
+      {
+        "cases": 428,
+        "cleanup_confirmed": true,
+        "conformance_verified": true,
+        "exit_observed": true,
+        "failure": null,
+        "handles_closed": true,
+        "model_only": true,
+        "reader_stopped": true,
+        "runtime_acceptance": false,
+        "schema_version": 1
+      }
+    ],
+    "compiler": "installed_msvc_x64",
+    "pure_tests": 63,
+    "skips": 0
+  }
+}

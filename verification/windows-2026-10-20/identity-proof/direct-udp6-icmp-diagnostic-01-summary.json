@@ -1,0 +1,92 @@
+{
+  "bounds": {
+    "full_host_composition_measured_bytes": 9325,
+    "full_host_measurement_is_not_a_new_cap": true,
+    "guest_envelope_limit": 4096,
+    "native_limit": 32768,
+    "packet_nested_indent2_newline_conservative_bytes": 4015,
+    "packet_projection_limit": 4096,
+    "private_body_limit": 65536
+  },
+  "conclusion": "success",
+  "diagnostic_contract": {
+    "complex_quotes_unknown": true,
+    "icmp_first_encountered_pairs": 4,
+    "icmp_omitted_distinct_count_claimed": false,
+    "icmp_omitted_event_total": true,
+    "joint_correlations_computed_per_event": true,
+    "next_header_detail_rows": 2,
+    "next_header_omitted_category_and_event_totals": true,
+    "partial_quotes_not_malformed": true,
+    "quoted_checksums_do_not_authenticate": true,
+    "raw_selected_bytes_separate_from_direct_udp": true,
+    "version": 2
+  },
+  "experiment": "ICMPv6 diagnostic v2 short validation",
+  "freeze_sha256": "a1fc5c80ce988852b4bbfb9cde6c5cf49fc922e236d8dec400c905f9b20f8249",
+  "head": "8ad89a1f58c0168a566efabc7674a69ba07c4b84",
+  "interpretation": [
+    "All tests are the required scoped suites, not a claim that every repository test ran.",
+    "Hosted IPv6 loopback uses TEST_ONLY mechanics. The contained label is a fixture phase, not AppContainer isolation. Profile-only and invalid-CLI negatives do not exercise a valid production network CLI.",
+    "The Linux paused no-guest QEMU mechanism observes mapped backing-file identity and local package metadata/integrity, not resident bytes, upstream source equivalence or guest networking.",
+    "ICMP diagnostics are bounded observations only. Exact raw selected-frame bytes, structured quoted packets, checksum consistency, tuple direction and the direct UDP payload observation remain separate. Even a checksum-consistent forged quote does not prove authenticity, actor attribution or original packet delivery.",
+    "The existing reached-NH58 filter is unchanged: owned guest source MAC and fixed outer fixture destination. Unsupported ICMP still sets opaque_protocol and blocks the existing absence conclusion.",
+    "Runtime04 remains failed/inconclusive: two guest-to-fixture NH58 candidates were observed, but their type, code and quoted contents were not retained. This short gate cannot reconstruct deleted capture or reinterpret that result.",
+    "No Windows guest VM or new runtime was launched. No no-IPv6-egress, DNS, proxy, descendant IPv6 or product-acceptance claim follows."
+  ],
+  "observations": {
+    "hosted_cleanup_confirmed": true,
+    "hosted_ipv6_main_verified_echoes": 45,
+    "hosted_work_removed": true,
+    "hosted_wrong_echo_native_payload_rejected": true,
+    "hosted_wrong_echo_native_send_accepted": true,
+    "hosted_wrong_echo_receiver_frames": 1,
+    "icmp_parser_tests": "synthetic byte fixtures only; no new guest ICMP capture",
+    "isolated_production_inputs_verified": true,
+    "isolated_verifier_executed_pe": false,
+    "linux_guest_executed": false,
+    "owned_children": 7,
+    "owned_receivers": 2,
+    "paused_linux_qemu_cleanup_confirmed": true,
+    "paused_linux_qemu_provenance_passed": true,
+    "production_actor_invalid_cli_only": true,
+    "production_valid_network_cli_executed": false,
+    "windows_power_shell_checks": [
+      78,
+      48,
+      60,
+      57
+    ],
+    "zip_boundaries_inert": true,
+    "zip_checks": 66,
+    "zip_member_modes": [
+      10,
+      14,
+      15,
+      17,
+      22,
+      17
+    ],
+    "zip_negative_cases": 12
+  },
+  "privacy": {
+    "closed_records_only": true,
+    "raw_logs_pcap_private_bodies_identifiers_excluded": true
+  },
+  "required_tests": {
+    "linux": 740,
+    "skips": 0,
+    "windows": 740
+  },
+  "result_sha256": "e0129d4b7cb85d7d650f7eee828111145eabead4476fc6f6e3429c9cea72164e",
+  "run_id": 39709671975,
+  "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39709671975",
+  "schema_version": 1,
+  "source_scope": {
+    "absence_formulas_unchanged": true,
+    "actor_guest_network_capture_workflow_unchanged": true,
+    "changed_files": 4,
+    "opaque_failure_preserved": true,
+    "unchanged_pins": 406
+  }
+}

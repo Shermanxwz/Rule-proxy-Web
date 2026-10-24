@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "repository": "Shermanxwz/Rule-proxy-Web",
+  "repository_id": 1412843902,
+  "source_commit": "7c6c0c7e4d0d0f1e530840649ede662985f07e6a",
+  "run_id": 39530908470,
+  "native_job_id": 118997131220,
+  "artifacts": [
+    {
+      "artifact_id": 12315424921,
+      "archive_sha256": "04cd6c0fa3b328e8f41cb9495e99f392f6d8d287c3d823a6cc79deb6f6c0fc60",
+      "public_file": "serviced-stage0-attempt-09-runtime-public.json"
+    },
+    {
+      "artifact_id": 12316004402,
+      "archive_sha256": "59c73bf67af502b1e4abf188155a443b5f4da3b9797fd71f4bc512f084ad892e",
+      "public_file": "serviced-stage0-attempt-09-preparation-public.json"
+    },
+    {
+      "artifact_id": 12315944560,
+      "archive_sha256": "d737d5cb015242e0c9bef91b445fe83f16580952c09686a1c4650eba65876664",
+      "public_file": "serviced-stage0-attempt-09-capacity-public.json"
+    }
+  ],
+  "observed_outcome": "ordinary_service_receipt_read_failed",
+  "stage0_passed": false,
+  "vm_destroyed": true,
+  "prior_attempt_cleanup_uncertainty_unchanged": true,
+  "provider_deletion_attempted": false,
+  "installed_stock_beacon_observed": true,
+  "update_media_host_verified_and_attached": true,
+  "result_transport_state": "object_received",
+  "service_read_step": "receipt_read",
+  "service_read_reason": "read",
+  "launcher_hresult": -2147024864,
+  "progress_advisory_accepted": 0,
+  "progress_advisory_rejected": 7,
+  "progress_sender_mapping_unproven": true,
+  "pending_sources_observed": false,
+  "extra_reboot_count_observed": false,
+  "isolation_result_observed": false,
+  "guest_servicing_outcome_unknown": true,
+  "deadline_extended": false
+}

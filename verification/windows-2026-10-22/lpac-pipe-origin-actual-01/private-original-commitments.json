@@ -1,0 +1,40 @@
+{
+  "forensic_never_fallback": true,
+  "private_commitments": {
+    "config": {
+      "bytes": 5645,
+      "sha256": "52d8c54d76f101468adb2a2245fafc52450d9f0c29d401278075b25de4b4b8aa"
+    },
+    "driver": {
+      "bytes": 12676,
+      "sha256": "5a9986b5c8cda7b5fbf685738ebc246b2b01ff3112f7e54e9a54cd927046aba4"
+    },
+    "forensic": {
+      "bytes": 48796,
+      "sha256": "cec337a8c9c028c87c948fbf12ee52804d9ac83fbc580f91b9552931ada0b5f6"
+    },
+    "outer_report": {
+      "bytes": 620,
+      "sha256": "937d68045b58755f164c13d2ca3d7cb0f87c79d617e03af248430b9511d058b2"
+    },
+    "plan": {
+      "bytes": 1535,
+      "sha256": "3c3c3435d8489c6182d5d6e5d6eeec0b69d0e5abf54b99f2c8546645ed8b9d1d"
+    },
+    "stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "stdout": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "worker_report": {
+      "bytes": 48796,
+      "sha256": "cec337a8c9c028c87c948fbf12ee52804d9ac83fbc580f91b9552931ada0b5f6"
+    }
+  },
+  "schema_version": 1,
+  "stage": "lpac-pipe-origin-private-original-commitments",
+  "unpublished_raw_identities_paths_qpc_streams": true
+}

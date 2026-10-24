@@ -1,0 +1,11 @@
+test_real_constructor_shape_registry_cap_pointer_job_aap_and_no_inheritance (registry_scope_independent_fakes.CoreTests.test_real_constructor_shape_registry_cap_pointer_job_aap_and_no_inheritance) ... ok
+test_real_registry_access_reader_bounds_one_capability_sid_and_attributes (registry_scope_independent_fakes.CoreTests.test_real_registry_access_reader_bounds_one_capability_sid_and_attributes) ... ok
+test_missing_disabled_wrong_extra_selected_or_front_cap_prevents_any_actor_resume (registry_scope_independent_fakes.CoreTests.test_missing_disabled_wrong_extra_selected_or_front_cap_prevents_any_actor_resume) ... ok
+test_closed_result_rejects_selected_self_reported_zero_cap_or_capability_swap (registry_scope_independent_fakes.CoreTests.test_closed_result_rejects_selected_self_reported_zero_cap_or_capability_swap) ... ok
+test_caller_sid_array_survives_gc_until_create_returns_and_zero_front_pointer (__main__.IndependentLifetimeTests.test_caller_sid_array_survives_gc_until_create_returns_and_zero_front_pointer) ... ok
+test_unlisted_role_capability_is_never_accepted (__main__.IndependentLifetimeTests.test_unlisted_role_capability_is_never_accepted) ... ok
+
+----------------------------------------------------------------------
+Ran 6 tests in 1.911s
+
+OK

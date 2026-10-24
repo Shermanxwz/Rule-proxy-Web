@@ -7,3 +7,5 @@
 verification/**/*.log binary
 # Evidence digests describe original bytes, including Windows line endings.
 verification/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+# Preserve the exact pinned upstream blobs, including original whitespace.
+.github/vendor/detours/** -text -whitespace

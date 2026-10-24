@@ -1,0 +1,259 @@
+{
+  "acquisition": {
+    "all_147_raw_metadata_buffers_published": false,
+    "raw_xml_published": false,
+    "tdh_apis": [
+      "TdhEnumerateManifestProviderEvents",
+      "TdhGetManifestEventInformation"
+    ],
+    "wevtutil_child_exited": true,
+    "wevtutil_child_handle_closed": true,
+    "wevtutil_command": [
+      "wevtutil.exe",
+      "gp",
+      "Microsoft-Windows-DNS-Client",
+      "/ge:true",
+      "/gm:true",
+      "/f:xml",
+      "/uni:true"
+    ],
+    "wevtutil_exit_code": 0,
+    "xml_bytes": 93452,
+    "xml_sha256": "b00d5535072cfaf4c58a777631efffa70b7df05c26f68aca033065ed8f0815e7"
+  },
+  "date": "2026-10-23",
+  "gp_and_tdh_event_id_version_sets_equal": true,
+  "installed_event_template_count": 147,
+  "interpretation": {
+    "broker_attribution_proven": false,
+    "client_pid_field_exists_in_listed_templates": true,
+    "client_pid_runtime_value_observed": false,
+    "dns_isolation_qualified": false,
+    "dns_runtime_success_proven_by_metadata": false,
+    "event_emitter_pid_observed": false,
+    "packet_sender_pid_proven": false,
+    "product_acceptance": false
+  },
+  "primary_sources": [
+    {
+      "supports": "gp/ge/gm display installed publisher and possible-event metadata; these are distinct from qe event-instance reads",
+      "url": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/wevtutil"
+    },
+    {
+      "supports": "Gets a manifest template by provider GUID and event descriptor; a template is not an observed event",
+      "url": "https://learn.microsoft.com/en-us/windows/win32/api/tdh/nf-tdh-tdhgetmanifesteventinformation"
+    },
+    {
+      "supports": "Runtime EVENT_HEADER.ProcessId is the event-emitting process, not proof of the originating caller or packet sender",
+      "url": "https://learn.microsoft.com/en-us/windows/win32/api/evntcons/ns-evntcons-event_header"
+    }
+  ],
+  "provider_guid": "1c95126e-7eea-49a9-a3fe-a378b03ddb4d",
+  "provider_name": "Microsoft-Windows-DNS-Client",
+  "provider_resource_binary": {
+    "basename": "dnsapi.dll",
+    "bytes": 1445488,
+    "file_version": "10.0.26100.9549",
+    "sha256": "c7e1006f7bcbdff6d3668d10b9756a9734c53ccc47783f8908f68b60d0341bbb"
+  },
+  "provider_version": null,
+  "provider_version_present_in_metadata": false,
+  "schema_version": 1,
+  "scope": {
+    "dns_query_issued_by_acquisition": false,
+    "dns_runtime_pid_values_in_projection": false,
+    "enable_trace_ex2_called": false,
+    "event_channel_enable_or_disable_called": false,
+    "installed_metadata_only": true,
+    "local_configuration_values_in_projection": false,
+    "network_experiment_repeated": false,
+    "query_name_values_in_projection": false,
+    "start_trace_called": false,
+    "user_dns_event_instances_read": false
+  },
+  "stage": "dns-client-static-provider-metadata-safe-projection",
+  "templates": [
+    {
+      "channel": 16,
+      "event_id": 3010,
+      "event_version": 1,
+      "keywords": "0x8000000000000000",
+      "level": 4,
+      "manifest_metadata_buffer": {
+        "bytes": 1160,
+        "raw_published": false,
+        "sha256": "a6d5042ae4b2f91391c523559520d047a724fd0db7ff968012931c52c09343be"
+      },
+      "observed_client_pid": null,
+      "observed_event_instance": false,
+      "opcode": 0,
+      "properties": [
+        {
+          "in_type": 1,
+          "in_type_name": "TDH_INTYPE_UNICODESTRING",
+          "index": 0,
+          "name": "QueryName",
+          "out_type": 1,
+          "out_type_name": "TDH_OUTTYPE_STRING"
+        },
+        {
+          "in_type": 8,
+          "in_type_name": "TDH_INTYPE_UINT32",
+          "index": 1,
+          "name": "QueryType",
+          "out_type": 8,
+          "out_type_name": "TDH_OUTTYPE_UNSIGNEDINT"
+        },
+        {
+          "in_type": 1,
+          "in_type_name": "TDH_INTYPE_UNICODESTRING",
+          "index": 2,
+          "name": "DnsServerIpAddress",
+          "out_type": 1,
+          "out_type_name": "TDH_OUTTYPE_STRING"
+        },
+        {
+          "in_type": 8,
+          "in_type_name": "TDH_INTYPE_UINT32",
+          "index": 3,
+          "name": "ClientPID",
+          "out_type": 8,
+          "out_type_name": "TDH_OUTTYPE_UNSIGNEDINT"
+        }
+      ],
+      "property_count": 4
+    },
+    {
+      "channel": 16,
+      "event_id": 3011,
+      "event_version": 1,
+      "keywords": "0x8000000000000000",
+      "level": 4,
+      "manifest_metadata_buffer": {
+        "bytes": 1376,
+        "raw_published": false,
+        "sha256": "ba31a2cfc52fb2200bf0f91d90470f16d8e753d0e9e27152269ee69c24351311"
+      },
+      "observed_client_pid": null,
+      "observed_event_instance": false,
+      "opcode": 0,
+      "properties": [
+        {
+          "in_type": 1,
+          "in_type_name": "TDH_INTYPE_UNICODESTRING",
+          "index": 0,
+          "name": "QueryName",
+          "out_type": 1,
+          "out_type_name": "TDH_OUTTYPE_STRING"
+        },
+        {
+          "in_type": 8,
+          "in_type_name": "TDH_INTYPE_UINT32",
+          "index": 1,
+          "name": "QueryType",
+          "out_type": 8,
+          "out_type_name": "TDH_OUTTYPE_UNSIGNEDINT"
+        },
+        {
+          "in_type": 1,
+          "in_type_name": "TDH_INTYPE_UNICODESTRING",
+          "index": 2,
+          "name": "DnsServerIpAddress",
+          "out_type": 1,
+          "out_type_name": "TDH_OUTTYPE_STRING"
+        },
+        {
+          "in_type": 8,
+          "in_type_name": "TDH_INTYPE_UINT32",
+          "index": 3,
+          "name": "ResponseStatus",
+          "out_type": 8,
+          "out_type_name": "TDH_OUTTYPE_UNSIGNEDINT"
+        },
+        {
+          "in_type": 8,
+          "in_type_name": "TDH_INTYPE_UINT32",
+          "index": 4,
+          "name": "ClientPID",
+          "out_type": 8,
+          "out_type_name": "TDH_OUTTYPE_UNSIGNEDINT"
+        }
+      ],
+      "property_count": 5
+    },
+    {
+      "channel": 16,
+      "event_id": 3011,
+      "event_version": 2,
+      "keywords": "0x8000000000000000",
+      "level": 4,
+      "manifest_metadata_buffer": {
+        "bytes": 1736,
+        "raw_published": false,
+        "sha256": "b7429d526eda0c3215f72b8050631962b044f615fd992ba39934ee2712fc3de3"
+      },
+      "observed_client_pid": null,
+      "observed_event_instance": false,
+      "opcode": 0,
+      "properties": [
+        {
+          "in_type": 1,
+          "in_type_name": "TDH_INTYPE_UNICODESTRING",
+          "index": 0,
+          "name": "QueryName",
+          "out_type": 1,
+          "out_type_name": "TDH_OUTTYPE_STRING"
+        },
+        {
+          "in_type": 8,
+          "in_type_name": "TDH_INTYPE_UINT32",
+          "index": 1,
+          "name": "QueryType",
+          "out_type": 8,
+          "out_type_name": "TDH_OUTTYPE_UNSIGNEDINT"
+        },
+        {
+          "in_type": 1,
+          "in_type_name": "TDH_INTYPE_UNICODESTRING",
+          "index": 2,
+          "name": "DnsServerIpAddress",
+          "out_type": 1,
+          "out_type_name": "TDH_OUTTYPE_STRING"
+        },
+        {
+          "in_type": 8,
+          "in_type_name": "TDH_INTYPE_UINT32",
+          "index": 3,
+          "name": "ResponseStatus",
+          "out_type": 8,
+          "out_type_name": "TDH_OUTTYPE_UNSIGNEDINT"
+        },
+        {
+          "in_type": 8,
+          "in_type_name": "TDH_INTYPE_UINT32",
+          "index": 4,
+          "name": "ClientPID",
+          "out_type": 8,
+          "out_type_name": "TDH_OUTTYPE_UNSIGNEDINT"
+        },
+        {
+          "in_type": 16,
+          "in_type_name": "TDH_INTYPE_POINTER",
+          "index": 5,
+          "name": "SendBlob",
+          "out_type": 19,
+          "out_type_name": "TDH_OUTTYPE_HEXINT64"
+        },
+        {
+          "in_type": 16,
+          "in_type_name": "TDH_INTYPE_POINTER",
+          "index": 6,
+          "name": "SendBlobContext",
+          "out_type": 19,
+          "out_type_name": "TDH_OUTTYPE_HEXINT64"
+        }
+      ],
+      "property_count": 7
+    }
+  ]
+}

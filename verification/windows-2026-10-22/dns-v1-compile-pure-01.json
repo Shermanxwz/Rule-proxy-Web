@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "stage": "dns-version1-compile-and-pure",
+  "date": "2026-10-22",
+  "source_closure_sha256": "0c01174e9c43b72125bbdf9b6eb8e8c0f729170f106111ad7c472b24d4b6bd3d",
+  "sources": [
+    {
+      "path": ".github/native/windows_identity_dns_v1_actor.cpp",
+      "bytes": 3535,
+      "sha256": "5a83e4d708b45d978941e3288d3d8e9871a0f72d609a586afd5ee9703379c8a1"
+    },
+    {
+      "path": ".github/native/windows_identity_actor.cpp",
+      "bytes": 31002,
+      "sha256": "530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553"
+    },
+    {
+      "path": ".github/native/windows_identity_dns_v1_probe.hpp",
+      "bytes": 6116,
+      "sha256": "f10223eeb661522fa71228e825222857773d22fb9be0277d5ff4a611811b0e5f"
+    },
+    {
+      "path": ".github/build_windows_identity_dns_v1_actor.ps1",
+      "bytes": 2601,
+      "sha256": "387b3038a9fc7b7a8ddfe712b8374a7d221eec8ab2e84a51a67754bde1416708"
+    },
+    {
+      "path": ".github/windows_identity_dns_v1_local.py",
+      "bytes": 22059,
+      "sha256": "07276cdd2870d3536e1e73ebe7f493e89e6bdfdbea4fa3d6e0a450d1229c7cc5"
+    },
+    {
+      "path": "tests/test_windows_identity_dns_v1_local.py",
+      "bytes": 8809,
+      "sha256": "4db84e29da7ed414ae093a5f1ccd1af2c2bfb0d0099d5d5ef7806a3ff287f953"
+    }
+  ],
+  "compile": {
+    "compiler": "MSVC 19.44.35229.0",
+    "windows_sdk": "10.0.26100.0",
+    "warnings_as_errors": true,
+    "compile_only": true,
+    "actor_executed": false,
+    "manifest": {
+      "schemaVersion": 1,
+      "compileOnly": true,
+      "runtimeAcceptance": false,
+      "actorSourceSha256": "5a83e4d708b45d978941e3288d3d8e9871a0f72d609a586afd5ee9703379c8a1",
+      "identitySourceSha256": "530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553",
+      "dnsProbeSha256": "f10223eeb661522fa71228e825222857773d22fb9be0277d5ff4a611811b0e5f",
+      "executableSha256": "4052928ef8a2f994332908554b840ad2b329a8f363c7158c90ea1181cb253dc2"
+    },
+    "manifest_sha256": "825a069103007e5b27cc3077969fee21e43f6fe33386a5967b8afd7b682b4e71",
+    "actor_sha256": "4052928ef8a2f994332908554b840ad2b329a8f363c7158c90ea1181cb253dc2",
+    "actor_bytes": 151040
+  },
+  "pure": {
+    "tests_run": 21,
+    "failures": 0,
+    "errors": 0,
+    "skips": 0,
+    "successful": true,
+    "actual_dns_api_called": false,
+    "network_tested": false
+  },
+  "invalid_admission_native_check": {
+    "compiled": true,
+    "executed": true,
+    "dns_api_called": false,
+    "network_tested": false
+  },
+  "mechanism_qualified": false,
+  "dns_isolation_qualified": false,
+  "product_acceptance": false
+}

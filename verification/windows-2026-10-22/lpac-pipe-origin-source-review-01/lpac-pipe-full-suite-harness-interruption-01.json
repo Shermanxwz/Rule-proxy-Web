@@ -1,0 +1,29 @@
+{
+  "content": {
+    "actual_actor_run": false,
+    "command": "powershell -NoProfile -ExecutionPolicy Bypass -File work/test_lpac_pipe_origin_integrated_01.ps1",
+    "complete_suite_established": false,
+    "exit_code": 1,
+    "failure_text_preservation": "Original failure output remains in the tool transcript; this is a typed summary, not a reconstructed raw log.",
+    "post_interruption_readonly_check": "No python.exe with unittest discover in its command line was observed.",
+    "repair": "Fresh02 wrapper captures child stdout and stderr directly to one binary file through subprocess, preserving unittest exit code.",
+    "retained_log": {
+      "bytes": 0,
+      "name": "lpac-pipe-origin-main-pure-01.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "schema_version": 1,
+    "source_or_actor_changed": false,
+    "source_test_failure_established": false,
+    "stage": "root-reported-test-harness-interruption",
+    "tool_output_observation": "Windows PowerShell NativeCommandError on unittest's first normal stderr test result; ErrorActionPreference Stop interrupted the wrapper."
+  },
+  "raw_commitment": {
+    "bytes": 1082,
+    "sha256": "99eda71ce95b860d99e435334d936a7a7d00c3aea4594b4f6975b783559ee791"
+  },
+  "schema_version": 1,
+  "stage": "source-evidence-safe-view",
+  "temporal_scope": "Original preparation/review snapshot: its pending/false runtime fields are historical snapshot fields, not the current result.",
+  "transformation": "JSON value projection; account identifiers/user paths redacted if present; no runtime inference"
+}

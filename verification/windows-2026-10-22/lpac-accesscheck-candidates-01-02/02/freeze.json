@@ -1,0 +1,69 @@
+{
+  "abi_bytes": 7320,
+  "abi_sha256": "5163c2d621de251678e08ecce962059eea385330fa191feb4a5b3797f84a0b20",
+  "actual_network_executed": false,
+  "actual_ready": false,
+  "actual_token_api_executed": false,
+  "base_files": {
+    ".github/windows_identity_lpac_accesscheck.py": {
+      "bytes": 33959,
+      "sha256": "807bdf66b1a2043051142f7f10b18e4f998e53fd335a8f35482b3dcc3fdf416e"
+    },
+    "tests/test_windows_identity_lpac_accesscheck.py": {
+      "bytes": 14665,
+      "sha256": "6e5d18a24cf7d91fbb6a16bcbc2de483773e2a26427c3dbf2eead41799e9627b"
+    }
+  },
+  "disposition": {
+    "actual_runtime": "blocked: no reviewed matched AC/LPAC identity-cell owner, driver, original-deadline supervision or recovery integration",
+    "archive": "candidate/code-and-fake-tests-only",
+    "library_integration": "eligible for independent review; external held owner still required"
+  },
+  "files": {
+    ".github/windows_identity_lpac_accesscheck.py": {
+      "bytes": 34465,
+      "sha256": "19c0d626e653147276cab9a97c5a0071f1c37b2eeb097c55fbacb39f262ade15"
+    },
+    "tests/test_windows_identity_lpac_accesscheck.py": {
+      "bytes": 17854,
+      "sha256": "e19eea5329501b535a2b8317a6829350cc95a87c3b9ecce67642a6d2427f358a"
+    }
+  },
+  "git_apply_check": true,
+  "main_repository_files_modified_by_this_task": false,
+  "original_candidate_preserved": true,
+  "patch_apply_check_cwd": "work/lpac-accesscheck-candidate",
+  "patch_bytes": 5654,
+  "patch_kind": "incremental-against-work-only-accesscheck-candidate01-not-main",
+  "patch_sha256": "02bbf4cc5c1b5685a5db35da3e9923a66064d909f9465e6a122a971c126f887f",
+  "previous_freeze_sha256": "2607219847bbc24695680aa3ded2f8f074d74a7e9e189bb758331adb1706a186",
+  "pure_arguments": [
+    "-I",
+    "-S",
+    "-B",
+    "-m",
+    "unittest",
+    "discover",
+    "-s",
+    "tests",
+    "-p",
+    "test_windows_identity_lpac_accesscheck.py",
+    "-v"
+  ],
+  "pure_exit_code": 0,
+  "pure_log_bytes": 3858,
+  "pure_log_sha256": "6668b609fe494cee381312be1f6dca50abc35a8c4e9d9c38c9231684e0ed959d",
+  "pure_skipped": 0,
+  "pure_tests": 19,
+  "pure_unittest_seconds": 0.011,
+  "regressions": [
+    "no zero-length scalar size probe",
+    "scalar FALSE ignores stale output and never retries",
+    "exact scalar returned length4",
+    "short capabilities header rejected before any cast",
+    "existing count and whole entry bounds precede SID reads"
+  ],
+  "revision": 2,
+  "schema_version": 1,
+  "stage": "held-lpac-accesscheck-work-only-candidate-freeze"
+}

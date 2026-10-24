@@ -1,0 +1,155 @@
+{
+  "Windows_actor_or_resource_API_executed_locally": false,
+  "actual_pending": true,
+  "commitments": {
+    "jobs_api": {
+      "bytes": 3951,
+      "name": "ci-lpac-curl-a5-324a533-40069323749-jobs-api.json",
+      "sha256": "cc5a02c7a2809a6077aae4489d1380568aef501062321f50925c4c39683996b9"
+    },
+    "run_api": {
+      "bytes": 12694,
+      "name": "ci-lpac-curl-a5-324a533-40069323749-run-api.json",
+      "sha256": "4ecf70897a262d33ed83275d35e051b38426d11e3270aeb048791d4dbade1911"
+    },
+    "steps_connector": {
+      "bytes": 1767,
+      "name": "ci-lpac-curl-a5-324a533-40069323749-steps-connector.json",
+      "sha256": "72ddd83fae4ea641b043b5373ea27b23800769f4752e3efdae12d23f4319e7c9"
+    }
+  },
+  "conclusion": "success",
+  "errors": 0,
+  "failures": 0,
+  "fixture_coverage": {
+    "executed_methods": 20,
+    "mode": "executed",
+    "skipped_classes": []
+  },
+  "job_id": 120799138358,
+  "job_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/40069323749/job/120799138358",
+  "local_full_proof": {
+    "bytes": 4375,
+    "name": "lpac-curl-A5-main-pure-01.json",
+    "sha256": "7cc3bff1506ff9ae2ce39ba5ad5d8ac039e8a7cbc3bf4f06d05a72f1e5b46153"
+  },
+  "log": {
+    "bytes": 352168,
+    "name": "ci-lpac-curl-a5-324a533-40069323749-job120799138358-full.txt",
+    "sha256": "041cb701eed072e25a5e3f0a4db2734a30b39d7f7f0dbac4c56278a008b0cb6f"
+  },
+  "log_representation": "Exact returned connector text encoded as UTF-8, including original BOM and CRLF; not raw HTTP response octets.",
+  "repository": "Shermanxwz/Rule-proxy-Web",
+  "run_attempt": 1,
+  "run_id": 40069323749,
+  "run_number": 74,
+  "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/40069323749",
+  "runtime_steps_skipped": true,
+  "schema_version": 1,
+  "skips": 0,
+  "source_commit": "324a533ca8ca4811d27a87da9340c1e5091100e5",
+  "source_only": true,
+  "stage": "A5-GitHub-Actions-source-only-proof",
+  "status": "completed",
+  "steps": [
+    {
+      "conclusion": "success",
+      "name": "Set up job",
+      "number": 1,
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "name": "Run actions/checkout@v5",
+      "number": 2,
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "name": "Load installed MSVC and compile without executing the actor",
+      "number": 3,
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "name": "Pure Python identity proof unit tests only",
+      "number": 4,
+      "status": "completed"
+    },
+    {
+      "conclusion": "skipped",
+      "name": "Read-only current and existing linked token ABI preflight",
+      "number": 5,
+      "status": "completed"
+    },
+    {
+      "conclusion": "skipped",
+      "name": "Approved Stage 0b inherited-pipe proof in a verified ordinary token",
+      "number": 6,
+      "status": "completed"
+    },
+    {
+      "conclusion": "skipped",
+      "name": "Read-only R0 source token field and ABI diagnostics",
+      "number": 7,
+      "status": "completed"
+    },
+    {
+      "conclusion": "skipped",
+      "name": "Restricted-caller R0 identity diagnostic, not ordinary-user acceptance",
+      "number": 8,
+      "status": "completed"
+    },
+    {
+      "conclusion": "skipped",
+      "name": "Four-cell trusted-actor startup controls, no isolation acceptance",
+      "number": 9,
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "name": "Create closed publication projections without machine identities or paths",
+      "number": 10,
+      "status": "completed"
+    },
+    {
+      "conclusion": "skipped",
+      "name": "Run actions/upload-artifact@v7",
+      "number": 11,
+      "status": "completed"
+    },
+    {
+      "conclusion": "skipped",
+      "name": "Run actions/upload-artifact@v7",
+      "number": 12,
+      "status": "completed"
+    },
+    {
+      "conclusion": "skipped",
+      "name": "Run actions/upload-artifact@v7",
+      "number": 13,
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "name": "Run actions/upload-artifact@v7",
+      "number": 14,
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "name": "Post Run actions/checkout@v5",
+      "number": 28,
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "name": "Complete job",
+      "number": 29,
+      "status": "completed"
+    }
+  ],
+  "test_seconds": 237.494,
+  "tests": 1505,
+  "workflow": ".github/workflows/windows-identity-proof.yml"
+}

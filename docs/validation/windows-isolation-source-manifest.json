@@ -1,0 +1,2659 @@
+{
+  "ac_pair_runtime_observed": false,
+  "activation_changed_paths": [
+    ".github/windows_identity_proxy_pipe_probe.py",
+    ".github/workflows/windows-identity-direct-stage0.yml",
+    ".github/workflows/windows-n0a-udp6-gates.yml",
+    "docs/validation/2026-10-22-proxy-pipe-ac-prerequisite.md",
+    "tests/test_windows_identity_proxy_pipe_probe.py",
+    "tests/test_windows_n0a_udp6_workflow.py",
+    "tests/test_windows_n0a_udp_workflow.py",
+    "tests/test_windows_n0a_workflow.py",
+    "tests/test_windows_proxy_pipe_ac_transport.py"
+  ],
+  "activation_flag_enabled": true,
+  "baseline_commit": "0336310f388de4ed25c1e8757d8b5bf25a079e48",
+  "branch": "dot/windows-isolation-proof",
+  "current_activation_short_gate_status": "not_yet_run_at_manifest_creation",
+  "exclusions": [
+    "Raw private reports, PCAP, credentials, user SIDs, handles, raw nonces, environment paths and temporary build outputs are not handoff payloads.",
+    "This is the 438-file Windows proof source closure, not a manifest of the entire application repository. The complete repository remains available at the bound commit."
+  ],
+  "last_completed_short_source_commit": "d9ad11ee2492f51d6d54224197ea442d2c5eecfd",
+  "profile": "ordinary-win11-zero-cap-front-pipe-v1",
+  "repository": "Shermanxwz/Rule-proxy-Web",
+  "repository_id": 1412843902,
+  "schema_version": 1,
+  "source_binding": "The commit that first adds this manifest is the source snapshot. Resolve with git log --diff-filter=A --format=%H -- docs/validation/windows-isolation-source-manifest.json. Verify every listed byte count and SHA256; this manifest intentionally does not include its own hash or a future commit hash. Later documentation-only commits do not change the listed source snapshot.",
+  "source_file_count": 438,
+  "source_files": [
+    {
+      "bytes": 20602,
+      "git_blob": "bc8ab4527e73b479eb317a9755afb04221a4d06b",
+      "path": ".github/build_mxc_capability_probe.py",
+      "sha256": "87f66d46e94ecc18bff34a18a7d7506ae0a105579279e86079042bc46c83a382"
+    },
+    {
+      "bytes": 960,
+      "git_blob": "2fd06b50a554b9678dd478054e0e7ceb3cd4d2de",
+      "path": ".github/build_mxc_g_bundle.py",
+      "sha256": "fe1e6aac1ff94c7804fa3d2b61363f5cb138a85152f308693fc4e7f192c3b91c"
+    },
+    {
+      "bytes": 1974,
+      "git_blob": "3c28716369860a6d5b470d76152450dc0906ad00",
+      "path": ".github/build_network_recovery_package.py",
+      "sha256": "5076ea966bf8db028e8c016330c48445cbaf6b2fe69042e205f1cb544cea4694"
+    },
+    {
+      "bytes": 4307,
+      "git_blob": "e295844fc610bad62048ecc8088fc7ff5028b78e",
+      "path": ".github/build_windows_identity_actor.ps1",
+      "sha256": "1682720c1ab3e971ebe9e83905f9425c17e9b4ff0949a5301e63340cdd1d9efd"
+    },
+    {
+      "bytes": 4494,
+      "git_blob": "63b16e4d642f52413e86bfd14caff6e0ea3803c0",
+      "path": ".github/build_windows_identity_proxy_bridge_core.ps1",
+      "sha256": "752732d8ec63b41c89ec957fa055529c23f07125f14565f757eb9c0e4d48a79e"
+    },
+    {
+      "bytes": 3229,
+      "git_blob": "a58535618097afe4e1d1b53200e5a1c6aa615590",
+      "path": ".github/build_windows_identity_proxy_pipe_actor.ps1",
+      "sha256": "e857d616aa3867adf37b543fc438ae821a13194a86f7636cc23caf4872055b52"
+    },
+    {
+      "bytes": 5219,
+      "git_blob": "e30415c0a767586169a6484c7d480962fdd85eec",
+      "path": ".github/build_windows_n0a_actor.ps1",
+      "sha256": "91604e3700c079b997da168be5781844fe49c2356e8c8e6b741b96986d6af2ce"
+    },
+    {
+      "bytes": 4439,
+      "git_blob": "62d3d16ba83b727eb2c8fa1d1cf98e8bd09e0a00",
+      "path": ".github/build_windows_n0a_dns_fixture.ps1",
+      "sha256": "e086977cc8c51b16adabe3ec9d4b5d7ef42dec6f2c2b03433c077e9d86609c6b"
+    },
+    {
+      "bytes": 2998,
+      "git_blob": "24d4612b2c385f95fcd24690a57dba54c647cf6d",
+      "path": ".github/build_windows_n0a_fixture.ps1",
+      "sha256": "2622377066ee4699e1b3664eddbe825956ec98819bcf2be6c6db19dad0c3349b"
+    },
+    {
+      "bytes": 2832,
+      "git_blob": "e690972eb45a7c59692045aa2ba9bb350a92848e",
+      "path": ".github/build_windows_n0a_udp6_actor.ps1",
+      "sha256": "7c0ddaa20e050ce1b2a2ae8af1993818029fbfe0f49965368902904b0013ac61"
+    },
+    {
+      "bytes": 3052,
+      "git_blob": "5413a350b85dc0d3c174c36dcc3b802abb681e5e",
+      "path": ".github/build_windows_n0a_udp6_fixture.ps1",
+      "sha256": "2efecc4f000419f63ed9d175561599de0fc60d38e7368962962aed21b54e4703"
+    },
+    {
+      "bytes": 2821,
+      "git_blob": "d606f9acb738fc63bb18db1d2c2c9ac8390abacc",
+      "path": ".github/build_windows_n0a_udp_actor.ps1",
+      "sha256": "3b3c590bd47fdb7ebb0266286c190aaa0621336d1a62ea0aa4e8b855f8902297"
+    },
+    {
+      "bytes": 3040,
+      "git_blob": "f71f0dbe0eeea86e5663b68b65f6f98ae2b0b791",
+      "path": ".github/build_windows_n0a_udp_fixture.ps1",
+      "sha256": "9ccf8b9d4468f129198caa1f39d9fcce2b560bc30dc5bc94c3ff349d8ec3b887"
+    },
+    {
+      "bytes": 3025,
+      "git_blob": "19b969cd16caaf23071ff0a341d187cf51aa2a44",
+      "path": ".github/build_windows_n0a_udp_parent.ps1",
+      "sha256": "51ee1159a0fb77415d2375acc9ba6a8cdc25cddbd34e239f42ff2dbae68ca80c"
+    },
+    {
+      "bytes": 3265,
+      "git_blob": "aea48ad403c9dc5a8bd8fea580a91dd137c42f87",
+      "path": ".github/build_windows_n0a_udp_parent_fixture.ps1",
+      "sha256": "dfbe033d06b702375cf7bab5f344a0d8f58619b1ce8d47efe6fdeffe058b8cf8"
+    },
+    {
+      "bytes": 7277,
+      "git_blob": "0398e1e877555527e9f7e6be570bbbbaa52df2a0",
+      "path": ".github/build_windows_online_package.py",
+      "sha256": "eec55843300b156257640cf665312ea4ee7ec9236d46596034dbc79857e8505d"
+    },
+    {
+      "bytes": 11537,
+      "git_blob": "27b4d633a41473e1e5067ba99c7db3d32a5a75e6",
+      "path": ".github/build_windows_package.py",
+      "sha256": "80b435588f298cca310ee4c869fced8f4aca2c2bb336da79df64c7f0bdb56943"
+    },
+    {
+      "bytes": 10469,
+      "git_blob": "625c1898cc8034df8ff04c00629719064b179200",
+      "path": ".github/check_system_proxy_native.py",
+      "sha256": "c28b1d0688c4e50bc1fbc3a4f9c0710904d7cf2c0b905e38f4549ca25f741138"
+    },
+    {
+      "bytes": 109152,
+      "git_blob": "bffa0417e5d2f2521936313dc292f8bf926a8b82",
+      "path": ".github/check_windows_global_capture.py",
+      "sha256": "12e5f364a41c401cb816451c787a98a4c01ba5205854a2f59a8705777e4bc77f"
+    },
+    {
+      "bytes": 9303,
+      "git_blob": "5bdb79ea4942698f7c978ab4badc426d434bd4e4",
+      "path": ".github/check_windows_online_bootstrap.py",
+      "sha256": "cb16531e33e4f68ff27e7f8a861ec30a005fd8a15f3f0c413d074f34cca48df1"
+    },
+    {
+      "bytes": 39991,
+      "git_blob": "a10525a76e4a513c0141b34b69800ad0171650ea",
+      "path": ".github/legacy/check-mxc.yml",
+      "sha256": "4ba0b1929ce7274a100aef893918be2ffcdca1b61109158f1526db3c3e462f5e"
+    },
+    {
+      "bytes": 1827,
+      "git_blob": "63e29426062b89f982c3e4ab842d8aa2dae32f64",
+      "path": ".github/mxc_path_check.py",
+      "sha256": "47c0834f80b559f43ba224ddb2691b20cb058f273e583e2afb61faf40676f6ba"
+    },
+    {
+      "bytes": 31002,
+      "git_blob": "189a70ee773534147387fc80beaf8de8e42d64e0",
+      "path": ".github/native/windows_identity_actor.cpp",
+      "sha256": "530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553"
+    },
+    {
+      "bytes": 4215,
+      "git_blob": "22a9c5468e04a86a21a51e7a275b95bac603144f",
+      "path": ".github/native/windows_identity_proxy_bridge_conformance.cpp",
+      "sha256": "a133674578c821c47c4bf990a7bd13781d926ca50dd816a7d7b324dff6d6d484"
+    },
+    {
+      "bytes": 16517,
+      "git_blob": "b63fa2f13bad6720352e3eefbbdf3a8d1e88b298",
+      "path": ".github/native/windows_identity_proxy_bridge_core.hpp",
+      "sha256": "cc3d6a72e54b92ad8d854e9bd50b4237cc7e295d6b0df72a3732d2a9f62e0309"
+    },
+    {
+      "bytes": 15857,
+      "git_blob": "3f9c04818e5fe5eb92299152012342dab088f730",
+      "path": ".github/native/windows_identity_proxy_pipe_actor.cpp",
+      "sha256": "b26997e8110a7f57066b037a13b41ca34d67b665972ca780d3f52ff7e8f02c4d"
+    },
+    {
+      "bytes": 15377,
+      "git_blob": "243e4bebd4a86d7805d3e568aaa7d3d622a43e05",
+      "path": ".github/native/windows_n0a_actor.cpp",
+      "sha256": "33a276721db4d46bd79f47fabd3bb5b8e126e1a8c259280e690b8dd2caaea465"
+    },
+    {
+      "bytes": 15494,
+      "git_blob": "c345efdc4fded998d13b01041aa5f6c0e5b15bc3",
+      "path": ".github/native/windows_n0a_dns_fixture.cpp",
+      "sha256": "852c8e56e17a84b7df8a6ebf74d30c493eafcb2aa9f2cb900e151302a5b0dfad"
+    },
+    {
+      "bytes": 5151,
+      "git_blob": "c8c16f6a48ae15ca47404dcf120d9b9ef242e857",
+      "path": ".github/native/windows_n0a_fixture.cpp",
+      "sha256": "7f610f94e164b97c32a94b2c009195fcd76be03cc52fad7ca7a2eeb0329db9a0"
+    },
+    {
+      "bytes": 27221,
+      "git_blob": "ed1bce972b4ab27dfdee3e1266150e846dfb467b",
+      "path": ".github/native/windows_n0a_udp6_actor.cpp",
+      "sha256": "bba6b0049060deeb67ea00a7d28dc4186652f9bee5f3375cb7e089a85126d7fc"
+    },
+    {
+      "bytes": 13552,
+      "git_blob": "870e02f98f7e3e09ea573f9611f6acc83d10c28b",
+      "path": ".github/native/windows_n0a_udp6_fixture.cpp",
+      "sha256": "89f351dee56215fe73a59450f3e130a7710249463915f48514a36ce5d12ee1bf"
+    },
+    {
+      "bytes": 14512,
+      "git_blob": "3d064e557efd5c01d89fe31cb14de1c667fa1d6d",
+      "path": ".github/native/windows_n0a_udp_actor.cpp",
+      "sha256": "dea64f0f25d60930be13c4f9e24b41f7535d1021476e6180d6bfe3361b40d0f2"
+    },
+    {
+      "bytes": 1332,
+      "git_blob": "e3fd2d744dd387f8cd04724196b423710f3fe1d7",
+      "path": ".github/native/windows_n0a_udp_fixture.cpp",
+      "sha256": "9465f6fd4399b4e7edc357dcfaf7769905aa74392c423f05142fa9f49896bbae"
+    },
+    {
+      "bytes": 18477,
+      "git_blob": "2d6472432060da4c64a37ad8220c7211af84838d",
+      "path": ".github/native/windows_n0a_udp_parent.cpp",
+      "sha256": "d664329acbf642e5232031ea0aa7c1a12663a35ef4e7cb89925d932b94af3347"
+    },
+    {
+      "bytes": 73,
+      "git_blob": "7658b0190922f4da6c91fe59b16dcdf1767813cc",
+      "path": ".github/native/windows_n0a_udp_parent_fixture.cpp",
+      "sha256": "6712f8a4831924e619911f5952d1f3cd22786357db9337e0a8b2d8bd028c3301"
+    },
+    {
+      "bytes": 1556,
+      "git_blob": "ad1414e8f44afefd592c59213b0e4eb7c01911c3",
+      "path": ".github/probe_kvm.py",
+      "sha256": "e273cc2574058505297e77899963b329ac355ff5a2b62312f08f7b88ef2568e1"
+    },
+    {
+      "bytes": 2600,
+      "git_blob": "916848b667223e9727cdeb659a3afa47d9c66d8c",
+      "path": ".github/run_tests.py",
+      "sha256": "d2a1cc1402dbabb013373257a5b6a26c996e75b948168e70ddfa6079092f7271"
+    },
+    {
+      "bytes": 4440,
+      "git_blob": "f4fa27a3fef7600ccf9af7c0ab762f850d093c16",
+      "path": ".github/run_windows_primary_probe.ps1",
+      "sha256": "073b474a6e5cb9e8cc6faadcc10e7c451a26964b7c8c34a1a12d574c1fac6442"
+    },
+    {
+      "bytes": 16815,
+      "git_blob": "ed9f88938ffe2a80f25d860646bb4b2e3a866547",
+      "path": ".github/run_windows_psec_smoke.ps1",
+      "sha256": "146b75534c474375813363c9d9ed04f51ba102a5b0b39f39dce5a1d2ff2daf4e"
+    },
+    {
+      "bytes": 9395,
+      "git_blob": "3c318ecddc1f0c469afca8804c50d382a86a9215",
+      "path": ".github/smoke_panel.py",
+      "sha256": "c274fc3abf104923071c6f4c2f24981259ca98912d4eda9b830a5b96cd1c8075"
+    },
+    {
+      "bytes": 15630,
+      "git_blob": "1a1cde83c2e75cedf3280f99a1345c3d99f19290",
+      "path": ".github/test-windows-identity-direct-gates.ps1",
+      "sha256": "08f29a6d41bcd5d69732fd3a6bea69cef870293cdc25acbc5faf6128d2c45e45"
+    },
+    {
+      "bytes": 51316,
+      "git_blob": "0f48681600208344604c4cb4f78224a7acf3b031",
+      "path": ".github/test-windows-identity-serviced-gates.ps1",
+      "sha256": "4ea820efd6bfba4de4974618a230f75247e294be9d32c81a03af57818396c906"
+    },
+    {
+      "bytes": 25355,
+      "git_blob": "f557667f6639bcfdb2812b0913a20422fccd7dd7",
+      "path": ".github/test-windows-identity-serviced-receipt.ps1",
+      "sha256": "9440949999e990862f55d55239cbfd3dbce3976a91b27be8658562332a75f933"
+    },
+    {
+      "bytes": 27499,
+      "git_blob": "47c9899f749324264b32d56d6b4159e987236ab0",
+      "path": ".github/test-windows-identity-serviced-telemetry.ps1",
+      "sha256": "448c5b242b3e943e40d9565808feb93f91b5c770a5f0d0c72d2c02a2b2dc3d71"
+    },
+    {
+      "bytes": 16632,
+      "git_blob": "94908bf0ec15330789fd620bb23d9dd7b6bc092b",
+      "path": ".github/test-windows-n0a-guest-gates.ps1",
+      "sha256": "6950b8763dd4e5c709703a1bce5fd769a50e8d4fd76e466b5f18398b8948a00d"
+    },
+    {
+      "bytes": 7737,
+      "git_blob": "e44f8a525805b36b0f6923521e3a6f5572d01508",
+      "path": ".github/test-windows-proxy-pipe-ac-guest-gates.ps1",
+      "sha256": "36c9364466a2532905763395494f0fe2e9dfef755b788aa5b6ecc57b6193d75a"
+    },
+    {
+      "bytes": 13125,
+      "git_blob": "ee2ca777f7316e14750e33f6eddb05ef813c0144",
+      "path": ".github/test-windows-stage0b-guest-gates.ps1",
+      "sha256": "bedafa1d03c470232ca34696763ad96f127c0357f7dcb9357740ffb2c4389a22"
+    },
+    {
+      "bytes": 11635,
+      "git_blob": "ed62fbc2ad7f6ee58f425f6cd4a8f1a8498c6f5f",
+      "path": ".github/test-windows-udp-guest-gates.ps1",
+      "sha256": "96566cfe7c5808cba968666fee587c440f58033f02d14aae1950c49df6a3c001"
+    },
+    {
+      "bytes": 14962,
+      "git_blob": "997c9447f39fd352e7d5be510e46eb890fcb8ea0",
+      "path": ".github/test-windows-udp-parent-guest-gates.ps1",
+      "sha256": "fa091e28292293d1e39a8972d99e00c8b23d2d425ba4f88110d74dbfce5b7c4e"
+    },
+    {
+      "bytes": 9402,
+      "git_blob": "6ea214fdcac28795f3792b2d412cd35bbb0e802c",
+      "path": ".github/test-windows-udp-payload-gates.ps1",
+      "sha256": "71191226f597c671d6560f34cda132b1535b6c95fb2cc1a485cf45e8929d6ffa"
+    },
+    {
+      "bytes": 13661,
+      "git_blob": "1f00cf5df4f0d744086299bf7a00e3d1aa0b078d",
+      "path": ".github/test-windows-udp6-guest-gates.ps1",
+      "sha256": "7e509d2b064451d24d7b99ec23efdf20ecc54660bf6bbae289b633a9e23799bb"
+    },
+    {
+      "bytes": 6849,
+      "git_blob": "ab2a0ce3355292da4b2e714edcc9279f78d43d89",
+      "path": ".github/test_network_recovery.ps1",
+      "sha256": "a0f2a6c8ff3f27b5d26cc6a0601b69228d94f38a6803c957dd37edeedefb90ae"
+    },
+    {
+      "bytes": 13376,
+      "git_blob": "3155980152b511c173c8305a3d7abbb30b93b959",
+      "path": ".github/test_network_recovery_native.ps1",
+      "sha256": "cb4c041417d2b283ee4cf961cdc6247606378b454961d648e5098a7509495c1a"
+    },
+    {
+      "bytes": 37779,
+      "git_blob": "cc39ad4f598d746fa928deeadecb8182129f2a75",
+      "path": ".github/test_windows_dns_request3.py",
+      "sha256": "4c0809c559051954cb783d6986bc75e4f7acd1ac6e234438f83a165ee6edbcb3"
+    },
+    {
+      "bytes": 7119,
+      "git_blob": "1d8886686f5b14e11c884f3452d681655ee8834f",
+      "path": ".github/test_windows_identity_actor_projection.py",
+      "sha256": "3081d246221e0dc213c32cfe173d70cb52100aafb486ebc2ad3523168e6823f5"
+    },
+    {
+      "bytes": 11897,
+      "git_blob": "c22408aa457d8cdf5cb997fedf05d16fbea2f8af",
+      "path": ".github/test_windows_n0a_actor.py",
+      "sha256": "2bf257b6317eaf80cee454572cb8cb667eedc982b6b04b57ecef7c070554213d"
+    },
+    {
+      "bytes": 10907,
+      "git_blob": "056d4bcdca5e7401115914a603466d8f5a235764",
+      "path": ".github/test_windows_n0a_capture_child_qemu.py",
+      "sha256": "58e4b091be05ccff42feb0b9a405428e7f2fbf6ecce7c94c8d5666207dbd16e5"
+    },
+    {
+      "bytes": 11443,
+      "git_blob": "4ba50caa313b456cd98ba6f5b6611c6e25041457",
+      "path": ".github/test_windows_n0a_capture_qemu.py",
+      "sha256": "cf3cbf003d5b2089e4e5a1ee3465ed79defbb28e329df04ffe6c1685d9721dcd"
+    },
+    {
+      "bytes": 5584,
+      "git_blob": "1e500d71aad6ba7d657376e7128a4deb4d5b8a2d",
+      "path": ".github/test_windows_n0a_qemu_slirp.py",
+      "sha256": "a164861a4f5e83731d260545ccb51d4409f51f9a2fd8f257fdf87c3624bc642e"
+    },
+    {
+      "bytes": 11576,
+      "git_blob": "aec3512a8ea2483d6c8164304f0316ad5cb6e617",
+      "path": ".github/test_windows_n0a_udp.py",
+      "sha256": "badd87aae1ab62a4522bc65e8dd4ecaf9f955ba0dbba85a4628f9d66c64fbdd9"
+    },
+    {
+      "bytes": 16268,
+      "git_blob": "13e73f33e1e4b35cb03519995ffb792e387c63a4",
+      "path": ".github/test_windows_n0a_udp6.py",
+      "sha256": "6572212f51552e945b7bae2abac10af26d7ae094a3357c26883ff5bfad48826b"
+    },
+    {
+      "bytes": 23900,
+      "git_blob": "d71ee753fe06941108e2584c7ba99ea08ee6fb64",
+      "path": ".github/test_windows_n0a_udp_parent.py",
+      "sha256": "1e910cb41a3b4d6e3133a5523c7f5b5cc06a6ddb6e824129443cfb584765f3c4"
+    },
+    {
+      "bytes": 8191,
+      "git_blob": "f4d642747d2cdc4eaba8f89c95d2a60198943bb4",
+      "path": ".github/test_windows_serviced_progress_qmp.py",
+      "sha256": "2cda2ce09f0704605ba119a40cb5ee950bbdc362da57958c8621860e26f8d898"
+    },
+    {
+      "bytes": 10742,
+      "git_blob": "e04105eee9d5719bff503fd3e9465e5d487c809f",
+      "path": ".github/test_windows_serviced_qmp.py",
+      "sha256": "556980895cc671547a081f873c09ecd172f256d3cf1f966df078f2f0a9cf1ade"
+    },
+    {
+      "bytes": 10551,
+      "git_blob": "f0df4a0e6fb7754c5380fd9dc674fcd3051eca02",
+      "path": ".github/test_windows_udp_payload.py",
+      "sha256": "eb86ab873d87e7565c3140e85c234d283117de8e18064a67519e823d2fd3de76"
+    },
+    {
+      "bytes": 19386,
+      "git_blob": "3fe1e46e42e106f85e029e6c9fd8b1033ecdadf2",
+      "path": ".github/windows-compartment-vm-run.ps1",
+      "sha256": "18b5ba86b717b326af1912b680aa72c6caa6b6d9b8bc57799744670a52e22655"
+    },
+    {
+      "bytes": 4488,
+      "git_blob": "c3f0de5d734fd9c51c93bcaa06cd3684e9925c36",
+      "path": ".github/windows-free-backend-acl.ps1",
+      "sha256": "38590d0215f4d1ce7c6f454ccdfa5f8c072cea401b0c1aa251f1803b8788bf41"
+    },
+    {
+      "bytes": 5471,
+      "git_blob": "11c6c0b1daf1e4d6c4ca595c3216d984baeccfe2",
+      "path": ".github/windows-free-backend-install.ps1",
+      "sha256": "d02aba63636c3dab7849ad32db518f4bcf0b5277769d2900a42fb64b2de008eb"
+    },
+    {
+      "bytes": 9966,
+      "git_blob": "5658c5dcb14d3b574066cb780c8547951a9d7649",
+      "path": ".github/windows-free-backend-run.ps1",
+      "sha256": "834b30de81d135433adb03169b4569716908d6b4a2f3801802b0357f74e32b7b"
+    },
+    {
+      "bytes": 14204,
+      "git_blob": "71110a06128dca4049693c50a97de5910e770710",
+      "path": ".github/windows-free-backend-server.ps1",
+      "sha256": "6b86d3fc631849d25dd6e2755b9f24708fa93904c832a4521c056febaf049e4e"
+    },
+    {
+      "bytes": 3833,
+      "git_blob": "71ee7ff35750b8c29df2ffd34a844837933d116c",
+      "path": ".github/windows-free-backend-setup.ps1",
+      "sha256": "7c4627ecc22a84cbc3d2c11530a2ac3593229676534e765d831cfb08a706c75a"
+    },
+    {
+      "bytes": 34963,
+      "git_blob": "38b348542e2b79034d7870f5e5e08a5a2dadde50",
+      "path": ".github/windows-global-vm-run.ps1",
+      "sha256": "9f325519f02a6c848df68e223da1ae522405e3643cc2bb8453b8106882910625"
+    },
+    {
+      "bytes": 142,
+      "git_blob": "71470f66772ac5a0edbd6245ab27ad01a7f50371",
+      "path": ".github/windows-identity-direct-stage0-parentudp01-launch.ps1",
+      "sha256": "8e2615520fb4f25cff84c91f813ce272d05d0da82c800d3ba846c33da54e2fa5"
+    },
+    {
+      "bytes": 176,
+      "git_blob": "50d707e98ee75114b9a7feef4b2054bf6907068a",
+      "path": ".github/windows-identity-direct-stage0-parentudp02-launch.ps1",
+      "sha256": "6924a94fe16e8e7ba2d048609e3cfa33f68157debd0f15a3d7e40c4e3a13eb82"
+    },
+    {
+      "bytes": 158,
+      "git_blob": "81d0960b74dd09ba922f08278509d0684e81ec3a",
+      "path": ".github/windows-identity-direct-stage0-parentudp03-launch.ps1",
+      "sha256": "bf346eb5540da4b30361f9cd72ea751397be85f916ec7730f6783e2df0eca8f4"
+    },
+    {
+      "bytes": 112415,
+      "git_blob": "9bc2ef7c525af1b3bfaf166233e5b6cc364d9434",
+      "path": ".github/windows-identity-direct-stage0-run.ps1",
+      "sha256": "a7328cabb5f5dcd5cb4e38d459f7b39beafc30a45aec83d1830013b307e0564a"
+    },
+    {
+      "bytes": 1242,
+      "git_blob": "a2c32a9764f54938b9e05f5a3591be28a001ac2c",
+      "path": ".github/windows-identity-direct-stage0-setup.ps1",
+      "sha256": "778fa8c38f1adbd752c31127f05a9a159924c98ab5f8d418b22b3786b46f7ed3"
+    },
+    {
+      "bytes": 167,
+      "git_blob": "ce86a02206d0bfb505d6732a16e9938aec882473",
+      "path": ".github/windows-identity-direct-stage0-udp02-launch.ps1",
+      "sha256": "8bb7a6788efcfc05222a7ef8215cdf4ecc6f76f623c21c84be13f13d4d7e5362"
+    },
+    {
+      "bytes": 46118,
+      "git_blob": "9d68812b88f2dcad2c8d339326748dd2b81c575d",
+      "path": ".github/windows-identity-serviced-stage0-run.ps1",
+      "sha256": "1c1e0b6ce0ee18f45da281c72b0089c8477caac3c5b3eb61cd030a5baa744e4c"
+    },
+    {
+      "bytes": 6383,
+      "git_blob": "09d8f82f86d1cd02eb90eeebe8a5782af5d554f4",
+      "path": ".github/windows-identity-serviced-stage0-setup.ps1",
+      "sha256": "123b2389013f13b99aacc00292e85940d5ed006a83c96c878aca264c912ec6d2"
+    },
+    {
+      "bytes": 10894,
+      "git_blob": "d9a4cbdd9cfc6b4e6246178198460b264909c31b",
+      "path": ".github/windows-identity-serviced-telemetry.ps1",
+      "sha256": "8d80a167d5b99eff29b66e4b35ca1eced7e76a5c89175baa30edb764f47b29f2"
+    },
+    {
+      "bytes": 26771,
+      "git_blob": "4158a388754309d520c28c0b1a651875aee76f63",
+      "path": ".github/windows-identity-serviced-update.ps1",
+      "sha256": "7105a872c287681a22e9386fee50870fbcc67f98b31360a2d350c4c85b11e8a2"
+    },
+    {
+      "bytes": 13306,
+      "git_blob": "47a2d6c1c6899271f4f377f4a3719e830b44b6d0",
+      "path": ".github/windows-identity-stock-stage0-run.ps1",
+      "sha256": "a9207643a1e8207b67348c5ef24d917f28bcb69ac80b6f3889dc0c526569e73c"
+    },
+    {
+      "bytes": 1229,
+      "git_blob": "9813dd80ce0a8fb1fbac0c5f7b81e9ece9ca5652",
+      "path": ".github/windows-identity-stock-stage0-setup.ps1",
+      "sha256": "6b55b8cd6b53f700af0826dbcf30c9df825ba3087738c9249224932f6d21a0f8"
+    },
+    {
+      "bytes": 5717,
+      "git_blob": "0f102ad853e9ebca240bf18722802ba9b0009f05",
+      "path": ".github/windows-identity-win11-stage0-run.ps1",
+      "sha256": "ea272b50c45405fbb05678a3b48fc9f4307372852727ccadef3b7a58f00225f9"
+    },
+    {
+      "bytes": 2463,
+      "git_blob": "62590dbaf169887619e6b4b4efb0c392b4bdd6b6",
+      "path": ".github/windows-identity-win11-stage0-setup.ps1",
+      "sha256": "7a2850157db8de49e8c7207bc514c9f6b1bb211922c9fac1eea93f2334676e95"
+    },
+    {
+      "bytes": 17077,
+      "git_blob": "b3cb740d4cfd461145e4c6bd9d9b85f810082c42",
+      "path": ".github/windows-proxifyre-vm-run.ps1",
+      "sha256": "50a3d2f823548873a0e013d6560ae4273dc66b49ebc751509c7db59134dc3898"
+    },
+    {
+      "bytes": 6272,
+      "git_blob": "a6b1ef5117ec92da5fe291afe1f5ac0d3cb9a23b",
+      "path": ".github/windows-proxifyre-vm-setup.ps1",
+      "sha256": "cde399a1637a7a599db400b78ee78dc42460ab558978d7823761fd2fd3d67f92"
+    },
+    {
+      "bytes": 15223,
+      "git_blob": "3d7a058c23a057ce14bedc04e69b09defdbede4b",
+      "path": ".github/windows-vm-run.ps1",
+      "sha256": "fb3ad7b21bfada9bf90d1784cf809aee60c1849d62a8832e5422a31870f46607"
+    },
+    {
+      "bytes": 4196,
+      "git_blob": "ebdd7a59a210bf7e161bf5375454c3409be9a00d",
+      "path": ".github/windows-vm-setup.ps1",
+      "sha256": "5ed8aa1540ea3059740afd68cb8a9f9be858f6d382eef8395bba76b4134ae292"
+    },
+    {
+      "bytes": 4729,
+      "git_blob": "cd817822b67481a0f366027dcd5afafcea4feb27",
+      "path": ".github/windows-vm-unattend.xml",
+      "sha256": "e7156f87ffc50d7db3e4fb8f7d3019db93c9150b46acafbaf22eecc77d2ef6c7"
+    },
+    {
+      "bytes": 21758,
+      "git_blob": "9159938567c3ab67de6d2a58d03c592aecf93109",
+      "path": ".github/windows-vm-update.ps1",
+      "sha256": "98affd440f8059277e6834131ea4dd23d2b9b9351b3ae0a046aad29b4215197e"
+    },
+    {
+      "bytes": 21974,
+      "git_blob": "69abb9044c8efb02e3446fcb4f6d25b26873c599",
+      "path": ".github/windows_appcontainer_compat.py",
+      "sha256": "926841fb99192afe234d16d8acfb9fabbf8c9e2c08832c7f947e53b1d6ec66fd"
+    },
+    {
+      "bytes": 27776,
+      "git_blob": "21838635ee618025e16aa507f31ce95b15839766",
+      "path": ".github/windows_appcontainer_lab.py",
+      "sha256": "8c153148872f5a8e3eba2d79abe36a1098d8fba07b90a025747b12776fdee8f7"
+    },
+    {
+      "bytes": 9243,
+      "git_blob": "c61f11bbacf56082ae3f5316ddac50ccf2a132fa",
+      "path": ".github/windows_appcontainer_product.py",
+      "sha256": "55843225ff400ee7879cfa27986f1d2bec81833454b4d6236bca7618db904846"
+    },
+    {
+      "bytes": 26288,
+      "git_blob": "fb17e43f6acadd48f435d562359c225d0ba6e862",
+      "path": ".github/windows_browser_check.py",
+      "sha256": "1999979a1e7d813cd7993da8656d88dfd4c7c14b9f6cf6636ebf361a22e82cd1"
+    },
+    {
+      "bytes": 14896,
+      "git_blob": "81f22f80e8066b8100a42e38b9490b138dc591e9",
+      "path": ".github/windows_chromium_control.py",
+      "sha256": "023bb84e3c9e3f5e8908d4eed54f52d767895f995178ae4d2a4f95db35568be6"
+    },
+    {
+      "bytes": 105422,
+      "git_blob": "66788fa2dd65a41dfc8f6f07c3f15b9b2c26bbbc",
+      "path": ".github/windows_compartment_lab.py",
+      "sha256": "02a19dc569044bc9ba16ea0116cad546650855241f504e4dc39b3c20098279e3"
+    },
+    {
+      "bytes": 54525,
+      "git_blob": "24d6d37937a37134222e584db7fa0e156039f2a8",
+      "path": ".github/windows_compartment_product_probe.py",
+      "sha256": "56e2f463c523d1c33751b0bcb5e2b669b3ac397acc7b02046f72fcf9c15d7835"
+    },
+    {
+      "bytes": 4758,
+      "git_blob": "da1e505409de7764b01169c9080c2acb61fb3997",
+      "path": ".github/windows_compartment_wire.py",
+      "sha256": "12042c9d9d2f172d25cf92b366d3533ef1e7778ebc59da25bb73b009e12f0446"
+    },
+    {
+      "bytes": 41323,
+      "git_blob": "17d09ff6747cb6228b67a4334ee48e6a36fb4b9b",
+      "path": ".github/windows_diag_crash.py",
+      "sha256": "bd6946a61d7a7b8d218f0ff5e8ec484250d3cfa598c13fd07644882e46efeab2"
+    },
+    {
+      "bytes": 34975,
+      "git_blob": "0362017d51d45505b5f890494996aaa7e1912ec7",
+      "path": ".github/windows_diag_dns.py",
+      "sha256": "85081bc1996d7c007faa7f35e2d730759f70c6175d78387f0fea2defc393c501"
+    },
+    {
+      "bytes": 47680,
+      "git_blob": "dddc788e9e33dcd3b96c64b10dad5658d59873c7",
+      "path": ".github/windows_diag_recover.py",
+      "sha256": "d0cac08451182b01d2c85eb4fc275f6bdb6d6c18d57504928143304a113365ad"
+    },
+    {
+      "bytes": 8339,
+      "git_blob": "33b3f0f9402aa539ac48cf1938862a39c590b561",
+      "path": ".github/windows_dns_compartment_probe.py",
+      "sha256": "a21037c9820b16c8ac42adc57c729b9268fa6bf9fdc6298b36ceb1786fa16390"
+    },
+    {
+      "bytes": 9913,
+      "git_blob": "b99c4101d99f4a7c9a2ebaae7a17153982e2bb72",
+      "path": ".github/windows_dns_fixture.py",
+      "sha256": "5a330ae54ec887742ed14c0d2fd1135e486790b686fbc850c3681f04e674273a"
+    },
+    {
+      "bytes": 16274,
+      "git_blob": "99348ca918ac7c43c23dfa8cb3bd01e291a5b601",
+      "path": ".github/windows_dns_packet_evidence.py",
+      "sha256": "b32d3dc50b60140ceed4222e958c2e61e408b710c19546565330b5c58e85d280"
+    },
+    {
+      "bytes": 7852,
+      "git_blob": "df4ac4f582f0b518bca05bb8c60c832b4511f31c",
+      "path": ".github/windows_dns_session.py",
+      "sha256": "7c21e084af839237c2dbe488d598441daca84e8a1215507aaa73163e1adf47f6"
+    },
+    {
+      "bytes": 28449,
+      "git_blob": "fa936f7d8d774d8e333cbfa0ce371c17ab639104",
+      "path": ".github/windows_edge_crash_evidence.py",
+      "sha256": "42fb14739d958e6362c5b0698f70292063e90bf98c1f7733e8577920052d2fe2"
+    },
+    {
+      "bytes": 20598,
+      "git_blob": "4a709ff3f5bf1917fbb77cc02de4b8406cf2bec6",
+      "path": ".github/windows_edge_outside_control.py",
+      "sha256": "0a5b60422b36023565ac7751f67454b06e46ca66bd6660cb25e79d94fd16c30e"
+    },
+    {
+      "bytes": 38395,
+      "git_blob": "eca02259e724b8fc55a05fe55db85d1702bc92d8",
+      "path": ".github/windows_edge_policy_experiment.py",
+      "sha256": "d6ce26e15a149b97e3500f02cf954671e82219df4d5b3eca536875ebceef13db"
+    },
+    {
+      "bytes": 9089,
+      "git_blob": "70eec55f55d147131a977217d5c2d9609f2a29a6",
+      "path": ".github/windows_free_backend_assets.py",
+      "sha256": "505508b45eb34ad1404e96abccb262f13f60331825c5fa476a4ce96a94a19912"
+    },
+    {
+      "bytes": 32082,
+      "git_blob": "6c3d7159c129f414829e7cba3877b765e6dfd2e3",
+      "path": ".github/windows_free_backend_evidence.py",
+      "sha256": "acfdf33285400b6abbda575e0540a80796db487eee0888eb5afccb0efd613e8d"
+    },
+    {
+      "bytes": 24758,
+      "git_blob": "54e45e0fd7655fbf1c805e468c8aed728bf37dc3",
+      "path": ".github/windows_free_backend_fixture.py",
+      "sha256": "c8a126a378ee7b2aa7f537dde81cbb2a262b918ebae267c119e8453efa826ec6"
+    },
+    {
+      "bytes": 22377,
+      "git_blob": "6a4bcf62f9e51f64b8fa033b49e4429213dc955a",
+      "path": ".github/windows_free_backend_server_probe.py",
+      "sha256": "310b8ef169e7e324764a6324133284cff0afa40ab65baa39093e60e9e8c21cb0"
+    },
+    {
+      "bytes": 27741,
+      "git_blob": "6c90e0ec5af140bde9bae40c44bfdbeec1f9e931",
+      "path": ".github/windows_free_backend_vm.py",
+      "sha256": "b45088f0aac6beaa64dda8de3d8ae8294c4b9145ab538584eee99f54e61f03a6"
+    },
+    {
+      "bytes": 18777,
+      "git_blob": "14df768a8fe663cb4194d385e11f3d1408b1c5d8",
+      "path": ".github/windows_global_dns_fixture.py",
+      "sha256": "ea4e180ea6f02912341aa81041fdc71e663bb6095aeefaa9b5fe1733ea57ca7d"
+    },
+    {
+      "bytes": 79072,
+      "git_blob": "4444564f815d254bd5e9a83b86c25390d7f1650d",
+      "path": ".github/windows_gui_check.py",
+      "sha256": "02a7d217672567dd77db778c1e25f5ed5fd7d6a0ddde60b93fe5e3556ecc4f92"
+    },
+    {
+      "bytes": 22160,
+      "git_blob": "f95b08e03c44c8bdc48949d3c87d35d7abb27712",
+      "path": ".github/windows_gui_context.py",
+      "sha256": "170411c01bf2a4f3081b4fca516c3dec98ef5e08b4838fc8f0a6376e432e893a"
+    },
+    {
+      "bytes": 30090,
+      "git_blob": "516f6aa8cd1d3a23936cf8e9073d19d5aa4c4c98",
+      "path": ".github/windows_identity_apt_diagnostic.py",
+      "sha256": "1e80bf09cfdd155899f79510db57582a1d1240d1689d770a92c906f96556e71f"
+    },
+    {
+      "bytes": 8915,
+      "git_blob": "7aa92ba5d4905bbace561cb8abefaab414aa4c09",
+      "path": ".github/windows_identity_cache_inventory.py",
+      "sha256": "104d7268fc6124e2c3e410baa5c8410285de8da8a1ae4cf279cf9d1813584482"
+    },
+    {
+      "bytes": 135857,
+      "git_blob": "24216895fa6d597cf84bc0329a22fdd6583eb034",
+      "path": ".github/windows_identity_direct_stage0.py",
+      "sha256": "24fce8ad31ffa55272218290f8a1a6da4d416cc384871755efa46cdfcfd9a833"
+    },
+    {
+      "bytes": 17222,
+      "git_blob": "a1678f4a39945e5bc49a5e0cf9f1cee9ed62ca39",
+      "path": ".github/windows_identity_dumpbin.py",
+      "sha256": "d15d40ffe4c49fc8dba77c26e47922e29034980a3da8ecb141e03af9478781f5"
+    },
+    {
+      "bytes": 5364,
+      "git_blob": "9b9fc01e7cb914106198119f0312f56587d29301",
+      "path": ".github/windows_identity_lab_preflight.py",
+      "sha256": "e118f33742ec9583c65d2bbbd0cc8d80a74973b5d32b47f48ba8a60274295176"
+    },
+    {
+      "bytes": 15544,
+      "git_blob": "ed0fe0535ab1e0096eb45b55e54adaa2d64ce050",
+      "path": ".github/windows_identity_mode_inventory.py",
+      "sha256": "ff62760dfedc3c22180f4c10a6fb1be1021513ac445f7ce83dbcf164ed32e8b7"
+    },
+    {
+      "bytes": 67809,
+      "git_blob": "d7ab598e4b3b23163c2e137ae3d6e073e814b683",
+      "path": ".github/windows_identity_ordinary_launcher.py",
+      "sha256": "a890f4740bc2869586278158edad65dd8c649e09afed8c7aab355d842301d4a0"
+    },
+    {
+      "bytes": 20648,
+      "git_blob": "124900bc023f89c616e60b876312fd739a849592",
+      "path": ".github/windows_identity_paired_startup.py",
+      "sha256": "a2f48841b736336d19aa3efdccbc356408021ef26c7ada2ca56362d47f45005b"
+    },
+    {
+      "bytes": 40122,
+      "git_blob": "04f26706084f2e5efe0b9fbbbede1c875274237f",
+      "path": ".github/windows_identity_pipe_probe.py",
+      "sha256": "4dc8567d8a64e544d7a4baa873ff08900720320e26c8d6a6fd43ae3e5744dc74"
+    },
+    {
+      "bytes": 52976,
+      "git_blob": "3b46c0a3e9b112287b8c50dd0f202181f52d398e",
+      "path": ".github/windows_identity_proof.py",
+      "sha256": "aada68c3a0c309dffe422cd6271cf80a728e05a3c4a52a6a81293b47b74d2386"
+    },
+    {
+      "bytes": 30307,
+      "git_blob": "b6ddba98bff0110156460de1b6e8d611fa05e3cb",
+      "path": ".github/windows_identity_provider_cache_recovery.py",
+      "sha256": "15372acf38c5f619766d95f71b1720757771e86bffd47a2d68fe1b51f6328cc8"
+    },
+    {
+      "bytes": 7141,
+      "git_blob": "1a116142aec2ce60eb7af231b005b45b5610608a",
+      "path": ".github/windows_identity_proxy_bridge_codec.py",
+      "sha256": "5edaa6c4b1a2aacc8aec741838ec0d4de9121da81b4124856e1c865e40e1f835"
+    },
+    {
+      "bytes": 13082,
+      "git_blob": "56a5a66a80f9180d87ea9cbad75205941352b374",
+      "path": ".github/windows_identity_proxy_bridge_model.py",
+      "sha256": "7ec2d977ee72fd779d43d6d00b36ed64d0aaa795f7f85df74bf49ba2235b4f4c"
+    },
+    {
+      "bytes": 14243,
+      "git_blob": "d0025381a60e693a87286b23affbbf9bf4585cc8",
+      "path": ".github/windows_identity_proxy_pipe_ac_guest.py",
+      "sha256": "78777d3a6b210a9e27494fc35f9dc53782adda0594b4f4705dee2c008d8d02e1"
+    },
+    {
+      "bytes": 74346,
+      "git_blob": "18829a146d452f605b57b42810a213135de07990",
+      "path": ".github/windows_identity_proxy_pipe_probe.py",
+      "sha256": "7412d86d31f0d152e600aa423910cbd632bb88ded413ace284d5255447c0fe9d"
+    },
+    {
+      "bytes": 8058,
+      "git_blob": "01a9e86b0145a79f9f54c77f715b8f9ac236ab53",
+      "path": ".github/windows_identity_publication.py",
+      "sha256": "d75b12a4f163359851c212781512816dcc30e491c892fa0dcecaa4c22d8ba49c"
+    },
+    {
+      "bytes": 38437,
+      "git_blob": "bb039c457fcdcea1dd999862b901e2636c166200",
+      "path": ".github/windows_identity_restricted_launcher.py",
+      "sha256": "6d550bc0cd4bbd3b0cdef2c13b8a61e414842c05940548fb2e55bc4271193bd5"
+    },
+    {
+      "bytes": 94436,
+      "git_blob": "a5eddee772e1e707fa375bfb356410d1467c92be",
+      "path": ".github/windows_identity_serviced_stage0.py",
+      "sha256": "5edf3e21a118865a7e19748195b1ffd0aafc9d2e519fe04914a80f0d02566468"
+    },
+    {
+      "bytes": 29011,
+      "git_blob": "ee8f4fc38975da7df340769e54fe28cb041e6a01",
+      "path": ".github/windows_identity_stage0b_guest.py",
+      "sha256": "03d3f87f13e415772a409cf1c1c34a7b1cb35d35024ca1dc6a617101bb991d93"
+    },
+    {
+      "bytes": 48232,
+      "git_blob": "32f9a872e2d8c3caf4139a375c55a85a4fe4a70f",
+      "path": ".github/windows_identity_stock_stage0.py",
+      "sha256": "2d5e6596ed3478f09379f0b7dff44ebdfd64488eee76d726e774c390e245b549"
+    },
+    {
+      "bytes": 17247,
+      "git_blob": "af3ed503359f180c799949d74cc8c2249ccda0b0",
+      "path": ".github/windows_identity_win11_stage0.py",
+      "sha256": "e2de0f6ad46d032bfd754895333f381af4091008c647ef2a6d803f26921e5e4f"
+    },
+    {
+      "bytes": 20544,
+      "git_blob": "72251a6d02bc3e5cd17a20cc2f31d240a832d90e",
+      "path": ".github/windows_job_context_probe.py",
+      "sha256": "366589e8594886522e98a398e4b19018098c4eac018c94f9630b4dbb9c298203"
+    },
+    {
+      "bytes": 16420,
+      "git_blob": "7da8b3e8f843c3b9e4e67a71bcd29b10cc4217c1",
+      "path": ".github/windows_n0a_capture.py",
+      "sha256": "dc42bdeb50f23fb6deca95f5aca1921c3f8c79c9d7bb8522197c11277293da26"
+    },
+    {
+      "bytes": 11209,
+      "git_blob": "3d25d7a41c428aeeff9ad31c4caf7a7f7871897d",
+      "path": ".github/windows_n0a_capture_adapter.py",
+      "sha256": "7636e345ce560bba586a57408665b991a4d3711155dfe43b56dee3b4a45ae4a7"
+    },
+    {
+      "bytes": 30512,
+      "git_blob": "4486697c135370a3e1bea8af1ee41eff4f80984d",
+      "path": ".github/windows_n0a_capture_child.py",
+      "sha256": "cc2f3c9579196b4b35f55c5ca79fa9a7470b923be129b24f894fde5bd39ae167"
+    },
+    {
+      "bytes": 33073,
+      "git_blob": "3273087ee53cd211527f18e4564affb26fd56867",
+      "path": ".github/windows_n0a_control.py",
+      "sha256": "6ad3df0c9f1a30dccaef65b1fb60c9e2b532ef270a6d5881fb69ecd15ae5e9b2"
+    },
+    {
+      "bytes": 10883,
+      "git_blob": "759e4c1df1003b7453937658eefa6514d15049c7",
+      "path": ".github/windows_n0a_flow.py",
+      "sha256": "86bfa33548cd14adac834ce7625a7f3d7b9c3271161d71ae811da1988e3cc794"
+    },
+    {
+      "bytes": 18967,
+      "git_blob": "cdfdde9895c41d32e5a0a7dc92e224203a7aebaf",
+      "path": ".github/windows_n0a_guest.py",
+      "sha256": "134fac0466a346cd7d1f12e21a6c4650e4f9fe7d33fdb8e883da622fb57d3ba8"
+    },
+    {
+      "bytes": 13064,
+      "git_blob": "959a9a859c4c5c7c153d47500aab9374712fd6c3",
+      "path": ".github/windows_n0a_packet.py",
+      "sha256": "c81839410302ec5c2967fff526c257cd6520ffaf52501846cfac6236a8adbddd"
+    },
+    {
+      "bytes": 13548,
+      "git_blob": "0a483bccd500b742a3c4e31f853265e02cc214f9",
+      "path": ".github/windows_n0a_qemu_slirp.py",
+      "sha256": "d5644f539e5ddb6d79e017017bf9398ec456796513d3dc0fceca00f222dfeadf"
+    },
+    {
+      "bytes": 24628,
+      "git_blob": "83e6998d8e11c770b9df08f8f5bc6e2e6f9f42c2",
+      "path": ".github/windows_n0a_udp.py",
+      "sha256": "f960b24954cb82a73f5413e48e7245148884fbdede92396e64053b9c1ef316e3"
+    },
+    {
+      "bytes": 37914,
+      "git_blob": "1d392591533e175af997e66e417a5632e56b3a00",
+      "path": ".github/windows_n0a_udp6.py",
+      "sha256": "8953966830ae8e2b80491e97524d1de99ea6104c88675fdce5c53cb2a940538e"
+    },
+    {
+      "bytes": 15143,
+      "git_blob": "46668f8ba96adbcef913dd33471e4348ef91fb63",
+      "path": ".github/windows_n0a_udp6_capture_adapter.py",
+      "sha256": "bd4d7c139db790b1b9c4892ed94455238362e3c40960ee8a1f167a3286029708"
+    },
+    {
+      "bytes": 8705,
+      "git_blob": "7c795d15ac987de44d61626ecf304680aa9069dc",
+      "path": ".github/windows_n0a_udp6_flow.py",
+      "sha256": "7cd4529463e9b0ae8fc44b05342d8518532b736845df56a9c1ddfd677da66d1d"
+    },
+    {
+      "bytes": 15867,
+      "git_blob": "80b5bcce16fbc3620241899e596a065c74a90897",
+      "path": ".github/windows_n0a_udp6_guest.py",
+      "sha256": "764746bd69d0ec1565d71a5e0ac8199c9c98db51166de4db01a40f1b1a5ad6b5"
+    },
+    {
+      "bytes": 32689,
+      "git_blob": "a6f20c9fe7000c2e27396f02fe499cfdbc07c655",
+      "path": ".github/windows_n0a_udp6_packet.py",
+      "sha256": "904b931894e858947d2d298eda4bb567751423f67d23449cd6ac990591e15d67"
+    },
+    {
+      "bytes": 10657,
+      "git_blob": "7ecd5c6a1708e38b3a03a653d59533e6e8c6dd5c",
+      "path": ".github/windows_n0a_udp_capture_adapter.py",
+      "sha256": "7b309134b4c60fdfb81f408ddedf27602d87dd2d5de5d374451295797b779032"
+    },
+    {
+      "bytes": 8598,
+      "git_blob": "2ba2a9fb8f35c1f81c2facd5012cd4a68e3e2337",
+      "path": ".github/windows_n0a_udp_flow.py",
+      "sha256": "01c4ddfa09871d1fc745f634dd7c9618c9878cb6079b1a203af91164a9c92333"
+    },
+    {
+      "bytes": 14191,
+      "git_blob": "19e3af1904d4842df7a7f8d565ae7107c48ec015",
+      "path": ".github/windows_n0a_udp_guest.py",
+      "sha256": "db10d6ae0244894a796d21d6369999a3175dd2890c2ee853dbad8a25fb88fff6"
+    },
+    {
+      "bytes": 14354,
+      "git_blob": "7d088e1c925ff2b77231a2b2437c031517ec80bd",
+      "path": ".github/windows_n0a_udp_packet.py",
+      "sha256": "f57981ebf1989e5cf7e4e1f29d4e9d1ff9b8ffcb6593d86aaed36d29e307c4db"
+    },
+    {
+      "bytes": 12347,
+      "git_blob": "fadd3ca2656e1f84d1935ad12ba79dd1a4a7c46e",
+      "path": ".github/windows_n0a_udp_parent_capture_adapter.py",
+      "sha256": "1eb2c08e438c9d5b330295ad02df034c9084d2dd4ce915030779e9a677aef153"
+    },
+    {
+      "bytes": 15837,
+      "git_blob": "0a29a7cafa43a3ab35ca6f13f94ec7763a0652ad",
+      "path": ".github/windows_n0a_udp_parent_control.py",
+      "sha256": "a599254a8b9293a0761869e5b5cb5372781c232c66b86b176837ca1e8238076c"
+    },
+    {
+      "bytes": 8659,
+      "git_blob": "d1077a722288c1c736beb523505fc19badd70c36",
+      "path": ".github/windows_n0a_udp_parent_flow.py",
+      "sha256": "a6f3ae5ae60af5c3cf89eacb727d5843a10165b285722dbfcb512f7068e4fe2b"
+    },
+    {
+      "bytes": 12784,
+      "git_blob": "32aea78e48375a984ca395a72b38185d2f3ac637",
+      "path": ".github/windows_n0a_udp_parent_guest.py",
+      "sha256": "e6b2a9e5a16cf92d36646f05822800cfae113e4c7bef38b086ecc289ba969d2a"
+    },
+    {
+      "bytes": 11938,
+      "git_blob": "242e20c14393edaecfcbded586d403fd88b62e26",
+      "path": ".github/windows_named_pipe_probe.py",
+      "sha256": "d36a22779a176df16b036632878442f999884f32a8428777bb5bcb4a7aaebd43"
+    },
+    {
+      "bytes": 19359,
+      "git_blob": "77eea457322fb87f2a1b976148c6560931258a95",
+      "path": ".github/windows_native_dns_probe.py",
+      "sha256": "266c66089eda81ebf82997cf35e75abf7d2f482b017f15b78b77b50c42dadfa7"
+    },
+    {
+      "bytes": 92848,
+      "git_blob": "72d9121a942b6f019a171247c4bca25d65fda265",
+      "path": ".github/windows_network_experiment.py",
+      "sha256": "58191aaa592d14df0dbeb0dc236123c1e31a3c2987466a09635984db9c9aca03"
+    },
+    {
+      "bytes": 18105,
+      "git_blob": "4db200650af7fb8d5c7f94ecaee3f85d5c17b6f6",
+      "path": ".github/windows_packet_evidence.py",
+      "sha256": "7f8351f4c725d5baeba6c14a64fdaff0c7af450f67c4179461cee3522fe8d4a1"
+    },
+    {
+      "bytes": 7882,
+      "git_blob": "b4c53f241505259e048607c8bf075445e9af7a4c",
+      "path": ".github/windows_pcapng.py",
+      "sha256": "e32a529bad45d17bdfb045f3483f4522133743a0b816abc403eb5da5801a1325"
+    },
+    {
+      "bytes": 21429,
+      "git_blob": "d53544fea2540203e38969979939650f7220a85c",
+      "path": ".github/windows_primary_wire.py",
+      "sha256": "346fbb8ebfd4e7116a5179d7ae9764a108a3dd7c85be51e40b737d9217cc6c86"
+    },
+    {
+      "bytes": 11295,
+      "git_blob": "da842efca4d57d82c75a3f5b6091d6755b759310",
+      "path": ".github/windows_product_interactive_user.py",
+      "sha256": "03cb703bc3deb63e237af117905c17df918b8be6eb993beee28f9cb9f248a083"
+    },
+    {
+      "bytes": 8730,
+      "git_blob": "935af77f8b781f78927db3bc1b6fca04a1960ff1",
+      "path": ".github/windows_profile_context_control.py",
+      "sha256": "15c8848dfee98dabe4dde40abd46be5bc96845e9df65e25dd2075cc215d34891"
+    },
+    {
+      "bytes": 89358,
+      "git_blob": "dd814a62f58d1956d7159714e3de7c45eb609e7d",
+      "path": ".github/windows_proxifyre_product_acceptance.py",
+      "sha256": "6eb2cb726e72ee52b82a0ad55b751ed30050b6b06ddb0c6e3d9c36a368e1a2f1"
+    },
+    {
+      "bytes": 65059,
+      "git_blob": "698f33bc9c151bdc9ec0a66d5ddac67fe2dad2b0",
+      "path": ".github/windows_proxifyre_vm.py",
+      "sha256": "2c864055e367e341e7dd94865a3403d6ab7f03d73dec9c1fd52dc16e7392262f"
+    },
+    {
+      "bytes": 27055,
+      "git_blob": "8cb52158cf5ab7cc93b6b75ff636983405f4b0c0",
+      "path": ".github/windows_proxy_compare.py",
+      "sha256": "bb37b6703569823e4d860ab69f645f2127ee520f34953b50640a32e22b30a8dd"
+    },
+    {
+      "bytes": 22960,
+      "git_blob": "232ebb819da3e9c39bbb4ec23c74ec1e6b7b5b4c",
+      "path": ".github/windows_proxy_compare_clew.py",
+      "sha256": "a30647f3a483913d96445763773e6cfff86cfac454e73238c5c68884bef9cbdb"
+    },
+    {
+      "bytes": 22765,
+      "git_blob": "07d1527466c8d45495ab2c0ab751c784881a95b9",
+      "path": ".github/windows_proxy_compare_fixture.py",
+      "sha256": "91837fbb46d897b651813694a634cd9c9c3e349de22e4e9c23d72388e0cb55a4"
+    },
+    {
+      "bytes": 20125,
+      "git_blob": "10b50e0640bdcd8a28f5e2b1371ca85a5da2db7b",
+      "path": ".github/windows_proxy_compare_proxifyre.py",
+      "sha256": "0f242140cb69b34e925049d5424af8bbe01f1295e104579c6aefdb739e1a992a"
+    },
+    {
+      "bytes": 63010,
+      "git_blob": "9bcf33f9119b5976ffb166319b56e36e7e7d6165",
+      "path": ".github/windows_proxybridge_control.py",
+      "sha256": "d4cac1e705f5c90380c7e951f3f52510cd52b5f3ce7d6b95c533efa7abbd1548"
+    },
+    {
+      "bytes": 46167,
+      "git_blob": "1437f643e51eb22d4e43a9005f75d459d2b07aad",
+      "path": ".github/windows_psec_compartment_smoke.py",
+      "sha256": "6602471c0cf08f977879caef5c34bab20db9b84208f5cdae0a00b7a1f802d019"
+    },
+    {
+      "bytes": 37542,
+      "git_blob": "4de9eb075a7189cecaf2bca7cf30b40772fc4a8e",
+      "path": ".github/windows_restricted_primary_lab.py",
+      "sha256": "03bfd6f380e0889a09b9c7bd9a1f8f3ccecc27becd45f69a384973a6688a6ce5"
+    },
+    {
+      "bytes": 70005,
+      "git_blob": "d85f377b67012763e50d0d380632f477704437aa",
+      "path": ".github/windows_sandboxie_control.py",
+      "sha256": "2e245d4027c41d754dacc9a7991546beed8ab87d3a521b8e69a0aa2a86686b74"
+    },
+    {
+      "bytes": 23906,
+      "git_blob": "c3ef14e02e5e25dde1c818de4d3f5c2ccaf2137a",
+      "path": ".github/windows_user_isolation_lab.py",
+      "sha256": "0635ee3680c45b535ba8082cbb0c258f51fff8e1a03e044bd417d8df5a529016"
+    },
+    {
+      "bytes": 139054,
+      "git_blob": "e6b1150939a8b99aa1c98eb319f5181bef5b0fa1",
+      "path": ".github/windows_vm_test.py",
+      "sha256": "2acb979b3da68985586cb6396bc9989cb589639bac7d99ff2df223c7cdeb5786"
+    },
+    {
+      "bytes": 8700,
+      "git_blob": "be71049f2a49a82a717657fa582f7ae527d76e36",
+      "path": ".github/windows_wire_probe.py",
+      "sha256": "ece74c4b1556a8f1aac1caafc62df78a674056565cdccdcfcb5be7507d375e47"
+    },
+    {
+      "bytes": 4158,
+      "git_blob": "3983c8465485d01338af1d6da5633d9d357055bd",
+      "path": ".github/workflows/check.yml",
+      "sha256": "7f4bf630dc07c5fa0c70e389e50dfc2a51b4539d898054fd335c9810ff7c7a0e"
+    },
+    {
+      "bytes": 6049,
+      "git_blob": "55ab05bbccc0ab4c42869e80b72bc649083bddfa",
+      "path": ".github/workflows/mxc-capability.yml",
+      "sha256": "79179edcce74706ac9131500232d3b456bde1e07fe49ad20d6f7f8a200bfcc1b"
+    },
+    {
+      "bytes": 1408,
+      "git_blob": "5a39e9717807e1aab4b0242e3cdee1b5f2fc3586",
+      "path": ".github/workflows/mxc-ingress-controls.yml",
+      "sha256": "5f6883455795ff5ebc24c69747ca619b74f8bb98a2df3bbcec795e8616da08da"
+    },
+    {
+      "bytes": 3471,
+      "git_blob": "12f61da8e360ca3144442010feb2637f81208fc0",
+      "path": ".github/workflows/windows-appcontainer-lab.yml",
+      "sha256": "8981307d44b2be4e8c4f284d7c97051dca9255bfe44612ca37e484c1e226f296"
+    },
+    {
+      "bytes": 4055,
+      "git_blob": "77ee0b5a7926ba79dea1ba68a69ee295ab581a5d",
+      "path": ".github/workflows/windows-compartment-lab.yml",
+      "sha256": "7de442a18ed9477ab02880af995571dfb88df5995d71e285c8ae4d337b942231"
+    },
+    {
+      "bytes": 2764,
+      "git_blob": "8af9123177b6c7389db619673d080ca61ab702f9",
+      "path": ".github/workflows/windows-compartment-native.yml",
+      "sha256": "b3b94f34e6c60d8f2bff3128cf90914932cd3b90e335c32fe512cc3953e21b04"
+    },
+    {
+      "bytes": 4439,
+      "git_blob": "49e2d1df7b60223f09498c5c7014c1dcaaaa030e",
+      "path": ".github/workflows/windows-compartment-probes.yml",
+      "sha256": "24e34858a2d0b4b57cab7378b6fe45718c0987477e6527a9be9e63f10b17a7b9"
+    },
+    {
+      "bytes": 3784,
+      "git_blob": "87e213dfdcb8f91c0ff5689a14c6653acfd4a89e",
+      "path": ".github/workflows/windows-diag-crash.yml",
+      "sha256": "546240ecf947893a6202b37660e12148c8a3ba7805b7f3fe8429441e5a9fa03a"
+    },
+    {
+      "bytes": 3176,
+      "git_blob": "5f4cdf62aee1f430b5ff294e9403c0477e26ade8",
+      "path": ".github/workflows/windows-diag-dns.yml",
+      "sha256": "c4536c2bd593f6f513e68a1f3bf5f1aed316da5328d5b984f0bfa107f1cd5f44"
+    },
+    {
+      "bytes": 3948,
+      "git_blob": "6efd0a76666a6231be4eb800e91baa81e34c83ee",
+      "path": ".github/workflows/windows-diag-recover.yml",
+      "sha256": "303d612b8844b7ce7e62d2c7a81c9e75a5a721ab746fd458fe8368d281694f71"
+    },
+    {
+      "bytes": 4292,
+      "git_blob": "d099e927764eaad141a78c51d4996559f5f5b415",
+      "path": ".github/workflows/windows-dns-request3-gates.yml",
+      "sha256": "4e9c90c64e96ca0b7d190dafce08a5a29cf0c1171435ec1cc149e7352ae180be"
+    },
+    {
+      "bytes": 2048,
+      "git_blob": "515f59be51ef581ae82a084d7057bc40a78d3533",
+      "path": ".github/workflows/windows-free-backend-server.yml",
+      "sha256": "f188a702715b3f715d1651471fba54104349e03d383bf27092d3922b12c023ad"
+    },
+    {
+      "bytes": 9006,
+      "git_blob": "189824ba86c1618e49c4c02a0034917e5d9f7f64",
+      "path": ".github/workflows/windows-free-backend.yml",
+      "sha256": "d010fd7d39fe7f6864251f0f0a3abff61dcd3986c6837c733167e83439d43936"
+    },
+    {
+      "bytes": 2589,
+      "git_blob": "74e5cfafb48478add0d0090359bad8feb819c4b0",
+      "path": ".github/workflows/windows-identity-apt-diagnostic.yml",
+      "sha256": "25f4a571dbe7f605fd8869ae7af05cd4d30fc6356ff0f1d2357f4dbd3d9ffa28"
+    },
+    {
+      "bytes": 6364,
+      "git_blob": "3ca7f998cefcb34b6e38ba06056c128d175ebd99",
+      "path": ".github/workflows/windows-identity-direct-evidence.yml",
+      "sha256": "1d25d4c6a4bfcd6498c42dd1b12ef3dc4c980a43167fc19b30e87574beeae737"
+    },
+    {
+      "bytes": 90595,
+      "git_blob": "6e8366efc70c977017750578cc745b82f630a8e8",
+      "path": ".github/workflows/windows-identity-direct-stage0.yml",
+      "sha256": "5587e86e57dd309b1a179c801c961727cc360a6de69e36140a4154ee3e0bd6c4"
+    },
+    {
+      "bytes": 19930,
+      "git_blob": "0ab93252c75327214437692107dc8889828f54fb",
+      "path": ".github/workflows/windows-identity-mode-inventory.yml",
+      "sha256": "fe053a9b9c7dc083a62069fdad6a308f52d099b29096e1fa912e7f3b9711f043"
+    },
+    {
+      "bytes": 10507,
+      "git_blob": "87ac1efc379c0760ec6cfdff58e12538fec92045",
+      "path": ".github/workflows/windows-identity-proof.yml",
+      "sha256": "6a5f85ccb614c5f99f77b3093db1ae1a7b5511afe0fde4ef5b9db42fbb0a8abb"
+    },
+    {
+      "bytes": 12626,
+      "git_blob": "93ae6933842c81b83851a4b689b1acfccc947097",
+      "path": ".github/workflows/windows-identity-proxy-core-gates.yml",
+      "sha256": "24e8d174e36fb385104782c2d08905370cb5cfe28627307df63b27345c2bffa2"
+    },
+    {
+      "bytes": 15031,
+      "git_blob": "3c9748a10de9416363fa372c8dbcf86f96699cd3",
+      "path": ".github/workflows/windows-identity-proxy-pipe-gates.yml",
+      "sha256": "1342700cc5034f0fd89155fd72824036f5a550fc5c4d32be45de53cabc10e86d"
+    },
+    {
+      "bytes": 24137,
+      "git_blob": "8d4b7307c31a35242af1059a2faf6c285e702cf5",
+      "path": ".github/workflows/windows-identity-serviced-stage0.yml",
+      "sha256": "9613311ac0689e1405b7db67fedbf874911da1e8165a39c166ac1bb941dffa80"
+    },
+    {
+      "bytes": 53461,
+      "git_blob": "e5b6fb8ef121c2a74ade37d17821b795649a5494",
+      "path": ".github/workflows/windows-identity-stock-stage0.yml",
+      "sha256": "b415767c614a0aa5c58ab1f12122ea9729b57da2f4c2928517ef40de6e70c02c"
+    },
+    {
+      "bytes": 19564,
+      "git_blob": "309cd4b2362dab69b7d9313cee0bb8782efac74c",
+      "path": ".github/workflows/windows-identity-win11-stage0.yml",
+      "sha256": "3ae91e0d1c132444e16949b77e80e20e1bb4c4e684668784ea1ef6438d96b155"
+    },
+    {
+      "bytes": 2704,
+      "git_blob": "34a9bbbabf6b1a5383f83941bded39997653aa4c",
+      "path": ".github/workflows/windows-n0a-capture-gates.yml",
+      "sha256": "de96c62e4707c103bce06a920064c334ac6b1222c46f57c6677ccd10c18dbf5f"
+    },
+    {
+      "bytes": 7507,
+      "git_blob": "ec442d23bd5869d9d89b3005a8e47abe070d0950",
+      "path": ".github/workflows/windows-n0a-connect-gates.yml",
+      "sha256": "28eb502703be16450d1c188123a3c7ec63021d1fbf95717a9c9bd3bf4f6ea476"
+    },
+    {
+      "bytes": 8569,
+      "git_blob": "05e12e2eef909292de58c23d1dc14210dbf0f87e",
+      "path": ".github/workflows/windows-n0a-udp-gates.yml",
+      "sha256": "2a4ac7359a05366b8fa6937ba74b1b2f58991e3f09e00248cb8a9ec0a3e1aa87"
+    },
+    {
+      "bytes": 11011,
+      "git_blob": "d4dac0bf5bce7ae8c1d92cedac496f49c5a8d74a",
+      "path": ".github/workflows/windows-n0a-udp-parent-gates.yml",
+      "sha256": "46e0c9026acc2023fd16745378d54028acb3de45db1d1bf3a4fd298101499d8c"
+    },
+    {
+      "bytes": 20894,
+      "git_blob": "43b53c336dbca26393c5e0992b906fe6d0bc7c74",
+      "path": ".github/workflows/windows-n0a-udp6-gates.yml",
+      "sha256": "0012821952f8a618d123cc4bd68e9da9d1d64808f343596f271e589548db997e"
+    },
+    {
+      "bytes": 1546,
+      "git_blob": "0828741afd85830185e2a70f5eb0e99178bed9d8",
+      "path": ".github/workflows/windows-network-recovery.yml",
+      "sha256": "9644d643b3cf4e7d496a0e8fc67bdc2b975cad8a6ea827aeadc7159366b24901"
+    },
+    {
+      "bytes": 3648,
+      "git_blob": "c37791a3265afdd5e83e517a9a001d738fa660a6",
+      "path": ".github/workflows/windows-online-release.yml",
+      "sha256": "84bffa32424561d139bd3d6e20d6bd5184e115eee7617207242be3fb0a16fad0"
+    },
+    {
+      "bytes": 1105,
+      "git_blob": "c94b6909a0ee240e6bc0afeddc1cb921aa747185",
+      "path": ".github/workflows/windows-profile-context-control.yml",
+      "sha256": "df4035aba71a148f41c3edc0fca16e608aebf765bd0954a7d8e84bc42cf76a13"
+    },
+    {
+      "bytes": 17391,
+      "git_blob": "89104498e672b534248db6adf938bb60ff5e49a7",
+      "path": ".github/workflows/windows-proxifyre-product.yml",
+      "sha256": "6adfc7d57cade5c97365e8b148c9829e71ddd9a4c85a73f11f34c5f4bf34ba9c"
+    },
+    {
+      "bytes": 2603,
+      "git_blob": "bfcc87bad8a18c56349ea5d49e738ac2a99184d3",
+      "path": ".github/workflows/windows-proxy-compare.yml",
+      "sha256": "3e2281b1c6e5c7ce5bf87d8080ca7b9d15485963e257b202f08a01d4b02357b2"
+    },
+    {
+      "bytes": 8857,
+      "git_blob": "45a24a8779a5a2388b161259bda90f3d524caf98",
+      "path": ".github/workflows/windows-psec-compartment-smoke.yml",
+      "sha256": "2a02f03139a4d39665b5727f371983e9f90a4033d3d5c383dd3b2875e429b4dd"
+    },
+    {
+      "bytes": 802,
+      "git_blob": "b53505557749f95cb1dc1643af1fd8ec3be305e7",
+      "path": ".github/workflows/windows-user-isolation-lab.yml",
+      "sha256": "651701c337b704bd773bcda9da9140584765b7b137ea49b68c79b7461aa4365a"
+    },
+    {
+      "bytes": 3282,
+      "git_blob": "7077aa22bf453092a7970db8d1c377b8326c35b5",
+      "path": "docs/validation/2026-10-20-capability-classification.md",
+      "sha256": "d7a8cedeafea97aab354e874372ca80ac51e71f930c65cc799fb054f03aa2465"
+    },
+    {
+      "bytes": 4848,
+      "git_blob": "9ccf5f41c1de12b1822c8bd48540d4902c125ff3",
+      "path": "docs/validation/2026-10-20-direct-stage0-design.md",
+      "sha256": "3a19ffe9fd38ef90e617aec01d98a72152e2c085eef4ddea1c9779c868d1a710"
+    },
+    {
+      "bytes": 43356,
+      "git_blob": "affc1ff2806484f0748cd526104cc4c6bca6ae9f",
+      "path": "docs/validation/2026-10-20-identity-proof.md",
+      "sha256": "0e7e7cc4c3ef57196ab26126403bd065ed934f1dde2d74e28b4f27079b4b49a9"
+    },
+    {
+      "bytes": 2236,
+      "git_blob": "5213993156988de4943f8589bc14a068e3a42121",
+      "path": "docs/validation/2026-10-20-native-identity-diagnostics.md",
+      "sha256": "1747e9c31b89cf71e05349c6ea7ef77ae55b312cdccb914bd9efb50cde26fbf6"
+    },
+    {
+      "bytes": 4513,
+      "git_blob": "8004969c8de2992952a5e7d435fa2c7057ca0665",
+      "path": "docs/validation/2026-10-20-serviced-bounded-extra-reboot.md",
+      "sha256": "ba4fa81c825c567dc3683ed15c1cf23df385c2d390c1ae49685fd51e8d294f8f"
+    },
+    {
+      "bytes": 3060,
+      "git_blob": "efc326a36ee875e228baff7e3d883d96471f4810",
+      "path": "docs/validation/2026-10-20-serviced-checkpoint-preservation.md",
+      "sha256": "7f424b0a516c434f79940636f5855a16ed7a3a8198ea4c41dbf809de1b97648a"
+    },
+    {
+      "bytes": 3597,
+      "git_blob": "661a5ad90795ef39d2428d81a4ac25dae3eaf254",
+      "path": "docs/validation/2026-10-20-serviced-clock-contract.md",
+      "sha256": "469738ea8eec5cf94c025767fa79a5807277a6d4c0ffb5f30e3bdac207515afb"
+    },
+    {
+      "bytes": 2761,
+      "git_blob": "63e204eb9c13a39c742b081e18c83108ac733558",
+      "path": "docs/validation/2026-10-20-serviced-prior-state-diagnostics.md",
+      "sha256": "575da5526fe4345b056345316271dd469ae93a5f1bb320b3cc5ada7e7de360b3"
+    },
+    {
+      "bytes": 3261,
+      "git_blob": "3aec108127287496ede5ea36de9aa2857e447b3c",
+      "path": "docs/validation/2026-10-20-serviced-read-diagnostics.md",
+      "sha256": "75e89c12c380783497487dc4b126d201e3c7a2f3aaaeeec0b4744a44e60b0378"
+    },
+    {
+      "bytes": 9552,
+      "git_blob": "72d702497b996dab9b11d9cb9e715344eb2d0d20",
+      "path": "docs/validation/2026-10-20-serviced-stage0-design.md",
+      "sha256": "e7d6e179f4ca1be483c0124035a0d9284530a6546f9c190525097d6dc03cb005"
+    },
+    {
+      "bytes": 2669,
+      "git_blob": "717998364896c5a24773aa30a31107ee6455fe27",
+      "path": "docs/validation/2026-10-20-stage0-required-environment.md",
+      "sha256": "ac22133447403831002dda089752dada2033894b8a64b7dcc461fef57265811d"
+    },
+    {
+      "bytes": 5328,
+      "git_blob": "85c5e0214e36fb35a1f170118d208fcdd94c89e4",
+      "path": "docs/validation/2026-10-20-supported-stage0-control-plan.md",
+      "sha256": "44188c0517938d1f276bd3e67100ebe86ba3848f2d763cf243f55613a07dd491"
+    },
+    {
+      "bytes": 13371,
+      "git_blob": "787cfa4d62e3224eefa378dbe89999c3e2987322",
+      "path": "docs/validation/2026-10-20-win11-capacity-design.md",
+      "sha256": "2b84802b981f98193a452788a7d471b82f49b6816fe16a6c4320dc908ddd27db"
+    },
+    {
+      "bytes": 10015,
+      "git_blob": "52c6860ee989fb5a1ff2367c28fd8ffb79a9ccec",
+      "path": "docs/validation/2026-10-21-direct-udp-adapter.md",
+      "sha256": "d794c766fd4a36bd48ce7de5e8cb519f8c97c5027f9ebb208a4b11d5add19e41"
+    },
+    {
+      "bytes": 5887,
+      "git_blob": "80517cfddaed4a7c84b547d9fe2e8428d8d9c808",
+      "path": "docs/validation/2026-10-21-direct-udp-mechanism.md",
+      "sha256": "1f18fcbfaae3eb6674b3a86df73e19b743c81a7c8e29ef3cd6f14aebc3a20d5a"
+    },
+    {
+      "bytes": 29864,
+      "git_blob": "8a4610cd364548c3d427a390f4ac0a83a129b25a",
+      "path": "docs/validation/2026-10-21-direct-udp6-integration.md",
+      "sha256": "4b3dfaa238942f4b1bdf512fd3012b27b78cac6abb50b9b3cedab77062af0f55"
+    },
+    {
+      "bytes": 7669,
+      "git_blob": "0f027d26dfc5f54f3f139ba87c03d4921bf1d177",
+      "path": "docs/validation/2026-10-21-direct-udp6-mechanism.md",
+      "sha256": "f433156279e8fda4195fc4f135dce7ac956bbee6af99cfa5824d1e9530df6b9b"
+    },
+    {
+      "bytes": 15311,
+      "git_blob": "1121b2209e8a9346c25db4d398b1a8e733d6ca9c",
+      "path": "docs/validation/2026-10-21-dns-request3-mechanism.md",
+      "sha256": "657a8a55221da8ae35c5ea24dd42b4ba5ea9889bdaf92e219ef543afb4e68a76"
+    },
+    {
+      "bytes": 5196,
+      "git_blob": "1e5b01071ca77d21fbe9d0787c78c6a8e0a63c4c",
+      "path": "docs/validation/2026-10-21-n0a-capture-child-design.md",
+      "sha256": "4d6e34710b9b865f720c8c90ef78917138526be21acd1324ca57459c2e90903f"
+    },
+    {
+      "bytes": 5097,
+      "git_blob": "9347faf0faead100074c79002e6f93caad1d3340",
+      "path": "docs/validation/2026-10-21-n0a-capture-mechanism.md",
+      "sha256": "48bf9852e31f850cbd964a1a585f8ac6e88ee1fc8e9e56d9b36144ead7e9c547"
+    },
+    {
+      "bytes": 9222,
+      "git_blob": "40945954970db2a069529016310a8b44ab9880e4",
+      "path": "docs/validation/2026-10-21-n0a-connect-design.md",
+      "sha256": "b4166779f18c638798c7674f202a0ab49ffc86011184e87785aeeb7b63a614b6"
+    },
+    {
+      "bytes": 5184,
+      "git_blob": "12662e445b8ee1e6c6150ecac56112b863bac514",
+      "path": "docs/validation/2026-10-21-n0a-runner-capture-integration.md",
+      "sha256": "c2c02bda493a809ad31d6f27e3d4a94275e3b0385afaba181f0af6337ffc4b8e"
+    },
+    {
+      "bytes": 5062,
+      "git_blob": "cc36bfb85c62060a8955cca042c051ed457071d9",
+      "path": "docs/validation/2026-10-21-serviced-advisory-com2.md",
+      "sha256": "1e039df9472287b899a8ed946f5917926db0f7323baa9b6bf8f64e8e8da7db03"
+    },
+    {
+      "bytes": 10219,
+      "git_blob": "0d5f8361ad78011cdf1972815af2a469f4e704e5",
+      "path": "docs/validation/2026-10-21-serviced-snapshot-read.md",
+      "sha256": "a8dc8a4523b5bbd37c845e598a02648fa26b232eff17e43e15e1fef980af899f"
+    },
+    {
+      "bytes": 7495,
+      "git_blob": "14bc8793fef91c85fe600f851baee595159ea47d",
+      "path": "docs/validation/2026-10-21-udp-descendant-integration.md",
+      "sha256": "babb79c0ed08ebabb77f6793065081d3ddd5a910885a061762237540f89f9174"
+    },
+    {
+      "bytes": 6061,
+      "git_blob": "948c904d13afd91ed2ee2b8af12f73d886d7e2a5",
+      "path": "docs/validation/2026-10-21-udp-descendant-mechanism.md",
+      "sha256": "13a64c0f11307ee4e209015d79d5c55109509d66c2476d38b2892d915c9664a9"
+    },
+    {
+      "bytes": 6948,
+      "git_blob": "fd032d3485135a70d8c67f4692940e2fce5866a6",
+      "path": "docs/validation/2026-10-22-identity-proxy-bridge-contract.md",
+      "sha256": "fd419c017a1b03e8e2196c8f47caede4352fdfa54f3d6b1efd04d86c27733bf9"
+    },
+    {
+      "bytes": 6982,
+      "git_blob": "72078ef7b1dc0710160c46cc8b17a856c86fe441",
+      "path": "docs/validation/2026-10-22-native-proxy-pipe-mechanics.md",
+      "sha256": "21c5bf6b1fba4cd36a34f65380de03c9b321f6acde025f058664c1de7491c721"
+    },
+    {
+      "bytes": 7705,
+      "git_blob": "4c9e9072a13a2fc969200c3ef71893402ea509be",
+      "path": "docs/validation/2026-10-22-proxy-pipe-ac-prerequisite.md",
+      "sha256": "6b72906d9bc724e562ef7badd7d66ac2a078f45fec9364691ad62b2e956455f3"
+    },
+    {
+      "bytes": 18651,
+      "git_blob": "57aad4360a7376fbc7ab1b2d9c827cf8172379bd",
+      "path": "docs/validation/2026-10-22-stage0b-minimum-integration.md",
+      "sha256": "01443e963cd3cd4602194f1617f85b11baf35c884b6c6b15fc94dd88714850f1"
+    },
+    {
+      "bytes": 20927,
+      "git_blob": "b07eb4b8591b7f85ba471a5f5c7311af9dd85fbd",
+      "path": "ruleproxy/windows_app_process.py",
+      "sha256": "8e62820f98d9dbe352d988501d211565aceecce84657200c2793b69404cbee33"
+    },
+    {
+      "bytes": 19491,
+      "git_blob": "b9fef4df71114e735f02b80a5fecb5975b83feb4",
+      "path": "tests/fixtures/linux_global_core_netns.py",
+      "sha256": "1be3bfe94695ff64a48a06bd0cab5113ab29775b58d84ff997631b4516c12158"
+    },
+    {
+      "bytes": 10919,
+      "git_blob": "1ac90949d16b511595ec418b77d490f7120152c6",
+      "path": "tests/fixtures/linux_global_guard_netns.py",
+      "sha256": "7f5b680891fb7451b6b0e50d90d6ac28bc12e09f5e57f6204714112388a56fa9"
+    },
+    {
+      "bytes": 4034,
+      "git_blob": "87d9526f0a9d95d630fa59ab6d0ff88e4face77e",
+      "path": "tests/fixtures/windows_stock_apt_after_refresh.json",
+      "sha256": "8b709abd932453f6899097964fb1fadfb16802e121c7ed7d108628c17cb0298c"
+    },
+    {
+      "bytes": 11119,
+      "git_blob": "762cf640eb3ab3003de643246156498b1e0724c0",
+      "path": "tests/test_app_profile_data.py",
+      "sha256": "d6d01fafb7cfa63e46dbb5b2f0e5d4a9e3adface42186cbb235b2c58511064db"
+    },
+    {
+      "bytes": 6282,
+      "git_blob": "16da40824435b8f06c3482bf12d77c889512cb12",
+      "path": "tests/test_app_profile_setting.py",
+      "sha256": "cea5a90b03d2bb874aebc06ca13fc97efb5edc5526abef8e6370a701eadbf048"
+    },
+    {
+      "bytes": 5832,
+      "git_blob": "af94f1b416b12c65134af607f457421aa64277e7",
+      "path": "tests/test_autostart.py",
+      "sha256": "5fd867fd3ee1371da4d97a5816a560b1c64a23e362962c6999b6fa61e7a26761"
+    },
+    {
+      "bytes": 28137,
+      "git_blob": "7abb15b280d3f192a13177cd9679b9fb17ff285d",
+      "path": "tests/test_build_mxc_capability_probe.py",
+      "sha256": "655a2de087433ffbbea13b8abe8a4da38f9c596022b34f452c534ed342ec55e4"
+    },
+    {
+      "bytes": 14252,
+      "git_blob": "3191c5187bd2c935028659445b4e6da236654f41",
+      "path": "tests/test_config.py",
+      "sha256": "1f0df9c5a50906b312ef387b1f86bf2fcbd018b854865ca0d0bc4d848a15538d"
+    },
+    {
+      "bytes": 25578,
+      "git_blob": "199899287f6989eefce68bd703629470c1fdf3aa",
+      "path": "tests/test_file_bridge.py",
+      "sha256": "7f3e16f2eb0b4b8fff4735727e2b02590d51d2ec9cc370190180afaf0c192255"
+    },
+    {
+      "bytes": 8891,
+      "git_blob": "c7a647a065329c01ac2b343b196873ba0ee327dd",
+      "path": "tests/test_firefox_profile_policy.py",
+      "sha256": "52ba11ce41459b85e9c27ef2a3b821d2a4813c5c47904781b574d2cbd9985072"
+    },
+    {
+      "bytes": 15959,
+      "git_blob": "339bb7d1dbda06c2717e2ae325a884c93c9e6290",
+      "path": "tests/test_global_capture.py",
+      "sha256": "07ee4681be2e3c928dd2a1f5812a5c25c82b9a587b2a25bc28d85d8882dca768"
+    },
+    {
+      "bytes": 6177,
+      "git_blob": "5b4f56fc137ff72b317562590f2431e4a3f4a39a",
+      "path": "tests/test_global_panel_lifecycle.py",
+      "sha256": "2f39fff3db8f2ba4dc01b9499833adcef7b9e7665c9cc9e04419e0513050cbbb"
+    },
+    {
+      "bytes": 23919,
+      "git_blob": "d2baff350b2b5ba54b94ae419abecdf6c20bed8e",
+      "path": "tests/test_install_runtime.py",
+      "sha256": "160ffd7c94151e43c2758211d6e4a258cb0e639d2075bcaad5a829b13ef07b60"
+    },
+    {
+      "bytes": 21723,
+      "git_blob": "31ed98b4f76baf0daa415578acecbd61ded66ff1",
+      "path": "tests/test_launcher.py",
+      "sha256": "6b19abc5984a977dfe933838ddd5cfb737b6114a0a5bc5135fc20dbf3a8856ea"
+    },
+    {
+      "bytes": 2815,
+      "git_blob": "f67b8a885c498e52bd7c1c3061ec703d085bd155",
+      "path": "tests/test_linux_core_process.py",
+      "sha256": "f055c6613cb10336ef6849317afeaf409bd16a390f6fdb12a551cc5dee251710"
+    },
+    {
+      "bytes": 3282,
+      "git_blob": "8d9bea7ca9a9439bf95a312e2924b085db5fe1bb",
+      "path": "tests/test_linux_global_core_fixture.py",
+      "sha256": "fd0953a148f7c301e0321b69034f7596a46510aa2fadaccc7e5e272635755ab6"
+    },
+    {
+      "bytes": 4625,
+      "git_blob": "3a5cc8895c6dbc746016fed7445419ea7ed6bde5",
+      "path": "tests/test_linux_global_install.py",
+      "sha256": "c6eb79fadb62d8a1d49f0dd7c876555d3e4f97c0e2e62e482f209868c40c27d8"
+    },
+    {
+      "bytes": 11861,
+      "git_blob": "b5a51aa2eec13e160c59ca0e2c88b48aef5aeb07",
+      "path": "tests/test_linux_global_runtime.py",
+      "sha256": "14dc681b85e1c3ff6ffd0835649667e3d55058d4c06011408476778b166ac2b3"
+    },
+    {
+      "bytes": 15716,
+      "git_blob": "054e86fbbe6b5241a640d482d7b9a262120a95b4",
+      "path": "tests/test_linux_profile_access.py",
+      "sha256": "64a8a985aca7eb5bf0b91b560a37fc9e0440ac420ff6347a8d07161bfd4b5832"
+    },
+    {
+      "bytes": 24308,
+      "git_blob": "0031bcdb9bd44483ca56bb6f3d39051d29f0a465",
+      "path": "tests/test_linux_runtime.py",
+      "sha256": "66f37f36ff5ef788d46d00e073d0e510c4d6b62444fe7f459e3f31d0d9e8518a"
+    },
+    {
+      "bytes": 41998,
+      "git_blob": "91c356b28e2f84c532c5590c3135a1e1591cbd3c",
+      "path": "tests/test_manager_server.py",
+      "sha256": "dd080e2076b59a0dafc7c05cd311e0847d4f19f0757fbcecfccb1005b44f0a12"
+    },
+    {
+      "bytes": 10036,
+      "git_blob": "968530e5a216f10d286b0786309ec545a0d193f8",
+      "path": "tests/test_manager_windows_proxy.py",
+      "sha256": "078c1be36dee3340fecace3872a8da84ecc769ac5717015e5564ed96fe871403"
+    },
+    {
+      "bytes": 6320,
+      "git_blob": "3433ab088d713ef0463a0341749fa3e9e00d2153",
+      "path": "tests/test_saved_state.py",
+      "sha256": "d54a08bd1256092239db88c1f9c99b577e6def412e84e5987ca0deda76247a3d"
+    },
+    {
+      "bytes": 14278,
+      "git_blob": "862bfc4cd0910bc708d805e58696e4b4dc8fc430",
+      "path": "tests/test_shortcut_launcher.py",
+      "sha256": "536db26556e1c8f8a3e5390b29c7f533c89f3094823d2c90c7706773aca1f68e"
+    },
+    {
+      "bytes": 14719,
+      "git_blob": "b182579cde66be010eb4de037367ede091d7d868",
+      "path": "tests/test_shortcuts.py",
+      "sha256": "1abc765920925cce788916494f4cd43d6a9f7ed6196ebe30d880a264b9fc5f67"
+    },
+    {
+      "bytes": 19446,
+      "git_blob": "81091989d079e22258725b089aac4de04d83aff4",
+      "path": "tests/test_system_proxy_recovery.py",
+      "sha256": "b37157a15dd20ab64df1a5b723aaa364a505d8c1ce363992f7810ef0715e8f15"
+    },
+    {
+      "bytes": 11585,
+      "git_blob": "e8d7ea4947004449066aa324b87f79ac63adb209",
+      "path": "tests/test_system_proxy_watchdog.py",
+      "sha256": "a2f996a4a8cfed91698492619f495e14ce40a99df06f24d8a3304bc73ec5f2be"
+    },
+    {
+      "bytes": 36896,
+      "git_blob": "903bcda55d9d77ae97cb26d55eab22af4962bb55",
+      "path": "tests/test_windows_acceptance.py",
+      "sha256": "582edd312d3045792c45639213feed5d961a07a781274ddba6234fb96985ffae"
+    },
+    {
+      "bytes": 24468,
+      "git_blob": "57bb3f05e31891f6f3ea00fccfab7c11efafe2ad",
+      "path": "tests/test_windows_app_family.py",
+      "sha256": "16988b7b2f84dbd7ad7712a4e75b172782df5316c0e5590e36aa6e089a32566f"
+    },
+    {
+      "bytes": 14132,
+      "git_blob": "9e86cf1d621e87cf34f7bb829c19405c6f01b170",
+      "path": "tests/test_windows_app_process.py",
+      "sha256": "48e959b975c28eff146adfc01a0a5cb0f17c0799b604f175b1537cd33aab9960"
+    },
+    {
+      "bytes": 28375,
+      "git_blob": "f42f4639fce0e1857910ae126d83c9b0721eaff8",
+      "path": "tests/test_windows_appcontainer.py",
+      "sha256": "f39bd19bb6655c4936ca1d83569f04b98acfb8e879b72b77fe7f39d393977eb2"
+    },
+    {
+      "bytes": 7699,
+      "git_blob": "00854215048370a0298995713e939702c3b22e21",
+      "path": "tests/test_windows_appcontainer_compat.py",
+      "sha256": "fdcd2090ffcb25981204826edadf3daa8edc621fb80cc261848b4411514a736e"
+    },
+    {
+      "bytes": 12240,
+      "git_blob": "10b1a36378488c64a055ede6df8e23eda6d402c1",
+      "path": "tests/test_windows_browser_check.py",
+      "sha256": "91e553a7833d65939dd509d6c368bd3c4f5e61a72b0636df9b964600ec659041"
+    },
+    {
+      "bytes": 13510,
+      "git_blob": "0fd48c7a413184001f9e862c7d170b5792adcc05",
+      "path": "tests/test_windows_chromium_control.py",
+      "sha256": "ea7d3c52f8219c48d8fbc363fe92ff3820d8da5fc84469db10bea06cd9de980d"
+    },
+    {
+      "bytes": 27625,
+      "git_blob": "1ed9f68399b2195e14af93a9a1d1ae3c4e573464",
+      "path": "tests/test_windows_client_apt_diagnostic.py",
+      "sha256": "76aee69e217a4dd3095d63c466b45063ba6e3cf8e4a4ff5c8ec79a331c03ad1d"
+    },
+    {
+      "bytes": 6946,
+      "git_blob": "3299870506ce958209d723a7bff76de9ec3e2a2c",
+      "path": "tests/test_windows_client_direct_actor_projection.py",
+      "sha256": "dc1e31f9a1865af76b8c070049af2b4316ca7d741628ed2ce54eaf1c03db929e"
+    },
+    {
+      "bytes": 8800,
+      "git_blob": "27f348079edd8fa6c27986e05ff9a6608074b3f7",
+      "path": "tests/test_windows_client_direct_guest.py",
+      "sha256": "13aacf1ddc018b6114b75be9c35d00cabf678392582ba6cb3c0d78d9056a0533"
+    },
+    {
+      "bytes": 10958,
+      "git_blob": "923f7c8fc87d882ea88ee0a8aea4f09116f1cacc",
+      "path": "tests/test_windows_client_direct_stage0.py",
+      "sha256": "2210cbb29a80eb0ebd4697c527723930dc37b2f278b2f959e8964768d5c5d1ec"
+    },
+    {
+      "bytes": 8588,
+      "git_blob": "af899db3cc73973eb6e3caf5236e33560f16085b",
+      "path": "tests/test_windows_client_direct_workflow.py",
+      "sha256": "0f4a9874c991076fbf597dcac42c2cb4a30a002bebd9afbaf6044df8904556aa"
+    },
+    {
+      "bytes": 10078,
+      "git_blob": "4f94e3cf23cf399b9ff5ffdd318b07e8ba885c65",
+      "path": "tests/test_windows_client_dns_fixture.py",
+      "sha256": "d85375c975a79f2a7b2b62f3226053e7eea91780f942c8a0534fc0525e0f3ce5"
+    },
+    {
+      "bytes": 13438,
+      "git_blob": "f897856ca65cfad4e11fc85aefe470223b37ed3a",
+      "path": "tests/test_windows_client_identity_stage0.py",
+      "sha256": "e1fd372bb2e533b49457a905207097777f9564588f8016cad76b503e262565ab"
+    },
+    {
+      "bytes": 5648,
+      "git_blob": "398d28b8ab93eca2106ee8467f20ac0f3a1ff9c3",
+      "path": "tests/test_windows_client_mode_inventory.py",
+      "sha256": "cf73c2405671f85fd9a4596f8a093f54a7baf57c58102285b675cbc64a40d3f5"
+    },
+    {
+      "bytes": 16024,
+      "git_blob": "2ef1ac4b0686abf730e347f0c2ad02f243006e9c",
+      "path": "tests/test_windows_client_n0a_adapter.py",
+      "sha256": "cf78a88ecf2dd0d0681a79be1c78f022f929aa516da6f778376d91f09b7bb22c"
+    },
+    {
+      "bytes": 13218,
+      "git_blob": "36c96039b7660c30a5a73937b32757e64dae418f",
+      "path": "tests/test_windows_client_n0a_capture.py",
+      "sha256": "10df6008b6c4d90df590048f89eb6cdab7a77e1806825458180148d76053389a"
+    },
+    {
+      "bytes": 18724,
+      "git_blob": "eca378928de2bb7b41fc61c127fbe1e207485cd3",
+      "path": "tests/test_windows_client_n0a_capture_adapter.py",
+      "sha256": "53891b9b5ecd4c1845eb6fa3a66e6db65d9c5d9d28ebf950e29fb9523560f22c"
+    },
+    {
+      "bytes": 29136,
+      "git_blob": "ba32b7ddddfb34a9976d93cf7c520b33857f1c0d",
+      "path": "tests/test_windows_client_n0a_capture_child.py",
+      "sha256": "57e4dc8aeb5a929217d161779c3638d751ae60a8718ff1e41c84885e722a3ee8"
+    },
+    {
+      "bytes": 19877,
+      "git_blob": "3ca0d3c68f286b2482743f52278bca99ac79f480",
+      "path": "tests/test_windows_client_n0a_control.py",
+      "sha256": "5bcf4478fd40516fa276429c7e8e20f23aa20f5ec5058bad77b61fda09b485b6"
+    },
+    {
+      "bytes": 7844,
+      "git_blob": "f852ad5dcd95419effaa4b04f48e8eec32c4a86a",
+      "path": "tests/test_windows_client_n0a_flow.py",
+      "sha256": "09c85c4c8ff47bfa97f7b73db6eb213d1a557fa3b893133f8be1bdbab8081a7b"
+    },
+    {
+      "bytes": 36880,
+      "git_blob": "83c0e8e1068f20806ce927723cb37e4353bcc8c6",
+      "path": "tests/test_windows_client_n0a_host.py",
+      "sha256": "e934bb82dfc1f25278681e935ed05ed1775202b6a5cf7a0fa8b9bcdd4395c201"
+    },
+    {
+      "bytes": 12554,
+      "git_blob": "352cdf03d1b505cc87b9146c3e7c38eebdda10b3",
+      "path": "tests/test_windows_client_n0a_packet.py",
+      "sha256": "349967b0e65a2517f98224bcc6b9ad8475b7e521b7a6a40e5227b84f85ae6f6e"
+    },
+    {
+      "bytes": 12917,
+      "git_blob": "e99abafadec3354580cdaf76696d466ee2e049a0",
+      "path": "tests/test_windows_client_n0a_udp.py",
+      "sha256": "2c4e29cd43013bbe31db975b2e4bbb3382836d2ff69fa05dbbdac09841b40fad"
+    },
+    {
+      "bytes": 14310,
+      "git_blob": "c8c276907932ea53e5b9d2d67f007a4ddebd3036",
+      "path": "tests/test_windows_client_n0a_udp6.py",
+      "sha256": "25df303c17adb880af7e6dd27c3205d7383b677a4f3ec9a0f64de217e807e7b9"
+    },
+    {
+      "bytes": 46977,
+      "git_blob": "7c37a40f136798051e0f1e665aaaed69069dafba",
+      "path": "tests/test_windows_client_n0a_udp6_capture_adapter.py",
+      "sha256": "f60792d890b441d36fdcdf6399e481c75765b8d3cf966c16e649c74d9414938c"
+    },
+    {
+      "bytes": 7437,
+      "git_blob": "7192df782059b9acc2b7a811f9876fa30e0fa298",
+      "path": "tests/test_windows_client_n0a_udp6_flow.py",
+      "sha256": "d4fcdb48dc9008264b29377f7de8f0fbfbdc3634651db556600bbe86112e0dcd"
+    },
+    {
+      "bytes": 15223,
+      "git_blob": "9f610d2695165cb3f0c4b4e3f53d080ea4fe0f5b",
+      "path": "tests/test_windows_client_n0a_udp6_guest.py",
+      "sha256": "12b8d93a78548f201f50d281958a13367df1d13a65c05d5e90528e4e7fb83424"
+    },
+    {
+      "bytes": 11876,
+      "git_blob": "0c8416f0c405d3d9be0b197d43d663bac93a7bfe",
+      "path": "tests/test_windows_client_n0a_udp6_host.py",
+      "sha256": "9909315d6288fedf6439200fdbdc2b8e8360f4fb08f8430f164408d049240ebd"
+    },
+    {
+      "bytes": 64501,
+      "git_blob": "59b6399012c95f7a8554e0c34cecddcb4e119eae",
+      "path": "tests/test_windows_client_n0a_udp6_packet.py",
+      "sha256": "755e68e5483d9d035db5f4ed6f54fdd04877273c4f48d24ec28ff0d39c0493f7"
+    },
+    {
+      "bytes": 13888,
+      "git_blob": "fb7f312f11bfa5700696f4dae5049e2f3463ae3e",
+      "path": "tests/test_windows_client_n0a_udp_capture_adapter.py",
+      "sha256": "158f74f7098ff59c85b5538e627a1256fc47497230a349c698715e71ff3c0bfa"
+    },
+    {
+      "bytes": 6934,
+      "git_blob": "e18599809492ed413f373fcaef10d5b553d38c81",
+      "path": "tests/test_windows_client_n0a_udp_flow.py",
+      "sha256": "ae1b8007eed6648b194b3cc5f7205fba6403245a9c0fcad2ca0cfae9fc3d9033"
+    },
+    {
+      "bytes": 12733,
+      "git_blob": "f647c0f83771160aa52c71fc91aaf15579306072",
+      "path": "tests/test_windows_client_n0a_udp_guest.py",
+      "sha256": "e47906546b2fa97d01594962287ce9270d5f550d67c1a52eef0383294b435c94"
+    },
+    {
+      "bytes": 3379,
+      "git_blob": "825889150796de73ebe0a237cb11f727df761968",
+      "path": "tests/test_windows_client_n0a_udp_host.py",
+      "sha256": "0dd957368acbd22681b543f067ecf2531da858ec687f288ba784fed066f455c0"
+    },
+    {
+      "bytes": 12702,
+      "git_blob": "0ad9c2744e7e7305e1fbc4f8549ce83483279346",
+      "path": "tests/test_windows_client_n0a_udp_packet.py",
+      "sha256": "e5ed386613cb95a8f40ed7b16a2dcd775cedb649764a29c05cdf46dbdbb8828d"
+    },
+    {
+      "bytes": 24416,
+      "git_blob": "5483d3b821bbafee97f05a5697b4cb65f53c5d7d",
+      "path": "tests/test_windows_client_n0a_udp_parent_capture_adapter.py",
+      "sha256": "3d384adb52de2a4f016c0347f82b9333037a468922e9dbb3b1c6444e21e8a4f7"
+    },
+    {
+      "bytes": 4552,
+      "git_blob": "2368eb4f1c05150c603edd4f84689254f1ee6389",
+      "path": "tests/test_windows_client_n0a_udp_parent_host.py",
+      "sha256": "e5ed7affc9097306ee0b0d0ff4f169c8c75311596607feb695017bf9d4488b76"
+    },
+    {
+      "bytes": 15907,
+      "git_blob": "8c6c37039e9c32881066d6c2e7caddd5837c170d",
+      "path": "tests/test_windows_client_serviced_diagnostics.py",
+      "sha256": "906a4c351cac4a7a1441d29e76fa5d0b40b96e6c9b4d19c40f2d39e97855b04f"
+    },
+    {
+      "bytes": 20195,
+      "git_blob": "ef8db581c74b84d24f060d529eb256936f381513",
+      "path": "tests/test_windows_client_serviced_guest.py",
+      "sha256": "4763ef498065c9f2d8ac2800f5c3d6f5bdb63280f75429822eb2d4f960811e15"
+    },
+    {
+      "bytes": 11293,
+      "git_blob": "e0d501028a90b25e4d4890f6563071ef7fdb3af8",
+      "path": "tests/test_windows_client_serviced_progress.py",
+      "sha256": "ffc1d172a36dfd311c4d72b6e95c31276c88a2f5a70ee75a41c4597f6ea51d0e"
+    },
+    {
+      "bytes": 2915,
+      "git_blob": "4b05cc7d0852d43c65c1961f706b4d1a344a6019",
+      "path": "tests/test_windows_client_serviced_progress_qmp.py",
+      "sha256": "e5024f930ed5534dbc9fe52a0abe30ac54420549ea8b5105fc2272e579d02d42"
+    },
+    {
+      "bytes": 9691,
+      "git_blob": "51cbde0a47f41e2a1dce73d43ed55bfeccf1d9ea",
+      "path": "tests/test_windows_client_serviced_qmp.py",
+      "sha256": "953c8f3fec2dbee7316048f5eda639712329e3466510a0fec88706fb188a9d73"
+    },
+    {
+      "bytes": 5592,
+      "git_blob": "5e59fe46e94832d2798943eb242b19f405a109b9",
+      "path": "tests/test_windows_client_serviced_receipt.py",
+      "sha256": "d844dd1ce69adb83201dd4b262cf73fedece4838f919dd9ad060dab04067c565"
+    },
+    {
+      "bytes": 38515,
+      "git_blob": "01be76fcf0c198582e9b99539e5fbfa2d7c01675",
+      "path": "tests/test_windows_client_serviced_stage0.py",
+      "sha256": "a6a46523aef955a6cfec6095e5f412c77da6a1fe6088fde457c605a53af3a6a2"
+    },
+    {
+      "bytes": 5911,
+      "git_blob": "e12a039e1e36ddce6c9b8af405b0ef519586d1fc",
+      "path": "tests/test_windows_client_serviced_telemetry.py",
+      "sha256": "11cf1626de6e83b7163a225eca7c587a5687d2e1429417bb61109f3221767224"
+    },
+    {
+      "bytes": 13266,
+      "git_blob": "f14a0d90227541f7e3feb224fef5dc4d965a4771",
+      "path": "tests/test_windows_client_serviced_workflow.py",
+      "sha256": "c815203edc23776adbdb52f502e7b8402a1da5432675524f86d0296355145ee4"
+    },
+    {
+      "bytes": 63401,
+      "git_blob": "580bb487fd1518f6fdf5d546da8e4969c32462b9",
+      "path": "tests/test_windows_client_stock_stage0.py",
+      "sha256": "d8877fa34ebdb9a9ed13d4043cafe83983a9942038daecb7e9d2ad4200af5919"
+    },
+    {
+      "bytes": 42827,
+      "git_blob": "6898879179cf4ceb186a3349c29eb34e58fd65c7",
+      "path": "tests/test_windows_compartment.py",
+      "sha256": "3794140f77e0627a262e5f2c2d46a933b9bb08277ed7c9a72816f0d461dcfc68"
+    },
+    {
+      "bytes": 16724,
+      "git_blob": "fc5ea4dca323bd7f160d4f2366d1beca9ef0eb56",
+      "path": "tests/test_windows_compartment_lab.py",
+      "sha256": "e99aabbe81ba31b2283c1ae69b841a13b47c4cf69a014d0a20cc847668e3c983"
+    },
+    {
+      "bytes": 8831,
+      "git_blob": "15c9bb7ad314bb33459d00f1304eb70d70caf8ca",
+      "path": "tests/test_windows_compartment_native_abi.py",
+      "sha256": "099bb88c885adf168b99e8a858be6bce2d29896e51169e0132a721a1d460ff6d"
+    },
+    {
+      "bytes": 10130,
+      "git_blob": "6a268dc46fc07f6f69e2bfb7eda31438f05e702c",
+      "path": "tests/test_windows_compartment_product_probe.py",
+      "sha256": "71d51d9bee7bf353558919042d580108ed355b54c3cdd3379583aa94fa2ec0da"
+    },
+    {
+      "bytes": 2985,
+      "git_blob": "190e0600f2e3e3543614ebcd5a24e759a02ea649",
+      "path": "tests/test_windows_compartment_wire.py",
+      "sha256": "0b1682efc99ec51d72811a9aa3795cad98ac6e4582c466b7ae523a06c501eddd"
+    },
+    {
+      "bytes": 1274,
+      "git_blob": "3f95caf309fa42044ec440313680c975a8be9030",
+      "path": "tests/test_windows_core_process.py",
+      "sha256": "f51c6247b08dd013f7058361dd5336bc9688fa088643546f49228621f8eb42b9"
+    },
+    {
+      "bytes": 13974,
+      "git_blob": "dd2cd4fcebffe8f09f6dc5b08c6c1bc74301d1a3",
+      "path": "tests/test_windows_dns_packet_evidence.py",
+      "sha256": "0e27f06b5985282088e07dcd4e21219bbbc4ac96d579a4d8ad47a937031238d7"
+    },
+    {
+      "bytes": 35975,
+      "git_blob": "45891a62d4fa9e12489785f9c8ce5f8394cb4874",
+      "path": "tests/test_windows_dns_request3.py",
+      "sha256": "6c28bdbccf60300b14099852e607de25586c44fea7d7a93495874c075347c9cf"
+    },
+    {
+      "bytes": 9637,
+      "git_blob": "32a9e68bf9b2b192f75c5ab0ffaed833e9a086b4",
+      "path": "tests/test_windows_dns_session.py",
+      "sha256": "436fc367c5be1353f3ca3f97104fb3fa5a113d493565663c3c6f9cefba58df4a"
+    },
+    {
+      "bytes": 11251,
+      "git_blob": "b6cc0c05907e30a04d61e8c956c746fb6551dd4a",
+      "path": "tests/test_windows_dns_workflow.py",
+      "sha256": "15eaa8bba30a02b9f21ca6f2e55f28a261eab0457184013396c8d9344b608921"
+    },
+    {
+      "bytes": 22305,
+      "git_blob": "9360b943543773f9fe370fb0fe6f0c01799e163a",
+      "path": "tests/test_windows_edge_crash_evidence.py",
+      "sha256": "190ca4cfeebd42ed0038bf5e363c613b910adb18962c8bf49f6a07d541b1cdaa"
+    },
+    {
+      "bytes": 21314,
+      "git_blob": "d5d624be6490012de3cf14ff04658e27abda6468",
+      "path": "tests/test_windows_edge_outside_control.py",
+      "sha256": "6190c73c59a62db530b3a85b9f7aab5e337e8c80f1afd8deec7b3cc851fff13e"
+    },
+    {
+      "bytes": 38644,
+      "git_blob": "38ba5610bf7cdc650537e9b7746530d5b2022221",
+      "path": "tests/test_windows_edge_policy_experiment.py",
+      "sha256": "117dd21f18c50d5bd16cf5f5e06b872401b3ad235d8f00a0faddaa8b45441bd5"
+    },
+    {
+      "bytes": 17190,
+      "git_blob": "397235d0064992b60f41ce431466c47554982648",
+      "path": "tests/test_windows_elevated_startup.py",
+      "sha256": "9fcb965b088209b8bc995751e89d96debf9ac5fb590f555c54ef30279ee8fa75"
+    },
+    {
+      "bytes": 3589,
+      "git_blob": "a10f7d4f50ce9ba7f2faa09f47469d2276517fb7",
+      "path": "tests/test_windows_free_backend_assets.py",
+      "sha256": "82c760c4f8133729e0d20069466fde1d7d280a748afb80b7ed052e2e26d7a669"
+    },
+    {
+      "bytes": 20330,
+      "git_blob": "521f48c7c68137fc8876063134112a54d7995b32",
+      "path": "tests/test_windows_free_backend_evidence.py",
+      "sha256": "8c7bcef7085e931e13bdab3e29415123fe84c15fe3fbae05a9967f7b490c0469"
+    },
+    {
+      "bytes": 9079,
+      "git_blob": "9993b9ed141ff45200787224df737859f67e8c17",
+      "path": "tests/test_windows_free_backend_fixture.py",
+      "sha256": "9c251980c9e0fbf7ac41d76b9a6b82aff22866b46464be774c4cfff0ccffa5bd"
+    },
+    {
+      "bytes": 12836,
+      "git_blob": "056190341774b1fe3887059261ab9502867094cc",
+      "path": "tests/test_windows_free_backend_server_probe.py",
+      "sha256": "1a915efc081547cee1796ac00a117fb6a9eaf608f12a282bd1e4cfe0f1063daf"
+    },
+    {
+      "bytes": 9293,
+      "git_blob": "8055d90e36c2e1b795247ed0330b5e53b3c22384",
+      "path": "tests/test_windows_free_backend_vm.py",
+      "sha256": "ab07ed3da935f5700490b47ba4322b24f7ddb307b66fd04e9755f11e1b6225ba"
+    },
+    {
+      "bytes": 66140,
+      "git_blob": "38e93f8157f0d31bd8174ca364b4c988708e4ea9",
+      "path": "tests/test_windows_global_capture.py",
+      "sha256": "72ceca48c2b9660f56fafdeda1d9328a25490b366d00eda5a39e39a3a2b2711d"
+    },
+    {
+      "bytes": 14145,
+      "git_blob": "6d0b19418a3b18165906895eba241cee7db647b8",
+      "path": "tests/test_windows_global_capture_ci.py",
+      "sha256": "9cda63e43cb076d6053b0cb2972cf5592fd9202f902147f5f445f780cdb0eaa9"
+    },
+    {
+      "bytes": 8679,
+      "git_blob": "5f107612ac82e6a26738e8aac079633735037eaf",
+      "path": "tests/test_windows_global_capture_deadline.py",
+      "sha256": "c210dc2a181433097a7c6940ca9375f76d4d71f888f4ce55bc79bc4562db2804"
+    },
+    {
+      "bytes": 20272,
+      "git_blob": "ffbc6e59dc6421af0a19d51a9d013a8bbede2987",
+      "path": "tests/test_windows_global_capture_vm.py",
+      "sha256": "eb138157c4bd53372cddd3db9d05c5b3b865948ece3cddc6c06aac140f958153"
+    },
+    {
+      "bytes": 16736,
+      "git_blob": "d05652863b5e7e5b1e4e078c73d9ee9e606ae94c",
+      "path": "tests/test_windows_global_dns.py",
+      "sha256": "31e0cfec629b6cbad6901695853862ec60cd1ffde8f95fb104e924dde6d5c3eb"
+    },
+    {
+      "bytes": 16262,
+      "git_blob": "b14163dd2fc9a3fbe46e3aa593bcd5e7689ee4ed",
+      "path": "tests/test_windows_global_dns_fixture.py",
+      "sha256": "dba53f0dc47dda0594d8f3dce6a84c889730fd5a601b5363020a467b5ba3476e"
+    },
+    {
+      "bytes": 21885,
+      "git_blob": "6528a9fc58c07f05105022b2566226287c5b0e56",
+      "path": "tests/test_windows_global_guard.py",
+      "sha256": "f36c1c9469057df6f74d352bf62d3676c4bb22c9cead9dea3b3bf323bfc83197"
+    },
+    {
+      "bytes": 9647,
+      "git_blob": "6b3b66327ac2000aab8ba5726ba5d974ad702ce8",
+      "path": "tests/test_windows_global_qualification.py",
+      "sha256": "8827137197d5ff7aa94526362df0cd70fb6126c2f66f87820d7bf71a9ff3d531"
+    },
+    {
+      "bytes": 21190,
+      "git_blob": "920c7e9e3824d7273d97f45be40f0e03e1e665c2",
+      "path": "tests/test_windows_global_runtime.py",
+      "sha256": "97258c4a89a89063e42c1a2335c6e174cd5c9b97cab2b3da24e2fc4eb8ab9b20"
+    },
+    {
+      "bytes": 39242,
+      "git_blob": "14834e013b117af2386b3d4dfa304a87aeacff65",
+      "path": "tests/test_windows_guest.py",
+      "sha256": "12e2e0b516aebf14875071f2927dfa244fa5203db0b705df0ae8bb5b64fcb6d8"
+    },
+    {
+      "bytes": 68614,
+      "git_blob": "bdc4f33b74da6cb3c42b1143962fd5bb15b013ae",
+      "path": "tests/test_windows_gui_check.py",
+      "sha256": "7afc060419b25e2526d96db7dc94971a367995cee8d121b1adc07fb4d1eaafc5"
+    },
+    {
+      "bytes": 18371,
+      "git_blob": "6b4d9dc240237c42bf555429f612fffff72eeb6d",
+      "path": "tests/test_windows_gui_context.py",
+      "sha256": "2d3733cedc7db178d4d0320ca7127e3f73f14fc2524e44d2739fb82747a8ee78"
+    },
+    {
+      "bytes": 6120,
+      "git_blob": "085e6b80b2c1014d49abf8053e324b2cdfda63cf",
+      "path": "tests/test_windows_http_identity.py",
+      "sha256": "3cfbba61354c4f209349802cada34f49a1a4dad6bc78db96f9232e60dd3ce86b"
+    },
+    {
+      "bytes": 12171,
+      "git_blob": "f73d26328da45ff4636fa2577cd7a8460576d5eb",
+      "path": "tests/test_windows_identity_dumpbin.py",
+      "sha256": "675dfcf2bef00f17eec6ce78462a87c05b53a57eb55e2df3d8a42bbf3ce55589"
+    },
+    {
+      "bytes": 29664,
+      "git_blob": "58968c8e3bf53a6ff2c1ecf170ac878195038aca",
+      "path": "tests/test_windows_identity_ordinary_launcher.py",
+      "sha256": "7d7b3c1131445d22e737ae8d8811e1f23dd7533700de6100a3794b909d8301d0"
+    },
+    {
+      "bytes": 25815,
+      "git_blob": "3f699eb40b5a5a8aebf7ae2a8fde0e09f086f6a2",
+      "path": "tests/test_windows_identity_paired_startup.py",
+      "sha256": "c6ada7926bc0c0d332cf92728e3b46a6675a929ddd49602b9ec4bf3ef763e4eb"
+    },
+    {
+      "bytes": 50598,
+      "git_blob": "b1bbbb38b6f34d81ed785b502b876cab290845b2",
+      "path": "tests/test_windows_identity_pipe_probe.py",
+      "sha256": "33d1820d483bbb9a22d05e2dabaedfb28ed7113f6bd260916a26e9bff2c52ccc"
+    },
+    {
+      "bytes": 73842,
+      "git_blob": "8de3a0023c771b7d56094fc3c399344f3531e665",
+      "path": "tests/test_windows_identity_proof.py",
+      "sha256": "9fe1b6af3d96ebfe1c1cf414e4396262b51870c3690df2c7f05f50f2cbbd7337"
+    },
+    {
+      "bytes": 10186,
+      "git_blob": "3577a67f34ba9a94dbb261e8d5171083a6133df4",
+      "path": "tests/test_windows_identity_proxy_bridge_codec.py",
+      "sha256": "d893dce883924099a64c6e48af131f72c20175fe6ee86b739449f9201fc33373"
+    },
+    {
+      "bytes": 16941,
+      "git_blob": "c904eb93e75200873c92a2883be903113e72e19d",
+      "path": "tests/test_windows_identity_proxy_bridge_model.py",
+      "sha256": "1afceba2a7841fced09970ff4686d129fa6f7100c2b25f3a8d7da30669470a22"
+    },
+    {
+      "bytes": 47182,
+      "git_blob": "0011382d9dd2448f497ad5a080386c90523264e6",
+      "path": "tests/test_windows_identity_proxy_bridge_native.py",
+      "sha256": "4a2593d0ffd13741f58e3d85e7b9585e773d695cb9c57777b9218168519bc75f"
+    },
+    {
+      "bytes": 13076,
+      "git_blob": "b1bd7adbf086da09159d5e44741cd9d3ec43f7b7",
+      "path": "tests/test_windows_identity_proxy_pipe_ac_guest.py",
+      "sha256": "e7e80f69a9d24a5a3714b12e3ae7f6ab72e90fc6706e4921de1b651289fa3052"
+    },
+    {
+      "bytes": 58602,
+      "git_blob": "192cf83224f01fba4ae34256c3b49e3b18763a4f",
+      "path": "tests/test_windows_identity_proxy_pipe_probe.py",
+      "sha256": "b6aaac2e5bbcf7991a1a734a36c733437e944050119311428e80ed6452dd810e"
+    },
+    {
+      "bytes": 4463,
+      "git_blob": "439f5a688a9a7f70182bc8f810d2f5d5cccc3c13",
+      "path": "tests/test_windows_identity_publication.py",
+      "sha256": "43827963c6bb1034f44d21fb909ca04cb2c12e4f6c371cb7b88ae2c185da0f35"
+    },
+    {
+      "bytes": 25770,
+      "git_blob": "e6c37ed433d37e979ed98df3c5fba8ddef10dd85",
+      "path": "tests/test_windows_identity_restricted_launcher.py",
+      "sha256": "4209b6bacc9adf8c0881b9cbbb42b4ba6c0105e5b33d3e1cc1978ca9fc4529b2"
+    },
+    {
+      "bytes": 45243,
+      "git_blob": "80b247bd7110425ea9253b78efa0dab728299b64",
+      "path": "tests/test_windows_identity_stage0b_guest.py",
+      "sha256": "cc8a50dbc0e889907f836b2331299cdd600885f4846f8240a0c3c9e134c74eb6"
+    },
+    {
+      "bytes": 25396,
+      "git_blob": "dcb760fc7f1233c7e893d36988e8b293a06f55e1",
+      "path": "tests/test_windows_job_context_probe.py",
+      "sha256": "614ed02fd53ec0bfd9ca97547b98535b606cfddcb245610fefdb9c54527199bb"
+    },
+    {
+      "bytes": 7351,
+      "git_blob": "ec54a7076f2e8dde700784dd78a5b98f1676f6e9",
+      "path": "tests/test_windows_n0a_actor.py",
+      "sha256": "c6b725a46bde4bfee59a376724a1f8c7ab16251233f21860eed94bd7ce943623"
+    },
+    {
+      "bytes": 6032,
+      "git_blob": "53a8e3d527b351b96ef4bdc9a26d3a1d1cb36df3",
+      "path": "tests/test_windows_n0a_capture_child_qemu.py",
+      "sha256": "4cce9aaaff0c1360cd881d9f8974a575d016e4f857bae891bece637dfc63de1c"
+    },
+    {
+      "bytes": 5542,
+      "git_blob": "a05cac9cadca6ead181d1f94a91ab959c4059893",
+      "path": "tests/test_windows_n0a_capture_qemu.py",
+      "sha256": "aa69c2794f182be1e50599cfbd83b8b74cdf2c78a8aafab09898ae8dc659a0b3"
+    },
+    {
+      "bytes": 3304,
+      "git_blob": "847f67306ab9603d3f88922dee34e71581c1520b",
+      "path": "tests/test_windows_n0a_capture_workflow.py",
+      "sha256": "7125da257b5b997584e50a949efc4aa2d78a28e62e13d52831cd931779bd3a3f"
+    },
+    {
+      "bytes": 5933,
+      "git_blob": "5d74bcfdf11fc15e1222341861b8a4b204dc1158",
+      "path": "tests/test_windows_n0a_guest.py",
+      "sha256": "9f50975ccc0e4f94e1abdf3378eee39307515ee20ba6ae41167c6e5f8713b274"
+    },
+    {
+      "bytes": 25570,
+      "git_blob": "12f1011497c1cb65023b1abee64625fb173912ce",
+      "path": "tests/test_windows_n0a_qemu_slirp.py",
+      "sha256": "edcfddc327bc5c0a9327cc99a9a6c46ab5996f1204adb29e20b7ab8b1116c671"
+    },
+    {
+      "bytes": 18533,
+      "git_blob": "dd920f7d61caa94f90663b535668bbc1d210a82c",
+      "path": "tests/test_windows_n0a_udp6_actor.py",
+      "sha256": "6f4cf001220f4ed89c9483b1032eab4e30f0e12c36f624f87b9335b98c90de73"
+    },
+    {
+      "bytes": 21585,
+      "git_blob": "77bd70f68d8bde2df1a851b4411544a51401b723",
+      "path": "tests/test_windows_n0a_udp6_gate.py",
+      "sha256": "db38816c97f61afb6b59cd84631c5d00fec29d4451eceec525a90c321dd1fc65"
+    },
+    {
+      "bytes": 13211,
+      "git_blob": "cfd7780fc4735f367ad6ab0455b72f85ca396877",
+      "path": "tests/test_windows_n0a_udp6_integration_control.py",
+      "sha256": "f1832fbcab7cda66d17bb1aa22c14f6b8388bbf936ec8469055a9080d6a31c70"
+    },
+    {
+      "bytes": 14162,
+      "git_blob": "7a6b148d83850a9fe2d3e7c83e104a9b96ab46db",
+      "path": "tests/test_windows_n0a_udp6_workflow.py",
+      "sha256": "2e4279cfbfbf419fbe601b44a8f0ca440cb72d24e931a010aeadd9927a036a54"
+    },
+    {
+      "bytes": 7837,
+      "git_blob": "50665f8c8dbcec57a0e2a2b7053c61cab63afac5",
+      "path": "tests/test_windows_n0a_udp_actor.py",
+      "sha256": "9fc43eba1c3781506363816ca416937fdc9963bcb36f2867be9f1c6e4e9900ff"
+    },
+    {
+      "bytes": 8745,
+      "git_blob": "409f3e0059db7c7d53246aaaf26d60074b5f8245",
+      "path": "tests/test_windows_n0a_udp_gate.py",
+      "sha256": "cd71436bf53fe6a9a3edc3cd9cd4b50c3027aac424f2cee87d1e6551557786dd"
+    },
+    {
+      "bytes": 8678,
+      "git_blob": "e05db71fc6c098126efc47e9ac2a5995d23611f7",
+      "path": "tests/test_windows_n0a_udp_parent_actor.py",
+      "sha256": "c4cccbbbee2ae40056f911405c1696485b054cbe9153c5627591879a1b7600e2"
+    },
+    {
+      "bytes": 15239,
+      "git_blob": "114dfebfbd14ec6100a38904e53034f6e9e42e97",
+      "path": "tests/test_windows_n0a_udp_parent_gate.py",
+      "sha256": "9e373684186d888c5bb50da7d7e4c9927e077b6fc7accb97c9927c2147514664"
+    },
+    {
+      "bytes": 5425,
+      "git_blob": "eea813e42a9edf19773c4cb8a723e32250866c25",
+      "path": "tests/test_windows_n0a_udp_parent_workflow.py",
+      "sha256": "7819d52880916f2ff641cf934375a122819f977b4381c496101ee0b4732376e8"
+    },
+    {
+      "bytes": 50358,
+      "git_blob": "ceda68919f2d5edc274fb0f67fd597a98b0273ab",
+      "path": "tests/test_windows_n0a_udp_workflow.py",
+      "sha256": "0302a852df9cb62d91f6c1cba8752e8d5935f8b15796ce911364f6e19769562b"
+    },
+    {
+      "bytes": 57074,
+      "git_blob": "6af034a41895b231901ff1f9e9c2d26729d79373",
+      "path": "tests/test_windows_n0a_workflow.py",
+      "sha256": "47dd3c9afe5a4a8490c7e31a8fac02ce9735e64aaaa82fcc554c3d632c63e033"
+    },
+    {
+      "bytes": 14094,
+      "git_blob": "318b5128c5421a8e6af0c83c637fbd6c4fa8376b",
+      "path": "tests/test_windows_namespace_lifecycle.py",
+      "sha256": "bcb00b1f2b2358573e53c42f030e25ef360431c4a02565a326466ed6be3e655a"
+    },
+    {
+      "bytes": 9831,
+      "git_blob": "5d40c85c43cd984240829972c47588e3c6affbcb",
+      "path": "tests/test_windows_namespace_service.py",
+      "sha256": "aeffc042b9a631f3a57b240841c79536ca5a54c8058a4d0741308c95f9b61752"
+    },
+    {
+      "bytes": 19509,
+      "git_blob": "dfd23e1ce922960f6549d6e870370aed87abb6f8",
+      "path": "tests/test_windows_native_dns_probe.py",
+      "sha256": "2f3466b9259dc26d6850bd4cc0b5debee8dbbb193754639ead5e45d6f599298c"
+    },
+    {
+      "bytes": 10754,
+      "git_blob": "424402a69b4234aaf740ab606ba29b3c70ea89b1",
+      "path": "tests/test_windows_native_proxy.py",
+      "sha256": "c83084991eb46b1fa09096af1a867b1413e513fb83ffe598c71cfa4013f9a646"
+    },
+    {
+      "bytes": 87199,
+      "git_blob": "a26c8e334256722547abe06ab1fd3ea714f3cd5a",
+      "path": "tests/test_windows_network_experiment.py",
+      "sha256": "18a4f6ed48fda2c3116e1de18966a2c036d153cac63e8c687fba7294ba05d674"
+    },
+    {
+      "bytes": 4570,
+      "git_blob": "75f8aa8b426bcf2a485232392dcd69f7300dbbbf",
+      "path": "tests/test_windows_network_recover_script.py",
+      "sha256": "99d01c24610790e0794b3cf91968e400dd93e4c537e5f43104aa8dfcc79c3191"
+    },
+    {
+      "bytes": 20717,
+      "git_blob": "85f2b7bd53ec52e1d740c4fb884ddc1928285fc1",
+      "path": "tests/test_windows_offline_deployment.py",
+      "sha256": "db8d81ee2914ab2a0e248aa37e669e8ccea42208ff597faed3803d0eb7632c9a"
+    },
+    {
+      "bytes": 8002,
+      "git_blob": "ff4228da8d54cd3691946bdad96a6bc35c2112c1",
+      "path": "tests/test_windows_online_package.py",
+      "sha256": "8e6eae617dd05156731bf1f707bb42a9d9707799c53d816c64a5be58442330f4"
+    },
+    {
+      "bytes": 10501,
+      "git_blob": "36108765658f91a955256735888ee38aeaaf3b66",
+      "path": "tests/test_windows_package.py",
+      "sha256": "36ffce1f5155b03e387090f69fcb04a2e9349a85305b7f6269b93d391fb986c8"
+    },
+    {
+      "bytes": 16559,
+      "git_blob": "f9a1bd62e5de3a5672aa2371cc899b84a5565a66",
+      "path": "tests/test_windows_packet_evidence.py",
+      "sha256": "144554ba351ca74cadd18e39d11933c222e669d6f4be34d15d1a931335bd0e41"
+    },
+    {
+      "bytes": 5598,
+      "git_blob": "dd5d46444a4720e97d0819749066998d26d4ac83",
+      "path": "tests/test_windows_primary_runtime_preflight.py",
+      "sha256": "c517aa7b9e97c14acda29a64833676ca73c1dfe0cd4cc82b05a1a56253579147"
+    },
+    {
+      "bytes": 13577,
+      "git_blob": "846c5e151d13d9f1bd669df6c49c3096df0e8f63",
+      "path": "tests/test_windows_primary_wire.py",
+      "sha256": "8f5fdf3f40a62b854d310b54c01ff18a31597ab75dfa9a6507af0b8bf33387c1"
+    },
+    {
+      "bytes": 33395,
+      "git_blob": "fc0fb9dc8101e937fa37f5d3d4606c31f09fd0bd",
+      "path": "tests/test_windows_product_acceptance.py",
+      "sha256": "a977e38598293afa8ce1a3193eb8284f21660b84452ea5d1356d04dc28204d59"
+    },
+    {
+      "bytes": 8440,
+      "git_blob": "f268451df31d4718d1dc6ab0fedaa271d7fafa87",
+      "path": "tests/test_windows_product_interactive_user.py",
+      "sha256": "7648c37d52e9ed893ee0f7f89de5c44832df410401e16cfbabe54ab787e73b7c"
+    },
+    {
+      "bytes": 6977,
+      "git_blob": "318ef6bbe6909596e78765e29ea031f0702970d6",
+      "path": "tests/test_windows_product_launch.py",
+      "sha256": "09b37f510ba176357819e1afd3a2713b705fe3e9dc78216657f95cbe511b629c"
+    },
+    {
+      "bytes": 4918,
+      "git_blob": "e797becc7eb2e7d669d24f990fcce2df32a7ae38",
+      "path": "tests/test_windows_product_workflows.py",
+      "sha256": "cfa086422a9d5f8f48ffbbbbc17fc8fea6e13fbcc8fb97932e6481c0cbf32581"
+    },
+    {
+      "bytes": 45022,
+      "git_blob": "b43e269ebe7fd2f7b5fb31ff4e8311b166cf9fbd",
+      "path": "tests/test_windows_provider_cache_recovery.py",
+      "sha256": "4747473bff2cee61112b46fba57ed39386980305ab0cfe21726f83c6a122333e"
+    },
+    {
+      "bytes": 24242,
+      "git_blob": "1af8a20b3a92df186f7475f66bbe580e33d94c7e",
+      "path": "tests/test_windows_proxifyre_vm.py",
+      "sha256": "051fddfd93c19ba5b97514c2c735f17b0e35ba1098f426232fab6b74d19de2f8"
+    },
+    {
+      "bytes": 11265,
+      "git_blob": "4511dec4d7853207373fc7beeca44392e401585f",
+      "path": "tests/test_windows_proxifyre_vm_beacons.py",
+      "sha256": "e63d712de75d27050f72061af093fd60488dcdad5c7a7d3faffcdd04f1558cb1"
+    },
+    {
+      "bytes": 12079,
+      "git_blob": "5c285cba28d8f70a3ee3ad589e43b7ff72f567ed",
+      "path": "tests/test_windows_proxifyre_vm_digest.py",
+      "sha256": "9f05d5377b84f82b447ba0c2152aaabb41bc11570e777113c3bdd6283c8a5f6a"
+    },
+    {
+      "bytes": 10414,
+      "git_blob": "3b5cd1a7cf572475d7c418a05782365acaba3fde",
+      "path": "tests/test_windows_proxy_download.py",
+      "sha256": "0a9d1b3e5a0399b626f5027aca51bb53af868bbebc8ed250fa81db730875dcac"
+    },
+    {
+      "bytes": 11347,
+      "git_blob": "5912118e4d92610e528591f9b517887d97ce285a",
+      "path": "tests/test_windows_proxy_ipc.py",
+      "sha256": "db160f44ea3fb8cedb4b3f7de9e5f581f5c34b8948945c391b9a6be5ff46e31f"
+    },
+    {
+      "bytes": 19408,
+      "git_blob": "df8886b6b4ddcac4fdd244a796aea5c81a807359",
+      "path": "tests/test_windows_proxy_pipe_ac_transport.py",
+      "sha256": "c7029d565d6a8de5f90ef54e3089586da38657ec87b4a3ac454257017dcbde67"
+    },
+    {
+      "bytes": 2135,
+      "git_blob": "a13a983a64393db20dfe1580bf26260db72792bc",
+      "path": "tests/test_windows_proxy_policy.py",
+      "sha256": "aa69121d0edf8b5a4f572e0309a5f3e3df75b13449a5ffbdc8b40aba886361b3"
+    },
+    {
+      "bytes": 14035,
+      "git_blob": "0cc19b9c5ea7e24f27a645695d448ffe7810605e",
+      "path": "tests/test_windows_proxy_service.py",
+      "sha256": "2fcc839ccb46ddc14d168afc98a330ca5d80b62c83816e351e060ca9743fb289"
+    },
+    {
+      "bytes": 20033,
+      "git_blob": "c3a2a4c6cc1955beadf541f898094ca1530c2238",
+      "path": "tests/test_windows_proxybridge_control.py",
+      "sha256": "40b1364d0ac6e88733154864623bdda613c1eb3fa1535ee7ebdfae9c7e6886d9"
+    },
+    {
+      "bytes": 26085,
+      "git_blob": "0a5e4952138f0eeb3d03b0ec85af2410e6201fb7",
+      "path": "tests/test_windows_psec_compartment_smoke.py",
+      "sha256": "54819b9dc20c34094cbd4f483b963f61c9b20aef79f9f6bac87d5f3bb5eab9f3"
+    },
+    {
+      "bytes": 7587,
+      "git_blob": "9b66afe55c6cc334b192e6ebdfac9e5d3fc80fed",
+      "path": "tests/test_windows_psec_compartment_vm.py",
+      "sha256": "0cfe9bfd1769f10353522ced79ee30e626ab63354931018519507831515abb98"
+    },
+    {
+      "bytes": 11359,
+      "git_blob": "43c8302aaf05a325539a592852db370cdcb91a6d",
+      "path": "tests/test_windows_psec_server_wrapper.py",
+      "sha256": "390a7b379576bfe00612730b70a82e8a0e828b0291d3041989fc9b7d793c2167"
+    },
+    {
+      "bytes": 80190,
+      "git_blob": "e94042435d0dfd334724ebc3741c8e4262f44eb6",
+      "path": "tests/test_windows_runtime.py",
+      "sha256": "4ff5d6fd3ff041bf414e24f0039dac84e90a49833a53320e21e571fa9ebc0799"
+    },
+    {
+      "bytes": 26885,
+      "git_blob": "4e5972b4eaaa9944a1570f90fc78a6c8ddd6547e",
+      "path": "tests/test_windows_sandboxie_control.py",
+      "sha256": "4b1e95966610190cbf133e36238e36abf7d44ea7364421767de3a28876f4bc0b"
+    },
+    {
+      "bytes": 20968,
+      "git_blob": "93779b3f2e8b6bebd839366f4e14c57568a57b58",
+      "path": "tests/test_windows_setup_completion.py",
+      "sha256": "5b366ba0d85d3ab74083e8023604330924b0281543a55b7971b7361b244f1f5d"
+    },
+    {
+      "bytes": 11373,
+      "git_blob": "82b4596d614637d4d6367ef1c8836f32660e9852",
+      "path": "tests/test_windows_silent_start.py",
+      "sha256": "55da310eb4e39e83a76c880ba7b4701bcb9b6fcba36db00272bd9ba005fb8c7a"
+    },
+    {
+      "bytes": 15868,
+      "git_blob": "f896b7658fa3d2da5cc903243ad6cef6e9707fc7",
+      "path": "tests/test_windows_stage0b_guest_transport.py",
+      "sha256": "5af9fba71bdefb3e131806a2a267a120e1893ca8745d8940a3ffd84ec5ce1c3a"
+    },
+    {
+      "bytes": 10793,
+      "git_blob": "da5e9dcabd0a8f61bf22c6c93ddcb4c00d80ac3b",
+      "path": "tests/test_windows_stage0b_host.py",
+      "sha256": "bd28d44338936430c2a690bdf080026fa07aa99167fe723fd8d9410d20241dcf"
+    },
+    {
+      "bytes": 15469,
+      "git_blob": "c3b2e62c2df160b25cdddb23a192f055913f516b",
+      "path": "tests/test_windows_store_apps.py",
+      "sha256": "a0fadda5dacda528a09d4f1c13d46e477741b2b4fe681eb8dfc84ce8bf6f007a"
+    },
+    {
+      "bytes": 6540,
+      "git_blob": "82f3a4be36fb2b86a719a7e1a2555c1ef9e9a227",
+      "path": "tests/test_windows_store_discovery.py",
+      "sha256": "d5344a01b2acbec81bbb04b004c34e6b7cd3e03fead335b1dac4e0a6fddfb8ed"
+    },
+    {
+      "bytes": 16406,
+      "git_blob": "5b0c4c0ef71dbf28dbe6f039fb02065e120670ff",
+      "path": "tests/test_windows_udp6_flow_composed.py",
+      "sha256": "2ba7e87ad3dcdcf9d646ffb9bacd09fd40496ba5ecbb1e81c29418fbbd0382b4"
+    },
+    {
+      "bytes": 8440,
+      "git_blob": "c7a778e5835cfe52222557ad533dced6915ce47c",
+      "path": "tests/test_windows_udp6_guest_transport.py",
+      "sha256": "e4e42c547b29616bbbdfcb6d787ab2f5c2e419bb64261c5a4ac1b7e728bec34d"
+    },
+    {
+      "bytes": 5211,
+      "git_blob": "a0c0a030be4a56f082e065f22cd8674afebc4ce5",
+      "path": "tests/test_windows_udp_flow_composed.py",
+      "sha256": "a08d72a2940cafda32a81f00b7d7ba5bce5a050ca38b6b1bee3e1380915ffd64"
+    },
+    {
+      "bytes": 3559,
+      "git_blob": "d8cd20a3099a6dfeec7550cfb5e141e44906d83b",
+      "path": "tests/test_windows_udp_guest_transport.py",
+      "sha256": "bae63a6391a218f6e7ca4118a8724f8f31c9ed2c36f79dc1d2b1a8c2a29a0a09"
+    },
+    {
+      "bytes": 12530,
+      "git_blob": "d8a8143d2c7280f8fa35f4553eb3b48c4545c3c5",
+      "path": "tests/test_windows_udp_parent_composed.py",
+      "sha256": "e18764837d83dbf624192d9f3836d451625199d0fdf65c9c0ad15a76082ad62c"
+    },
+    {
+      "bytes": 10703,
+      "git_blob": "5f144688480ac6f48c6b35128a24abae9bd81e25",
+      "path": "tests/test_windows_udp_parent_guest.py",
+      "sha256": "021acf9a56fb6c2b582cfa6f6b73ed40927a3d4935424077a17463c76783e7e0"
+    },
+    {
+      "bytes": 4399,
+      "git_blob": "1788f4abf29bc12bdb63cc7fdce8906a56c355a2",
+      "path": "tests/test_windows_udp_parent_guest_transport.py",
+      "sha256": "064494dc918837eb5153a12e2549d54e319549dbbfdb317753ce0e4866084f76"
+    },
+    {
+      "bytes": 7447,
+      "git_blob": "2c99f6ea07a7eccdb0dc768ae02ac1930950bdd6",
+      "path": "tests/test_windows_udp_payload.py",
+      "sha256": "91104bc084ca12ae8552ccc76e22dc985d53bc20cd0df254d72b6e11a05390ab"
+    },
+    {
+      "bytes": 6716,
+      "git_blob": "7853afb35e41fcd8ead4294329251dc926609799",
+      "path": "tests/test_windows_uninstall_recovery.py",
+      "sha256": "17a245a2a56bd155113fc914134d9bee6d5f462d282b3516e991727bbb9391c4"
+    },
+    {
+      "bytes": 6790,
+      "git_blob": "87e4a080a80c6da525b3a6976da4132fd69aeb11",
+      "path": "tests/test_windows_user_isolation_lab.py",
+      "sha256": "64208906e53b6e69172ad05e10106cdb069c401f0a523685e77a87d8a5a3f69f"
+    },
+    {
+      "bytes": 179123,
+      "git_blob": "9cd13c364c57d424c61f3594d1a2d3c58f6e1608",
+      "path": "tests/test_windows_vm.py",
+      "sha256": "0b8dd0b404230b0f6fcf1e51a2b79c79667ca9b8ee385186630502b8fd368fdc"
+    },
+    {
+      "bytes": 24712,
+      "git_blob": "1dbd3d427b7c43bae3aacf5bd35e390f4afed846",
+      "path": "tests/test_windows_vm_update.py",
+      "sha256": "45aa8dd4b59300a17098e4f1349a2ed0c67fa207bfe2917b6f1924753fd4d5d4"
+    },
+    {
+      "bytes": 5819,
+      "git_blob": "c6c53f51c9ec534c097351223eb0933bd863e253",
+      "path": "tests/test_windows_wininet.py",
+      "sha256": "34107a4505565c2bb06f929b094e49f3e82c95ee6f802728bc8278752cecfb7d"
+    },
+    {
+      "bytes": 11803,
+      "git_blob": "3dc2d26cf2f8ca1cec8917117a976b2a12f5baec",
+      "path": "tests/test_windows_wire_probe.py",
+      "sha256": "fcd246ad2fe2722ccdc2f991f42b42eb6d0cd8e5299853e69bb7bfc24d2f4e01"
+    },
+    {
+      "bytes": 628,
+      "git_blob": "3cfa4729af5cd736090fdc8165a943a5087cf65d",
+      "path": "tests/windows_identity_test_support.py",
+      "sha256": "c4692d994e510c59e1d7a31c8bf6b16cb80514645a59d7d82c581857563bf6cd"
+    }
+  ]
+}

@@ -1,0 +1,54 @@
+{
+  "actions": {
+    "DLL_loaded": false,
+    "capture_executed": false,
+    "compiler_executed": false,
+    "driver_executed": false,
+    "main_modified": false,
+    "native_API_called": false,
+    "network_executed": false
+  },
+  "capture": {
+    "bytes": 1640,
+    "name": "psec_lpac_matchedcaps_identity_capture_01.ps1",
+    "sha256": "5f40e082036e3daf6ffc5b0fac31f72819cb4a772639ae9ea3cb37ac3cc13d8e"
+  },
+  "capture_baseline_reader": {
+    "bytes": 1993,
+    "name": "c_local_baseline.ps1",
+    "sha256": "98610b0eeeba3457b1bd289e399acfa1744c2c2220c4b1ee53d474418e5df05b"
+  },
+  "driver": {
+    "bytes": 5733,
+    "name": "run_psec_lpac_matchedcaps_identity_01.py",
+    "sha256": "925ee06bf2f0e0e525e14c31a901166b471349158808315b42cba64b1b60579b"
+  },
+  "facts": {
+    "NRPT_in_global_capture": false,
+    "all_runtime_and_native_current_bytes_equal_Git": true,
+    "all_three_actor_never_resume": true,
+    "fresh_nonces": 4,
+    "global_capture_configuration_objects": 4,
+    "library_ABI": 3,
+    "native_compile_input_count": 37,
+    "new_explicit_acknowledgements": 2,
+    "no_retry_or_old_DLL_fallback": true,
+    "one_CPSE_run_local_call": true,
+    "original_root_seconds": 120,
+    "recovery_reference_characters": 473,
+    "runtime_source_count": 36,
+    "same_actor07": true,
+    "worker_seconds": 115
+  },
+  "limits": "This is pre-execution readiness, not a successful identity observation. SC acceptance, LPAC masks, CPSE network/FS association and cleanup remain runtime facts; earlier failures/unknowns/DNS leak are not rewritten.",
+  "review": "Compared full runner with the previously reviewed postassign driver. Changes bind new module/stage/artifacts/ABI3/runtime closure, four nonces, bootstrap and same-SC acknowledgements and finite hypothesis text. Original source/Git/spec/device/PE/plan/preflight/held owner and once-cleanup gates remain in source.",
+  "reviewed_predecessor_driver": {
+    "bytes": 5499,
+    "name": "run_psec_lpac_postassign_identity_01.py",
+    "sha256": "4e7c347c7aec51e22c47369e3cbf4577366ce094219352f889a55fd2d488d15a"
+  },
+  "schema_version": 1,
+  "source_commit": "ec45dffb66cc88bb48578101afb93ce7044a6521",
+  "stage": "matchedcaps-driver01-independent-file-review",
+  "verdict": "GO for one explicitly source-bound identity-only run by root"
+}

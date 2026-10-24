@@ -1,0 +1,40 @@
+{
+  "allowance_bytes": 536870912,
+  "apt_plan_verified": false,
+  "baseline_free_bytes": 34897592320,
+  "installed_plan_verified": false,
+  "minimum_free_bytes": 34359738368,
+  "peak_measured": false,
+  "planning_ledger_bytes": {
+    "actor_input_assumption": 16777216,
+    "apt_download_plan_ceiling": 25315786,
+    "apt_indexes_assumption": 134217728,
+    "apt_positive_growth_plan_ceiling": 115948544,
+    "dpkg_transient_assumption": 115948544,
+    "g_wrapper_expansion_repack_assumption": 16777216,
+    "logs_metadata_assumption": 33554432,
+    "python_archive_assumption": 13631488,
+    "shallow_git_worktree_objects_assumption": 50331648
+  },
+  "planning_ledger_is_hard_quota": false,
+  "provider_background_writes_excluded": false,
+  "samples": [
+    {
+      "free_bytes": 34897592320,
+      "net_decline_bytes": 0,
+      "phase": "before_checkout"
+    },
+    {
+      "free_bytes": 34867589120,
+      "net_decline_bytes": 30003200,
+      "phase": "post_checkout"
+    },
+    {
+      "free_bytes": 34741313536,
+      "net_decline_bytes": 156278784,
+      "phase": "post_apt_indexes"
+    }
+  ],
+  "schema_version": 1,
+  "status": "blocked"
+}

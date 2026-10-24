@@ -1,0 +1,152 @@
+{
+  "all_broad_qualifications_false": true,
+  "files": [
+    {
+      "bytes": 5457,
+      "path": "verification/windows-2026-10-22/lpac-stream-origin-actual-01/summary.json",
+      "sha256": "d247ab47537811b0e0c29f7c5fb8cf3a7cff6778fb15a0cfb721e5925cb57b73"
+    },
+    {
+      "bytes": 31094,
+      "path": "verification/windows-2026-10-22/lpac-stream-origin-actual-01/independent-review.json",
+      "sha256": "c3bb8c682bf5f578cbba4ba0adff72256266d8aedc6ce8ac338d7edb05e137ac"
+    },
+    {
+      "bytes": 1531,
+      "path": "verification/windows-2026-10-22/lpac-stream-origin-actual-01/payloads.json",
+      "sha256": "6cef8fdab6934c390103c845aaf35d403d0c8d3a2835e8e9bde740ee2a7f4de7"
+    },
+    {
+      "bytes": 4617,
+      "path": "verification/windows-2026-10-22/lpac-stream-origin-actual-01/private-original-commitments.json",
+      "sha256": "6ca2fa4fc70059f867a09378d56fa5ea1952f0159a6d379cb314c402d11a14b1"
+    },
+    {
+      "bytes": 1584,
+      "path": "verification/windows-2026-10-22/lpac-stream-origin-actual-01/global-comparison.json",
+      "sha256": "79babf797906855153d111f5c23bf47495d9b103eb5b6e2d36a70b634eefee5d"
+    },
+    {
+      "bytes": 154492,
+      "path": "verification/windows-2026-10-22/lpac-stream-origin-source-review-01/source-history.json",
+      "sha256": "531868e730f839916d2e9a5bacba9a4a82dc4950e1bc227212c19efae66024d4"
+    },
+    {
+      "bytes": 17256,
+      "path": "verification/windows-2026-10-22/lpac-stream-origin-actual-01/source-manifest.json",
+      "sha256": "634589e410d6e21b866a89024f233909926808b4afc827e70fd9f56715f51df3"
+    },
+    {
+      "bytes": 5201,
+      "path": "verification/windows-2026-10-22/lpac-stream-origin-source-review-01/compile_lpac_stream_native_01.ps1",
+      "sha256": "2601c59c61db05349e00bff32128bfcfc2f5f75d5b6d1585d198a25e9b9d63ae"
+    },
+    {
+      "bytes": 2713,
+      "path": "verification/windows-2026-10-22/lpac-stream-origin-source-review-01/lpac_stream_origin_capture_01.ps1",
+      "sha256": "bae92ad9f9fca3d543f7c390ab7bc36cd49fdd7cc2a9b2585a371658aa485726"
+    },
+    {
+      "bytes": 10859,
+      "path": "verification/windows-2026-10-22/lpac-stream-origin-source-review-01/run_lpac_stream_origin_01.py",
+      "sha256": "1aba08e10d157c113737cdd13c4515610b953761c6f5ef28c6375cf303b1aba6"
+    },
+    {
+      "bytes": 24046,
+      "path": "verification/windows-2026-10-22/lpac-stream-origin-source-review-01/verify_lpac_stream_origin_actual_01_candidate.py",
+      "sha256": "95f0a068e3d90bfefc73b433ac4870667b506585026b5ca3861c1db4eb4ef7e0"
+    },
+    {
+      "bytes": 26029,
+      "path": "verification/windows-2026-10-22/lpac-stream-origin-source-review-01/runtime/.github/native/windows_identity_lpac_stream_contract.hpp",
+      "sha256": "8a616aaa95c717412215dfc18d8acfc9fd51fad8ef5983d9d017a502df0f2f7e"
+    },
+    {
+      "bytes": 2889,
+      "path": "verification/windows-2026-10-22/lpac-stream-origin-source-review-01/runtime/.github/native/windows_identity_lpac_stream_front_actor.cpp",
+      "sha256": "f5ded24762f577b0eeef1b99d2d6f683e901b690c964fe87a75ae7511cd09bc5"
+    },
+    {
+      "bytes": 17035,
+      "path": "verification/windows-2026-10-22/lpac-stream-origin-source-review-01/runtime/.github/native/windows_identity_lpac_stream_network_actor.cpp",
+      "sha256": "b3b864e844d6cc77100f327ba617d4dc5ac5a78599c70cc61a71aa12a5c9d463"
+    },
+    {
+      "bytes": 68350,
+      "path": "verification/windows-2026-10-22/lpac-stream-origin-source-review-01/runtime/.github/windows_identity_lpac_stream_origin.py",
+      "sha256": "cc3bf2a65a1c698899ac241f981de74ea6a989e21644663701984c18b861849c"
+    },
+    {
+      "bytes": 18354,
+      "path": "verification/windows-2026-10-22/lpac-stream-origin-source-review-01/runtime/.github/windows_identity_lpac_stream_origin_local.py",
+      "sha256": "a9f845c3e25736806f28f7b5e36738d5267a30ce035aa4baea6fb97de6db2f81"
+    },
+    {
+      "bytes": 4796,
+      "path": "verification/windows-2026-10-22/lpac-stream-origin-source-review-01/source-view-metadata.json",
+      "sha256": "4ed18f8a05324e676800581a353229559f5862a2eddf344559ab707bab0bd0ab"
+    },
+    {
+      "bytes": 481,
+      "path": "verification/windows-2026-10-22/lpac-stream-origin-source-review-01/identity-lpac-stream-front-manifest.json",
+      "sha256": "9a9df1de567bc4c6a9d0de334adeed4665fba2ade5ae5b62d26279d37134c4ba"
+    },
+    {
+      "bytes": 481,
+      "path": "verification/windows-2026-10-22/lpac-stream-origin-source-review-01/identity-lpac-stream-network-manifest.json",
+      "sha256": "e7b090b9b2b24189ba5c202919a1b9fc27b1d6ecdf32b36087379f55b9d505a2"
+    },
+    {
+      "bytes": 693,
+      "path": "verification/windows-2026-10-22/lpac-stream-origin-source-review-01/input-snapshot.json",
+      "sha256": "1819823e18df4a58c3cb6e304f40141ad2172abd4846e97b6f63fa9365cba317"
+    },
+    {
+      "bytes": 1313,
+      "path": "verification/windows-2026-10-22/lpac-stream-origin-actual-01/compiled-artifacts.json",
+      "sha256": "368ffbcf99a5947d78b190f8ec64731ecdfcb3e16ddf7d8855a83f17dde2452f"
+    },
+    {
+      "bytes": 3723,
+      "path": "verification/windows-2026-10-22/lpac-stream-origin-source-review-01/testing-log-views.json",
+      "sha256": "3fcd41cc78e28572e35505cc774ccc60ffc6d7efc02f65b0cb65b9bccaf78fb2"
+    },
+    {
+      "bytes": 1423,
+      "path": "verification/windows-2026-10-22/lpac-stream-origin-source-review-01/automatic-CI.json",
+      "sha256": "c824a202c5e654f36f99257917d84d2993e4bb13fe817dd286995680ecf3c721"
+    },
+    {
+      "bytes": 5607,
+      "path": "docs/validation/2026-10-23-lpac-stream-origin-mechanism.md",
+      "sha256": "8d811fdc992f5bafc02dd2ca4d501fedfda234e7fd5ba6b4528c18daf9df4c32"
+    },
+    {
+      "bytes": 5328,
+      "path": "verification/windows-2026-10-22/lpac-stream-origin-source-review-01/index.json",
+      "sha256": "766d8bdfa31bd2ae190eb0633f067297b84437cf829085e597f6e56cb3b2ea8b"
+    }
+  ],
+  "independent_review": {
+    "bytes": 28847,
+    "sha256": "dd38b4bb20f4f264a1bc9d979450d69e0d81fa1fac4179f9332afb4aae085cb9"
+  },
+  "old_unknowns_not_recovered": true,
+  "original_preflight": {
+    "bytes": 2077,
+    "sha256": "7a8cae2d54228e12479df07c62fc4a52794a8eb690c9fed5c543222325fb44ae"
+  },
+  "original_public": {
+    "bytes": 3836,
+    "sha256": "c9d67258132f1a08b4656e468b3e9316cd4b69f86177538eb5f615510309c936"
+  },
+  "raw_public_preflight_preserved": true,
+  "reader_source": {
+    "bytes": 24046,
+    "sha256": "95f0a068e3d90bfefc73b433ac4870667b506585026b5ca3861c1db4eb4ef7e0"
+  },
+  "schema_version": 1,
+  "source_commit": "3d538a89328072186f1db50f5fce7cc39611b44f",
+  "source_sha256": "ccc4008de826faf35eb5c7ea8df47ecdfe54fe0fbf3c31c854d764bbd51899be",
+  "stage": "stream01-actual-archive-index"
+}

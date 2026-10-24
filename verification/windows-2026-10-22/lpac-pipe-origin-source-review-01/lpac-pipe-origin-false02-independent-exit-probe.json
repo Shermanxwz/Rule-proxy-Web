@@ -1,0 +1,28 @@
+{
+  "content": {
+    "actions": {
+      "inert_only": true,
+      "native_API_actor_network_or_source_edits": false
+    },
+    "completion_still_within_original_pair_end": true,
+    "fixture_note": "The first attempt stopped at a probe assertion before validator invocation because inert fixture ticks for final, exit and completion were tied. This successful probe places completion two ticks later, still inside the same original pair end; source bytes were never changed.",
+    "freeze_sha256": "64451dbbca7d3d932df2b3c05eaba35959d7c27b5c56f9397a147efca087f918",
+    "material_reason": "A source-bound process cannot sample its final native QPC after its held process exit has already been observed.",
+    "mechanism_verified": true,
+    "physical_json_and_SHA_rewritten": true,
+    "probe": "physical_selected_final_one_tick_after_held_exit_but_before_completion",
+    "result": "ACCEPTED",
+    "schema_version": 1,
+    "selected_native_final_after_exit_observed": true,
+    "selected_native_final_before_completion": true,
+    "stage": "independent-inert-normal-exit-before-native-final-probe"
+  },
+  "raw_commitment": {
+    "bytes": 1054,
+    "sha256": "4608c6e45f8b9aab7d70b5b9ae09109674a8f88d4b34a9cba6272141bd1248fe"
+  },
+  "schema_version": 1,
+  "stage": "source-evidence-safe-view",
+  "temporal_scope": "Original preparation/review snapshot: its pending/false runtime fields are historical snapshot fields, not the current result.",
+  "transformation": "JSON value projection; account identifiers/user paths redacted if present; no runtime inference"
+}

@@ -1,0 +1,54 @@
+{
+  "content": {
+    "NRPT_included": false,
+    "all_four_before_after_equal": true,
+    "capture": {
+      "bytes": 2713,
+      "sha256": "bae92ad9f9fca3d543f7c390ab7bc36cd49fdd7cc2a9b2585a371658aa485726"
+    },
+    "no_mutator_is_not_equality_proof": true,
+    "object_equalities": {
+      "before_after": {
+        "dns": true,
+        "firewall_profiles": true,
+        "routes": true,
+        "user_proxy": true
+      },
+      "original_after": {
+        "dns": true,
+        "firewall_profiles": true,
+        "routes": false,
+        "user_proxy": true
+      },
+      "original_before": {
+        "dns": true,
+        "firewall_profiles": true,
+        "routes": false,
+        "user_proxy": true
+      }
+    },
+    "raw_bytes_before_after_equal": true,
+    "route_difference_deleted_or_repaired": false,
+    "route_difference_observed": false,
+    "route_writer_attribution_proven": false,
+    "snapshot_commitments": [
+      {
+        "bytes": 7378,
+        "sha256": "f05d91ee76ee8a97ae5ab3bfa092167a8ee560c083255f142e6c453f2edf7ab3"
+      },
+      {
+        "bytes": 7645,
+        "sha256": "96ba4618bdcee58d28de676038b661681b955502799cdce7aae5fa24d61e8f95"
+      },
+      {
+        "bytes": 7645,
+        "sha256": "96ba4618bdcee58d28de676038b661681b955502799cdce7aae5fa24d61e8f95"
+      }
+    ],
+    "whole_JSON_before_after_equal": true
+  },
+  "current_equal_does_not_erase_prior_IPC01_route_difference": true,
+  "observed_scope": "firewall_profiles,dns,routes,user_proxy only; NRPT not captured",
+  "prior_route_writer_and_time_unknown": true,
+  "schema_version": 1
+}

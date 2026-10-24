@@ -1,0 +1,102 @@
+{
+  "actions_by_reviewer": {
+    "AccessCheck_executed": false,
+    "actor_created_or_resumed": false,
+    "actual_runtime_executed": false,
+    "candidate_imported_or_executed": false,
+    "main_repository_source_modified": false,
+    "native_api_initialized": false,
+    "native_token_api_called": false,
+    "network_executed": false,
+    "old_archives_modified": false,
+    "pure_tests_rerun": false,
+    "source_reads_and_file_hashes": true
+  },
+  "additional_final_guard_delta_reviewed": "Any outer exception clears observation_complete and access_denial_observed while retaining selected wire positivity as failed.",
+  "author_freeze": {
+    "bytes": 6568,
+    "sha256": "6595fee39dae9770207761cfbc42fc03fb1ceccaf9776c10b7ae09f63800ea2b"
+  },
+  "author_pure_evidence": {
+    "commitment_verified": true,
+    "independently_rerun": false,
+    "log_bytes": 4927,
+    "log_sha256": "3d7f798b0df4e1a0a58fddfd80cca464c8c3d84d2f0e0ee3a11d5d08d6824c7e",
+    "reported_errors": 0,
+    "reported_failures": 0,
+    "reported_skipped": 0,
+    "reported_tests": 21
+  },
+  "equals_author_final_freeze": true,
+  "fabricated_review_log": false,
+  "findings": [
+    {
+      "detail": "The initial new validator used unbound validate_failure_detail and known_no_child names. Final source explicitly binds both to the unchanged base helpers; composition tests call the actual new validator.",
+      "id": "unbound-legacy-validator-helper-names",
+      "status": "fixed-and-rechecked"
+    },
+    {
+      "detail": "A complete typed fixture_final selected event is now carried to failed/hit before strict result validation. A false conflicting journal boolean still makes strict validation reject; malformed/unknown fixture data creates no inferred positive.",
+      "id": "independent-fixture-positive-versus-damaged-sticky-boolean",
+      "regression_source": "test_closed_independent_fixture_hit_survives_corrupt_false_event_but_bad_fixture_is_unknown",
+      "status": "fixed-and-rechecked"
+    }
+  ],
+  "identity_basis": "held-accesscheck-matrix-v1",
+  "invented_duration": false,
+  "limitations": {
+    "broker_pid_attributed": false,
+    "default_resolver_tested": false,
+    "dns_isolation_qualified": false,
+    "g_psec_tested": false,
+    "no_actual_dns_result_observed_by_this_review": true,
+    "product_acceptance": false,
+    "proxy_tested": false,
+    "real_semantic_matrices_in_this_dns_scope_not_measured": true,
+    "static_review_only": true
+  },
+  "patch": {
+    "bytes": 87741,
+    "sha256": "b0191e975abb4d29203c66f88ddd8ac3746527ef72ee1d944a7c730493be48bc"
+  },
+  "remaining_blockers_found": [],
+  "review_scope": [
+    "New standalone scope and explicit impact plan/default read-only/guarded worker, fixed original120-second QPC epoch and worker reserve, source35/device/native07/plan/privateDACL/exact guard admission.",
+    "Selected prior held primary and TokenStatistics before observer, fixed exact capability catalog/attributes/image/inner and outer Jobs/PID generation; full closed AccessCheck LPAC matrix before selected resume, all DNS GOs and selected finish.",
+    "All selected row lpac values remain null, with explicit semantic basis. No class46 result1 surrogate or mutation of the old class46 entry; unchanged native07 parsing binds external held identity.",
+    "Semantic intents/returned proofs/once resource closure and ordered per-action authorizations; unknown resource creation or close blocks profile deletion and retains recovery obligations.",
+    "Same-API ordinary before/after, original once inventory and freshness, fixed standard53 fixture, typed API5 versus API87/pending/late, raw native hashes/GO timestamps and independent sticky receiver event.",
+    "Cleanup workload/fixture/observer resources/ACL tools/profile/SID and public qualification gates; standalone semantic-LPAC observation never proves G/PSEC composition or Linux equivalence."
+  ],
+  "reviewed_files": {
+    ".github/windows_identity_lpac_semantic_dns.py": {
+      "bytes": 44662,
+      "lf_only": true,
+      "sha256": "1dd18e5a480e750840c65cc9b04558d4c5dcb00efb65c4c909309da05bdfecda"
+    },
+    ".github/windows_identity_lpac_semantic_dns_local.py": {
+      "bytes": 12358,
+      "lf_only": true,
+      "sha256": "b57f78d48c8db35ed1e7eb0f6f3462c3d56dd494e47cd0e2633cce2baeb0c57e"
+    },
+    "tests/test_windows_identity_lpac_semantic_dns.py": {
+      "bytes": 12943,
+      "lf_only": true,
+      "sha256": "fa602e1a6975a126bcc0933bba2c3bac0a081d9d17a26fa529a512ee64606776"
+    },
+    "tests/test_windows_identity_lpac_semantic_dns_local.py": {
+      "bytes": 15842,
+      "lf_only": true,
+      "sha256": "ef1f8e4a5b18570ab56b4a861d467c86673aeac2ecd69fa17e696233a9077fa2"
+    }
+  },
+  "schema_version": 1,
+  "scope": "standalone-lpac-accesscheck-standard53-dns-mechanism-v1",
+  "source_closure": {
+    "all_current_candidate_source_hashes_verified": true,
+    "files": 35,
+    "sha256": "3f5e3fc55043103ab0bcf8144085a936e4374e69d54f3bf83e0c8f5aa7a1987e"
+  },
+  "stage": "work-only-semantic-lpac-dns-independent-static-review-01",
+  "static_review_conclusion": "No remaining safety or executability blocker found in the reviewed final bytes."
+}

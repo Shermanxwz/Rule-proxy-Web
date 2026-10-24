@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "run_id": 39440004651,
+  "source_commit": "e466e15ff524a51dc01721e4248df8474a9cba16",
+  "runtime_artifact_id": 12274967676,
+  "runtime_artifact_sha256": "a4b0750ddbdd94ffc38e8852e54a90c1d797facddfff60f98ecaefd72d0a6d8d",
+  "readback_run_id": 39445226157,
+  "probe_selected": true,
+  "stage0_passed": false,
+  "ordinary_account": true,
+  "exact_os": "26300.9457",
+  "documented_support_floor": "26300.9550",
+  "product_acceptance": false,
+  "privacy_qualified": false,
+  "actor_report": "absent",
+  "cleanup_confirmed": true,
+  "cause": {
+    "classification": "explicit_empty_child_environment_rejected_before_spawn",
+    "required_environment_keys": [
+      "SYSTEMROOT",
+      "LOCALAPPDATA"
+    ],
+    "message_sha256": "1def007dc05682ea19f477801c2dfbf46ebaa3b987b2503aed1e89fdbc9260d2",
+    "message_utf8_bytes": 544,
+    "static_source": "https://github.com/microsoft/mxc/blob/7bf210247986cb73b1b314df60c2f1109c479c0b/src/mxc-sdk/src/backends/process_container/common/launch_diagnostics.rs",
+    "static_message_hash_matches_runtime": true
+  },
+  "interpretation": "The backend selection marker is not evidence a container or child process was created. This request-construction failure does not establish OS API incompatibility. No automatic replay."
+}

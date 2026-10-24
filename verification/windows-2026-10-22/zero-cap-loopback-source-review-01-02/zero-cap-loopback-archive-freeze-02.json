@@ -1,0 +1,60 @@
+{
+  "actual_public": {
+    "bytes": 2731,
+    "sha256": "a4502dda11fbc39567e53c909ca2e4d8b9c5b5825e92e056fea46fd8cb396b18"
+  },
+  "actual_review": {
+    "bytes": 39309,
+    "sha256": "93cebeb25a1fcea5c2766bb02dacaf4ef43f5c46207c134181d048d8d6bf500e"
+  },
+  "actual_source_commit": "07146b7118c345e4a1046fe9066ba2f26b37cf3a",
+  "actual_source_sha256": "3df55cdbc317522d74a3f6cc8f0f68258aa73da0b1d5cd8ae811aebf7ab9342f",
+  "archive_builder_called": false,
+  "archive_written": false,
+  "exact_independent_review": {
+    "bytes": 4222,
+    "sha256": "f4348193c6dab64db2c8cc8b5c56521844b8e5b301ee4ef847fea3c3ccd0ba98",
+    "verdict": "GO-no-source-or-injected-backend-blocker"
+  },
+  "files": {
+    "archive_zero_cap_loopback_01_builder02.py": {
+      "bytes": 29594,
+      "sha256": "0f434ffba7f56375db37805690ccc7e271d80422c7b5fa46a8359825e16d77a8"
+    },
+    "archive_zero_cap_loopback_01_command02.ps1": {
+      "bytes": 859,
+      "sha256": "1d0bb11623125f70d64840548d1d33021872ea9595bb9db6d9d28025dd3a07cd"
+    },
+    "draft_zero_cap_loopback_publication_01.py": {
+      "bytes": 4386,
+      "sha256": "c5b186c9ff7078c339dcd2cbeca57774161196f425c11502e8dfd3ad27b7945f"
+    }
+  },
+  "main_or_actual_evidence_modified": false,
+  "narrow_changes": [
+    "Match the exact recorded second independent review verdict",
+    "Project the exact recorded verdict instead of inventing GO text",
+    "Command02 selects builder02 only"
+  ],
+  "native_API_actor_network_cleanup_invoked": false,
+  "original01_preserved": {
+    "archive_zero_cap_loopback_01.py": {
+      "bytes": 29531,
+      "sha256": "53deeefeca8c2056a6a7a9867f51eb06d9f72ea5e2e34c2f371e3b050b9e5125"
+    },
+    "archive_zero_cap_loopback_01_command.ps1": {
+      "bytes": 849,
+      "sha256": "044c8f6a767e1e5c9fb10a0fc266758f79c2db1168e61d3b88078635f6d71aa3"
+    },
+    "zero-cap-loopback-archive-freeze-01.json": {
+      "bytes": 1845,
+      "sha256": "50a1224a9a81320b9ccc0b109676b87dc7b968773d4770cab107f5ae15cac6b3"
+    }
+  },
+  "publication_written": false,
+  "revision": 2,
+  "root_runs_dry_before_archive": true,
+  "schema_version": 1,
+  "stage": "zero-cap-loopback-actual-01-archive-preparation",
+  "validation_performed": "Exact source/review-file byte checks and Python AST only"
+}

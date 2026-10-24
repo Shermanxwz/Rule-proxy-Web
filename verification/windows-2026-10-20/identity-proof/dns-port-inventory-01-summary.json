@@ -1,0 +1,39 @@
+{
+  "conclusion": "success",
+  "experiment": "dns-readonly-port53-inventory",
+  "head": "3150c6780b7a6d7b0e5e02b35c7c212dfcdcbd5d",
+  "interpretation": "This hosted runner has one observed UDP endpoint on port53. It is inadmissible for the proposed exclusive owned-port53 experiment. No endpoint was cleared, stopped, changed or taken over, and the port pair was not replayed.",
+  "limits": {
+    "current_job_only": true,
+    "dns_api87_explained": false,
+    "dns_isolation_tested": false,
+    "dns_mechanism_positive": false,
+    "earlier_preflight_cause_independently_proven": false,
+    "existing_endpoint_owner_or_address_published": false,
+    "full_guest_or_production_integration": false,
+    "global_settings_changed": false,
+    "port_hypothesis_tested": false
+  },
+  "linux_tests": 62,
+  "next": "Stop the owned-port53 mechanism on this runner; no takeover or automatic retry. Any different mechanism requires a separately reviewed plan.",
+  "observations": {
+    "api_called": false,
+    "bind_attempted": false,
+    "child_exit_code": 0,
+    "cleanup_confirmed": true,
+    "enumeration_success": true,
+    "matches_capped_at_two": 1,
+    "report_parse_valid": true,
+    "status": "present",
+    "timed_out": false,
+    "wait_completed": true,
+    "work_removed": true
+  },
+  "privacy": "Only capped count, fixed status, process exit/cleanup booleans and public CI/code metadata. No endpoint address, owning PID, raw error or credentials.",
+  "result_sha256": "25bc81ee287ffa6762ca782fefc17092fb6ac36386424dcfccf8157d323f899c",
+  "reviewed_manifest_sha256": "efaabbe40fc4297fa5677155ad04b3af1114c09d7ce372a349e988a38d36d9cd",
+  "run_id": 39600454533,
+  "schema": 1,
+  "skipped": 0,
+  "windows_tests": 62
+}

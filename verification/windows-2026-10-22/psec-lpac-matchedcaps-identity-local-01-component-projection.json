@@ -1,0 +1,2050 @@
+{
+  "actor_manifest_key_count": 13,
+  "actor_native_source_count": 9,
+  "actor_resumed": false,
+  "actor_sha256": "0a9e867cce846b366693e8662034db8c0c4646bd312a6143c367da2c36fb557a",
+  "atomic_inner_creation_proven": false,
+  "attempt": 1,
+  "automatic_cleanup_confirmed": true,
+  "bridge_dependency_count": 31,
+  "bridge_library_abi_version": 3,
+  "bridge_manifest_key_count": 15,
+  "bridge_payload_version": 1,
+  "bridge_source_count": 6,
+  "bridge_sources_and_dependencies": [
+    {
+      "bytes": 4150,
+      "git_blob": "ca0bf53684810a76f6db6a5c78733bfd1591aa16",
+      "path": ".github/native/windows_psec_lpac_bridge_spec.hpp",
+      "sha256": "44eff1d580c79f1bffa081b2a35e9b29cdbd1e077339508a91fa33e9353b1991"
+    },
+    {
+      "bytes": 16460,
+      "git_blob": "8d0fb5840c31e3fa6e72851d98b1d5fcc7c7e399",
+      "path": ".github/native/windows_psec_lpac_matchedcaps_bridge.cpp",
+      "sha256": "5e3e83c19788136404c5d412315aa08502a2ffc0c0cb41235ba4b20159deb497"
+    },
+    {
+      "bytes": 4483,
+      "git_blob": "4c1a8aa94b89e70ec4e067d93ca90490fadc28b3",
+      "path": ".github/native/windows_psec_lpac_matchedcaps_bridge.hpp",
+      "sha256": "b088676f846d3690f58b01afaf06df41e2cedbae10f140cd404cce8a0d814cd1"
+    },
+    {
+      "bytes": 8144,
+      "git_blob": "a797df830ab6ea6faf71721d5907ae4068d5d65e",
+      "path": ".github/native/windows_psec_lpac_matchedcaps_bridge_core.hpp",
+      "sha256": "8d06377a923bede038d2ff19e206da695b7a5d918c610a12a9c1a5dacde2820d"
+    },
+    {
+      "bytes": 36700,
+      "git_blob": "b6919e0624b55341f88a2a24e1aef8a77c2fe85e",
+      "path": "generated/ProcessSecurityEnvironment_generated.h",
+      "sha256": "8bc22a17bf176be93817d8bda13058d7077386b72775643150a8f1a3e233eaae"
+    },
+    {
+      "bytes": 11358,
+      "git_blob": "d645695673349e3947e8e5ae42332d0ac3164cd7",
+      "path": "vendor/flatbuffers/LICENSE",
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    {
+      "bytes": 2588,
+      "git_blob": "d451818568a2aa77f6d95c0cfbabcc274b094b61",
+      "path": "vendor/flatbuffers/include/flatbuffers/allocator.h",
+      "sha256": "9ac3f3659ff1e5ff1b2be6166f08490d16f67b1e87d2e70ef87c3fd5d2689caf"
+    },
+    {
+      "bytes": 9117,
+      "git_blob": "163d8c363d421ef993a13025ac4a33c70089918e",
+      "path": "vendor/flatbuffers/include/flatbuffers/array.h",
+      "sha256": "52ce6c281fb542bfceaf704a0ab51383afff34bd89585980dc6cc086dece807f"
+    },
+    {
+      "bytes": 17469,
+      "git_blob": "1d2ab5858bae535a6950866231a57a1db9e7fff5",
+      "path": "vendor/flatbuffers/include/flatbuffers/base.h",
+      "sha256": "1201c589bf034b5c0207a84bad1e025cfb8208f5e42133c5b0e2aa8c33763679"
+    },
+    {
+      "bytes": 8144,
+      "git_blob": "154d187ab755812bb763fc760b479f1a69264e9b",
+      "path": "vendor/flatbuffers/include/flatbuffers/buffer.h",
+      "sha256": "8506628aa30e1c4768079eaceb4e46292ecae82b6adf6513302d3b5316547f6c"
+    },
+    {
+      "bytes": 1512,
+      "git_blob": "746903eb972945dac98a265de7be77894921135d",
+      "path": "vendor/flatbuffers/include/flatbuffers/buffer_ref.h",
+      "sha256": "db4c627e3bfb728273ea36e65fa0f97c70c9911abc8799797893f986f0c68286"
+    },
+    {
+      "bytes": 3048,
+      "git_blob": "bfd771dae625e485a17889ed98539f07d31e7c0d",
+      "path": "vendor/flatbuffers/include/flatbuffers/code_generator.h",
+      "sha256": "1228ff55171cbc68d78396d1219fa4ec9ee08a55b5982671dff955c5c2ee00d9"
+    },
+    {
+      "bytes": 8287,
+      "git_blob": "d284ac5a6835d7012b02c023ff10dc0b74d968dd",
+      "path": "vendor/flatbuffers/include/flatbuffers/code_generators.h",
+      "sha256": "822bad303d1c40038c6df8b35493fabd94092360c1da0ba136f61218a11a5fcf"
+    },
+    {
+      "bytes": 2380,
+      "git_blob": "d1cab08d7431003c543d501b9c375698a2983cac",
+      "path": "vendor/flatbuffers/include/flatbuffers/default_allocator.h",
+      "sha256": "9532a571b57f5f0c1763fe6f6f90121b46ce20a8f3d6b53b22645bb8f2716c7f"
+    },
+    {
+      "bytes": 3266,
+      "git_blob": "0577a42d9692d79db03a233ef5921d4648ac7146",
+      "path": "vendor/flatbuffers/include/flatbuffers/detached_buffer.h",
+      "sha256": "d34758c25713bebc10e31f4a591d38485413f16942b3650245b3371a0cdcd4cf"
+    },
+    {
+      "bytes": 1909,
+      "git_blob": "bafe6f29b9764184a50c11b8d11fe91635084488",
+      "path": "vendor/flatbuffers/include/flatbuffers/file_manager.h",
+      "sha256": "76c1668378943972090d48785e39a20108203d975c3c9575c90aa03b72c33c7f"
+    },
+    {
+      "bytes": 63212,
+      "git_blob": "636d3776bae8d70115cdb2b047d3cc9b029f42a8",
+      "path": "vendor/flatbuffers/include/flatbuffers/flatbuffer_builder.h",
+      "sha256": "d44711560c9437febc2b4ccff4845a574f0b6fff29f9e9cb773b40a108d8859f"
+    },
+    {
+      "bytes": 10995,
+      "git_blob": "87b271e7c2e057f62b89eb88e335727662bae7ae",
+      "path": "vendor/flatbuffers/include/flatbuffers/flatbuffers.h",
+      "sha256": "0d0edc1a6c9dd1ccedc1c0ac2d144b7c04e829f76bb99ab007ab5631ffa96ecd"
+    },
+    {
+      "bytes": 4035,
+      "git_blob": "da24762c265e4f8267ef3f249f5ba1b95dca8594",
+      "path": "vendor/flatbuffers/include/flatbuffers/flatc.h",
+      "sha256": "ee30bd369ec43796741106d0f6eeaa9061c92cb7a9c02ea0d4f0d3b0fe10b270"
+    },
+    {
+      "bytes": 1249,
+      "git_blob": "70c0a45860befb6555b877d689ec3b06562eb9b0",
+      "path": "vendor/flatbuffers/include/flatbuffers/flex_flat_util.h",
+      "sha256": "f39974e56fafd17eeab1dcdf632fc773777f0062cb226d7c8f303d5477e7231f"
+    },
+    {
+      "bytes": 67675,
+      "git_blob": "2784dafbfac5bccfd70c01ed7a456f26764af3d3",
+      "path": "vendor/flatbuffers/include/flatbuffers/flexbuffers.h",
+      "sha256": "0b4285d26ef7ed519b5abea4e75c7dd14a43741ef4824479e6a2f9c3d9372a31"
+    },
+    {
+      "bytes": 9968,
+      "git_blob": "74633fd67f2f91f13cb9f8142861a7d847406ba1",
+      "path": "vendor/flatbuffers/include/flatbuffers/grpc.h",
+      "sha256": "15f2d761cf0d23b8564b4eac96a6fbc3ef73a449b1c799b493b305aa7210a3a9"
+    },
+    {
+      "bytes": 3634,
+      "git_blob": "2e92c09a212a0dd3244f2393d93114cd79c316e7",
+      "path": "vendor/flatbuffers/include/flatbuffers/hash.h",
+      "sha256": "f497d227cf4005461df95eb982e86dbfcc501600184abe9c6133d254a7933056"
+    },
+    {
+      "bytes": 47600,
+      "git_blob": "3e35b48be2c84b4672ed79cdc4ae7df8e76e0a30",
+      "path": "vendor/flatbuffers/include/flatbuffers/idl.h",
+      "sha256": "06631129f14f1f061ca8835063ff48022a4bf27f063b4ce32912ffac62812b58"
+    },
+    {
+      "bytes": 13780,
+      "git_blob": "77be5165111d413d21d6f042a4b1ce819e8a34c7",
+      "path": "vendor/flatbuffers/include/flatbuffers/minireflect.h",
+      "sha256": "4b38cf7fc88c476801ce483b0b930f290fcadb5d68e28dfa770e5b26e591f2f8"
+    },
+    {
+      "bytes": 22124,
+      "git_blob": "371df72526137cff5bf7ee4b5c2f83b411b1becb",
+      "path": "vendor/flatbuffers/include/flatbuffers/reflection.h",
+      "sha256": "90ef08e1d4f7cf32c6f6fcb3206988d6c3b211362d1287322944ae7a234f95f8"
+    },
+    {
+      "bytes": 59052,
+      "git_blob": "32ee1aa6bec41fda84a58d0f3d51970f6fb070ae",
+      "path": "vendor/flatbuffers/include/flatbuffers/reflection_generated.h",
+      "sha256": "df4b56ae8849370aef16688f6851e8c3b440aff3f9add6db972b9785042f0eca"
+    },
+    {
+      "bytes": 4518,
+      "git_blob": "e70cfc33e41fbda645fbcf34c2089e5d454028d7",
+      "path": "vendor/flatbuffers/include/flatbuffers/registry.h",
+      "sha256": "7ce13bf8f4a1884633fd35eb747b9b97c50508d5305868ea4cde677d3580e02b"
+    },
+    {
+      "bytes": 19148,
+      "git_blob": "fc8e4b1d13f47b24dc433ebccdd9f284401560b1",
+      "path": "vendor/flatbuffers/include/flatbuffers/stl_emulation.h",
+      "sha256": "f39f906a2f361fee174d5c8749bf631fd56138351e5be8ff63e2d5f1f57613a7"
+    },
+    {
+      "bytes": 2197,
+      "git_blob": "d9c62f96c270d6a8b497b381a9eb656db2ae553f",
+      "path": "vendor/flatbuffers/include/flatbuffers/string.h",
+      "sha256": "cc2f7d40f2d5613a0932e63d686aea68cde79f8eb4370476361b219b979f5a53"
+    },
+    {
+      "bytes": 1581,
+      "git_blob": "3aa434c0e57abc9b7ebf4a4dd6387917d6fde92b",
+      "path": "vendor/flatbuffers/include/flatbuffers/struct.h",
+      "sha256": "7efdabf43a53fd2a96382b08745c58832e80be9606c1e8c0b62849e56c5f8e9f"
+    },
+    {
+      "bytes": 9602,
+      "git_blob": "622d134089008e20852f5143c30057566918c6ba",
+      "path": "vendor/flatbuffers/include/flatbuffers/table.h",
+      "sha256": "021f320da27aa7c073950235066b9a6bfc81883f3f171a3eae4ac28f129dd18b"
+    },
+    {
+      "bytes": 26963,
+      "git_blob": "d8387e175d875b8f8ed1d2ca3719857ba8ced0f5",
+      "path": "vendor/flatbuffers/include/flatbuffers/util.h",
+      "sha256": "2727464874a76f875aa2e0eea0d4a960fdcaa061a5a4f1e9af6f9843e8fac566"
+    },
+    {
+      "bytes": 14430,
+      "git_blob": "759a92696ce5bd74a4b53fbbe936bd7e13c1d02b",
+      "path": "vendor/flatbuffers/include/flatbuffers/vector.h",
+      "sha256": "043136dc408e322c8b0d2968c139dc7095005711c7ca9bf47a68f9c7c909e50f"
+    },
+    {
+      "bytes": 8699,
+      "git_blob": "3e6da8e9da78771718da1ba0d2ee3e9ac96fc83d",
+      "path": "vendor/flatbuffers/include/flatbuffers/vector_downward.h",
+      "sha256": "7f687fdb661f4c1be09223d6e416e042b139ff1748b5a215cb9864c56f9f3be2"
+    },
+    {
+      "bytes": 13516,
+      "git_blob": "a0b793597c80c364485463d0f91bb6d84564586f",
+      "path": "vendor/flatbuffers/include/flatbuffers/verifier.h",
+      "sha256": "d7fbf583019088983af684e7d00cbfda23b759093c6501f850c1c33400559b5a"
+    },
+    {
+      "bytes": 2955,
+      "git_blob": "ccace182ce2ca53bbda760c038f1c6af0bfb1f7f",
+      "path": "vendor/windows-sdk/ProcessSecurityEnvironment.fbs",
+      "sha256": "736cacef37a6c97a0cb97c7132da462a3b51811fca8f1e4076cac51085dfa516"
+    }
+  ],
+  "broker_cancellation_proven": false,
+  "build_input_snapshot": {
+    "bytes": 7683,
+    "sha256": "4c5d13605371f354a944f64ada5d62a6c2b10ab27176ac69fb88c95e246fb728"
+  },
+  "build_snapshot_before_compile_verified": true,
+  "child_environment": {
+    "com": [
+      true,
+      0,
+      true,
+      true
+    ],
+    "deadline_verified": true,
+    "environment_version": 1,
+    "exact_child_keyset": true,
+    "hresult": 0,
+    "lookup_state": "ready",
+    "release_attempted": true,
+    "release_returned": true,
+    "variant": "systemroot_localappdata_v1"
+  },
+  "child_environment_values_published": false,
+  "close_is_void_no_hresult": true,
+  "close_operation_receipt_count": 1,
+  "constructor_policy": "bootstrap-held-primary-matched-security-capabilities-aap-only-v1",
+  "continuous_outer_supervision_proven": false,
+  "creation_transfer_crash_gap_resolved": false,
+  "dll_metadata": {
+    "architecture": "amd64",
+    "binary_published": false,
+    "bytes": 217088,
+    "exports": [
+      "pb_abi_version",
+      "pb_bind",
+      "pb_build_spec",
+      "pb_close_environment",
+      "pb_create_environment",
+      "pb_create_matched_child",
+      "pb_unbind",
+      "pb_verify_spec"
+    ],
+    "imports": [
+      "KERNEL32.dll"
+    ],
+    "sha256": "91e9fdc092943ac3a3b47c9f5ad394f4aacb522d105aa802c47b74d5c4f702b1"
+  },
+  "dns_tested": false,
+  "external_environment_absence_verified": false,
+  "failure_detail": {
+    "message_published": false,
+    "present": true,
+    "private_sha256": "b712fa6986e6ccbe63f92ca13d3c82762ce3a66a75742384472d5fe320bc71ce",
+    "record_available": true
+  },
+  "forensic_result": {
+    "absent_worker_report_filled_from_forensic": false,
+    "equals_original_validated_report_result": true,
+    "json_parseable": true,
+    "record_available": true,
+    "standalone_unvalidated": true,
+    "used_for_public_qualification": false
+  },
+  "identity_observation": {
+    "ac_accesscheck_verified": true,
+    "ac_granted_access": [
+      3,
+      0,
+      1,
+      2
+    ],
+    "ac_held_verified": true,
+    "ac_inner_assignment_verified": true,
+    "api_obligations_closed": true,
+    "bootstrap_held_verified": true,
+    "bootstrap_inner_assignment_verified": true,
+    "common_inputs_verified": true,
+    "failure": "accesscheck",
+    "inner_complete": false,
+    "lpac_accesscheck_verified": false,
+    "lpac_granted_access": null,
+    "lpac_held_verified": true,
+    "lpac_inner_assignment_verified": true,
+    "module_unbound": true,
+    "observer_resources_cleanup_verified": true,
+    "opaque_outcome_unknown": false,
+    "psec_network_preservation_proven": false,
+    "security_capabilities_verified": true,
+    "workload_cleanup": true,
+    "workload_job_empty": true
+  },
+  "independent_actual_review": {
+    "bytes": 83295,
+    "sha256": "cbb62758368cb3e3e67ba6bd96619f2774c9c179e0d11ca2d771cc6032a45f52"
+  },
+  "inner_assignment_observations": [
+    {
+      "all_recorded_post_assignment_exact_jobs_verified": true,
+      "constructor_policy": "bootstrap-held-primary-matched-security-capabilities-aap-only-v1",
+      "decision_within_original_work_deadline": true,
+      "exception": {
+        "message_published": false,
+        "private_sha256": null,
+        "recorded": false
+      },
+      "never_resumed": true,
+      "original_assignment_intent": {
+        "bytes": 996,
+        "sha256": "66dcf46e5d2d60461591d7c5285df5c963ca5beaa7b2ea7843392aaacf62ebd5"
+      },
+      "original_assignment_returned_receipt": {
+        "bytes": 1282,
+        "sha256": "d37e1ae48caf1237c69206867901b4846a541ad7b104970a2d36257545070f0b"
+      },
+      "post_assignment_job_observation_count": 11,
+      "pretransfer_guard": {
+        "exact_outer_true_inner_false_verified": true,
+        "exception": {
+          "message_published": false,
+          "private_sha256": null,
+          "recorded": false
+        },
+        "generation_after": {
+          "alive": true,
+          "exception": {
+            "message_published": false,
+            "private_sha256": null,
+            "recorded": false
+          },
+          "held_generation_verified": true,
+          "image_verified": true,
+          "within_original_work_deadline": true
+        },
+        "generation_before": {
+          "alive": true,
+          "exception": {
+            "message_published": false,
+            "private_sha256": null,
+            "recorded": false
+          },
+          "held_generation_verified": true,
+          "image_verified": true,
+          "within_original_work_deadline": true
+        },
+        "inner_query": {
+          "api_success": true,
+          "attempted": true,
+          "exception": {
+            "message_published": false,
+            "private_sha256": null,
+            "recorded": false
+          },
+          "immediate_win32_error": 0,
+          "membership": false,
+          "returned": true,
+          "within_original_work_deadline": true
+        },
+        "original_disk_receipt": {
+          "bytes": 2404,
+          "sha256": "d30ea200758fab7285a3f3e930bee2a538c9c1389b06a14fffdc4b84734f2f12"
+        },
+        "outer_query": {
+          "api_success": true,
+          "attempted": true,
+          "exception": {
+            "message_published": false,
+            "private_sha256": null,
+            "recorded": false
+          },
+          "immediate_win32_error": 0,
+          "membership": true,
+          "returned": true,
+          "within_original_work_deadline": true
+        },
+        "purpose": "pretransfer",
+        "query_resources": {
+          "cleanup_verified": true,
+          "close_api_success": true,
+          "close_attempted": true,
+          "close_returned": true,
+          "close_uncertain": false,
+          "close_within_original_work_deadline": true,
+          "immediate_close_win32_error": 0,
+          "immediate_open_win32_error": 0,
+          "one_shot_close_source_bound": true,
+          "open_attempted": true,
+          "open_returned": true,
+          "protected_handle_alias": false
+        },
+        "sequence": 1
+      },
+      "primary_identity_admitted": true,
+      "raw_assign_observation": {
+        "api_success": true,
+        "attempted": true,
+        "call_once_source_bound": true,
+        "exception": {
+          "message_published": false,
+          "private_sha256": null,
+          "recorded": false
+        },
+        "immediate_win32_error": 0,
+        "return_value": 1,
+        "returned": true,
+        "within_original_work_deadline": true
+      },
+      "role": "bootstrap",
+      "transfer_verified": true
+    },
+    {
+      "all_recorded_post_assignment_exact_jobs_verified": true,
+      "constructor_policy": "bootstrap-held-primary-matched-security-capabilities-aap-only-v1",
+      "decision_within_original_work_deadline": true,
+      "exception": {
+        "message_published": false,
+        "private_sha256": null,
+        "recorded": false
+      },
+      "never_resumed": true,
+      "original_assignment_intent": {
+        "bytes": 989,
+        "sha256": "2300d8586e54314cbf540cc06d8e9006fe0aa8c1dd6413fe4497550935d77859"
+      },
+      "original_assignment_returned_receipt": {
+        "bytes": 1275,
+        "sha256": "ec3bc097c6c83f4a124058f6731ce221d7db78c5b140a25736ff9694550b6a62"
+      },
+      "post_assignment_job_observation_count": 7,
+      "pretransfer_guard": {
+        "exact_outer_true_inner_false_verified": true,
+        "exception": {
+          "message_published": false,
+          "private_sha256": null,
+          "recorded": false
+        },
+        "generation_after": {
+          "alive": true,
+          "exception": {
+            "message_published": false,
+            "private_sha256": null,
+            "recorded": false
+          },
+          "held_generation_verified": true,
+          "image_verified": true,
+          "within_original_work_deadline": true
+        },
+        "generation_before": {
+          "alive": true,
+          "exception": {
+            "message_published": false,
+            "private_sha256": null,
+            "recorded": false
+          },
+          "held_generation_verified": true,
+          "image_verified": true,
+          "within_original_work_deadline": true
+        },
+        "inner_query": {
+          "api_success": true,
+          "attempted": true,
+          "exception": {
+            "message_published": false,
+            "private_sha256": null,
+            "recorded": false
+          },
+          "immediate_win32_error": 0,
+          "membership": false,
+          "returned": true,
+          "within_original_work_deadline": true
+        },
+        "original_disk_receipt": {
+          "bytes": 2412,
+          "sha256": "187f38a7b1a6d5aa170052c42cf81952203b069bf0625b60c697c19253b28fb7"
+        },
+        "outer_query": {
+          "api_success": true,
+          "attempted": true,
+          "exception": {
+            "message_published": false,
+            "private_sha256": null,
+            "recorded": false
+          },
+          "immediate_win32_error": 0,
+          "membership": true,
+          "returned": true,
+          "within_original_work_deadline": true
+        },
+        "purpose": "pretransfer",
+        "query_resources": {
+          "cleanup_verified": true,
+          "close_api_success": true,
+          "close_attempted": true,
+          "close_returned": true,
+          "close_uncertain": false,
+          "close_within_original_work_deadline": true,
+          "immediate_close_win32_error": 0,
+          "immediate_open_win32_error": 0,
+          "one_shot_close_source_bound": true,
+          "open_attempted": true,
+          "open_returned": true,
+          "protected_handle_alias": false
+        },
+        "sequence": 1
+      },
+      "primary_identity_admitted": true,
+      "raw_assign_observation": {
+        "api_success": true,
+        "attempted": true,
+        "call_once_source_bound": true,
+        "exception": {
+          "message_published": false,
+          "private_sha256": null,
+          "recorded": false
+        },
+        "immediate_win32_error": 0,
+        "return_value": 1,
+        "returned": true,
+        "within_original_work_deadline": true
+      },
+      "role": "ac",
+      "transfer_verified": true
+    },
+    {
+      "all_recorded_post_assignment_exact_jobs_verified": true,
+      "constructor_policy": "bootstrap-held-primary-matched-security-capabilities-aap-only-v1",
+      "decision_within_original_work_deadline": true,
+      "exception": {
+        "message_published": false,
+        "private_sha256": null,
+        "recorded": false
+      },
+      "never_resumed": true,
+      "original_assignment_intent": {
+        "bytes": 991,
+        "sha256": "ca51b7e4385a2aa374e15c880da32f48f408a1c89361a3d4f66f3b7e4e945fb7"
+      },
+      "original_assignment_returned_receipt": {
+        "bytes": 1277,
+        "sha256": "ad2a4d777bd3474f11085391d2071fd7a40870740434c1456fc59539141d28ba"
+      },
+      "post_assignment_job_observation_count": 6,
+      "pretransfer_guard": {
+        "exact_outer_true_inner_false_verified": true,
+        "exception": {
+          "message_published": false,
+          "private_sha256": null,
+          "recorded": false
+        },
+        "generation_after": {
+          "alive": true,
+          "exception": {
+            "message_published": false,
+            "private_sha256": null,
+            "recorded": false
+          },
+          "held_generation_verified": true,
+          "image_verified": true,
+          "within_original_work_deadline": true
+        },
+        "generation_before": {
+          "alive": true,
+          "exception": {
+            "message_published": false,
+            "private_sha256": null,
+            "recorded": false
+          },
+          "held_generation_verified": true,
+          "image_verified": true,
+          "within_original_work_deadline": true
+        },
+        "inner_query": {
+          "api_success": true,
+          "attempted": true,
+          "exception": {
+            "message_published": false,
+            "private_sha256": null,
+            "recorded": false
+          },
+          "immediate_win32_error": 0,
+          "membership": false,
+          "returned": true,
+          "within_original_work_deadline": true
+        },
+        "original_disk_receipt": {
+          "bytes": 2429,
+          "sha256": "1e4cbeda40595b915215123e408ebeb4a537eaae66629cc49b7464a7630a0ad9"
+        },
+        "outer_query": {
+          "api_success": true,
+          "attempted": true,
+          "exception": {
+            "message_published": false,
+            "private_sha256": null,
+            "recorded": false
+          },
+          "immediate_win32_error": 0,
+          "membership": true,
+          "returned": true,
+          "within_original_work_deadline": true
+        },
+        "purpose": "pretransfer",
+        "query_resources": {
+          "cleanup_verified": true,
+          "close_api_success": true,
+          "close_attempted": true,
+          "close_returned": true,
+          "close_uncertain": false,
+          "close_within_original_work_deadline": true,
+          "immediate_close_win32_error": 0,
+          "immediate_open_win32_error": 0,
+          "one_shot_close_source_bound": true,
+          "open_attempted": true,
+          "open_returned": true,
+          "protected_handle_alias": false
+        },
+        "sequence": 1
+      },
+      "primary_identity_admitted": true,
+      "raw_assign_observation": {
+        "api_success": true,
+        "attempted": true,
+        "call_once_source_bound": true,
+        "exception": {
+          "message_published": false,
+          "private_sha256": null,
+          "recorded": false
+        },
+        "immediate_win32_error": 0,
+        "return_value": 1,
+        "returned": true,
+        "within_original_work_deadline": true
+      },
+      "role": "lpac",
+      "transfer_verified": true
+    }
+  ],
+  "intent_records_do_not_prove_api_return": true,
+  "intents": [
+    {
+      "action": "bind",
+      "bytes": 392,
+      "sha256": "b17b26107fab92c198a85bb550177518ed0e9596603ddfb2c8b4a5ea66a4b9c1"
+    },
+    {
+      "action": "create",
+      "bytes": 394,
+      "sha256": "0c76c8b142aae77b713cce56988e1f12060f2167e94a9dc691aa6059b4df10ed"
+    },
+    {
+      "action": "bootstrap",
+      "bytes": 397,
+      "sha256": "ba3b3b50d9ed9c410c37cacb9614baae19497778e31015873b9a5ec2f4b73a0f"
+    },
+    {
+      "action": "ac",
+      "bytes": 390,
+      "sha256": "35ff386e21c1fd22c4d457eedb7700ea90302abe259f44eefe0b59da61b8fa06"
+    },
+    {
+      "action": "lpac",
+      "bytes": 392,
+      "sha256": "d4e880bed83a8705b27941f13f6544a4058be30313921e2358b99a17006f6b15"
+    },
+    {
+      "action": "observe-ac",
+      "bytes": 398,
+      "sha256": "56b06ba1e406dd58000d88e8cdd196325536f32b43e71fddf4a73a96f1f8c22f"
+    },
+    {
+      "action": "observe-lpac",
+      "bytes": 400,
+      "sha256": "ea2ab2e72dff6dd46130e358e1021e8e207cfd8ebdd1bd1c38fdad87139501b8"
+    },
+    {
+      "action": "stop",
+      "bytes": 392,
+      "sha256": "2e73f2878d6f56553b00b31b3cc3e75e965630fcb012b2cc6e106158c1ccdda5"
+    },
+    {
+      "action": "close",
+      "bytes": 393,
+      "sha256": "f023d94cee6a064158c7285f6f9caacff9d5007e9619797e6db938e4d227e8c5"
+    },
+    {
+      "action": "unbind",
+      "bytes": 394,
+      "sha256": "50c62f2a017b683423e1774a100deb1e6a9c6d9988a1fdcbbf4f5e6dbbd5e29d"
+    }
+  ],
+  "job_admission_record_count": 24,
+  "job_query_resources_cleanup_verified": true,
+  "linux_equivalence_proven": false,
+  "missing_arm_or_proof_synthesized": false,
+  "model2_policy_compared": false,
+  "native_operation_receipts_available": true,
+  "network_tested": false,
+  "observed_accesscheck_call_count": 5,
+  "operations": [
+    {
+      "api_entered": true,
+      "api_returned": true,
+      "close_invoked_once": false,
+      "close_returned_normally": false,
+      "durable_returned_receipt": {
+        "bytes": 953,
+        "sha256": "6229708dbe78c096bd99c43924ba0a4ff4644f8dd92cc7413cd8b89bc3dba415"
+      },
+      "durable_returned_receipt_available": true,
+      "duration_milliseconds": 1.3091,
+      "environment_state": 0,
+      "exception_recorded": false,
+      "hresult": 0,
+      "hresult_valid": true,
+      "module_close_attempted": false,
+      "module_close_confirmed": false,
+      "opaque_outcome_unknown": false,
+      "operation": "bind",
+      "private_exception_sha256": null,
+      "receipt_available": true,
+      "returned_function_status": 0,
+      "schema_major_available": true,
+      "schema_minor": 1,
+      "support_flags": 15,
+      "win32_error": 0,
+      "within_deadline": true,
+      "wrapper_status": 0
+    },
+    {
+      "api_entered": true,
+      "api_returned": true,
+      "close_invoked_once": false,
+      "close_returned_normally": false,
+      "durable_returned_receipt": {
+        "bytes": 954,
+        "sha256": "1445ae33b4a67edb8c0a005816f5c541af3f846eb405bb9857dedcb938425aae"
+      },
+      "durable_returned_receipt_available": true,
+      "duration_milliseconds": 16.6464,
+      "environment_state": 2,
+      "exception_recorded": false,
+      "hresult": 0,
+      "hresult_valid": true,
+      "module_close_attempted": false,
+      "module_close_confirmed": false,
+      "opaque_outcome_unknown": false,
+      "operation": "create",
+      "private_exception_sha256": null,
+      "receipt_available": true,
+      "returned_function_status": 0,
+      "schema_major_available": false,
+      "schema_minor": 0,
+      "support_flags": 0,
+      "win32_error": 0,
+      "within_deadline": true,
+      "wrapper_status": 0
+    },
+    {
+      "api_entered": true,
+      "api_returned": true,
+      "close_invoked_once": false,
+      "close_returned_normally": false,
+      "durable_returned_receipt": {
+        "bytes": 1020,
+        "sha256": "35accc98e0367eb777d966dc748833b036f83de44873117013af65e351f30dd0"
+      },
+      "durable_returned_receipt_available": true,
+      "duration_milliseconds": 6.3344,
+      "environment_state": 2,
+      "exception_recorded": false,
+      "hresult": null,
+      "hresult_valid": false,
+      "module_close_attempted": false,
+      "module_close_confirmed": false,
+      "opaque_outcome_unknown": false,
+      "operation": "bootstrap",
+      "private_exception_sha256": null,
+      "receipt_available": true,
+      "returned_function_status": 0,
+      "schema_major_available": false,
+      "schema_minor": 0,
+      "support_flags": 0,
+      "win32_error": 0,
+      "within_deadline": true,
+      "wrapper_status": 0
+    },
+    {
+      "api_entered": true,
+      "api_returned": true,
+      "close_invoked_once": false,
+      "close_returned_normally": false,
+      "durable_returned_receipt": {
+        "bytes": 1074,
+        "sha256": "1cbb29f191186e9ddd511f2172734a14bf1793c74726f53643470f6957f5c2e2"
+      },
+      "durable_returned_receipt_available": true,
+      "duration_milliseconds": 2.4693,
+      "environment_state": 2,
+      "exception_recorded": false,
+      "hresult": null,
+      "hresult_valid": false,
+      "module_close_attempted": false,
+      "module_close_confirmed": false,
+      "opaque_outcome_unknown": false,
+      "operation": "ac",
+      "private_exception_sha256": null,
+      "receipt_available": true,
+      "returned_function_status": 0,
+      "schema_major_available": false,
+      "schema_minor": 0,
+      "support_flags": 0,
+      "win32_error": 0,
+      "within_deadline": true,
+      "wrapper_status": 0
+    },
+    {
+      "api_entered": true,
+      "api_returned": true,
+      "close_invoked_once": false,
+      "close_returned_normally": false,
+      "durable_returned_receipt": {
+        "bytes": 1076,
+        "sha256": "16fd90efccb74cfc8ca54085f4f3c04bc81448fdc66b04968271f1436db96490"
+      },
+      "durable_returned_receipt_available": true,
+      "duration_milliseconds": 2.3782,
+      "environment_state": 2,
+      "exception_recorded": false,
+      "hresult": null,
+      "hresult_valid": false,
+      "module_close_attempted": false,
+      "module_close_confirmed": false,
+      "opaque_outcome_unknown": false,
+      "operation": "lpac",
+      "private_exception_sha256": null,
+      "receipt_available": true,
+      "returned_function_status": 0,
+      "schema_major_available": false,
+      "schema_minor": 0,
+      "support_flags": 0,
+      "win32_error": 0,
+      "within_deadline": true,
+      "wrapper_status": 0
+    },
+    {
+      "api_entered": true,
+      "api_returned": true,
+      "close_invoked_once": true,
+      "close_returned_normally": true,
+      "durable_returned_receipt": {
+        "bytes": 953,
+        "sha256": "0e68d317ccc3f21e098a325664193502de790383ce9142d8441f375881cad16f"
+      },
+      "durable_returned_receipt_available": true,
+      "duration_milliseconds": 6.8995,
+      "environment_state": 3,
+      "exception_recorded": false,
+      "hresult": null,
+      "hresult_valid": false,
+      "module_close_attempted": false,
+      "module_close_confirmed": false,
+      "opaque_outcome_unknown": false,
+      "operation": "close",
+      "private_exception_sha256": null,
+      "receipt_available": true,
+      "returned_function_status": 0,
+      "schema_major_available": false,
+      "schema_minor": 0,
+      "support_flags": 0,
+      "win32_error": 0,
+      "within_deadline": true,
+      "wrapper_status": 0
+    },
+    {
+      "api_entered": true,
+      "api_returned": true,
+      "close_invoked_once": true,
+      "close_returned_normally": true,
+      "durable_returned_receipt": {
+        "bytes": 954,
+        "sha256": "1ae65495aed456078cd60f64455f12fd993dba485ee49b028bd2d87d81fafd69"
+      },
+      "durable_returned_receipt_available": true,
+      "duration_milliseconds": 0.2528,
+      "environment_state": 3,
+      "exception_recorded": false,
+      "hresult": null,
+      "hresult_valid": false,
+      "module_close_attempted": true,
+      "module_close_confirmed": true,
+      "opaque_outcome_unknown": false,
+      "operation": "unbind",
+      "private_exception_sha256": null,
+      "receipt_available": true,
+      "returned_function_status": 0,
+      "schema_major_available": false,
+      "schema_minor": 0,
+      "support_flags": 0,
+      "win32_error": 0,
+      "within_deadline": true,
+      "wrapper_status": 0
+    }
+  ],
+  "original_broker_outcome_unknown": false,
+  "original_recovery_required": false,
+  "original_root_seconds": 120,
+  "outer_launch": {
+    "arbitrary_errors_or_raw_identity_published": false,
+    "available": true,
+    "cleanup": {
+      "close_uncertain": false,
+      "handles_closed": true,
+      "job_closed": true,
+      "job_empty": true,
+      "process_exit_confirmed": true
+    },
+    "cleanup_error_count": 0,
+    "exit_code": 0,
+    "native_identity_verified_before_resume": true,
+    "normal_zero_exit": true,
+    "ordinary_worker_identity_bound": true,
+    "resumed": true,
+    "started": true,
+    "timed_out": false
+  },
+  "partial_proof_count": 1,
+  "physical_assignment_and_pretransfer_receipt_count": 9,
+  "physical_job_admission_receipt_count": 24,
+  "prior_atomic01_broker_unknown_preserved": true,
+  "prior_atomic01_original_public": {
+    "bytes": 1660,
+    "sha256": "cc562d1b045fea336c4257051faa52e63aa415d91556a4ea84f18aa363652f9c"
+  },
+  "prior_atomic01_recovery_required_preserved": true,
+  "private_config": {
+    "bytes": 5703,
+    "sha256": "7278db022bdc1c316385b9f4b910408ac8ce05eb48f1c746ad0fec30c11c3c90"
+  },
+  "private_forensic_result": {
+    "bytes": 161466,
+    "sha256": "52c224590f5ebf6afd014307180e2c465f7867f99883ac502f534aa99086a3d0"
+  },
+  "private_original_spec": {
+    "bytes": 352,
+    "sha256": "3937f9e3c69cda6695b328ed0e47b27efe8868f530b9e9721194b73c84cba52f"
+  },
+  "private_outer_launch": {
+    "bytes": 620,
+    "sha256": "a75d7eff5d451c3a7239492df7b478e20c8981fa716b6622c04ecf2f785aee95"
+  },
+  "private_recovery_plan": {
+    "bytes": 1871,
+    "sha256": "bba6af2cb388378eea2ca0b62ce10b53413abfe3dfaac75c52f940ab473f1219"
+  },
+  "private_stage_binding": "Fresh run path, exact plan/config/source commitments and source-bound worker admission; no new ACL/token query by this reader.",
+  "private_worker_report": {
+    "bytes": 167549,
+    "sha256": "61de352361d509b56062375c63ff743ba01f549f432f86144e1a402ff6e6ac95"
+  },
+  "processmodel_recorded_sha256": "83d1a458fc056d4d20931019dffb384a33bcdfd1c6759070b0885c5577dd44db",
+  "product_acceptance": false,
+  "proofs": [
+    {
+      "attempted_call_count": 4,
+      "calls": [
+        {
+          "access_status": true,
+          "api_success": true,
+          "attempted": true,
+          "descriptor": {
+            "aces": [
+              {
+                "flags": 0,
+                "mask": 3,
+                "principal": "World",
+                "type": 0
+              },
+              {
+                "flags": 0,
+                "mask": 1,
+                "principal": "AllApplicationPackages",
+                "type": 0
+              },
+              {
+                "flags": 0,
+                "mask": 2,
+                "principal": "AllRestrictedApplicationPackages",
+                "type": 0
+              }
+            ],
+            "bytes": 120,
+            "group": "LocalSystem",
+            "owner": "LocalSystem",
+            "sha256": "ee3c86d1f6cfc1dc651629670b2789f4da64b1b138ad964ad7ac5844c94c8129"
+          },
+          "descriptor_verified": true,
+          "granted_access": 3,
+          "label": "combined",
+          "privilege_count": 0,
+          "win32_error": null,
+          "within_deadline": true
+        },
+        {
+          "access_status": false,
+          "api_success": true,
+          "attempted": true,
+          "descriptor": {
+            "aces": [
+              {
+                "flags": 0,
+                "mask": 3,
+                "principal": "World",
+                "type": 0
+              }
+            ],
+            "bytes": 72,
+            "group": "LocalSystem",
+            "owner": "LocalSystem",
+            "sha256": "9be942e409861151bb93da9abaf0d8033c2e3a7df4577f8d6d3b929bd44e0bea"
+          },
+          "descriptor_verified": true,
+          "granted_access": 0,
+          "label": "world",
+          "privilege_count": 0,
+          "win32_error": null,
+          "within_deadline": true
+        },
+        {
+          "access_status": true,
+          "api_success": true,
+          "attempted": true,
+          "descriptor": {
+            "aces": [
+              {
+                "flags": 0,
+                "mask": 3,
+                "principal": "World",
+                "type": 0
+              },
+              {
+                "flags": 0,
+                "mask": 1,
+                "principal": "AllApplicationPackages",
+                "type": 0
+              }
+            ],
+            "bytes": 96,
+            "group": "LocalSystem",
+            "owner": "LocalSystem",
+            "sha256": "39e5fce56dc10aa4c1e55cbb35d1207042d6617608db16da8ac308a9861c2314"
+          },
+          "descriptor_verified": true,
+          "granted_access": 1,
+          "label": "aap",
+          "privilege_count": 0,
+          "win32_error": null,
+          "within_deadline": true
+        },
+        {
+          "access_status": true,
+          "api_success": true,
+          "attempted": true,
+          "descriptor": {
+            "aces": [
+              {
+                "flags": 0,
+                "mask": 3,
+                "principal": "World",
+                "type": 0
+              },
+              {
+                "flags": 0,
+                "mask": 2,
+                "principal": "AllRestrictedApplicationPackages",
+                "type": 0
+              }
+            ],
+            "bytes": 96,
+            "group": "LocalSystem",
+            "owner": "LocalSystem",
+            "sha256": "15166e6015903b018e6c5d49ee7f2527f3d1f3768309fd473be49d1e3814e21a"
+          },
+          "descriptor_verified": true,
+          "granted_access": 2,
+          "label": "arap",
+          "privilege_count": 0,
+          "win32_error": null,
+          "within_deadline": true
+        }
+      ],
+      "canonical_private_proof_sha256": "620d9f81e47bccbf1880b3337fbd5adc3ca8a4d4fe9961dfbc9be2abe5d0c13f",
+      "classification": "ac-semantic-match",
+      "complete_four_call_observation": true,
+      "dns_tested": false,
+      "duplicate_identification_bound": true,
+      "error_present": false,
+      "expected_matrix": [
+        3,
+        0,
+        1,
+        2
+      ],
+      "failure": null,
+      "generation_after": true,
+      "generation_before": true,
+      "network_tested": false,
+      "observation_complete": true,
+      "observed_calls": [
+        {
+          "access_status": true,
+          "api_success": true,
+          "attempted": true,
+          "descriptor": {
+            "aces": [
+              {
+                "flags": 0,
+                "mask": 3,
+                "principal": "World",
+                "type": 0
+              },
+              {
+                "flags": 0,
+                "mask": 1,
+                "principal": "AllApplicationPackages",
+                "type": 0
+              },
+              {
+                "flags": 0,
+                "mask": 2,
+                "principal": "AllRestrictedApplicationPackages",
+                "type": 0
+              }
+            ],
+            "bytes": 120,
+            "group": "LocalSystem",
+            "owner": "LocalSystem",
+            "sha256": "ee3c86d1f6cfc1dc651629670b2789f4da64b1b138ad964ad7ac5844c94c8129"
+          },
+          "descriptor_verified": true,
+          "granted_access": 3,
+          "label": "combined",
+          "privilege_count": 0,
+          "win32_error": null,
+          "within_deadline": true
+        },
+        {
+          "access_status": false,
+          "api_success": true,
+          "attempted": true,
+          "descriptor": {
+            "aces": [
+              {
+                "flags": 0,
+                "mask": 3,
+                "principal": "World",
+                "type": 0
+              }
+            ],
+            "bytes": 72,
+            "group": "LocalSystem",
+            "owner": "LocalSystem",
+            "sha256": "9be942e409861151bb93da9abaf0d8033c2e3a7df4577f8d6d3b929bd44e0bea"
+          },
+          "descriptor_verified": true,
+          "granted_access": 0,
+          "label": "world",
+          "privilege_count": 0,
+          "win32_error": null,
+          "within_deadline": true
+        },
+        {
+          "access_status": true,
+          "api_success": true,
+          "attempted": true,
+          "descriptor": {
+            "aces": [
+              {
+                "flags": 0,
+                "mask": 3,
+                "principal": "World",
+                "type": 0
+              },
+              {
+                "flags": 0,
+                "mask": 1,
+                "principal": "AllApplicationPackages",
+                "type": 0
+              }
+            ],
+            "bytes": 96,
+            "group": "LocalSystem",
+            "owner": "LocalSystem",
+            "sha256": "39e5fce56dc10aa4c1e55cbb35d1207042d6617608db16da8ac308a9861c2314"
+          },
+          "descriptor_verified": true,
+          "granted_access": 1,
+          "label": "aap",
+          "privilege_count": 0,
+          "win32_error": null,
+          "within_deadline": true
+        },
+        {
+          "access_status": true,
+          "api_success": true,
+          "attempted": true,
+          "descriptor": {
+            "aces": [
+              {
+                "flags": 0,
+                "mask": 3,
+                "principal": "World",
+                "type": 0
+              },
+              {
+                "flags": 0,
+                "mask": 2,
+                "principal": "AllRestrictedApplicationPackages",
+                "type": 0
+              }
+            ],
+            "bytes": 96,
+            "group": "LocalSystem",
+            "owner": "LocalSystem",
+            "sha256": "15166e6015903b018e6c5d49ee7f2527f3d1f3768309fd473be49d1e3814e21a"
+          },
+          "descriptor_verified": true,
+          "granted_access": 2,
+          "label": "arap",
+          "privilege_count": 0,
+          "win32_error": null,
+          "within_deadline": true
+        }
+      ],
+      "observed_matrix": [
+        3,
+        0,
+        1,
+        2
+      ],
+      "partial_observation_preserved": false,
+      "process_or_thread_impersonation_applied": false,
+      "product_acceptance": false,
+      "qualified": true,
+      "resource_cleanup_verified": true,
+      "resources": [
+        {
+          "alias": false,
+          "attempted": true,
+          "close_attempted": true,
+          "close_confirmed": true,
+          "close_uncertain": false,
+          "creation_returned": true,
+          "kind": "token",
+          "name": "source-primary",
+          "returned": true
+        },
+        {
+          "alias": false,
+          "attempted": true,
+          "close_attempted": true,
+          "close_confirmed": true,
+          "close_uncertain": false,
+          "creation_returned": true,
+          "kind": "token",
+          "name": "duplicate-identification",
+          "returned": true
+        },
+        {
+          "alias": false,
+          "attempted": true,
+          "close_attempted": true,
+          "close_confirmed": true,
+          "close_uncertain": false,
+          "creation_returned": true,
+          "kind": "descriptor",
+          "name": "descriptor-combined",
+          "returned": true
+        },
+        {
+          "alias": false,
+          "attempted": true,
+          "close_attempted": true,
+          "close_confirmed": true,
+          "close_uncertain": false,
+          "creation_returned": true,
+          "kind": "descriptor",
+          "name": "descriptor-world",
+          "returned": true
+        },
+        {
+          "alias": false,
+          "attempted": true,
+          "close_attempted": true,
+          "close_confirmed": true,
+          "close_uncertain": false,
+          "creation_returned": true,
+          "kind": "descriptor",
+          "name": "descriptor-aap",
+          "returned": true
+        },
+        {
+          "alias": false,
+          "attempted": true,
+          "close_attempted": true,
+          "close_confirmed": true,
+          "close_uncertain": false,
+          "creation_returned": true,
+          "kind": "descriptor",
+          "name": "descriptor-arap",
+          "returned": true
+        }
+      ],
+      "role": "ac",
+      "source_primary_bound": true,
+      "token_class46_queried": false,
+      "unattempted_call_labels": [],
+      "unattempted_calls_not_filled": true,
+      "win32_error": null
+    },
+    {
+      "attempted_call_count": 1,
+      "calls": [
+        {
+          "access_status": true,
+          "api_success": true,
+          "attempted": true,
+          "descriptor": {
+            "aces": [
+              {
+                "flags": 0,
+                "mask": 3,
+                "principal": "World",
+                "type": 0
+              },
+              {
+                "flags": 0,
+                "mask": 1,
+                "principal": "AllApplicationPackages",
+                "type": 0
+              },
+              {
+                "flags": 0,
+                "mask": 2,
+                "principal": "AllRestrictedApplicationPackages",
+                "type": 0
+              }
+            ],
+            "bytes": 120,
+            "group": "LocalSystem",
+            "owner": "LocalSystem",
+            "sha256": "ee3c86d1f6cfc1dc651629670b2789f4da64b1b138ad964ad7ac5844c94c8129"
+          },
+          "descriptor_verified": true,
+          "granted_access": 3,
+          "label": "combined",
+          "privilege_count": 0,
+          "win32_error": null,
+          "within_deadline": true
+        }
+      ],
+      "canonical_private_proof_sha256": "ad24c2ffa04d8c3c77602a0a8a588154d9a965a092901ca54a17d7379a2b0dc7",
+      "classification": "unknown",
+      "complete_four_call_observation": false,
+      "dns_tested": false,
+      "duplicate_identification_bound": true,
+      "error_present": false,
+      "expected_matrix": [
+        2,
+        0,
+        0,
+        2
+      ],
+      "failure": "mask",
+      "generation_after": false,
+      "generation_before": true,
+      "network_tested": false,
+      "observation_complete": false,
+      "observed_calls": [
+        {
+          "access_status": true,
+          "api_success": true,
+          "attempted": true,
+          "descriptor": {
+            "aces": [
+              {
+                "flags": 0,
+                "mask": 3,
+                "principal": "World",
+                "type": 0
+              },
+              {
+                "flags": 0,
+                "mask": 1,
+                "principal": "AllApplicationPackages",
+                "type": 0
+              },
+              {
+                "flags": 0,
+                "mask": 2,
+                "principal": "AllRestrictedApplicationPackages",
+                "type": 0
+              }
+            ],
+            "bytes": 120,
+            "group": "LocalSystem",
+            "owner": "LocalSystem",
+            "sha256": "ee3c86d1f6cfc1dc651629670b2789f4da64b1b138ad964ad7ac5844c94c8129"
+          },
+          "descriptor_verified": true,
+          "granted_access": 3,
+          "label": "combined",
+          "privilege_count": 0,
+          "win32_error": null,
+          "within_deadline": true
+        }
+      ],
+      "observed_matrix": null,
+      "partial_observation_preserved": true,
+      "process_or_thread_impersonation_applied": false,
+      "product_acceptance": false,
+      "qualified": false,
+      "resource_cleanup_verified": true,
+      "resources": [
+        {
+          "alias": false,
+          "attempted": true,
+          "close_attempted": true,
+          "close_confirmed": true,
+          "close_uncertain": false,
+          "creation_returned": true,
+          "kind": "token",
+          "name": "source-primary",
+          "returned": true
+        },
+        {
+          "alias": false,
+          "attempted": true,
+          "close_attempted": true,
+          "close_confirmed": true,
+          "close_uncertain": false,
+          "creation_returned": true,
+          "kind": "token",
+          "name": "duplicate-identification",
+          "returned": true
+        },
+        {
+          "alias": false,
+          "attempted": true,
+          "close_attempted": true,
+          "close_confirmed": true,
+          "close_uncertain": false,
+          "creation_returned": true,
+          "kind": "descriptor",
+          "name": "descriptor-combined",
+          "returned": true
+        }
+      ],
+      "role": "lpac",
+      "source_primary_bound": true,
+      "token_class46_queried": false,
+      "unattempted_call_labels": [
+        "world",
+        "aap",
+        "arap"
+      ],
+      "unattempted_calls_not_filled": true,
+      "win32_error": null
+    }
+  ],
+  "proxy_tested": false,
+  "psec_network_preservation_proven": false,
+  "raw_private_identity_or_logs_published": false,
+  "returned_receipt_count": 7,
+  "returned_receipt_files": [
+    {
+      "bound_to_validated_held_worker_result": true,
+      "bytes": 953,
+      "frame_config_intent_bound": true,
+      "operation": "bind",
+      "raw_pi_or_ids_published": false,
+      "sha256": "6229708dbe78c096bd99c43924ba0a4ff4644f8dd92cc7413cd8b89bc3dba415",
+      "unvalidated_or_incomplete_forensic_only": false,
+      "used_for_public_qualification": false
+    },
+    {
+      "bound_to_validated_held_worker_result": true,
+      "bytes": 954,
+      "frame_config_intent_bound": true,
+      "operation": "create",
+      "raw_pi_or_ids_published": false,
+      "sha256": "1445ae33b4a67edb8c0a005816f5c541af3f846eb405bb9857dedcb938425aae",
+      "unvalidated_or_incomplete_forensic_only": false,
+      "used_for_public_qualification": false
+    },
+    {
+      "bound_to_validated_held_worker_result": true,
+      "bytes": 1020,
+      "frame_config_intent_bound": true,
+      "operation": "bootstrap",
+      "raw_pi_or_ids_published": false,
+      "sha256": "35accc98e0367eb777d966dc748833b036f83de44873117013af65e351f30dd0",
+      "unvalidated_or_incomplete_forensic_only": false,
+      "used_for_public_qualification": false
+    },
+    {
+      "bound_to_validated_held_worker_result": true,
+      "bytes": 1074,
+      "frame_config_intent_bound": true,
+      "operation": "ac",
+      "raw_pi_or_ids_published": false,
+      "sha256": "1cbb29f191186e9ddd511f2172734a14bf1793c74726f53643470f6957f5c2e2",
+      "unvalidated_or_incomplete_forensic_only": false,
+      "used_for_public_qualification": false
+    },
+    {
+      "bound_to_validated_held_worker_result": true,
+      "bytes": 1076,
+      "frame_config_intent_bound": true,
+      "operation": "lpac",
+      "raw_pi_or_ids_published": false,
+      "sha256": "16fd90efccb74cfc8ca54085f4f3c04bc81448fdc66b04968271f1436db96490",
+      "unvalidated_or_incomplete_forensic_only": false,
+      "used_for_public_qualification": false
+    },
+    {
+      "bound_to_validated_held_worker_result": true,
+      "bytes": 953,
+      "frame_config_intent_bound": true,
+      "operation": "close",
+      "raw_pi_or_ids_published": false,
+      "sha256": "0e68d317ccc3f21e098a325664193502de790383ce9142d8441f375881cad16f",
+      "unvalidated_or_incomplete_forensic_only": false,
+      "used_for_public_qualification": false
+    },
+    {
+      "bound_to_validated_held_worker_result": true,
+      "bytes": 954,
+      "frame_config_intent_bound": true,
+      "operation": "unbind",
+      "raw_pi_or_ids_published": false,
+      "sha256": "1ae65495aed456078cd60f64455f12fd993dba485ee49b028bd2d87d81fafd69",
+      "unvalidated_or_incomplete_forensic_only": false,
+      "used_for_public_qualification": false
+    }
+  ],
+  "runtime_source_count": 36,
+  "runtime_sources": [
+    {
+      "bytes": 31002,
+      "git_blob": "189a70ee773534147387fc80beaf8de8e42d64e0",
+      "path": ".github/native/windows_identity_actor.cpp",
+      "sha256": "530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553"
+    },
+    {
+      "bytes": 8847,
+      "git_blob": "92e1a015ad2e6773f9922911de21fbce84187c76",
+      "path": ".github/native/windows_identity_dns_raw_udp.hpp",
+      "sha256": "43b8cc7afce3acd91cdd4f23ae7d7075a996f98860447c3e9791e298d33a8a78"
+    },
+    {
+      "bytes": 6678,
+      "git_blob": "253e380beb1a801a2a23de2d51efed00c5a4f5cd",
+      "path": ".github/native/windows_identity_dns_standard_probe.hpp",
+      "sha256": "bce69ff57a173525a9cff2731f4d05fe34b5144daeaa465b0d8bb5181432d28c"
+    },
+    {
+      "bytes": 16902,
+      "git_blob": "18e366eedbd598fa3624768197182e9bd7bb12f9",
+      "path": ".github/native/windows_identity_proxy_bridge_core.hpp",
+      "sha256": "f03e45166265f02a65abc12930efd73634a332596d22aa78cadc1267a80b6356"
+    },
+    {
+      "bytes": 49690,
+      "git_blob": "cdd21a2ae0fe11ae4bee5fe240470c8e31a9774d",
+      "path": ".github/native/windows_identity_proxy_c_actor.cpp",
+      "sha256": "17f8a816028f71667513586b2efd57fc1c46b369e1d7171e74a2cef6e9c543a3"
+    },
+    {
+      "bytes": 4313,
+      "git_blob": "77cb067a1fd2fcab60f82165da7bed2a5ae10a77",
+      "path": ".github/native/windows_identity_proxy_c_contract.hpp",
+      "sha256": "150efbbccdbcb9064eb6d43ddd25608a4a3655c5a408402779dae6216269ff1c"
+    },
+    {
+      "bytes": 25762,
+      "git_blob": "258a2d251441c612f1515923e9f85389519d5b37",
+      "path": ".github/native/windows_identity_proxy_origin_actor.cpp",
+      "sha256": "3d079e77e387ba77545c27f5b5c260f591657ef3a44384426cd2039fa8c04010"
+    },
+    {
+      "bytes": 6338,
+      "git_blob": "df1c4a7ccc4d25fa0a4409a944433c6ec2c8a948",
+      "path": ".github/native/windows_identity_proxy_origin_transport.hpp",
+      "sha256": "bed113e5e20064722cbb2c6d3e71b4d3ca6c4769ebd694c86997abec0af661c4"
+    },
+    {
+      "bytes": 16095,
+      "git_blob": "21a7422a803be5dd11411585d46c04aea5ec395d",
+      "path": ".github/native/windows_identity_proxy_pipe_actor.cpp",
+      "sha256": "26636a6b9979e91452cf6e7d2049d6fbbfa43639a35708ee18d4a71e67fb8dd0"
+    },
+    {
+      "bytes": 9913,
+      "git_blob": "b99c4101d99f4a7c9a2ebaae7a17153982e2bb72",
+      "path": ".github/windows_dns_fixture.py",
+      "sha256": "5a330ae54ec887742ed14c0d2fd1135e486790b686fbc850c3681f04e674273a"
+    },
+    {
+      "bytes": 11174,
+      "git_blob": "4e7c96043c4ed9f6e8fe68b8709080a2acafd5ae",
+      "path": ".github/windows_identity_dns_cases_fixture.py",
+      "sha256": "28b3035e570ef57fbb3a12f9b8034c71be3d9280712a811fdb636fdb388c9d91"
+    },
+    {
+      "bytes": 3083,
+      "git_blob": "2e8e6e79578b090fc9d0960c6dd50be167c53dec",
+      "path": ".github/windows_identity_dns_standard_inventory.ps1",
+      "sha256": "87d98b0463e031376b6c6d29f1a0db375f74639904d34023ee8bcffa8893dbf1"
+    },
+    {
+      "bytes": 34465,
+      "git_blob": "bc81581cd6d325df00a4f23f5cbbab3aec4cacae",
+      "path": ".github/windows_identity_lpac_accesscheck.py",
+      "sha256": "19c0d626e653147276cab9a97c5a0071f1c37b2eeb097c55fbacb39f262ade15"
+    },
+    {
+      "bytes": 64394,
+      "git_blob": "3f8b65e6038fddf087837deee5e4a42fee729df4",
+      "path": ".github/windows_identity_lpac_dns_local.py",
+      "sha256": "aff8bd5d2a6b1dd688934f9f98fe66146d74a5365caf2ca2c53f6b934f10fd53"
+    },
+    {
+      "bytes": 46637,
+      "git_blob": "47e405c9b42343cbc60737301875fb479a47224e",
+      "path": ".github/windows_identity_lpac_identity_cell.py",
+      "sha256": "b7ffce514f00fbd44ce2e4bc77cd93dfe8285e90c608f5f1a82f30b025798105"
+    },
+    {
+      "bytes": 183555,
+      "git_blob": "9db1237dd31c442912ca67fd313601933223298c",
+      "path": ".github/windows_identity_model2_controller.py",
+      "sha256": "9ecc846082f03fcbb206e5610e86d9f2af06250f2f1b165187229ea5582cc2c1"
+    },
+    {
+      "bytes": 15307,
+      "git_blob": "e060260538b192537037acaf106197db26984984",
+      "path": ".github/windows_identity_model2_dns.py",
+      "sha256": "748b2e7e4adc7008e83d17e184659e7d428fa41a06958f738190b75133b02847"
+    },
+    {
+      "bytes": 6974,
+      "git_blob": "3120788d9999fc905304bd2a9e821e58aabb0b93",
+      "path": ".github/windows_identity_model2_dns_raw.py",
+      "sha256": "e0d06ceed384433597a47dfa839043ff4572774a8425b842f38f5fa69fc405c0"
+    },
+    {
+      "bytes": 10870,
+      "git_blob": "e7ec1a165e2ca8a8cb430bbcdf3c68759130adb3",
+      "path": ".github/windows_identity_model2_firewall.ps1",
+      "sha256": "0c78f295fe0a5a6ec2d7a04d58dcfb888767a9231928121493853519f1613cdb"
+    },
+    {
+      "bytes": 63254,
+      "git_blob": "251593c841842089436e337671eb2bb4d5c057f7",
+      "path": ".github/windows_identity_model2_live.py",
+      "sha256": "c27260065808dd9f180918b49ba907897a963ff360da9ca72dd9a735c36029fd"
+    },
+    {
+      "bytes": 33250,
+      "git_blob": "3e85e8d85e5cc8a9df36a181554a1cd5381d5ca8",
+      "path": ".github/windows_identity_model2_local.py",
+      "sha256": "e8aa1c1072469bfbf48cafc29ee1d8f09de228aa37ca0734187c9b1af98c6d45"
+    },
+    {
+      "bytes": 21567,
+      "git_blob": "e98efaa676a3faa4515f3fecc6a1e437a39545e6",
+      "path": ".github/windows_identity_model2_local_probe.py",
+      "sha256": "ec14c0d1b185da1deed651bb27726fdc114b4641181cfc29d998f2eac14e56bf"
+    },
+    {
+      "bytes": 25117,
+      "git_blob": "2eec1f2df867d1050cb6df2729d0241932b448ab",
+      "path": ".github/windows_identity_model2_maintenance.py",
+      "sha256": "68b6ce894d0dd544a61e19faf4d52f8388af9973a4f86f4dad35868842e38788"
+    },
+    {
+      "bytes": 67809,
+      "git_blob": "d7ab598e4b3b23163c2e137ae3d6e073e814b683",
+      "path": ".github/windows_identity_ordinary_launcher.py",
+      "sha256": "a890f4740bc2869586278158edad65dd8c649e09afed8c7aab355d842301d4a0"
+    },
+    {
+      "bytes": 40122,
+      "git_blob": "04f26706084f2e5efe0b9fbbbede1c875274237f",
+      "path": ".github/windows_identity_pipe_probe.py",
+      "sha256": "4dc8567d8a64e544d7a4baa873ff08900720320e26c8d6a6fd43ae3e5744dc74"
+    },
+    {
+      "bytes": 52976,
+      "git_blob": "3b46c0a3e9b112287b8c50dd0f202181f52d398e",
+      "path": ".github/windows_identity_proof.py",
+      "sha256": "aada68c3a0c309dffe422cd6271cf80a728e05a3c4a52a6a81293b47b74d2386"
+    },
+    {
+      "bytes": 42871,
+      "git_blob": "34cd3d398909501117d55739161ec64835e0fd68",
+      "path": ".github/windows_identity_proxy_origin_probe.py",
+      "sha256": "33cfddf58caa8877bbe3f6b97132dfa45e9803c88df7c34f17a8501b1b560095"
+    },
+    {
+      "bytes": 14243,
+      "git_blob": "d0025381a60e693a87286b23affbbf9bf4585cc8",
+      "path": ".github/windows_identity_proxy_pipe_ac_guest.py",
+      "sha256": "78777d3a6b210a9e27494fc35f9dc53782adda0594b4f4705dee2c008d8d02e1"
+    },
+    {
+      "bytes": 35656,
+      "git_blob": "c6a637fb87d92225482db26e7f657d1163fe109f",
+      "path": ".github/windows_identity_proxy_pipe_ac_local.py",
+      "sha256": "f5ce0fbc20a727f1c78a513bdac816dc49ae43fb1b24e4f8d7eefcd0b252163b"
+    },
+    {
+      "bytes": 75569,
+      "git_blob": "132ba52cfb7f16906f1affbaeb0fc5944439a640",
+      "path": ".github/windows_identity_proxy_pipe_probe.py",
+      "sha256": "e6bb37aa6f2c5a98dde44d63d097f7921775fd0d7858b95053f33565602df15b"
+    },
+    {
+      "bytes": 102221,
+      "git_blob": "0f58f9d511c303ff43a9750b7f8d55b315b32cd1",
+      "path": ".github/windows_identity_psec_lpac_matchedcaps_bridge.py",
+      "sha256": "36c0f7d6b289ba26ee469a10a985ed27c376cd9ea2104cff8f78b1065a28d178"
+    },
+    {
+      "bytes": 20805,
+      "git_blob": "bccbf8dbebc62ac2fd0cd343b4c1caadb0e340b7",
+      "path": ".github/windows_identity_psec_lpac_matchedcaps_bridge_local.py",
+      "sha256": "d4fcb5172f21496e28d65843f0f045be9786eecb220b8ddcb7d0d0696dd68c98"
+    },
+    {
+      "bytes": 5680,
+      "git_blob": "5142f9e8ea4db0d4bffbc3a2e2bc693c48162b1c",
+      "path": ".github/windows_identity_psec_spec.py",
+      "sha256": "c35dcb755a3e01faafd6888d4de846fbf8c4fea108e0a2fc30b6a837ecfdf7c5"
+    },
+    {
+      "bytes": 46167,
+      "git_blob": "1437f643e51eb22d4e43a9005f75d459d2b07aad",
+      "path": ".github/windows_psec_compartment_smoke.py",
+      "sha256": "6602471c0cf08f977879caef5c34bab20db9b84208f5cdae0a00b7a1f802d019"
+    },
+    {
+      "bytes": 20927,
+      "git_blob": "b07eb4b8591b7f85ba471a5f5c7311af9dd85fbd",
+      "path": "ruleproxy/windows_app_process.py",
+      "sha256": "8e62820f98d9dbe352d988501d211565aceecce84657200c2793b69404cbee33"
+    },
+    {
+      "bytes": 2080,
+      "git_blob": "80ef91e8008d0c5cb7233922dc357cbd10225784",
+      "path": "ruleproxy/windows_runtime_pins.py",
+      "sha256": "2854702df1f2f7bfefce2b772920394033aaefaadf7b45de7b7d4a3fd1d73e65"
+    }
+  ],
+  "schema_version": 1,
+  "scope": "one-local-cpse-deny-all-outer-guarded-matched-secaps-identity-v1",
+  "security_capabilities": {
+    "abi_library_version": 3,
+    "abi_security_input_bytes": 64,
+    "abi_security_input_version": 3,
+    "actor_never_resume_source_invariant": true,
+    "api_or_experiment_run_by_reader": false,
+    "atomic_inner_creation_proven": false,
+    "attempt": 1,
+    "bootstrap_held_admitted": true,
+    "bootstrap_primary_available": true,
+    "bootstrap_record_available": true,
+    "bootstrap_self_report_or_actor_execution_used": false,
+    "canonical_pointer_free_input_sha256": "1de97d32949b133d7140149186a869664ae4e6c830a496f64b8444b5bab1473d",
+    "capability_profile": "AgenticAppContainer+privateNetworkClientServer",
+    "complete_two_measured_inputs_recorded": true,
+    "constructor_policy": "bootstrap-held-primary-matched-security-capabilities-aap-only-v1",
+    "continuous_outer_supervision_proven": false,
+    "creation_transfer_crash_gap_resolved": false,
+    "dns_tested": false,
+    "exact_os_catalog_count": 2,
+    "exception_message_published": false,
+    "exception_recorded": false,
+    "external_held_primary_source_bound": true,
+    "freeze_decision_tick_recorded": true,
+    "freeze_decision_within_original_work_deadline": true,
+    "held_worker_result_available": true,
+    "input_sid_byte_metadata": [
+      {
+        "attributes": null,
+        "bytes": 40,
+        "principal": "held-bootstrap-AppContainer",
+        "raw_bytes_or_sid_published": false,
+        "sha256": "c6f839a2e1328254c9a08d7a667ac600dfa02a13f412ba81319ae228cd4bcb63"
+      },
+      {
+        "attributes": 4,
+        "bytes": 48,
+        "principal": "AgenticAppContainer",
+        "raw_bytes_or_sid_published": false,
+        "sha256": "5ae541dee4da85dd70321b5de0c4d0dd46fa48b1411ddcfd9ac2b8b20939db52"
+      },
+      {
+        "attributes": 4,
+        "bytes": 16,
+        "principal": "privateNetworkClientServer",
+        "raw_bytes_or_sid_published": false,
+        "sha256": "5718f9be416bb50b85c46d9107f01d7594032cc2d04c4464ca05ff372c15df2f"
+      }
+    ],
+    "linux_equivalence_proven": false,
+    "measured_arms": [
+      {
+        "bootstrap_rechecked_before_create": true,
+        "bootstrap_rechecked_before_primary": true,
+        "constructor_attempted": true,
+        "held_admitted": true,
+        "input_sha256": "1de97d32949b133d7140149186a869664ae4e6c830a496f64b8444b5bab1473d",
+        "never_resumed": true,
+        "primary_snapshot_available": true,
+        "raw_generation_or_qpc_published": false,
+        "role": "ac",
+        "same_frozen_sc_input": true
+      },
+      {
+        "bootstrap_rechecked_before_create": true,
+        "bootstrap_rechecked_before_primary": true,
+        "constructor_attempted": true,
+        "held_admitted": true,
+        "input_sha256": "1de97d32949b133d7140149186a869664ae4e6c830a496f64b8444b5bab1473d",
+        "never_resumed": true,
+        "primary_snapshot_available": true,
+        "raw_generation_or_qpc_published": false,
+        "role": "lpac",
+        "same_frozen_sc_input": true
+      }
+    ],
+    "network_tested": false,
+    "physical_held_bound_receipt_count": 1,
+    "physical_receipt_count": 1,
+    "physical_receipts": [
+      {
+        "bound_to_validated_held_worker_result": true,
+        "bytes": 2163,
+        "raw_private_text_published": false,
+        "sha256": "e25fd757ced1dac447782a2c52fe920824f5716cf6c8d94337b0009ee82a9db5",
+        "unvalidated_forensic_only": false,
+        "used_for_independent_qualification": false
+      }
+    ],
+    "private_exception_sha256": null,
+    "product_acceptance": false,
+    "proxy_tested": false,
+    "psec_network_preservation_proven": false,
+    "raw_sid_capability_bytes_pid_handle_path_or_qpc_published": false,
+    "required_capability_attributes": 4,
+    "same_input_for_all_recorded_measured_arms": true,
+    "schema_version": 1,
+    "scope": "one-local-cpse-deny-all-outer-guarded-matched-secaps-identity-v1",
+    "security_capabilities_input_does_not_prove_psec_policy_preservation": true,
+    "security_capabilities_verified": true,
+    "source_commit": "ec45dffb66cc88bb48578101afb93ce7044a6521",
+    "source_sha256": "f77fdff1de75ba53d6dca04d65659deb43fd6bdc91c2feaf1c6a03ade7c008db",
+    "stage": "psec-matchedcaps-held-bootstrap-security-capabilities-safe-projection",
+    "unbound_files_used_for_qualification": false,
+    "worker_result_validated": true
+  },
+  "source_commit": "ec45dffb66cc88bb48578101afb93ce7044a6521",
+  "source_git_lf_verified": true,
+  "source_sha256": "f77fdff1de75ba53d6dca04d65659deb43fd6bdc91c2feaf1c6a03ade7c008db",
+  "spec_observation": {
+    "capabilities": "privateNetworkClientServer",
+    "egress": "deny",
+    "host_loopback": "deny",
+    "ingress": "deny",
+    "peer_present": false,
+    "proxy_present": false,
+    "read_only_count": 1,
+    "schema_version": [
+      1,
+      1
+    ],
+    "sha256": "3937f9e3c69cda6695b328ed0e47b27efe8868f530b9e9721194b73c84cba52f",
+    "ui_restrictions": 1023,
+    "variant": "identity-only-deny-all-v1",
+    "win32k_disabled": true
+  },
+  "stage": "psec-matchedcaps-deny-all-matched-identity-private-safe-projection",
+  "stdio_files": [
+    {
+      "bytes": 0,
+      "observed": true,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stream": "controller.stdin"
+    },
+    {
+      "bytes": 0,
+      "observed": true,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stream": "controller.stdout"
+    },
+    {
+      "bytes": 0,
+      "observed": true,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stream": "controller.stderr"
+    }
+  ],
+  "task_observations": [
+    {
+      "assigned": true,
+      "constructor_attempted": true,
+      "elevated": false,
+      "exact_catalog": true,
+      "exit_code": 1,
+      "exited": true,
+      "generation_available": true,
+      "held_admitted": true,
+      "held_generation_checks": 10,
+      "integrity_rid": 4096,
+      "known_no_child": false,
+      "native_receipt_available": true,
+      "never_resumed": true,
+      "policy": 0,
+      "primary_snapshot_available": true,
+      "process_and_thread_distinct": true,
+      "process_information": {
+        "process": true,
+        "process_id": true,
+        "thread": true,
+        "thread_id": true
+      },
+      "role": "bootstrap",
+      "same_session": true,
+      "same_user": true,
+      "token_type": 1,
+      "ui_access": false
+    },
+    {
+      "assigned": true,
+      "constructor_attempted": true,
+      "elevated": false,
+      "exact_catalog": true,
+      "exit_code": 1,
+      "exited": true,
+      "generation_available": true,
+      "held_admitted": true,
+      "held_generation_checks": 6,
+      "integrity_rid": 4096,
+      "known_no_child": false,
+      "native_receipt_available": true,
+      "never_resumed": true,
+      "policy": 0,
+      "primary_snapshot_available": true,
+      "process_and_thread_distinct": true,
+      "process_information": {
+        "process": true,
+        "process_id": true,
+        "thread": true,
+        "thread_id": true
+      },
+      "role": "ac",
+      "same_session": true,
+      "same_user": true,
+      "token_type": 1,
+      "ui_access": false
+    },
+    {
+      "assigned": true,
+      "constructor_attempted": true,
+      "elevated": false,
+      "exact_catalog": true,
+      "exit_code": 1,
+      "exited": true,
+      "generation_available": true,
+      "held_admitted": true,
+      "held_generation_checks": 5,
+      "integrity_rid": 4096,
+      "known_no_child": false,
+      "native_receipt_available": true,
+      "never_resumed": true,
+      "policy": 1,
+      "primary_snapshot_available": true,
+      "process_and_thread_distinct": true,
+      "process_information": {
+        "process": true,
+        "process_id": true,
+        "thread": true,
+        "thread_id": true
+      },
+      "role": "lpac",
+      "same_session": true,
+      "same_user": true,
+      "token_type": 1,
+      "ui_access": false
+    }
+  ],
+  "token_class46_queried": false,
+  "unknown_opaque_reinterpreted_as_closed": false,
+  "validated_held_bound_returned_receipt_count": 7,
+  "variant": "identity-only-deny-all-v1",
+  "void_close_invoked_count": 1,
+  "void_close_returned_normally_count": 1,
+  "worker_report_absence_preserved": false,
+  "worker_report_available": true,
+  "worker_report_held_bound": true,
+  "worker_result_validated": true,
+  "worker_seconds": 115
+}

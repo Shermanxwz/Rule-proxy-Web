@@ -1,0 +1,45 @@
+{
+  "CI": {
+    "conclusion": "success",
+    "errors": 0,
+    "failures": 0,
+    "job_id": 120332872363,
+    "raw_jobs": {
+      "bytes": 3058,
+      "sha256": "062ed73a20cc718a3fce5a4115aad515d3a2e9d900fee862f98ff8a636ac7266"
+    },
+    "raw_log": {
+      "bytes": 267333,
+      "sha256": "89a7fd02dd51ee089d3c994314f3ea63df5b6d5a7a603d112128b96ec9a62aa5"
+    },
+    "raw_run": {
+      "bytes": 12696,
+      "sha256": "229aab3d1ed446601ab12a9e4ff24fa198969519b81f8ee9b3f07aa9ff1729f6"
+    },
+    "run_id": 39929168527,
+    "runtime_steps5_to9": "skipped",
+    "seconds": 210.915,
+    "skips": 0,
+    "status": "completed",
+    "tests": 1126,
+    "url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39929168527"
+  },
+  "local": {
+    "errors": 0,
+    "failures": 0,
+    "raw_log": {
+      "bytes": 213731,
+      "sha256": "c60cf899eb9509baa3f0482e1567006277005a9eb83d84a94c5e2445ac74f64b"
+    },
+    "seconds": 195.674,
+    "skip_scope": "old symlink privilege cases",
+    "skips": 2,
+    "tests": 1126
+  },
+  "no_CI_dispatched_by_publisher": true,
+  "private_absolute_paths_not_copied": true,
+  "raw_logs_published": false,
+  "schema_version": 1,
+  "source_commit": "eb3d9d34023a11935e863f86c0888862de63109a",
+  "stage": "lpac-pipe-dns-source-pure-CI-safe-view"
+}

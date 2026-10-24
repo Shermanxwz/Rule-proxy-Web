@@ -1,0 +1,154 @@
+{
+  "schema_version": 1,
+  "stage": "model2-diagnostic-runtime-summary",
+  "attempt": 5,
+  "date": "2026-10-23",
+  "execution_mode": "profiles-off-diagnostic",
+  "source_commit": "fc337b20b18387e8941d976c764311eaa6628784",
+  "source_closure_sha256": "14c02d1a41e7157240a3f53c811df9cddf8c500963428a160004b4f5179d7b81",
+  "staged_source_hashes_verified": true,
+  "staged_source_count": 23,
+  "source_commit_blobs_verified": true,
+  "public_sha256": "f6bc36107375edfc476458fef69ba793641cd25d1a1cd00089a6ea3136389ed3",
+  "public_bytes": 2457,
+  "preflight_sha256": "16518a2b61fedf6aa18469d1969ae302b469f4e210e1c6e6fc2e287d737ebd73",
+  "runner_sha256": "61e5ab7bcc46212a3320315acb2b4819d358404eb46eb8b47861ac4d924f8f08",
+  "runner_bytes": 325,
+  "runner_byte_identical_to_workspace": true,
+  "runner_dependency": "run_model2_diagnostic_04.py, then run_model2_diagnostic_01.py",
+  "wrapper_original_filenames_preserved_in_dependency_description": true,
+  "ownership_journal_sha256": "f4b911a900c686319a534669f8a8de8d7361aaed7292373352b38e2458256079",
+  "controller_error_sha256": "6506c4ff1d126d26a6a1a35b8f43d12364af2ad551b0d7cfb055da312956a485",
+  "native_ready_sha256": "ab7a82d5b5887cd765d10bf6368be2c60abe99b6e0de75cbabd1bbc32d0075ba",
+  "status": "inconclusive",
+  "outer_failure": "worker",
+  "controller_failure": "selected",
+  "failure_detail": "selected_child_set_changed",
+  "selected_ready_observed": true,
+  "native_ready": {
+    "ready": true,
+    "failure": null,
+    "capability_profile": "agentic-pncs",
+    "capability_profile_verified_by_native": true,
+    "catalog_cleanup_verified": true,
+    "token_capability_count": 2,
+    "capability_attributes_exact_enabled": true,
+    "capability_set_declaration": "AgenticAppContainer and privateNetworkClientServer; pinned native self-report, not external admission",
+    "network_initialized": false,
+    "run_boot_and_admission_bound": true
+  },
+  "external_selected_identity_admitted": false,
+  "external_selected_capabilities_admitted": false,
+  "selected_go_count": 0,
+  "selected_phase_report_count": 0,
+  "readiness_does_not_authorize_selection": true,
+  "discovery_rejection": {
+    "first_child_count": 2,
+    "second_child_count": 2,
+    "child_sets_stable": true,
+    "candidate_count": 2,
+    "all_candidate_creation_times_not_older_than_g": true,
+    "ready_reported_pid_in_both_child_sets": true,
+    "raw_pid_and_creation_values_kept_private": true,
+    "authorized_selection": false,
+    "basename_sets_stable": true,
+    "image_basenames": [
+      "conhost.exe",
+      "windows_identity_proxy_c_actor.exe"
+    ],
+    "basename_observation_is_authorization": false,
+    "auxiliary_role_classification_proven": false
+  },
+  "exact_rule_scope_verified": true,
+  "profiles_off_verified": true,
+  "effective_full_verified": false,
+  "live_probe_passed": true,
+  "g_probe_exit_code": 0,
+  "g_live_exit_code": 1,
+  "task_exit_codes": [
+    {
+      "role": "origin",
+      "exited": true,
+      "exit_code": 1
+    },
+    {
+      "role": "health",
+      "exited": true,
+      "exit_code": 1
+    },
+    {
+      "role": "acl-root",
+      "exited": true,
+      "exit_code": 0
+    },
+    {
+      "role": "acl-inputs",
+      "exited": true,
+      "exit_code": 0
+    },
+    {
+      "role": "acl-front",
+      "exited": true,
+      "exit_code": 0
+    },
+    {
+      "role": "front",
+      "exited": true,
+      "exit_code": 1
+    },
+    {
+      "role": "relay",
+      "exited": true,
+      "exit_code": 1
+    },
+    {
+      "role": "g-probe",
+      "exited": true,
+      "exit_code": 0
+    },
+    {
+      "role": "g-live",
+      "exited": true,
+      "exit_code": 1
+    },
+    {
+      "role": "acl-remove",
+      "exited": true,
+      "exit_code": 0
+    }
+  ],
+  "cleanup": {
+    "acl_removed": true,
+    "all_workloads_exited": true,
+    "cleanup": true,
+    "maintenance_cleanup_confirmed": true,
+    "maintenance_handles_closed": true,
+    "profile_deleted": true,
+    "sid_released": true,
+    "workload_cleanup_confirmed": true,
+    "workload_job_empty": true
+  },
+  "outer_cleanup_verified": true,
+  "recovery_required": false,
+  "private_tree_retained": true,
+  "owned_rule_absent_verified": true,
+  "historical_rule_uncertain": false,
+  "maintenance": {
+    "admitted": true,
+    "exited": true,
+    "exit_code": 0,
+    "spawn_unknown": false
+  },
+  "ordinary_health_go_count": 1,
+  "selected_network_attempted": false,
+  "proxy_positive_verified": false,
+  "direct_attempted": false,
+  "direct_deny_verified": false,
+  "diagnostic_completed": false,
+  "first_chain_verified": false,
+  "local_c_qualified": false,
+  "network_isolation_tested": false,
+  "product_acceptance": false,
+  "archive_scope": "read-and-copy-only; no actor, diagnostic or recovery executed during this archival task",
+  "task_exit_code_caveat": "Post-cleanup exit values of waiting native/G workloads do not independently establish a startup failure; the recorded rejection is selected_child_set_changed"
+}

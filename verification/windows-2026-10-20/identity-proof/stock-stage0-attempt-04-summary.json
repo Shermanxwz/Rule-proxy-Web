@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "sanitized": true,
+  "byte_exact": false,
+  "run_id": 39382788325,
+  "commit": "4b1b2c5917de428f8a4eb01d7c4a4e4554fcfc6e",
+  "compile_job_id": 118495500716,
+  "native_job_id": 118495727530,
+  "powershell_parse_passed": true,
+  "native_actor_build_passed": true,
+  "tests_run": 37,
+  "test_failures": 1,
+  "expected_linux_primitive_skips": 1,
+  "failure_category": "unsafe_nested_zip_fixture_expected_rejection_not_observed",
+  "native_job_skipped": true,
+  "provider_removal_started": false,
+  "vm_created": false,
+  "isolation_acceptance": false,
+  "source": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39382788325"
+}

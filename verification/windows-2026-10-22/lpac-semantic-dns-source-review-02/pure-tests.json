@@ -1,0 +1,63 @@
+{
+  "actual02_separate": true,
+  "automatic_ci": {
+    "base_identity_actor_compiled_only": true,
+    "conclusion": "success",
+    "decoded_log": {
+      "bytes": 196765,
+      "kept_in_work": true,
+      "raw_github_log_zip": false,
+      "sha256": "ef0810959d4ccc237a408cf4d29b743d2bca37f8eee2be627d2c3e1dc7260f71"
+    },
+    "errors": 0,
+    "event": "push",
+    "failures": 0,
+    "gated_runtime_steps_skipped": [
+      5,
+      6,
+      7,
+      8,
+      9
+    ],
+    "job_id": 120130093584,
+    "local_dns_actual_is_separate_evidence": true,
+    "native_actor_executed": false,
+    "proxy_c07_actor_compiled": false,
+    "run_attempt": 1,
+    "run_id": 39866557169,
+    "seconds": 47.929,
+    "skips": 0,
+    "source_commit": "9c5e56ace7e4f2a039d3e078bcb81082e44b60df",
+    "status": "completed",
+    "tests_run": 827,
+    "url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39866557169",
+    "workflow_dispatched": false,
+    "workflow_rerun": false
+  },
+  "candidate": {
+    "errors": 0,
+    "failures": 0,
+    "seconds": 5.521,
+    "skips": 0,
+    "tests_run": 23
+  },
+  "dns_isolation_qualified": false,
+  "linux_run": false,
+  "local_full": {
+    "errors": 0,
+    "failures": 0,
+    "log": {
+      "bytes": 152125,
+      "sha256": "61aef08c9a8a738623226a7b5f1bfb75a06324ca59fcac814efcd207cbd82466"
+    },
+    "seconds": 47.484,
+    "skip_reason": "existing local symlink tests",
+    "skips": 2,
+    "tests_run": 827
+  },
+  "preactual_state_of_candidate_preserved": true,
+  "schema_version": 1,
+  "source_commit": "9c5e56ace7e4f2a039d3e078bcb81082e44b60df",
+  "source_sha256": "a0859d431fe25f8cb93f7d4c4381785770670087f857604073c4b80c92641081",
+  "stage": "semantic-dns-snapshot-fix-source-pure-review"
+}

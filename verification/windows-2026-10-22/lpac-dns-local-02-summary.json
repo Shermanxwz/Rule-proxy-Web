@@ -1,0 +1,40 @@
+{
+  "actor_or_network_rerun": false,
+  "archive_commit_semantics": "source_commit is the tested commit; archive commit is later and does not replace it",
+  "executed_recovery_source_sha256": "d0c9e4f2438b66b7b71dadb423327e0e7ee5d44eec406c352657f9acd47f8f97",
+  "existing_api6_leak_not_cancelled": true,
+  "findings_zh": [
+    "四个普通 ACL grant 工具已实际 held admission、resume 并自然退出 0；普通 token 的 class46 未查询，报告为 null。",
+    "随后只到 selected 构造边界：未返回进程句柄/PID，未保留实际 API 返回值或异常码，不能猜测失败原因或断言未创建任何内核进程。",
+    "受测 actor 未被 owner 恢复运行；无 READY、GO、DNS 库存、fixture 或查询，LPAC class46 尚未被实际验证。",
+    "原 workload_cleanup=false、ACL/profile 残留和 recovery_required=true 均按原件保留，不因之后恢复成功改写。",
+    "独立恢复核对原原子 Job/kill-on-close/挂起不恢复的源码边界、旧 Job 不存在、四工具代次退出与两次精确暂存映像清点，再仅去除原 SID ACE、逐路径读回无 ACE，删除精确新建 profile。",
+    "恢复通过全部十五项事实和新 outer 清理；全局四类快照 7378 字节及 SHA 与初始 baseline 相同。",
+    "同源码自动 CI 的 744 项纯测试通过且 runtime 5–9 跳过；这不能证明本机 LPAC 或 DNS 隔离通过。"
+  ],
+  "independent_recovery_passed": true,
+  "original_failure": "setup",
+  "original_recovery_required": true,
+  "original_status": "inconclusive",
+  "private_raw_report_journal_snapshots_not_published": true,
+  "public_commitment": {
+    "bytes": 1345,
+    "sha256": "648a28df4868236ecc179b1a410b8c8539290577bc9677e0aa78f1cb7abe3b91"
+  },
+  "recovery_rerun": false,
+  "recovery_review_copy_byte_identical": false,
+  "recovery_review_copy_sha256": "c8bfbbadb8126acce5da20d491b9b8f034cba2814f47708d120f08318a42ac14",
+  "remains_false": {
+    "broker_pid_attributed": false,
+    "default_resolver_tested": false,
+    "dns_isolation_qualified": false,
+    "g_psec_tested": false,
+    "product_acceptance": false,
+    "proxy_tested": false
+  },
+  "runner_byte_identical": true,
+  "schema_version": 1,
+  "source_commit": "524638057f1b60a3292964162fe70305fbea8e3e",
+  "source_sha256": "96e1b3c439c7b33c7b01820f65c411558b1e5685b994cc09c2cf174b14e483d1",
+  "stage": "standalone-lpac02-failure-and-independent-exact-recovery-summary"
+}

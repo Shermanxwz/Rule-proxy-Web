@@ -1,0 +1,351 @@
+diff --git a/.github/windows_identity_psec_lpac_bridge.py b/.github/windows_identity_psec_lpac_bridge.py
+--- a/.github/windows_identity_psec_lpac_bridge.py
++++ b/.github/windows_identity_psec_lpac_bridge.py
+@@ -221,8 +221,9 @@
+             for key,(value,units) in records.items():setattr(record,key,value);setattr(record,key+'_units',units)
+             status=self.dll.pb_create_arm(self.context,C.byref(record),C.byref(pi),C.byref(result))
+         else:status=getattr(self.dll,'pb_'+('close_environment' if label=='close' else 'unbind'))(self.context,C.byref(result))
+-        output={name:int(getattr(result,name)) for name in RESULT_FIELDS}
+-        require(type(status) is int and status==output['wrapper_status'],'bridge_status_binding');return output
++        # Return the untouched ABI result and function status together. The
++        # owner durably records both (and PI) before any semantic validation.
++        return int(status),{name:int(getattr(result,name)) for name in RESULT_FIELDS}
+ 
+ class NativeAPI(base.LPACAPI):
+     def bridge(self,path):return Bridge(path)
+@@ -242,8 +243,26 @@
+     if operation==4:return v['hresult_valid']==0 and v['environment_state']==3 and v['close_invoked_once']==v['close_returned_normally']==1
+     if operation==5:return v['hresult_valid']==0 and v['module_close_attempted']==v['module_close_confirmed']==1
+     return False
++
++def opaque_return_known(label,status,value,c):
++    """Only ownership knowledge; lateness cannot turn this into qualification."""
++    try:
++        v=validate_native(value,label,c)
++        if type(status) is not int or status!=v['wrapper_status'] or v['opaque_outcome_unknown']:return False
++        if label=='create':
++            return bool(v['api_returned']==v['hresult_valid']==1 and (v['hresult']==0 and v['environment_state']==2
++                or v['hresult']<0 and v['environment_state']==1)
++                or v['api_entered']==v['api_returned']==v['hresult_valid']==0 and v['environment_state']==0)
++        if label=='close':
++            return bool(v['api_entered']==v['api_returned']==1 and v['hresult_valid']==0 and v['environment_state']==3
++                and v['close_invoked_once']==v['close_returned_normally']==1
++                or v['api_entered']==v['api_returned']==0 and v['environment_state']==2
++                    and v['close_invoked_once']==v['close_returned_normally']==0)
++    except BaseException:pass
++    return False
+ def known_no_child(row,c):
+     v=row.get('native');return bool(v is not None and v['api_entered']==v['api_returned']==1 and v['wrapper_status']==6
++        and row.get('return_status')==v['wrapper_status']
+         and v['win32_error']>0 and v['within_deadline']==1 and row['pi']==dict.fromkeys(('process','thread','process_id','thread_id'),0)
+         and not any(row[k] for k in ('assigned','exited','admitted','resumed')) and row['pid'] is None and row['created'] is None)
+ 
+@@ -266,12 +285,26 @@
+         name='%02d-%s.json'%(len(self.j['intents']),label);base.durable_private(directory/name,raw)
+         self.j['intents'].append(dict(action=label,name=name,text=raw.decode('ascii'),sha256=sha(raw)))
+     def call(self,label,**kwargs):
+-        self.intent(label);record=dict(label=label,native=None,exception=None);self.operations.append(record)
++        self.intent(label);record=dict(label=label,return_status=None,native=None,receipt=None,exception=None);self.operations.append(record)
+         try:
+-            value=self.bridge.invoke(label,self.c,**kwargs);record['native']=value;validate_native(value,label,self.c);return value
++            status,value=self.bridge.invoke(label,self.c,**kwargs);record.update(return_status=status,native=value)
++            # This is explicitly a returned raw observation, not qualification.
++            # Keep the original status, every native scalar and every PI field
++            # even when the following validator rejects their interpretation.
++            intent=self.j['intents'][-1];pi=kwargs.get('pi')
++            raw=encode(dict(schema_version=1,scope=SCOPE,run=self.c['run'],config_sha256=sha(encode(self.c)),action=label,
++                intent_sha256=intent['sha256'],frequency=self.c['frequency'],deadline_qpc=self.c['deadline_qpc'],
++                return_status=status,native=value,pi=None if pi is None else {name:int(getattr(pi,name)) for name in ('process','thread','process_id','thread_id')}))
++            directory=self.root/'receipts';directory.mkdir(exist_ok=True);name=intent['name'][:-5]+'-returned.json'
++            base.durable_private(directory/name,raw);record['receipt']=dict(name=name,text=raw.decode('ascii'),sha256=sha(raw))
++            validate_native(value,label,self.c);require(type(status) is int and status==value['wrapper_status'],'bridge_status_binding')
++            if value['opaque_outcome_unknown'] or label in ('create','close') and not opaque_return_known(label,status,value,self.c):
++                self.j['opaque_outcome_unknown']=True
++            return value
+         except BaseException as error:
+             record['exception']=base.private_failure_detail(error,label)
+-            if label in ('create','close'):self.j['opaque_outcome_unknown']=True
++            if label in ('create','close'):
++                if not opaque_return_known(label,record['return_status'],record['native'],self.c):self.j['opaque_outcome_unknown']=True
+             raise
+     def held(self,row):
+         self.budget.require_ms(work_cutoff(self.c));process=row['info'].hProcess
+@@ -286,11 +319,12 @@
+         self.phase='construct';self.budget.require_ms(work_cutoff(self.c));pi=PI();info=self.api.process_info()
+         for prior in self.rows:self.held(prior)
+         row=dict(name=role,info=info,token=None,attempted=True,assigned=False,exited=False,exit_code=None,pid=None,created=None,
+-            admitted=False,resumed=False,expected_primary=None,held_checks=[],pi=dict.fromkeys(('process','thread','process_id','thread_id'),0),native=None)
++            admitted=False,resumed=False,expected_primary=None,held_checks=[],pi=dict.fromkeys(('process','thread','process_id','thread_id'),0),return_status=None,native=None)
+         self.rows.append(row)
+         try:row['native']=self.call(role,child=self.child,pi=pi)
+         finally:
+             row['native']=next((op['native'] for op in reversed(self.operations) if op['label']==role),None)
++            row['return_status']=next((op['return_status'] for op in reversed(self.operations) if op['label']==role),None)
+             row['pi']={name:int(getattr(pi,name)) for name in ('process','thread','process_id','thread_id')}
+             info.hProcess=pi.process;info.hThread=pi.thread;info.dwProcessId=pi.process_id;info.dwThreadId=pi.thread_id
+             # Consume every known returned kernel handle before any validation.
+@@ -323,7 +357,7 @@
+             self.bridge=self.api.bridge(self.root/'inputs'/DLL)
+             self.phase='bind';v=self.call('bind');require(native_ok(v),'cpse_bind')
+             self.phase='environment';v=self.call('create',raw=raw,inputs=str(self.root/'inputs'))
+-            self.j['opaque_outcome_unknown']=bool(v['opaque_outcome_unknown'])
++            self.j['opaque_outcome_unknown']=self.j['opaque_outcome_unknown'] or bool(v['opaque_outcome_unknown'])
+             require(native_ok(v) and v['api_returned']==v['hresult_valid']==1 and v['hresult']==0 and v['environment_state']==2,'cpse_create')
+             arms=[self.arm(role) for role in ('ac','lpac')]
+             require(arms[0]['expected_primary']['authentication_id']==arms[1]['expected_primary']['authentication_id']
+@@ -388,7 +422,7 @@
+     'broker_cancellation_proven','network_tested','dns_tested','proxy_tested','product_acceptance')
+ RESULT_KEYS={'schema_version','stage','scope','config_sha256','failure','failure_detail','child_environment','common','intents','operations','tasks','proofs',
+     'first_appcontainer_sid',*RESULT_BOOLS}
+-TASK_KEYS={'name','attempted','assigned','exited','exit_code','pid','created','admitted','resumed','expected_primary','held_checks','pi','native'}
++TASK_KEYS={'name','attempted','assigned','exited','exit_code','pid','created','admitted','resumed','expected_primary','held_checks','pi','return_status','native'}
+ 
+ def validate_result(j,c,*,parent):
+     config_validate(c);require(launcher.token_is_ordinary(parent),'cpse_result_parent')
+@@ -413,17 +447,35 @@
+                 deadline_qpc=c['deadline_qpc'],qpc=value['qpc']) and live.integer(value['qpc'],last,live.MAX_SIGNED),'cpse_intent_binding')
+         last=value['qpc'];actions.append(row['action']);ticks[row['action']]=last
+     operations=j['operations'];require(type(operations) is list and len(operations)<=6,'cpse_operations')
+-    labels=[];native={}
++    labels=[];native={};statuses={}
+     for row in operations:
+-        require(type(row) is dict and set(row)=={'label','native','exception'} and row['label'] in OPS
++        require(type(row) is dict and set(row)=={'label','return_status','native','receipt','exception'} and row['label'] in OPS
+             and row['label'] in actions and row['label'] not in labels,'cpse_operation')
+         labels.append(row['label']);base.validate_failure_detail(row['exception'])
+         if row['native'] is not None:
+             value=validate_native(row['native'],row['label'],c);native[row['label']]=value
++            require(type(row['return_status']) is int and 0<=row['return_status']<=9,'cpse_function_status')
++            statuses[row['label']]=row['return_status']
++            require(row['exception'] is not None or row['return_status']==value['wrapper_status'],'cpse_function_status_binding')
+             require(not value['within_deadline'] or value['before_qpc']>=ticks[row['label']],'cpse_call_after_intent')
+-        else:require(row['exception'] is not None,'cpse_missing_call_receipt')
+-    opaque_sticky=any(row['label'] in ('create','close') and (row['exception'] is not None or row['native'] is None
+-        or row['native']['opaque_outcome_unknown']) for row in operations)
++        else:require(row['exception'] is not None and row['return_status'] is None,'cpse_missing_call_receipt')
++        receipt=row['receipt']
++        if receipt is not None:
++            require(type(receipt) is dict and set(receipt)=={'name','text','sha256'} and type(receipt['text']) is str
++                and len(receipt['text'])<=32768 and sha(receipt['text'].encode('ascii'))==receipt['sha256'],'cpse_returned_receipt')
++            intent=next(intent for intent in intents if intent['action']==row['label']);raw=decode(receipt['text'].encode('ascii'))
++            require(receipt['name']==intent['name'][:-5]+'-returned.json' and type(raw) is dict and set(raw)=={'schema_version','scope','run','config_sha256',
++                'action','intent_sha256','frequency','deadline_qpc','return_status','native','pi'} and type(raw['schema_version']) is int and raw['schema_version']==1
++                and raw['scope']==SCOPE and raw['run']==c['run'] and raw['config_sha256']==sha(encode(c)) and raw['action']==row['label']
++                and raw['intent_sha256']==intent['sha256'] and raw['frequency']==c['frequency'] and raw['deadline_qpc']==c['deadline_qpc']
++                and raw['return_status']==row['return_status'] and raw['native']==row['native'],'cpse_returned_receipt_binding')
++            require(raw['pi'] is None if row['label'] not in ('ac','lpac') else type(raw['pi']) is dict,'cpse_returned_pi_kind')
++        else:require(row['exception'] is not None,'cpse_missing_durable_return')
++    # A validation/write exception after a structurally valid returned tuple
++    # does not erase known S_OK-owned or normal VOID-return observations.
++    opaque_sticky=any(row['native'] is not None and row['native']['opaque_outcome_unknown']
++        or row['label'] in ('create','close') and not opaque_return_known(row['label'],row['return_status'],row['native'],c)
++        for row in operations)
+     require(not opaque_sticky or j['opaque_outcome_unknown'],'cpse_opaque_unknown_sticky')
+     require(labels==[label for label in ('bind','create','ac','lpac','close','unbind') if label in labels],'cpse_operation_order')
+     require('create' not in labels or 'bind' in native and native_ok(native['bind']),'cpse_create_bound')
+@@ -435,10 +487,13 @@
+     for row in tasks:
+         require(type(row) is dict and set(row)==TASK_KEYS and all(type(row[k]) is bool for k in ('attempted','assigned','exited','admitted','resumed'))
+             and row['attempted'] and row['resumed'] is False and row['name'] in labels,'cpse_task_schema')
+-        role=row['name'];require(row['native']==native.get(role),'cpse_task_receipt')
++        role=row['name'];require(row['native']==native.get(role) and row['return_status']==statuses.get(role),'cpse_task_receipt')
+         require(type(row['pi']) is dict and set(row['pi'])=={'process','thread','process_id','thread_id'}
+-            and all(live.integer(v) for v in row['pi'].values()),'cpse_task_pi')
+-        for key in ('pid','created','exit_code'):require(row[key] is None or live.integer(row[key],0 if key=='exit_code' else 1),'cpse_task_number')
++            and all(live.integer(row['pi'][key],0,0xffffffffffffffff if key in ('process','thread') else 0xffffffff) for key in row['pi']),'cpse_task_pi')
++        for key in ('pid','created','exit_code'):
++            require(row[key] is None or live.integer(row[key],0 if key=='exit_code' else 1,0xffffffffffffffff if key=='created' else 0xffffffff),'cpse_task_number')
++        op=next(op for op in operations if op['label']==role)
++        if op['receipt'] is not None:require(decode(op['receipt']['text'].encode('ascii'))['pi']==row['pi'],'cpse_task_raw_pi_binding')
+         require(row['pid']==(row['pi']['process_id'] or None),'cpse_task_pid')
+         require(not row['exited'] or row['pi']['process'] and row['exit_code'] is not None,'cpse_exit_receipt')
+         require(type(row['held_checks']) is list and len(row['held_checks'])<=16 and row['held_checks']==sorted(row['held_checks'])
+@@ -459,7 +514,7 @@
+             and base.ac.digest(common['environment_sha256']) and common['parent']==parent and common['catalog']==c['capability_catalog']
+             and common['outer_job']==c['guard_job_name'] and launcher.child_environment_admitted(j['child_environment']),'cpse_common')
+         child=common['child'];require(type(child) is dict and set(child)=={'job','image','inputs_directory','system_root','local_appdata'}
+-            and live.integer(child['job'],1) and all(type(child[k]) is str for k in ('image','inputs_directory','system_root','local_appdata'))
++            and live.integer(child['job'],1,0xffffffffffffffff) and all(type(child[k]) is str for k in ('image','inputs_directory','system_root','local_appdata'))
+             and Path(child['image']).name==live.ACTOR and Path(child['image']).parent==Path(child['inputs_directory']),'cpse_common_child')
+     if j['common_inputs_verified']:
+         require(common is not None and len(tasks)==2 and all(r['admitted'] for r in tasks) and tasks[0]['pid']!=tasks[1]['pid']
+@@ -481,7 +536,8 @@
+             and native['create']['environment_state']==2,'cpse_close_order')
+         require(not any(row['pi']['process'] and not row['exited'] for row in tasks),'cpse_close_live_child')
+     if j['api_obligations_closed']:
+-        require(not j['opaque_outcome_unknown'] and ('close' in native and native['close']['close_invoked_once']==native['close']['close_returned_normally']==1
++        require(not j['opaque_outcome_unknown'] and ('close' in native and opaque_return_known('close',statuses['close'],native['close'],c)
++            and native['close']['close_invoked_once']==native['close']['close_returned_normally']==1
+             or 'close' not in labels and ('create' not in labels or 'create' in native and native['create']['api_returned']==native['create']['hresult_valid']==1
+                 and native['create']['hresult']<0 and native['create']['environment_state']==1 and not native['create']['opaque_outcome_unknown'])),'cpse_obligation_receipt')
+     require(not j['module_unbound'] or j['api_obligations_closed'] and ('bind' not in labels or 'unbind' in native
+@@ -490,6 +546,7 @@
+         require(j['common_inputs_verified'] and len(proofs)==2 and all(p['qualified'] for p in proofs)
+             and all(j[k] for k in ('observer_resources_cleanup_verified','workload_cleanup','workload_job_empty','api_obligations_closed','module_unbound'))
+             and not j['opaque_outcome_unknown'] and all(native_ok(v) for v in native.values()) and len(labels)==6,'cpse_complete')
++        require(all(row['exception'] is None and row['receipt'] is not None for row in operations),'cpse_complete_returned_receipts')
+     require(len(encode(j))<=MAX_REPORT,'cpse_result_bound');return j
+ 
+ def project(j,c,*,parent):
+diff --git a/.github/windows_identity_psec_lpac_bridge_local.py b/.github/windows_identity_psec_lpac_bridge_local.py
+--- a/.github/windows_identity_psec_lpac_bridge_local.py
++++ b/.github/windows_identity_psec_lpac_bridge_local.py
+@@ -141,7 +141,12 @@
+     core.verify_manifest(ROOT/'inputs'/core.DLL,ROOT/'inputs'/core.DLL_MANIFEST,c['dll_sha256'],c['dll_manifest_sha256'],root=ROOT)
+     spec_raw=local.bounded(ROOT/'spec.bin',core.spec.MAX_BYTES);core.spec.verify(spec_raw,str(ROOT/'inputs'))
+     require(sha(spec_raw)==c['spec_sha256'] and base.fixed_catalog()==c['capability_catalog'],'guard_worker_spec_catalog')
+-    result=core.execute(ROOT,c,parent,api,budget);core.validate_result(result,c,parent=parent)
++    result=core.execute(ROOT,c,parent,api,budget)
++    # This file is explicitly unvalidated forensic material. It is never an
++    # alternate worker report or an acceptance source. Preserve the original
++    # inner failure and every raw returned observation before final validation.
++    base.durable_private(ROOT/'worker-result-forensic.json',encode(result))
++    core.validate_result(result,c,parent=parent)
+     report=dict(schema_version=1,stage='cpse-matched-identity-worker',config=c,worker_pid=os.getpid(),worker_identity=parent,result=result)
+     budget.require_ms(budget.cutoff(1));base.durable_private(ROOT/'worker-report.json',encode(report));return 0
+ 
+diff --git a/tests/test_windows_identity_psec_lpac_bridge.py b/tests/test_windows_identity_psec_lpac_bridge.py
+--- a/tests/test_windows_identity_psec_lpac_bridge.py
++++ b/tests/test_windows_identity_psec_lpac_bridge.py
+@@ -33,6 +33,8 @@
+     return v
+ 
+ class Probe(fixture.Probe):
++    def verify_process(self,process,pid,creation):
++        return not self.parent.wait(process,0) and pid==self.parent.process_id(process) and creation==self.parent.creation_time(process)
+     def identity(self,token):
+         row=next(row for row in self.parent.owner.rows if row['name']==self.parent.rows[self.process]['role'])
+         result=copy.deepcopy(row['expected_primary'])
+@@ -41,7 +43,9 @@
+ 
+ class FakeBridge:
+     def __init__(self,api):self.api=api;self.state=0
+-    def invoke(self,label,c,*,raw=None,inputs=None,child=None,pi=None):
++    def invoke(self,*args,**kwargs):
++        value=self._invoke(*args,**kwargs);return value['wrapper_status'],value
++    def _invoke(self,label,c,*,raw=None,inputs=None,child=None,pi=None):
+         a=self.api;a.now+=1;a.events.append(label);v=native(label,a.now,self.state)
+         if label=='bind':return v
+         if label=='create':
+@@ -59,8 +63,9 @@
+                 if a.fault=='arm-exception':raise OSError('unknown suspended create')
+                 if a.fault=='arm-partial':pi.thread=9009
+                 v.update(wrapper_status=6,win32_error=0 if a.fault=='arm-false-zero' else 5);return v
+-            a.next+=10;h=a.next;pi.process=h;pi.thread=h+1;pi.process_id=h;pi.thread_id=h+100
+-            a.rows[h]=dict(argv=[child['image']],job=child['job'],lpac=True,role=label,exited=False)
++            a.next+=10;pid=a.next;h=pid+(0x100000000 if a.fault=='filetime-real' else 0)
++            pi.process=h;pi.thread=h+1;pi.process_id=pid;pi.thread_id=pid+100
++            a.rows[h]=dict(argv=[child['image']],job=child['job'],pid=pid,lpac=True,role=label,exited=False)
+             return v
+         if label=='close':
+             # Real adapter queries the *same still-open* Job handle. This fake
+@@ -85,6 +90,8 @@
+     def bridge(self,path):self.loaded.append(path);return FakeBridge(self)
+     def processmodel_path(self):return self.root/'processmodel.dll'
+     def access_api(self):return Probe(self)
++    def creation_time(self,h):return 133900000000000000+h if self.fault=='filetime-real' else super().creation_time(h)
++    def process_id(self,h):return self.rows[h].get('pid',h)
+     def close(self,h):self.events.append(('close',h));return super().close(h)
+     def resume(self,*a):raise AssertionError('CPSE identity actors must never resume')
+ 
+@@ -94,13 +101,14 @@
+         # fixture's path-syntax seam is replaced on POSIX; production remains
+         # Windows-only and SpecTests always exercise real Windows syntax.
+         if os.name!='nt':self.enterContext(patch.object(m.spec,'path',side_effect=lambda value:value))
+-    def run_cell(self,fault=None,probe_fault=None):
++    def run_cell(self,fault=None,probe_fault=None,*,validate=True):
+         td=tempfile.TemporaryDirectory();self.addCleanup(td.cleanup);root=Path(td.name).resolve();(root/'inputs').mkdir()
+         (root/'inputs'/m.live.ACTOR).write_bytes(b'x'*512);(root/'processmodel.dll').write_bytes(b'fake model')
+         c=config(root);(root/'spec.bin').write_bytes(m.spec.build(str(root/'inputs')))
+         api=API(root,fault,probe_fault);budget=m.launcher.QpcBudget(api,D,F);cell=m.Cell(root,c,b.PARENT,api,budget);api.owner=cell
+         with patch.object(m.base,'fixed_catalog',return_value=b.CATALOG):j=cell.execute()
+-        m.validate_result(j,c,parent=b.PARENT);return cell,api,j,m.project(j,c,parent=b.PARENT)
++        if validate:m.validate_result(j,c,parent=b.PARENT)
++        return cell,api,j,m.project(j,c,parent=b.PARENT) if validate else None
+     def test_full_owner_one_environment_exact_matched_inputs_and_ordered_cleanup(self):
+         cell,api,j,p=self.run_cell();self.assertIsNone(j['failure']);self.assertTrue(p['inner_complete'])
+         self.assertEqual([p['ac_granted_access'],p['lpac_granted_access']],[[3,0,1,2],[2,0,0,2]])
+@@ -201,9 +209,59 @@
+             bridge=m.Bridge(Path(r'C:\fixed\bridge.dll'))
+             loader.assert_called_once_with(r'C:\fixed\bridge.dll',use_last_error=True,winmode=0x900)
+             for label in ('bind','create'):
+-                value=bridge.invoke(label,c,**({'raw':raw,'inputs':inputs} if label=='create' else {}));m.validate_native(value,label,c);self.assertTrue(m.native_ok(value))
+-            pi=m.PI();v=bridge.invoke('ac',c,child=dict(job=50,image=inputs+'\\'+m.live.ACTOR,inputs_directory=inputs,
++                status,value=bridge.invoke(label,c,**({'raw':raw,'inputs':inputs} if label=='create' else {}));self.assertEqual(status,value['wrapper_status']);m.validate_native(value,label,c);self.assertTrue(m.native_ok(value))
++            pi=m.PI();status,v=bridge.invoke('ac',c,child=dict(job=50,image=inputs+'\\'+m.live.ACTOR,inputs_directory=inputs,
+                 system_root=r'C:\Windows',local_appdata=r'<user-home>\AppData\Local'),pi=pi)
+             self.assertEqual((pi.process,pi.thread,pi.process_id,pi.thread_id),(101,102,201,202));self.assertTrue(m.native_ok(v))
+             self.assertEqual(events,['bind','verify','create','ac'])
++    def test_realistic_filetime_and_u64_handles_remain_distinct_from_dword_ids(self):
++        cell,_,j,p=self.run_cell('filetime-real');self.assertTrue(p['inner_complete'])
++        self.assertTrue(all(row['created']>0xffffffff and row['pi']['process']>0xffffffff and row['pi']['thread']>0xffffffff
++            and row['pid']<=0xffffffff and row['pi']['thread_id']<=0xffffffff for row in j['tasks']))
++        for field,value in (('created',True),('created',0),('created',1<<64),('pid',1<<32)):
++            bad=copy.deepcopy(j);bad['tasks'][0][field]=value
++            with self.subTest(field=field,value=value),self.assertRaisesRegex(ValueError,'cpse_task_number'):
++                m.validate_result(bad,cell.c,parent=b.PARENT)
++    def test_returned_receipts_bind_original_intent_status_raw_pi_before_validation(self):
++        cell,_,j,p=self.run_cell('filetime-real');self.assertTrue(p['inner_complete'])
++        for operation in j['operations']:
++            receipt=operation['receipt'];self.assertIsNotNone(receipt)
++            raw=(cell.root/'receipts'/receipt['name']).read_bytes();self.assertEqual(raw,receipt['text'].encode('ascii'))
++            self.assertEqual(m.sha(raw),receipt['sha256']);value=m.decode(raw)
++            self.assertEqual(value['native'],operation['native']);self.assertEqual(value['return_status'],operation['return_status'])
++            self.assertEqual(value['config_sha256'],m.sha(m.encode(cell.c)))
++            intent=next(row for row in j['intents'] if row['action']==operation['label']);self.assertEqual(value['intent_sha256'],intent['sha256'])
++        bad=copy.deepcopy(j);bad['operations'][0]['receipt']['sha256']='0'*64
++        with self.assertRaisesRegex(ValueError,'cpse_returned_receipt'):m.validate_result(bad,cell.c,parent=b.PARENT)
++    def test_invalid_function_status_does_not_lose_returned_original_tuple(self):
++        original=FakeBridge.invoke
++        def wrong_status(instance,label,*args,**kwargs):
++            status,value=original(instance,label,*args,**kwargs)
++            return (9 if label=='ac' else status),value
++        with patch.object(FakeBridge,'invoke',wrong_status):cell,_,j,p=self.run_cell()
++        self.assertFalse(p['inner_complete']);self.assertEqual(j['failure'],'construct')
++        record=next(row for row in j['operations'] if row['label']=='ac');raw=m.decode(record['receipt']['text'].encode('ascii'))
++        self.assertEqual(raw['return_status'],9);self.assertEqual(raw['native']['wrapper_status'],0);self.assertTrue(all(raw['pi'].values()))
++        self.assertTrue(j['workload_cleanup'])
++    def test_receipt_write_error_does_not_erase_known_owned_environment_close_authority(self):
++        writer=m.base.durable_private
++        def write(path,raw):
++            if path.name=='01-create-returned.json':raise OSError('fake returned-receipt disk write failure')
++            return writer(path,raw)
++        with patch.object(m.base,'durable_private',side_effect=write):_,api,j,p=self.run_cell()
++        self.assertEqual(j['failure'],'environment');self.assertFalse(p['inner_complete']);self.assertFalse(j['opaque_outcome_unknown'])
++        self.assertTrue(j['api_obligations_closed']);self.assertTrue(j['module_unbound']);self.assertEqual(api.events.count('close'),1)
++        create=next(row for row in j['operations'] if row['label']=='create');self.assertIsNone(create['receipt']);self.assertIsNotNone(create['exception'])
++        self.assertEqual(create['native']['hresult'],0);self.assertEqual(create['native']['environment_state'],2)
++    def test_malformed_native_snapshot_is_saved_with_pi_before_semantic_validator_rejects(self):
++        original=FakeBridge.invoke
++        def malformed(instance,label,*args,**kwargs):
++            status,value=original(instance,label,*args,**kwargs)
++            if label=='ac':value['size']=95
++            return status,value
++        with patch.object(FakeBridge,'invoke',malformed):cell,_,j,_=self.run_cell(validate=False)
++        row=next(row for row in j['operations'] if row['label']=='ac');raw=(cell.root/'receipts'/row['receipt']['name']).read_bytes()
++        value=m.decode(raw);self.assertEqual(value['native']['size'],95);self.assertTrue(all(value['pi'].values()))
++        self.assertIsNotNone(row['exception']);self.assertEqual(j['failure'],'construct')
++        with self.assertRaises(ValueError):m.validate_result(j,cell.c,parent=b.PARENT)
+ if __name__=='__main__':unittest.main()
+diff --git a/tests/test_windows_identity_psec_lpac_bridge_local.py b/tests/test_windows_identity_psec_lpac_bridge_local.py
+--- a/tests/test_windows_identity_psec_lpac_bridge_local.py
++++ b/tests/test_windows_identity_psec_lpac_bridge_local.py
+@@ -164,7 +164,8 @@
+                 patch.object(m.local,'verify_guard_job',side_effect=guard),patch.object(m.live,'verify_actor',side_effect=lambda *a,**kw:events.append('actor')),\
+                 patch.object(m.core,'verify_manifest',side_effect=lambda *a,**kw:events.append('dll')),\
+                 patch.object(m.base,'fixed_catalog',side_effect=lambda:events.append('catalog') or f.b.CATALOG),\
+-                patch.object(m.core,'execute',side_effect=execute),patch.object(m.core,'validate_result',side_effect=lambda *a,**kw:events.append('validate-result')),\
++                patch.object(m.core,'execute',side_effect=execute),patch.object(m.core,'validate_result',side_effect=lambda *a,**kw:
++                    (_ for _ in ()).throw(ValueError('fake final validator failure')) if fault=='validator' else events.append('validate-result')),\
+                 patch.object(m,'os',NS(getpid=lambda:77)):
+             try:self.assertEqual(m.worker(stage/'worker-config.json'),0)
+             except ValueError as e:error=e
+@@ -180,4 +181,8 @@
+                 stage,_,events,error=self.staged_worker(fault);self.assertIsNotNone(error);self.assertNotIn('execute',events)
+                 self.assertFalse((stage/'worker-report.json').exists())
+                 if fault=='source':self.assertNotIn('backend',events)
++    def test_final_validator_failure_preserves_unvalidated_forensic_without_report(self):
++        stage,_,events,error=self.staged_worker('validator');self.assertIsNotNone(error);self.assertIn('execute',events)
++        self.assertEqual(m.decode((stage/'worker-result-forensic.json').read_bytes()),{'pure':True})
++        self.assertFalse((stage/'worker-report.json').exists())
+ if __name__=='__main__':unittest.main()

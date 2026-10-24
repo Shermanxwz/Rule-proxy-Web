@@ -1,0 +1,188 @@
+{
+  "archive_builder": {
+    "native_actor_executed": false,
+    "network_experiment_run": false,
+    "process_experiment_run": false,
+    "profile_acl_or_global_policy_mutated": false,
+    "repository_source_modified": false,
+    "tests_executed": false
+  },
+  "archive_members": {
+    "independent-review-04-05.json": {
+      "bytes": 2748,
+      "sha256": "38df6a07018fd7449d024403abeee977f76fdf593ac4d62bdef452788b15cb3b"
+    },
+    "revision-04-abi.json": {
+      "bytes": 6689,
+      "sha256": "5ef1b8aa6e9a40803978f48639ea3d2451d3c6f062512bc6d3a96ca8c5132cc0"
+    },
+    "revision-04-freeze.json": {
+      "bytes": 6145,
+      "sha256": "d1e4e71a46621c686e737dcb6ba21d95528f41eed126c0c9c8ebd57df158e363"
+    },
+    "revision-04-pure.log": {
+      "bytes": 6450,
+      "sha256": "9cb7b9cf22db56195db8d025d127416bb08244e69a5c4909507e00a6b2e425b2"
+    },
+    "revision-04.patch": {
+      "bytes": 24402,
+      "sha256": "2c60c343d7e82cdd2a37ff3b1a99bded95118f592617ee0d8c1fcab1e9e084e3"
+    },
+    "revision-05-abi.json": {
+      "bytes": 7483,
+      "sha256": "b7a6746c70c8965adf2e0040606421f73e7243f4579ea415d76554b1c3ed3676"
+    },
+    "revision-05-freeze.json": {
+      "bytes": 6216,
+      "sha256": "fb238e2e44964246b544943d0e5f44b4ba3faf9aa871d782c40393e121f4e8b9"
+    },
+    "revision-05-pure.log": {
+      "bytes": 7066,
+      "sha256": "65445a2709c79640feeab6b931b50729fa2767d67563a57017e9e27ea2d2de60"
+    },
+    "revision-05.patch": {
+      "bytes": 17432,
+      "sha256": "fd2d173d267b1779b907427a9128419e30b1c58c766a946221ae800ffa8c5807"
+    }
+  },
+  "artifact": {
+    "actor_sha256": "0a9e867cce846b366693e8662034db8c0c4646bd312a6143c367da2c36fb557a",
+    "manifest_key_count": 13,
+    "manifest_sha256": "657c88ef59f8ba9d4c24f5e407696b27615f50c63d58adc5d8dd64f942104e92",
+    "native_modified": false,
+    "native_source_pin_count": 9
+  },
+  "evidence_kind": "Preactual source/fake-API pure-test and independent-review snapshots. Later actual03 is separate evidence.",
+  "independent_review": {
+    "member": "independent-review-04-05.json",
+    "missing_raw_logs_not_reconstructed": true,
+    "runs": [
+      {
+        "errors": 0,
+        "failed": 0,
+        "log_available": false,
+        "raw_log_sha256": null,
+        "revision": 4,
+        "scope": "complete focused revision04 suite",
+        "skipped": 0,
+        "tests": 31,
+        "unittest_seconds": 6.765
+      },
+      {
+        "errors": 0,
+        "failed": 0,
+        "log_available": false,
+        "raw_log_sha256": null,
+        "revision": 5,
+        "scope": "four key targeted private/create-exception tests, not the complete 34-test author suite",
+        "skipped": 0,
+        "tests": 4,
+        "unittest_seconds": 0.433
+      }
+    ],
+    "sha256": "38df6a07018fd7449d024403abeee977f76fdf593ac4d62bdef452788b15cb3b"
+  },
+  "limitations": {
+    "actual02_create_failure_cause_not_inferred_from_missing_historical_error": true,
+    "broker_cancellation_proven": false,
+    "broker_pid_attributed": false,
+    "causal_lpac_vs_psec_comparison": false,
+    "dns_isolation_qualified": false,
+    "g_psec_tested": false,
+    "product_acceptance": false,
+    "proxy_tested": false,
+    "runtime_acceptance_claimed": false
+  },
+  "revision04": {
+    "change": "Typed immediate CreateProcess BOOL/error/four-field PROCESS_INFORMATION/return-QPC observation; only the exact timely FALSE/nonzero-error/all-zero/no-child tuple is excluded from the new owner cleanup child view. Original attempted/exited facts and all cleanup gates remain.",
+    "files": {
+      ".github/windows_identity_lpac_dns_local.py": {
+        "bytes": 61277,
+        "sha256": "7682d065c2311f04ebe0f199771902ff0ffe59a2bf52cc05d2be2d4a2e8e3445"
+      },
+      "tests/test_windows_identity_lpac_dns_local.py": {
+        "bytes": 36914,
+        "sha256": "81f7366bd5155616a55f5af165f7c2359e7d1c95a2f9147616e72b0bb8610ef7"
+      }
+    },
+    "focused_pure": {
+      "bytes": 6450,
+      "errors": 0,
+      "failed": 0,
+      "sha256": "9cb7b9cf22db56195db8d025d127416bb08244e69a5c4909507e00a6b2e425b2",
+      "skip_scope": "none",
+      "skipped": 0,
+      "subprocess_wall_seconds": 5.031,
+      "tests": 31,
+      "unittest_seconds": "4.442"
+    },
+    "full_pure": {
+      "bytes": 135730,
+      "errors": 0,
+      "failed": 0,
+      "raw_log_copied": false,
+      "sha256": "00b1f85daae616f752cb7f0d10ac84f3c01ede9b0888ed10159fd5cf8b2c1af6",
+      "skip_scope": "existing unprivileged symlink cases",
+      "skipped": 2,
+      "tests": 751,
+      "unittest_seconds": "35.063"
+    },
+    "native_or_network_actual_performed": false,
+    "patch_sha256": "2c60c343d7e82cdd2a37ff3b1a99bded95118f592617ee0d8c1fcab1e9e084e3",
+    "source_sha256": "80c636164069f92abd003121185ef632f85237df5731366640389db234f03929",
+    "superseded_by_revision05_before_actual": true
+  },
+  "revision05": {
+    "change": "Bounded private exception class/message/operation, including primary Create exception before finally masking. Success detail must be null; private details never enter public output or erase a receiver positive.",
+    "constructor_or_token_or_clock_changed": false,
+    "files": {
+      ".github/windows_identity_lpac_dns_local.py": {
+        "bytes": 63153,
+        "sha256": "3c16fc9f8a6e42cd8c3dc93c73bc43cd9ed0205139f0bef0bb71ca572927fc5d"
+      },
+      "tests/test_windows_identity_lpac_dns_local.py": {
+        "bytes": 40347,
+        "sha256": "397c53c73de342ef69b34ef1c3bd1eca526e3eb67892ce12d0519ff5300caa56"
+      }
+    },
+    "focused_pure": {
+      "bytes": 7066,
+      "errors": 0,
+      "failed": 0,
+      "sha256": "65445a2709c79640feeab6b931b50729fa2767d67563a57017e9e27ea2d2de60",
+      "skip_scope": "none",
+      "skipped": 0,
+      "subprocess_wall_seconds": 5.297,
+      "tests": 34,
+      "unittest_seconds": "4.746"
+    },
+    "full_pure": {
+      "bytes": 136346,
+      "errors": 0,
+      "failed": 0,
+      "raw_log_copied": false,
+      "sha256": "11296d51443a67c375d06d8e4bd82547069a758d3ffcb245d620af8a5760e68c",
+      "skip_scope": "existing unprivileged symlink cases",
+      "skipped": 2,
+      "tests": 754,
+      "unittest_seconds": "33.283"
+    },
+    "known_no_child_predicate_changed": false,
+    "patch_sha256": "fd2d173d267b1779b907427a9128419e30b1c58c766a946221ae800ffa8c5807",
+    "public_schema_changed": false,
+    "review_snapshot_precedes_actual": true,
+    "source_sha256": "390056b6964a75bda0f22e4840efbbe445786be2272d96f4a3b5f3a158be9db9"
+  },
+  "schema_version": 1,
+  "scope": "standalone-lpac-standard53-dns-mechanism-v1",
+  "source_binding": {
+    "all_source05_bytes_match_committed_git_blobs": true,
+    "base_source03_commit": "524638057f1b60a3292964162fe70305fbea8e3e",
+    "integrated_source05_commit": "88db09f422e069ecd8dae78a4b2676c592e08fb2",
+    "native_pins_match_source05_git_blobs": true,
+    "only_owner_and_test_changed": true,
+    "source_file_count": 31,
+    "unchanged_shared_source_count": 30
+  },
+  "stage": "standalone-lpac-dns-diagnostic-code-pure-review-04-05"
+}

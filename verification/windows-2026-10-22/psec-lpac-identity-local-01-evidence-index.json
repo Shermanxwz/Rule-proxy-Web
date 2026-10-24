@@ -1,0 +1,79 @@
+{
+  "archive_process_experiment_run": false,
+  "dll_binary_published": false,
+  "dll_loaded": false,
+  "files": [
+    {
+      "bytes": 1660,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-local-01-public.json",
+      "sha256": "cc562d1b045fea336c4257051faa52e63aa415d91556a4ea84f18aa363652f9c"
+    },
+    {
+      "bytes": 1595,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-local-01-preflight.json",
+      "sha256": "b9268b76fe00df3a061e272775412efdd57fb83242f7961e1e44d8dea9f4c022"
+    },
+    {
+      "bytes": 5236,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-local-01-runner.py",
+      "sha256": "398d2d2d14cc66e2cc4b273d65912822fb732b053a1a93973e428bdc6f46a116"
+    },
+    {
+      "bytes": 5671,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-local-01-bridge-manifest.json",
+      "sha256": "9b9ab93826c99bbde32c18cca3a32389d75086c3b1f7abbc453a2dda98d09209"
+    },
+    {
+      "bytes": 1005,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-local-01-actor-manifest.json",
+      "sha256": "657c88ef59f8ba9d4c24f5e407696b27615f50c63d58adc5d8dd64f942104e92"
+    },
+    {
+      "bytes": 7411,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-local-01-compile-input-snapshot.json",
+      "sha256": "08fcfc4c1bf651983dea3080924f0ab1e7694df2ed171e4dfae11c84baa2cde1"
+    },
+    {
+      "bytes": 42549,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-local-01-archive.py",
+      "sha256": "f089d635ac47a5f49c7ff9352f1f99cb942da921ee3642df724ea01267b3bb1f"
+    },
+    {
+      "bytes": 1544,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-local-01-after-global-capture.ps1",
+      "sha256": "6c50726dd283a235200780a9b7aae019ddaf42e9919ce48e6881f31d94599c52"
+    },
+    {
+      "bytes": 2004,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-local-01-after-global-expanded.ps1",
+      "sha256": "d4c1d1851d6ff3df4f5543110a2e2b9d898ae88ad9b61a25ad0257d55603e69d"
+    },
+    {
+      "bytes": 24238,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-local-01-component-projection.json",
+      "sha256": "582a42571ab8ef65595c3036970a2dbace62fd33fc3bf309c20a79778b2b7d13"
+    },
+    {
+      "bytes": 470,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-local-01-global-projection.json",
+      "sha256": "f6b610c5005d9324f2c509401095f08fee8465b48e6cfcd57119b3de03cd372f"
+    },
+    {
+      "bytes": 1728,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-local-01-summary.json",
+      "sha256": "8939d300f585ea61360d4c4e6f9bf4e5c5cda52635de3314d73950b4b88f2077"
+    }
+  ],
+  "index_self_hash_excluded": true,
+  "native_api_instantiated": false,
+  "network_operation_run": false,
+  "original_public_sha256": "cc562d1b045fea336c4257051faa52e63aa415d91556a4ea84f18aa363652f9c",
+  "policy_or_recovery_run": false,
+  "raw_compile_logs_published": false,
+  "raw_private_reports_published": false,
+  "schema_version": 1,
+  "scope": "one-local-cpse-deny-all-matched-aap-identity-v1",
+  "source_commit": "1c83029245e889b2c950ca5dbaa0da675a287c09",
+  "source_sha256": "7dd12aaf5c8727c325e184f69393072e13e0b1772aa1be03318adf7e1d77951a",
+  "stage": "psec-deny-all-matched-identity-evidence-index"
+}

@@ -1,0 +1,126 @@
+{
+  "actual_ready": false,
+  "archive_kind": "uninstalled-work-only-code-and-fake-tests",
+  "files": [
+    {
+      "bytes": 6529,
+      "path": "01/abi.json",
+      "sha256": "05f65a4dbf18827087146f8d94fc1582dcda1c2077891654d049328ed6c84daa"
+    },
+    {
+      "bytes": 49828,
+      "path": "01/complete.patch",
+      "sha256": "46f26cee496e11fcb0074723e18f9d86a701c4be86a26a084df7540e9b3ea8dc"
+    },
+    {
+      "bytes": 1253,
+      "path": "01/freeze.json",
+      "sha256": "2607219847bbc24695680aa3ded2f8f074d74a7e9e189bb758331adb1706a186"
+    },
+    {
+      "bytes": 2946,
+      "path": "01/pure.log",
+      "sha256": "33ed826185ef88ad6510ba7cad42e560211db7b2c7c69c901acd89f7db519a00"
+    },
+    {
+      "bytes": 14665,
+      "path": "01/test_windows_identity_lpac_accesscheck.py",
+      "sha256": "6e5d18a24cf7d91fbb6a16bcbc2de483773e2a26427c3dbf2eead41799e9627b"
+    },
+    {
+      "bytes": 33959,
+      "path": "01/windows_identity_lpac_accesscheck.py",
+      "sha256": "807bdf66b1a2043051142f7f10b18e4f998e53fd335a8f35482b3dcc3fdf416e"
+    },
+    {
+      "bytes": 7320,
+      "path": "02/abi.json",
+      "sha256": "5163c2d621de251678e08ecce962059eea385330fa191feb4a5b3797f84a0b20"
+    },
+    {
+      "bytes": 2493,
+      "path": "02/freeze.json",
+      "sha256": "2c6d75a0c1212c0ea81cb30aa4e203466c5f3c646cebe8556da86489e6652469"
+    },
+    {
+      "bytes": 5654,
+      "path": "02/incremental.patch",
+      "sha256": "02bbf4cc5c1b5685a5db35da3e9923a66064d909f9465e6a122a971c126f887f"
+    },
+    {
+      "bytes": 3858,
+      "path": "02/pure.log",
+      "sha256": "6668b609fe494cee381312be1f6dca50abc35a8c4e9d9c38c9231684e0ed959d"
+    },
+    {
+      "bytes": 17854,
+      "path": "02/test_windows_identity_lpac_accesscheck.py",
+      "sha256": "e19eea5329501b535a2b8317a6829350cc95a87c3b9ecce67642a6d2427f358a"
+    },
+    {
+      "bytes": 34465,
+      "path": "02/windows_identity_lpac_accesscheck.py",
+      "sha256": "19c0d626e653147276cab9a97c5a0071f1c37b2eeb097c55fbacb39f262ade15"
+    },
+    {
+      "bytes": 11257,
+      "path": "no-pncs-policy-constraints.json",
+      "sha256": "b103fcaee4cf11ba9a1751428c13345a56925d6f58e113b90fe152603d793936"
+    },
+    {
+      "bytes": 7547,
+      "path": "summary.json",
+      "sha256": "e037da161d2dc0f10846055e2cc59274195cb74ba3df10953f5eff171875f0a6"
+    },
+    {
+      "bytes": 1170,
+      "path": "verification-receipt.json",
+      "sha256": "36b7ca42f1f912f6913b146d07583abfefcc8e0b90a6bdb7e0b77415bae471c8"
+    }
+  ],
+  "index_self_not_hashed": true,
+  "original_candidates_unchanged": true,
+  "original_input_sha256s": {
+    "dns_no_pncs_policy_constraints.json": {
+      "bytes": 11257,
+      "sha256": "b103fcaee4cf11ba9a1751428c13345a56925d6f58e113b90fe152603d793936"
+    },
+    "lpac-accesscheck-candidate-02-abi.json": {
+      "bytes": 7320,
+      "sha256": "5163c2d621de251678e08ecce962059eea385330fa191feb4a5b3797f84a0b20"
+    },
+    "lpac-accesscheck-candidate-02-freeze.json": {
+      "bytes": 2493,
+      "sha256": "2c6d75a0c1212c0ea81cb30aa4e203466c5f3c646cebe8556da86489e6652469"
+    },
+    "lpac-accesscheck-candidate-02-pure.log": {
+      "bytes": 3858,
+      "sha256": "6668b609fe494cee381312be1f6dca50abc35a8c4e9d9c38c9231684e0ed959d"
+    },
+    "lpac-accesscheck-candidate-02.patch": {
+      "bytes": 5654,
+      "sha256": "02bbf4cc5c1b5685a5db35da3e9923a66064d909f9465e6a122a971c126f887f"
+    },
+    "lpac-accesscheck-candidate-abi.json": {
+      "bytes": 6529,
+      "sha256": "05f65a4dbf18827087146f8d94fc1582dcda1c2077891654d049328ed6c84daa"
+    },
+    "lpac-accesscheck-candidate-freeze.json": {
+      "bytes": 1253,
+      "sha256": "2607219847bbc24695680aa3ded2f8f074d74a7e9e189bb758331adb1706a186"
+    },
+    "lpac-accesscheck-candidate-pure.log": {
+      "bytes": 2946,
+      "sha256": "33ed826185ef88ad6510ba7cad42e560211db7b2c7c69c901acd89f7db519a00"
+    },
+    "lpac-accesscheck-candidate.patch": {
+      "bytes": 49828,
+      "sha256": "46f26cee496e11fcb0074723e18f9d86a701c4be86a26a084df7540e9b3ea8dc"
+    }
+  },
+  "raw_runtime_evidence_published": false,
+  "schema_version": 1,
+  "source_or_settings_mutated": false,
+  "stage": "lpac-accesscheck-candidates-01-02-history-index",
+  "token_or_network_experiment_executed": false
+}

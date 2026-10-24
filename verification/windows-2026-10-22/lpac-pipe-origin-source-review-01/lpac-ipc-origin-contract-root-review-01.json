@@ -1,0 +1,37 @@
+{
+  "content": {
+    "DNS_or_direct_or_all_protocol_isolation_proven": false,
+    "actual_execution_authorized_by_this_review": false,
+    "actual_ready": false,
+    "application_adapter_implemented": false,
+    "baseline_commit": "277c112f81fb4e3b70305d9e881beada4758b115",
+    "contract": {
+      "bytes": 33381,
+      "sha256": "50c679695df76c6a1288abf7a040daf14c126187ea620e38eeb7246c5b126cd0"
+    },
+    "critical_source_count": 12,
+    "exact_two_handle_inheritance_and_atomic_jobs_required": true,
+    "kernel_live_tuple_proof_required_for_this_scope": false,
+    "linux_equivalence_proven": false,
+    "native_source_compile_and_python_independent_reviews_required": true,
+    "no_failed_CreatePipe_indeterminate_output_adoption": true,
+    "old_sources_and_evidence_immutable": true,
+    "one_selected_report_LowMIC_and_once_cleanup_required": true,
+    "ordinary_origin_positive_cross_report_tuple_only": true,
+    "product_acceptance": false,
+    "root120_worker115_pair10_original_QPC_required": true,
+    "schema_version": 1,
+    "source40_is_prediction": true,
+    "stage": "root-file-only-lpac-ipc-origin-contract-review",
+    "verdict": "GO-candidate-implementation-only",
+    "zero_cap_real_LPAC_four_descriptor_gate_required": true
+  },
+  "raw_commitment": {
+    "bytes": 1187,
+    "sha256": "6daa01bc1332ae31091b808d47f3fefb490e4eccab804e4da78a05f32dfb7488"
+  },
+  "schema_version": 1,
+  "stage": "source-evidence-safe-view",
+  "temporal_scope": "Original preparation/review snapshot: its pending/false runtime fields are historical snapshot fields, not the current result.",
+  "transformation": "JSON value projection; account identifiers/user paths redacted if present; no runtime inference"
+}

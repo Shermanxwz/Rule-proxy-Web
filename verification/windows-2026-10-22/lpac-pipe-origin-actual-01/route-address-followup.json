@@ -1,0 +1,43 @@
+{
+  "actual_addresses_interface_ids_and_lifetimes_not_published": true,
+  "after_snapshot_sha256": "96ba4618bdcee58d28de676038b661681b955502799cdce7aae5fa24d61e8f95",
+  "attribution": "Unknown: current matching address metadata does not establish route creator or creation time.",
+  "configuration_written_by_this_archiver": false,
+  "original_query": {
+    "bytes": 1305,
+    "sha256": "16240bffc48757f07846cc85199c2ef9861493c561d0b458c627cf07f5a684eb"
+  },
+  "query_executed_by_this_archiver": false,
+  "rows": [
+    {
+      "added_route_index": 0,
+      "matching_current_local_address_count": 1,
+      "properties": [
+        {
+          "AddressState": "Preferred",
+          "PrefixLength": 128,
+          "PrefixOrigin": "RouterAdvertisement",
+          "SkipAsSource": false,
+          "SuffixOrigin": "Random",
+          "Type": "Unicast"
+        }
+      ]
+    },
+    {
+      "added_route_index": 1,
+      "matching_current_local_address_count": 1,
+      "properties": [
+        {
+          "AddressState": "Preferred",
+          "PrefixLength": 128,
+          "PrefixOrigin": "RouterAdvertisement",
+          "SkipAsSource": false,
+          "SuffixOrigin": "Random",
+          "Type": "Unicast"
+        }
+      ]
+    }
+  ],
+  "schema_version": 1,
+  "stage": "added-route-current-local-address-safe-view"
+}

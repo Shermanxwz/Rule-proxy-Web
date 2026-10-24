@@ -1,0 +1,192 @@
+name: Windows identity proof staged laboratory
+
+on:
+  push:
+    branches: ['dot/windows-isolation-proof']
+    paths:
+      - '.github/native/windows_identity_actor.cpp'
+      - '.github/build_windows_identity_actor.ps1'
+      - '.github/windows_identity_proof.py'
+      - '.github/windows_identity_pipe_probe.py'
+      - '.github/windows_identity_ordinary_launcher.py'
+      - '.github/windows_identity_restricted_launcher.py'
+      - '.github/windows_identity_paired_startup.py'
+      - '.github/windows_identity_dumpbin.py'
+      - '.github/windows_identity_publication.py'
+      - '.github/windows_identity_lpac_stream_mihomo_origin.py'
+      - '.github/windows_identity_lpac_stream_mihomo_origin_local.py'
+      - '.github/native/windows_identity_lpac_stream_mihomo_http.hpp'
+      - '.github/native/windows_identity_lpac_stream_mihomo_network_actor.cpp'
+      - '.github/windows_identity_lpac_curl_loader.py'
+      - '.github/windows_identity_lpac_curl_loader_local.py'
+      - '.github/native/windows_identity_lpac_curl_loader_*'
+      - '.github/windows_identity_lpac_curl_mm_*.py'
+      - '.github/windows_identity_lpac_curl_a4*'
+      - '.github/windows_identity_lpac_curl_a5*'
+      - '.github/native/windows_identity_lpac_curl_a5_*'
+      - '.github/native/windows_identity_lpac_curl_http_*'
+      - 'tests/lpac_curl_a5_*.cpp'
+      - 'tests/lpac_curl_http_*.cpp'
+      - '.github/windows_identity_lpac_curl_import_builder.py'
+      - '.github/native/windows_identity_lpac_curl_a4_*'
+      - '.github/native/windows_identity_lpac_curl_ws2_startup_*'
+      - 'tests/lpac_curl_ws2_startup_*.cpp'
+      - 'tests/fixtures/lpac-curl-a4/**'
+      - '.github/native/windows_identity_lpac_curl_mm_loader_*'
+      - 'tests/lpac_curl_mm_loader_fake.cpp'
+      - '.github/vendor/detours/**'
+      - 'tests/test_windows_identity*.py'
+      - '.github/workflows/windows-identity-proof.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: identity-proof-lab-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  identity-proof-compile:
+    name: Native build and gated pipe proof
+    runs-on: windows-2025
+    # Compile and pure-fixture budget for slow hosted runners; local assay
+    # deadlines and the explicit runtime gates below are unchanged.
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Load installed MSVC and compile without executing the actor
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vs = & $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $vs) { throw 'Installed MSVC toolchain not found' }
+          Import-Module "$vs\Common7\Tools\Microsoft.VisualStudio.DevShell.dll"
+          Enter-VsDevShell -VsInstallPath $vs -SkipAutomaticLocation -DevCmdArguments '-arch=x64 -host_arch=x64'
+          ./.github/build_windows_identity_actor.ps1 -OutputDirectory "$PWD\identity-actor-build" -ExpectedSourceSha256 530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553
+          if ("${{ contains(github.event.head_commit.message, '[identity-startup-paired-runtime]') }}" -eq 'true') {
+            ./.github/build_windows_identity_actor.ps1 -OutputDirectory "$PWD\identity-actor-build-minimal" -IdentityOnly -ExpectedSourceSha256 530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553
+            $dumpbin = (Get-Command dumpbin.exe -CommandType Application -ErrorAction Stop).Source
+            $systemVersion = (Get-Item "$env:windir\System32\winhttp.dll").VersionInfo.FileVersion
+            python -I -S -B .github/windows_identity_dumpbin.py --dumpbin $dumpbin --full "$PWD\identity-actor-build\windows_identity_actor.exe" --identity "$PWD\identity-actor-build-minimal\windows_identity_actor.exe" --system-winhttp "$env:windir\System32\winhttp.dll" --system-version $systemVersion --audit "$PWD\identity-actor-build\dependency-audit.json" --fixture "$PWD\identity-actor-build\dependency-parser-fixture.json"
+            if ($LASTEXITCODE -ne 0) { throw 'Dependency metadata gate failed; all sanitized parser observations retained. No runtime is permitted.' }
+          }
+      - name: Pure Python identity proof unit tests only
+        shell: pwsh
+        run: |
+          # Developer-shell environment changes are step-local. The compiled
+          # fake API tests require the installed compiler in this step too.
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vs = & $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $vs) { throw 'Installed MSVC toolchain not found for pure compiled-fake tests' }
+          Import-Module "$vs\Common7\Tools\Microsoft.VisualStudio.DevShell.dll"
+          Enter-VsDevShell -VsInstallPath $vs -SkipAutomaticLocation -DevCmdArguments '-arch=x64 -host_arch=x64'
+          if (-not (Get-Command cl.exe -CommandType Application -ErrorAction Stop)) { throw 'Installed x64 compiler was not loaded' }
+          python -B -m unittest discover -s tests -p "test_windows_identity*.py" -v
+      - name: Read-only current and existing linked token ABI preflight
+        if: contains(github.event.head_commit.message, '[identity-pipe-runtime]')
+        timeout-minutes: 1
+        shell: pwsh
+        run: |
+          python -I -S -B .github/windows_identity_ordinary_launcher.py --disposable-ci --approved-security-test --token-preflight --report "$PWD\identity-token-preflight.json"
+          if ($LASTEXITCODE -ne 0) { throw 'Token observation incomplete; inspect all bounded field diagnostics. No native launch or fallback.' }
+      - name: Approved Stage 0b inherited-pipe proof in a verified ordinary token
+        if: contains(github.event.head_commit.message, '[identity-pipe-runtime]')
+        timeout-minutes: 3
+        shell: pwsh
+        run: |
+          $build = Get-Content -Raw identity-actor-build/build-manifest.json | ConvertFrom-Json
+          python -I -S -B .github/windows_identity_ordinary_launcher.py --disposable-ci --approved-security-test --actor "$PWD\identity-actor-build\windows_identity_actor.exe" --actor-sha256 $build.executableSha256 --work "$PWD\identity-ordinary-run" --report "$PWD\identity-ordinary-run\report.json"
+          if ($LASTEXITCODE -ne 0) { throw 'Stage 0b did not pass; inspect bounded reports, no fallback is permitted.' }
+      - name: Read-only R0 source token field and ABI diagnostics
+        if: contains(github.event.head_commit.message, '[identity-restricted-r0-runtime]') || contains(github.event.head_commit.message, '[identity-startup-paired-runtime]')
+        timeout-minutes: 1
+        shell: pwsh
+        run: |
+          python -I -S -B .github/windows_identity_restricted_launcher.py --disposable-ci --approved-security-test --token-preflight --report "$PWD\identity-restricted-r0-preflight.json"
+          if ($LASTEXITCODE -ne 0) { throw 'R0 source observations incomplete; no token restriction or native launch.' }
+      - name: Restricted-caller R0 identity diagnostic, not ordinary-user acceptance
+        if: contains(github.event.head_commit.message, '[identity-restricted-r0-runtime]')
+        timeout-minutes: 2
+        shell: pwsh
+        run: |
+          $build = Get-Content -Raw identity-actor-build/build-manifest.json | ConvertFrom-Json
+          python -I -S -B .github/windows_identity_restricted_launcher.py --disposable-ci --approved-security-test --actor "$PWD\identity-actor-build\windows_identity_actor.exe" --actor-sha256 $build.executableSha256 --work "$PWD\identity-restricted-r0" --report "$PWD\identity-restricted-r0\report.json"
+          if ($LASTEXITCODE -ne 0) { throw 'Restricted-caller R0 diagnostic blocked or failed; no ordinary-token fallback.' }
+      - name: Four-cell trusted-actor startup controls, no isolation acceptance
+        if: contains(github.event.head_commit.message, '[identity-startup-paired-runtime]')
+        timeout-minutes: 3
+        shell: pwsh
+        run: |
+          $full = Get-Content -Raw identity-actor-build/build-manifest.json | ConvertFrom-Json
+          $minimal = Get-Content -Raw identity-actor-build-minimal/build-manifest.json | ConvertFrom-Json
+          if (-not $full.httpCompiled -or $minimal.httpCompiled) { throw 'Expected distinct full and IdentityOnly manifests' }
+          python -I -S -B .github/windows_identity_paired_startup.py --disposable-ci --approved-security-test --paired-startup --actor-full "$PWD\identity-actor-build\windows_identity_actor.exe" --actor-full-sha256 $full.executableSha256 --actor-identity "$PWD\identity-actor-build-minimal\windows_identity_actor.exe" --actor-identity-sha256 $minimal.executableSha256 --work "$PWD\identity-startup-paired" --report "$PWD\identity-startup-paired\report.json" --dependency-audit "$PWD\identity-actor-build\dependency-audit.json"
+          if ($LASTEXITCODE -ne 0) { throw 'Paired startup collection incomplete; inspect reports. Individual startup outcomes never imply isolation acceptance.' }
+      - name: Create closed publication projections without machine identities or paths
+        if: always()
+        shell: pwsh
+        run: |
+          $pairs = [ordered]@{
+            'identity-token-preflight.json' = 'identity-token-preflight.public.json'
+            'identity-ordinary-run/report.json' = 'identity-ordinary-run/public-report.json'
+            'identity-ordinary-run/probe/report.json' = 'identity-ordinary-run/probe/public-report.json'
+            'identity-restricted-r0-preflight.json' = 'identity-restricted-r0-preflight.public.json'
+            'identity-restricted-r0/report.json' = 'identity-restricted-r0/public-report.json'
+            'identity-actor-build/build-manifest.json' = 'identity-actor-build/public-manifest.json'
+            'identity-actor-build-minimal/build-manifest.json' = 'identity-actor-build-minimal/public-manifest.json'
+            'identity-actor-build/dependency-audit.json' = 'identity-actor-build/dependency-audit-public.json'
+          }
+          foreach ($entry in $pairs.GetEnumerator()) {
+            if (Test-Path -LiteralPath $entry.Key -PathType Leaf) {
+              $arguments = @('-I', '-S', '-B', '.github/windows_identity_publication.py', '--input', (Join-Path $PWD $entry.Key), '--output', (Join-Path $PWD $entry.Value))
+              if ($entry.Key.EndsWith('build-manifest.json')) { $arguments += '--build' }
+              if ($entry.Key.EndsWith('dependency-audit.json')) { $arguments += '--imports' }
+              & python @arguments
+              if ($LASTEXITCODE -ne 0) { throw 'Closed publication projection failed; raw evidence must not be uploaded' }
+            }
+          }
+      - uses: actions/upload-artifact@v7
+        if: always() && contains(github.event.head_commit.message, '[identity-startup-paired-runtime]')
+        with:
+          name: identity-startup-paired-observations
+          path: |
+            identity-restricted-r0-preflight.public.json
+            identity-startup-paired/public-report.json
+            identity-actor-build/dependency-audit-public.json
+            identity-actor-build/dependency-parser-fixture.json
+            identity-actor-build-minimal/public-manifest.json
+            identity-actor-build-minimal/windows_identity_actor.exe
+          if-no-files-found: warn
+          retention-days: 14
+      - uses: actions/upload-artifact@v7
+        if: always() && contains(github.event.head_commit.message, '[identity-restricted-r0-runtime]')
+        with:
+          name: identity-restricted-r0-observations
+          path: |
+            identity-restricted-r0-preflight.public.json
+            identity-restricted-r0/public-report.json
+          if-no-files-found: warn
+          retention-days: 14
+      - uses: actions/upload-artifact@v7
+        if: always() && contains(github.event.head_commit.message, '[identity-pipe-runtime]')
+        with:
+          name: identity-pipe-runtime-observations
+          path: |
+            identity-token-preflight.public.json
+            identity-ordinary-run/public-report.json
+            identity-ordinary-run/probe/public-report.json
+          if-no-files-found: warn
+          retention-days: 14
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: identity-actor-build
+          path: |
+            identity-actor-build/windows_identity_actor.exe
+            identity-actor-build/public-manifest.json
+            identity-actor-build/dependency-audit-public.json
+          if-no-files-found: warn
+          retention-days: 7
+

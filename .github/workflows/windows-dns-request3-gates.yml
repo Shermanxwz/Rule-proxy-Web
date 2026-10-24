@@ -1,0 +1,67 @@
+name: DNS REQUEST3 standalone fixed-loopback explicit-port mechanism gates
+on:
+  push:
+    branches: [dot/windows-isolation-proof]
+    paths:
+      - '.github/native/windows_n0a_dns_fixture.cpp'
+      - '.github/build_windows_n0a_dns_fixture.ps1'
+      - '.github/windows_dns_fixture.py'
+      - '.github/test_windows_dns_request3.py'
+      - '.github/workflows/windows-dns-request3-gates.yml'
+      - 'tests/test_windows_client_dns_fixture.py'
+      - 'tests/test_windows_dns_request3.py'
+      - 'tests/test_windows_dns_workflow.py'
+permissions:
+  contents: read
+concurrency:
+  group: dns-request3-gates-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  pure:
+    if: ${{ github.ref == 'refs/heads/dot/windows-isolation-proof' && github.event_name == 'push' && contains(github.event.head_commit.message, '[dns-request3-gates]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Required standalone parser, lifecycle and publication tests
+        run: |
+          python3 -B -c "import pathlib,unittest; names=('test_windows_client_dns_fixture.py','test_windows_dns_request3.py','test_windows_dns_workflow.py'); assert all((pathlib.Path('tests')/n).is_file() for n in names); parts=[unittest.defaultTestLoader.discover('tests',pattern=n) for n in names]; assert all(p.countTestCases()>0 for p in parts); result=unittest.TextTestRunner(verbosity=2).run(unittest.TestSuite(parts)); raise SystemExit(not result.wasSuccessful() or bool(result.skipped))"
+  native-mechanism:
+    if: ${{ github.ref == 'refs/heads/dot/windows-isolation-proof' && github.event_name == 'push' && contains(github.event.head_commit.message, '[dns-request3-gates]') }}
+    runs-on: windows-2025
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Parse the isolated TEST_ONLY build helper
+        shell: powershell
+        run: |
+          $tokens=$null; $errors=$null
+          [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $PWD '.github/build_windows_n0a_dns_fixture.ps1'),[ref]$tokens,[ref]$errors) | Out-Null
+          if ($errors.Count) { throw 'DNS fixture build syntax rejected' }
+      - name: Compile official installed SDK REQUEST3 fixture only
+        shell: pwsh
+        run: |
+          $vswhere="${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vs=& $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $vs) { throw 'Installed MSVC unavailable' }
+          Import-Module "$vs\Common7\Tools\Microsoft.VisualStudio.DevShell.dll"
+          Enter-VsDevShell -VsInstallPath $vs -SkipAutomaticLocation -DevCmdArguments '-arch=x64 -host_arch=x64'
+          ./.github/build_windows_n0a_dns_fixture.ps1 -OutputDirectory "$PWD/dns-TEST-ONLY-build" -ExpectedSourceSha256 852c8e56e17a84b7df8a6ebf74d30c493eafcb2aa9f2cb900e151302a5b0dfad
+      - name: Conditional fixed-loopback explicit-port pair, not isolation
+        timeout-minutes: 2
+        shell: pwsh
+        run: |
+          python -B .github/test_windows_dns_request3.py --run-loopback2-port-pair --actor "$PWD/dns-TEST-ONLY-build/windows_n0a_DNS_TEST_ONLY_fixture.exe" --manifest "$PWD/dns-TEST-ONLY-build/DNS-TEST-ONLY-manifest.json" --output "$PWD/dns-mechanism-public.json"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Required cross-platform standalone tests
+        shell: pwsh
+        run: |
+          python -B -c "import pathlib,unittest; names=('test_windows_client_dns_fixture.py','test_windows_dns_request3.py','test_windows_dns_workflow.py'); assert all((pathlib.Path('tests')/n).is_file() for n in names); parts=[unittest.defaultTestLoader.discover('tests',pattern=n) for n in names]; assert all(p.countTestCases()>0 for p in parts); result=unittest.TextTestRunner(verbosity=2).run(unittest.TestSuite(parts)); raise SystemExit(not result.wasSuccessful() or bool(result.skipped))"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+# No artifacts, complete Windows guest, accounts, policy edits, or production deployment.

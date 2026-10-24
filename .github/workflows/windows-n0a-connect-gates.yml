@@ -1,0 +1,99 @@
+name: N0a-connect standalone pure and native fixture gates (no VM)
+on:
+  push:
+    branches: [dot/windows-isolation-proof]
+    paths:
+      - '.github/native/windows_n0a_*.cpp'
+      - '.github/build_windows_n0a_*.ps1'
+      - '.github/test_windows_n0a_actor.py'
+      - '.github/windows_n0a_control.py'
+      - '.github/windows_n0a_guest.py'
+      - '.github/windows_n0a_flow.py'
+      - '.github/windows_n0a_capture_adapter.py'
+      - '.github/windows_n0a_packet.py'
+      - '.github/windows_identity_direct_stage0.py'
+      - '.github/windows-identity-direct-stage0-run.ps1'
+      - '.github/test-windows-n0a-guest-gates.ps1'
+      - '.github/workflows/windows-identity-direct-stage0.yml'
+      - '.github/workflows/windows-n0a-connect-gates.yml'
+      - 'tests/test_windows_n0a_actor.py'
+      - 'tests/test_windows_client_n0a_control.py'
+      - 'tests/test_windows_client_n0a_adapter.py'
+      - 'tests/test_windows_client_n0a_host.py'
+      - 'tests/test_windows_client_n0a_flow.py'
+      - 'tests/test_windows_client_n0a_capture_adapter.py'
+      - 'tests/test_windows_client_n0a_packet.py'
+      - 'tests/test_windows_n0a_guest.py'
+      - 'tests/test_windows_n0a_workflow.py'
+permissions:
+  contents: read
+concurrency:
+  group: n0a-connect-gates-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  host-unit:
+    if: ${{ github.ref == 'refs/heads/dot/windows-isolation-proof' && github.event_name == 'push' && contains(github.event.head_commit.message, '[n0a-connect-gates]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Required source and adapter unit tests, no VM execution
+        run: |
+          python3 -B -c "import pathlib,unittest; names=('test_windows_n0a_actor.py','test_windows_client_n0a_control.py','test_windows_n0a_workflow.py','test_windows_client_n0a_adapter.py','test_windows_client_n0a_host.py','test_windows_client_n0a_flow.py','test_windows_client_n0a_capture_adapter.py','test_windows_client_n0a_packet.py','test_windows_n0a_guest.py','test_windows_client_direct_stage0.py','test_windows_client_direct_guest.py','test_windows_client_direct_actor_projection.py','test_windows_client_direct_workflow.py'); assert all((pathlib.Path('tests')/n).is_file() for n in names); parts=[unittest.defaultTestLoader.discover('tests',pattern=n) for n in names]; assert all(p.countTestCases()>0 for p in parts); suite=unittest.TestSuite(parts); assert suite.countTestCases()>=43; result=unittest.TextTestRunner(verbosity=2).run(suite); raise SystemExit(not result.wasSuccessful() or bool(result.skipped))"
+  native-fixture:
+    if: ${{ github.ref == 'refs/heads/dot/windows-isolation-proof' && github.event_name == 'push' && contains(github.event.head_commit.message, '[n0a-connect-gates]') }}
+    runs-on: windows-2025
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Parse standalone build helpers with Windows PowerShell
+        shell: powershell
+        run: |
+          foreach ($name in @('actor','fixture')) {
+            $tokens=$null; $errors=$null
+            [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $PWD ".github/build_windows_n0a_$name.ps1"),[ref]$tokens,[ref]$errors) | Out-Null
+            if ($errors.Count) { throw 'N0a build-helper syntax rejected' }
+          }
+      - name: Actual PowerShell opt-in lifecycle and deadline fixture, no guest
+        timeout-minutes: 2
+        shell: powershell
+        run: |
+          $tokens=$null; $errors=$null
+          [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $PWD '.github/windows-identity-direct-stage0-run.ps1'),[ref]$tokens,[ref]$errors) | Out-Null
+          if ($errors.Count) { throw 'Direct guest syntax rejected' }
+          ./.github/test-windows-n0a-guest-gates.ps1
+      - name: Build separate production and nondeployable fixture binaries, never execute
+        shell: pwsh
+        run: |
+          $vswhere="${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vs=& $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $vs) { throw 'Installed MSVC unavailable' }
+          Import-Module "$vs\Common7\Tools\Microsoft.VisualStudio.DevShell.dll"
+          Enter-VsDevShell -VsInstallPath $vs -SkipAutomaticLocation -DevCmdArguments '-arch=x64 -host_arch=x64'
+          $actor='33a276721db4d46bd79f47fabd3bb5b8e126e1a8c259280e690b8dd2caaea465'
+          $identity='530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553'
+          ./.github/build_windows_n0a_actor.ps1 -OutputDirectory "$PWD/n0a-production-build" -ExpectedSourceSha256 $actor -ExpectedIdentitySourceSha256 $identity
+          ./.github/build_windows_n0a_fixture.ps1 -OutputDirectory "$PWD/n0a-TEST-ONLY-build" -ExpectedFixtureSha256 7f610f94e164b97c32a94b2c009195fcd76be03cc52fad7ca7a2eeb0329db9a0 -ExpectedActorSha256 $actor -ExpectedIdentitySha256 $identity
+          $production=Get-Content -Raw n0a-production-build/build-manifest.json | ConvertFrom-Json
+          $fixture=Get-Content -Raw n0a-TEST-ONLY-build/TEST-ONLY-manifest.json | ConvertFrom-Json
+          if ($production.testOnly -or -not $production.rawTcpCompiled -or $production.httpCompiled -or -not $fixture.testOnly -or $fixture.deployable) { throw 'Distinct build roles required' }
+          if ((Get-FileHash n0a-production-build/windows_n0a_actor.exe -Algorithm SHA256).Hash.ToLowerInvariant() -cne $production.executableSha256) { throw 'Production digest mismatch' }
+          if ((Get-FileHash n0a-TEST-ONLY-build/windows_n0a_TEST_ONLY_fixture.exe -Algorithm SHA256).Hash.ToLowerInvariant() -cne $fixture.executableSha256) { throw 'Fixture digest mismatch' }
+      - name: Actual owned-loopback mechanics and production guard rejection, not isolation
+        timeout-minutes: 2
+        shell: pwsh
+        run: |
+          python -B .github/test_windows_n0a_actor.py --run-owned-loopback-fixtures --actor-exe "$PWD/n0a-production-build/windows_n0a_actor.exe" --fixture-exe "$PWD/n0a-TEST-ONLY-build/windows_n0a_TEST_ONLY_fixture.exe"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Standalone source and evaluator unit tests
+        shell: pwsh
+        run: |
+          python -B -c "import pathlib,unittest; names=('test_windows_n0a_actor.py','test_windows_client_n0a_control.py','test_windows_n0a_workflow.py','test_windows_client_n0a_adapter.py','test_windows_client_n0a_host.py','test_windows_client_n0a_flow.py','test_windows_client_n0a_capture_adapter.py','test_windows_client_n0a_packet.py','test_windows_n0a_guest.py','test_windows_client_direct_stage0.py','test_windows_client_direct_guest.py','test_windows_client_direct_actor_projection.py','test_windows_client_direct_workflow.py'); assert all((pathlib.Path('tests')/n).is_file() for n in names); parts=[unittest.defaultTestLoader.discover('tests',pattern=n) for n in names]; assert all(p.countTestCases()>0 for p in parts); suite=unittest.TestSuite(parts); assert suite.countTestCases()>=43; result=unittest.TextTestRunner(verbosity=2).run(suite); raise SystemExit(not result.wasSuccessful() or bool(result.skipped))"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+# Intentionally no artifact upload, VM job, account creation, or guest deployment.

@@ -1,0 +1,127 @@
+{
+  "content": {
+    "abi": {
+      "bytes": 4348,
+      "path": "lpac-pipe-front-native-abi-01.json",
+      "sha256": "16593f0635ccb649ffb44b69c5f4043a32bf0bf2e7474d3a511acb45bea22718"
+    },
+    "actual_ready": false,
+    "baseline_commit": "277c112f81fb4e3b70305d9e881beada4758b115",
+    "candidate_directory": "lpac-pipe-origin-candidate",
+    "contract": {
+      "bytes": 33381,
+      "sha256": "50c679695df76c6a1288abf7a040daf14c126187ea620e38eeb7246c5b126cd0"
+    },
+    "files": {
+      ".github/native/windows_identity_lpac_pipe_front_actor.cpp": {
+        "bytes": 6869,
+        "sha256": "ecc4a793fa1afc33a5c9407486ee9f463bd68132b8090eb259270a89d19ca48d"
+      },
+      "tests/test_windows_identity_lpac_pipe_front_native.py": {
+        "bytes": 12628,
+        "sha256": "9557ab2e2376c8c08f91dba67245fa43328cb187a4f74b7f0f695ede3ac52444"
+      }
+    },
+    "full_actor_compile_and_PE_import_audit_pending": true,
+    "immutable_old_sources": {
+      ".github/native/windows_identity_actor.cpp": {
+        "bytes": 31002,
+        "sha256": "530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553"
+      },
+      ".github/native/windows_identity_proxy_bridge_core.hpp": {
+        "bytes": 16902,
+        "sha256": "f03e45166265f02a65abc12930efd73634a332596d22aa78cadc1267a80b6356"
+      },
+      ".github/native/windows_identity_proxy_pipe_actor.cpp": {
+        "bytes": 16095,
+        "sha256": "26636a6b9979e91452cf6e7d2049d6fbbfa43639a35708ee18d4a71e67fb8dd0"
+      }
+    },
+    "interface_version": 1,
+    "limitations": [
+      "Portable fake results are not an LPAC/pipe/HTTP runtime result.",
+      "Native self identity does not replace external four-descriptor LPAC admission.",
+      "Direct imports KERNEL32/ADVAPI32 are expected, not proven until parent builds and independently reads the PE.",
+      "Generated request/sink closed48byte operation mapping is not an arbitrary application adapter or isolation acceptance."
+    ],
+    "native_source_count": 4,
+    "native_sources": {
+      ".github/native/windows_identity_actor.cpp": {
+        "bytes": 31002,
+        "sha256": "530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553"
+      },
+      ".github/native/windows_identity_lpac_pipe_front_actor.cpp": {
+        "bytes": 6869,
+        "sha256": "ecc4a793fa1afc33a5c9407486ee9f463bd68132b8090eb259270a89d19ca48d"
+      },
+      ".github/native/windows_identity_proxy_bridge_core.hpp": {
+        "bytes": 16902,
+        "sha256": "f03e45166265f02a65abc12930efd73634a332596d22aa78cadc1267a80b6356"
+      },
+      ".github/native/windows_identity_proxy_pipe_actor.cpp": {
+        "bytes": 16095,
+        "sha256": "26636a6b9979e91452cf6e7d2049d6fbbfa43639a35708ee18d4a71e67fb8dd0"
+      }
+    },
+    "no_actor_run": true,
+    "no_main_edits": true,
+    "no_security_or_network_mutation": true,
+    "patch": {
+      "bytes": 20264,
+      "path": "lpac-pipe-front-native-candidate-01.patch",
+      "sha256": "8b3a3467581c035eef55091b379dd5dbed4c3f3810641a4f6bfbc48f3322e2f8"
+    },
+    "portable_pure": {
+      "actor_executed": false,
+      "actor_windows_branch_compiled": false,
+      "assertions": {
+        "IMMUTABLE_CAPS_PRODUCTION_ASSERTIONS": 27,
+        "LPAC_PIPE_PORTABLE_ASSERTIONS": 2656
+      },
+      "command": "Installed x64 DevShell: python -I -S -B work/capture_lpac_pipe_front_native_pure_02.py",
+      "errors": 0,
+      "exact_immutable_capability_function_sha256": "65755f4339b454fab6cb523bf33c7c98ca2b25e2cea0065ed2fce07e4d1cef5c",
+      "failures": 0,
+      "log": {
+        "bytes": 867,
+        "path": "lpac-pipe-front-native-pure-02.log",
+        "sha256": "cf5b7b57486a2141a2595f0cfc2e3dab1a72036b9acf90e87ba0f7f42371ba49"
+      },
+      "native_windows_api_called": false,
+      "network_called": false,
+      "seconds": "1.875",
+      "skipped": 0,
+      "tests": 3,
+      "total_assertions": 2683
+    },
+    "prior_pure_log": {
+      "bytes": 867,
+      "path": "lpac-pipe-front-native-pure-01.log",
+      "sha256": "4966728ce57e8cba1c1d062fe985ccc678d58dddbeda27f3a5cd2c00196c9d27"
+    },
+    "root_contract_review": {
+      "bytes": 1187,
+      "sha256": "6daa01bc1332ae31091b808d47f3fefb490e4eccab804e4da78a05f32dfb7488"
+    },
+    "schema_version": 1,
+    "source_checks": {
+      "external_held_LPAC_proof_required": true,
+      "frontend_role_only": true,
+      "new_files_LF": true,
+      "no_old_source_changes": true,
+      "no_python_owner_changes": true,
+      "original_ten_second_epoch": true,
+      "readback_after_set_before_protocol": true,
+      "selected_network_proxy_product_flags_false": true
+    },
+    "stage": "new-lpac-pipe-frontend-native-candidate-freeze"
+  },
+  "raw_commitment": {
+    "bytes": 4418,
+    "sha256": "e84fd2d705e089f0f1d30938f687068db3b4ea58d833b4f273fac365809f12ae"
+  },
+  "schema_version": 1,
+  "stage": "source-evidence-safe-view",
+  "temporal_scope": "Original preparation/review snapshot: its pending/false runtime fields are historical snapshot fields, not the current result.",
+  "transformation": "JSON value projection; account identifiers/user paths redacted if present; no runtime inference"
+}

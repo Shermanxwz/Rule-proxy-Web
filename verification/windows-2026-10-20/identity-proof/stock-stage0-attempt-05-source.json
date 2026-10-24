@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "sanitized": true,
+  "byte_exact": false,
+  "run_id": 39383594728,
+  "commit": "90e5d2bcee49928bff2731230419c0ccb5b0939d",
+  "compile_passed": true,
+  "recovery_goal_met": true,
+  "provider_removal_occurred": true,
+  "package_installation_started": false,
+  "vm_created": false,
+  "isolation_acceptance": false,
+  "failure_category": "apt_plan_unverified_reason_not_exported",
+  "artifacts": [
+    {
+      "id": 12247586373,
+      "name": "stock-provider-recovery-public",
+      "zip_sha256": "f42516552cb98b1d7cb6b5ac591b9cff242b217a46f026af3b654e0c798b1abb"
+    },
+    {
+      "id": 12247586378,
+      "name": "stock-preparation-public",
+      "zip_sha256": "480413a6fbf9edef9ba1fcce3d23d9f1ae5174746b827624971da71d237ae09c"
+    }
+  ],
+  "source": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39383594728"
+}

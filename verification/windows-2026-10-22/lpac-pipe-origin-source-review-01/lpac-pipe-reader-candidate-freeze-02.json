@@ -1,0 +1,77 @@
+{
+  "content": {
+    "actual_actor_or_OS_API_called": false,
+    "actual_audit_executed": false,
+    "candidate": {
+      "bytes": 21980,
+      "sha256": "50f982f02f897dbea9ec2e3381b8fce052bbc2366487188d0cc03498d969a666"
+    },
+    "candidate_runtime_sources_during_component_only": {
+      ".github/windows_identity_lpac_pipe_origin.py": "4b1c5001b5e8b71a5df9893392747de623cb921c7fe5bed8ca524516cca5e072",
+      ".github/windows_identity_lpac_pipe_origin_local.py": "a69fec199a9c7252ed733f3f71e4408afabd0c6f9e7ac36612105ba431e71ce6",
+      "tests/test_windows_identity_lpac_pipe_origin.py": "cc7e00b425eeb5b7aa60cd958f02d35d78804209ddb3c3685d2807bab7fa8152",
+      "tests/test_windows_identity_lpac_pipe_origin_local.py": "e813cb0866c4ab1e8f1fdc8ed586cb9c53c4fa402f5e2d09c23157bb8fa396a3"
+    },
+    "candidate_sources_stable": true,
+    "default_preview": {
+      "executions": 1,
+      "exit_code": 0,
+      "result": {
+        "files_written": false,
+        "final_operator_pins_required": true,
+        "mode": "file-only-reader-preview",
+        "profile": "zero-cap-lpac-fixed-pipe-origin-mechanism-v1",
+        "repo_imported": false,
+        "scope": "one-local-semantic-lpac-held-ipc-relay-origin-v1",
+        "verification_executed": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "stdout": {
+        "bytes": 276,
+        "sha256": "6cab669534c188c61eeb6d292f9d3d3954f89997ef2a7ed9efe6c15eb2235c6b"
+      }
+    },
+    "final_actual_source_and_ready_pins_pending": true,
+    "main_or_candidate_runtime_source_modified": false,
+    "no_standalone_outer_raw_PI_ledger_claimed": true,
+    "old_reader": {
+      "bytes": 21236,
+      "preserved": true,
+      "sha256": "c5fc89bd549bb3f20b1880468fb08d58002bf46f9cfa3324719b58927e33b71f"
+    },
+    "regression": {
+      "missing_worker_no_forensic_fallback": true,
+      "new_reader_retains_valid_partial_worker_and_independent_origin": true,
+      "old_reader_demonstrated_JSONDecodeError_for_committed_invalid_report": true,
+      "optional_projection_failure_separate_from_source_validation": true,
+      "physical_PI_tamper_rejected": true
+    },
+    "schema_version": 1,
+    "stage": "inert-reader-component-checks",
+    "tests": {
+      "count": 4,
+      "errors": 0,
+      "failures": 0,
+      "log": {
+        "bytes": 833,
+        "sha256": "c9d4d4573d7aa065662afffdc5e23af181c5849bd8979dbcd4ae83531fe1c561"
+      },
+      "skipped": 0,
+      "test_source": {
+        "bytes": 5210,
+        "sha256": "29ff0583abc6c97be363e71e595ab9efb54f7e944841a39945f572a731a048ec"
+      }
+    }
+  },
+  "raw_commitment": {
+    "bytes": 2511,
+    "sha256": "59e348029549f4b6eada1be42980ce5ed80208459da7e668ae844be650aeaf7b"
+  },
+  "schema_version": 1,
+  "stage": "source-evidence-safe-view",
+  "temporal_scope": "Original preparation/review snapshot: its pending/false runtime fields are historical snapshot fields, not the current result.",
+  "transformation": "JSON value projection; account identifiers/user paths redacted if present; no runtime inference"
+}

@@ -1,0 +1,113 @@
+{
+  "ac_lpac_four_matrix_pair_qualified": false,
+  "broker_cancellation_proven": false,
+  "broker_outcome_unknown": true,
+  "dns_tested": false,
+  "document": {
+    "bytes": 5880,
+    "path": "docs/validation/2026-10-23-psec-lpac-identity-01.md",
+    "sha256": "a62b3c983355a309cee02e33b2bbdb37d3baa04962099ffd668c6c78cb97eece"
+  },
+  "durable_intent_actions": [
+    "bind",
+    "create",
+    "ac",
+    "stop",
+    "close",
+    "unbind"
+  ],
+  "evidence_index": {
+    "bytes": 3291,
+    "path": "verification/windows-2026-10-22/psec-lpac-identity-local-01-evidence-index.json",
+    "sha256": "8c3d27d35e2082a8506ebb096635ebb4fd1b74df7c80b528e97f32fa475417e2"
+  },
+  "existing_g_psec_api_dns_leak_remains_true": true,
+  "external_environment_absence_verified": false,
+  "failure": "report",
+  "final_worker_result_available": false,
+  "first_ac_earlier_failure_unknown": true,
+  "global_before_after_byte_equal": true,
+  "global_snapshot_bytes": 7378,
+  "global_snapshot_sha256": "f05d91ee76ee8a97ae5ab3bfa092167a8ee560c083255f142e6c453f2edf7ab3",
+  "intent_only_not_api_return": true,
+  "linux_equivalence_qualified": false,
+  "lpac_arm_observed": false,
+  "model2_policy_compared": false,
+  "network_tested": false,
+  "next_fresh02_independent_diagnostic_policy_allowed": true,
+  "nrpt_in_snapshot": false,
+  "observation_complete": false,
+  "observed_stderr_error": "ValueError: cpse_task_number",
+  "old_opaque_reopen_replay_or_retry_close_authorized": false,
+  "original_public": {
+    "bytes": 1660,
+    "path": "verification/windows-2026-10-22/psec-lpac-identity-local-01-public.json",
+    "sha256": "cc562d1b045fea336c4257051faa52e63aa415d91556a4ea84f18aa363652f9c"
+  },
+  "original_unknown_not_reinterpreted": true,
+  "outer_kernel_cleanup_confirmed": true,
+  "product_acceptance": false,
+  "proxy_tested": false,
+  "recovery_required": true,
+  "report_validator_filetime_width_bug": true,
+  "schema_version": 1,
+  "snapshot_objects": [
+    "firewall_profiles",
+    "dns",
+    "routes",
+    "user_proxy"
+  ],
+  "source_automatic_ci": {
+    "actual01_result_is_separate_and_failed": true,
+    "conclusion": "success",
+    "cpse_experiment_executed": false,
+    "decoded_original": {
+      "bytes": 203905,
+      "kept_in_work": true,
+      "sha256": "787bd9011f2b4894c14950ba8d29f03bf9955fda2e926dfe9d8e88bd91877735"
+    },
+    "errors": 0,
+    "event": "push",
+    "failures": 0,
+    "gated_runtime_steps_skipped": [
+      5,
+      6,
+      7,
+      8,
+      9
+    ],
+    "job_id": 120149423016,
+    "native_actor_executed": false,
+    "published_view": {
+      "bytes": 202831,
+      "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-01/ci-39872306319-decoded-public-view.log",
+      "sha256": "cebd65bbfc71027a6dded4dda8f33f51c000b81f07e3867d6d7836123954f5e6"
+    },
+    "pure_or_ci_success_is_not_runtime_acceptance": true,
+    "run_id": 39872306319,
+    "schema_version": 1,
+    "seconds": 59.713,
+    "skips": 0,
+    "source_commit": "1c83029245e889b2c950ca5dbaa0da675a287c09",
+    "stage": "read-only-psec-identity-source-auto-ci-summary",
+    "status": "completed",
+    "tests_run": 857,
+    "url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39872306319",
+    "workflow_dispatched": false,
+    "workflow_rerun": false
+  },
+  "source_commit": "1c83029245e889b2c950ca5dbaa0da675a287c09",
+  "source_review_index": {
+    "bytes": 35175,
+    "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-01/index.json",
+    "sha256": "a101736f5fc640981608502a73abe85fdda7975893deafb027326343fbbcb551"
+  },
+  "source_sha256": "7dd12aaf5c8727c325e184f69393072e13e0b1772aa1be03318adf7e1d77951a",
+  "stage": "psec-lpac-identity01-partial-report-failure-checkpoint",
+  "standalone_semantic_dns02_success_preserved": true,
+  "status": "inconclusive",
+  "void_close_raw_receipt_available": false,
+  "void_close_source_controlflow_inference_only": true,
+  "worker_exit_code": 1,
+  "worker_report_available": false
+}

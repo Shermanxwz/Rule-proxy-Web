@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "stage": "independent-lpac-dns-diagnostic-revisions-04-05-review",
+  "reviewer_role": "local_owner",
+  "review_type": "read-only source review and independently executed injected-API pure tests",
+  "actual_actor_executed": false,
+  "actual_native_api_experiment_executed": false,
+  "actual_network_executed": false,
+  "author_source_files_modified_by_reviewer": false,
+  "main_source_files_modified_by_reviewer": false,
+  "runs": [
+    {
+      "revision": 4,
+      "decision": "go-for-root-reviewed-integration",
+      "remaining_blockers": [],
+      "reviewed_files": {
+        ".github/windows_identity_lpac_dns_local.py": "7682d065c2311f04ebe0f199771902ff0ffe59a2bf52cc05d2be2d4a2e8e3445",
+        "tests/test_windows_identity_lpac_dns_local.py": "81f7366bd5155616a55f5af165f7c2359e7d1c95a2f9147616e72b0bb8610ef7"
+      },
+      "command": "python -I -S -B -m unittest discover -s tests -p test_windows_identity_lpac_dns_local.py -v",
+      "independent_tests": 31,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "unittest_seconds": 6.765,
+      "log_available": false,
+      "raw_log_sha256": null,
+      "scope": "Complete revision04 focused suite, independently executed. The API FALSE/nonzero-error/all-four-PI-zero/timely/no-admission branch only changes the internal cleanup child view; historical attempted/exit facts and all other cleanup gates remain unchanged."
+    },
+    {
+      "revision": 5,
+      "decision": "go-for-root-reviewed-integration",
+      "remaining_blockers": [],
+      "reviewed_files": {
+        ".github/windows_identity_lpac_dns_local.py": "3c16fc9f8a6e42cd8c3dc93c73bc43cd9ed0205139f0bef0bb71ca572927fc5d",
+        "tests/test_windows_identity_lpac_dns_local.py": "397c53c73de342ef69b34ef1c3bd1eca526e3eb67892ce12d0519ff5300caa56"
+      },
+      "command": "python -I -S -B -m unittest discover -s tests -p test_windows_identity_lpac_dns_local.py -k private -k original_create -k actual_create_exception -v",
+      "independent_tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "unittest_seconds": 0.433,
+      "log_available": false,
+      "raw_log_sha256": null,
+      "scope": "Only three new private-diagnostic tests plus the extended actual_create_exception fake-adapter test. Original Create exception survives a secondary finally error; bounded private details never enter public output or erase receiver positivity."
+    }
+  ],
+  "attribution": {
+    "these_are_independent_reviewer_runs": true,
+    "author_full_revision05_34_test_run_represented_here": false,
+    "root_full_754_test_run_represented_here": false,
+    "missing_raw_logs_not_reconstructed_or_hashed": true
+  },
+  "runtime_or_mechanism_acceptance_claimed": false
+}

@@ -1,0 +1,67 @@
+{
+  "compiled_base_identity_actor": {
+    "actor": "windows_identity_actor.exe",
+    "compile_only": true,
+    "executed": false,
+    "sha256": "9f8790d6f13f27eb0d6bfb3b2aac252aa84026b2e374c557b605da9593ee0d90"
+  },
+  "conclusion": "success",
+  "decoded_log": {
+    "bytes": 170198,
+    "kept_in_work": true,
+    "sha256": "f9cf39f5145a4b4d8a16329e2491fe8def11156ae16a2424d83d886a551a0e3b"
+  },
+  "elapsed_seconds": 31.483,
+  "errors": 0,
+  "event": "push",
+  "failures": 0,
+  "interpretation": {
+    "actual_raw_dns01_is_separate_evidence": true,
+    "dns_isolation_qualified": false,
+    "raw_udp_actor_runtime_proven": false,
+    "selected_dns_or_udp_attempted": false
+  },
+  "job_id": 120052707027,
+  "review_actions": {
+    "actor_executed": false,
+    "security_or_network_state_changed": false,
+    "workflow_dispatched": false,
+    "workflow_rerun": false
+  },
+  "run_attempt": 1,
+  "run_id": 39844113677,
+  "runtime_steps": [
+    {
+      "conclusion": "skipped",
+      "name": "Read-only current and existing linked token ABI preflight",
+      "number": 5
+    },
+    {
+      "conclusion": "skipped",
+      "name": "Approved Stage 0b inherited-pipe proof in a verified ordinary token",
+      "number": 6
+    },
+    {
+      "conclusion": "skipped",
+      "name": "Read-only R0 source token field and ABI diagnostics",
+      "number": 7
+    },
+    {
+      "conclusion": "skipped",
+      "name": "Restricted-caller R0 identity diagnostic, not ordinary-user acceptance",
+      "number": 8
+    },
+    {
+      "conclusion": "skipped",
+      "name": "Four-cell trusted-actor startup controls, no isolation acceptance",
+      "number": 9
+    }
+  ],
+  "schema_version": 1,
+  "skips": 0,
+  "source_commit": "0b9df64beb111ac8cb02ad6a4db41bbbeffbd9dd",
+  "stage": "read-only-automatic-raw-dns-source-ci-review",
+  "status": "completed",
+  "tests_run": 717,
+  "url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39844113677"
+}

@@ -1,0 +1,59 @@
+{
+  "files": [
+    {
+      "bytes": 3031,
+      "path": "verification/windows-2026-10-22/model2-dns-01-preflight.json",
+      "sha256": "4800dcb26463ddbd6a1523a240a9b9ebaa9b39843b96aea456cd6837f01cb64f"
+    },
+    {
+      "bytes": 3060,
+      "path": "verification/windows-2026-10-22/model2-dns-01-public.json",
+      "sha256": "51d8c38a9acd79c8dee629782b1e091a56bb7ccd6d2209cf28852396401b08b5"
+    },
+    {
+      "bytes": 3397,
+      "path": "verification/windows-2026-10-22/model2-dns-01-runner.py",
+      "sha256": "03dfe1464f211ea1da3e8b18c674e234ccdd74c1768f5e59081aad8b4df7794e"
+    },
+    {
+      "bytes": 5494,
+      "path": "verification/windows-2026-10-22/model2-dns-01-component-projection.json",
+      "sha256": "6b5cb3309195fc1b97a78f7939f7e0c3dbe1e9c52b5e67c5bbb72556a4f1cd6a"
+    },
+    {
+      "bytes": 4287,
+      "path": "verification/windows-2026-10-22/model2-dns-01-summary.json",
+      "sha256": "35670641236253a0d272cad79316cc040b4e6c1d7f84fdf21e48ad7d80de4d3a"
+    },
+    {
+      "bytes": 1142,
+      "path": "verification/windows-2026-10-22/model2-dns-01-preplan-byte-gate.json",
+      "sha256": "091a26a0ee306e805e99918f72fc9b5f6a9a2a6ede2dd09e60228030c01b7090"
+    },
+    {
+      "bytes": 1002,
+      "path": "verification/windows-2026-10-22/model2-dns-after01-capture.ps1",
+      "sha256": "c15718fefce3280ecc94bd8aaca27521a72fc854cf6e66eaa7e720b45d0cbbc6"
+    },
+    {
+      "bytes": 1996,
+      "path": "verification/windows-2026-10-22/model2-dns-after01-expanded.ps1",
+      "sha256": "464772981ffddb63dfea3878da319d9d93c60db2a87e8bc50beda0a91d4ea5c6"
+    },
+    {
+      "bytes": 850,
+      "path": "verification/windows-2026-10-22/model2-dns-after01-global-projection.json",
+      "sha256": "3eb251439a4fef1f7326aa26535dbfbd0053b2cc45d18539f13f9cb1f42348c4"
+    },
+    {
+      "bytes": 878,
+      "path": "verification/windows-2026-10-22/model2-dns-after01-global-evidence-index.json",
+      "sha256": "131600b8c67cb4c4dffd961ca24687fc4f25656bcdfb2c94c290aaaea9d43c0a"
+    }
+  ],
+  "preplan_gate_is_separate_from_actual_runtime": true,
+  "schema_version": 1,
+  "selected_dns_wire_leak_positive": true,
+  "source_commit": "6e87e6a3dc30def12d1ec76a8e8b077a101ebee0",
+  "stage": "model2-selected-dns-leak-evidence-index"
+}

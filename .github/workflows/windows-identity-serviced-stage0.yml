@@ -1,0 +1,411 @@
+# Supported control attempt 10: same-handle receipt and closed sender diagnostics.
+name: Windows serviced client Stage0 (bounded experiment)
+on:
+  push:
+    branches: [dot/windows-isolation-proof]
+    paths:
+      - '.github/windows_identity_serviced_stage0.py'
+      - '.github/windows_identity_stock_stage0.py'
+      - '.github/windows-identity-serviced-stage0-*.ps1'
+      - '.github/windows-identity-serviced-update.ps1'
+      - '.github/windows-identity-serviced-telemetry.ps1'
+      - '.github/test-windows-identity-serviced-telemetry.ps1'
+      - '.github/test-windows-identity-serviced-receipt.ps1'
+      - 'tests/test_windows_client_serviced_receipt.py'
+      - 'tests/test_windows_client_serviced_telemetry.py'
+      - 'tests/test_windows_client_serviced_progress.py'
+      - '.github/workflows/windows-identity-serviced-stage0.yml'
+      - 'tests/test_windows_client_serviced_stage0.py'
+      - 'tests/test_windows_client_serviced_guest.py'
+      - 'tests/test_windows_client_serviced_diagnostics.py'
+      - '.github/test-windows-identity-serviced-gates.ps1'
+      - '.github/test_windows_serviced_qmp.py'
+      - '.github/test_windows_serviced_progress_qmp.py'
+      - 'tests/test_windows_client_serviced_progress_qmp.py'
+      - 'tests/test_windows_client_serviced_qmp.py'
+      - '.github/windows_identity_proof.py'
+      - '.github/test_windows_identity_actor_projection.py'
+      - '.github/test-windows-identity-direct-gates.ps1'
+      - 'tests/test_windows_client_direct_actor_projection.py'
+      - 'tests/test_windows_identity_proof.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  compile:
+    # Keep the exact experimental branch and explicit runtime intent checks.
+    if: ${{ true && github.ref == 'refs/heads/dot/windows-isolation-proof' && github.event_name == 'push' && (contains(github.event.head_commit.message, '[identity-serviced-stage0-runtime]') || contains(github.event.head_commit.message, '[identity-serviced-stage0-gates]')) }}
+    runs-on: windows-2025
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        id: compile_checkout
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Parse only the new guest PowerShell entrypoints
+        shell: powershell
+        run: |
+          foreach ($name in @('stage0-setup', 'stage0-run', 'update', 'telemetry')) {
+            $tokens=$null; $errors=$null
+            [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $PWD ".github/windows-identity-serviced-$name.ps1"),[ref]$tokens,[ref]$errors) | Out-Null
+            if ($errors.Count) { throw 'Stage0 guest syntax gate failed' }
+          }
+      - name: Execute mocked guest boundary regressions, not VM acceptance
+        shell: powershell
+        run: ./.github/test-windows-identity-serviced-gates.ps1
+      - name: Execute bounded shared receipt snapshots, not VM acceptance
+        timeout-minutes: 2
+        shell: powershell
+        run: ./.github/test-windows-identity-serviced-receipt.ps1
+      - name: Execute bounded advisory sender fixtures, not VM acceptance
+        if: ${{ !cancelled() && steps.compile_checkout.outcome == 'success' }}
+        timeout-minutes: 2
+        shell: powershell
+        run: ./.github/test-windows-identity-serviced-telemetry.ps1
+      - name: Execute read-only native environment/capability and direct boundary gates
+        shell: powershell
+        run: ./.github/test-windows-identity-direct-gates.ps1
+      - name: Compile the pinned zero-network native actor for source control and later VM
+        shell: pwsh
+        run: |
+          $vswhere="${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vs=& $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $vs) { throw 'Installed MSVC not found' }
+          Import-Module "$vs\Common7\Tools\Microsoft.VisualStudio.DevShell.dll"
+          Enter-VsDevShell -VsInstallPath $vs -SkipAutomaticLocation -DevCmdArguments '-arch=x64 -host_arch=x64'
+          ./.github/build_windows_identity_actor.ps1 -IdentityOnly -OutputDirectory "$PWD\client-stage0-actor" -ExpectedSourceSha256 530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553
+          $manifest=Get-Content -Raw client-stage0-actor/build-manifest.json | ConvertFrom-Json
+          if ($manifest.httpCompiled -or -not $manifest.staticCrt) { throw 'Zero-network static actor required' }
+          [IO.File]::WriteAllText("$PWD\client-stage0-actor/actor-sha256.txt",$manifest.executableSha256)
+      - name: Source-token actor projection negative control, not isolation acceptance
+        timeout-minutes: 1
+        shell: pwsh
+        run: |
+          $digest=(Get-Content -Raw client-stage0-actor/actor-sha256.txt).Trim().ToLowerInvariant()
+          python -B .github/test_windows_identity_actor_projection.py --run-source-token-control --actor "$PWD/client-stage0-actor/windows_identity_actor.exe" --actor-sha256 $digest
+          if ($LASTEXITCODE -ne 0) { throw 'Source-token actor projection control failed' }
+      - name: Pure unit tests, not Windows runtime acceptance
+        run: |
+          python -B -m unittest discover -s tests -p "test_windows_client_stock_stage0.py" -v
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          foreach ($file in @('test_windows_client_serviced_stage0.py', 'test_windows_client_serviced_guest.py', 'test_windows_client_serviced_workflow.py', 'test_windows_client_serviced_diagnostics.py', 'test_windows_client_serviced_qmp.py', 'test_windows_client_serviced_telemetry.py', 'test_windows_client_serviced_progress.py', 'test_windows_client_serviced_progress_qmp.py', 'test_windows_client_serviced_receipt.py')) {
+            if (-not (Test-Path -LiteralPath (Join-Path 'tests' $file) -PathType Leaf)) { throw 'Required serviced tests missing' }
+          }
+          python -B -c "import unittest; s=unittest.defaultTestLoader.discover('tests', pattern='test_windows_client_serviced*.py'); assert s.countTestCases() >= 7, 'Serviced test discovery incomplete'; r=unittest.TextTestRunner(verbosity=2).run(s); raise SystemExit(not r.wasSuccessful())"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: actions/upload-artifact@v7
+        with:
+          name: client-stage0-actor
+          path: |
+            client-stage0-actor/windows_identity_actor.exe
+            client-stage0-actor/actor-sha256.txt
+          retention-days: 7
+          if-no-files-found: error
+  host-unit:
+    # Pure Linux host tests are separate: native job still starts fresh.
+    if: ${{ true && github.ref == 'refs/heads/dot/windows-isolation-proof' && github.event_name == 'push' && (contains(github.event.head_commit.message, '[identity-serviced-stage0-runtime]') || contains(github.event.head_commit.message, '[identity-serviced-stage0-gates]')) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Required Linux host and closed protocol unit tests, never a VM
+        run: |
+          test -f tests/test_windows_client_serviced_stage0.py
+          test -f tests/test_windows_client_serviced_guest.py
+          test -f tests/test_windows_client_serviced_workflow.py
+          test -f tests/test_windows_client_serviced_diagnostics.py
+          test -f tests/test_windows_client_serviced_qmp.py
+          test -f tests/test_windows_client_serviced_telemetry.py
+          test -f tests/test_windows_client_serviced_progress.py
+          test -f tests/test_windows_client_serviced_progress_qmp.py
+          test -f tests/test_windows_client_serviced_receipt.py
+          test -f tests/test_windows_identity_proof.py
+          test -f tests/test_windows_client_direct_actor_projection.py
+          python3 -B -c "import unittest; s=unittest.defaultTestLoader.discover('tests', pattern='test_windows_client_serviced*.py'); assert s.countTestCases() >= 7, 'Serviced test discovery incomplete'; r=unittest.TextTestRunner(verbosity=2).run(s); raise SystemExit(not r.wasSuccessful() or bool(r.skipped))"
+          python3 -B -m unittest discover -s tests -p test_windows_client_stock_stage0.py -q
+          python3 -B -m unittest discover -s tests -p test_windows_identity_proof.py -q
+          python3 -B -m unittest discover -s tests -p test_windows_client_direct_actor_projection.py -q
+  qmp-media-gate:
+    # Optical gate stays paused; separate dual-monitor gate briefly runs packaged firmware.
+    # Neither gate uses Windows, downloaded firmware, KVM or networking.
+    if: ${{ true && github.ref == 'refs/heads/dot/windows-isolation-proof' && github.event_name == 'push' && (contains(github.event.head_commit.message, '[identity-serviced-stage0-runtime]') || contains(github.event.head_commit.message, '[identity-serviced-stage0-gates]')) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Install only the QEMU executable for the synthetic media gate
+        timeout-minutes: 3
+        run: |
+          sudo timeout 90 apt-get update -qq
+          sudo timeout 90 apt-get install -y --no-install-recommends --no-remove qemu-system-x86
+      - name: Actual QEMU 8.2 media API regression, never Windows acceptance
+        timeout-minutes: 1
+        run: python3 -B .github/test_windows_serviced_qmp.py --run-actual-qemu
+      - name: Actual dual-monitor isolation with brief synthetic firmware, not Windows acceptance
+        timeout-minutes: 1
+        run: python3 -B .github/test_windows_serviced_progress_qmp.py --run-actual-qemu --output "${{ runner.temp }}/serviced-progress-qmp-public.json"
+  native:
+    if: ${{ github.ref == 'refs/heads/dot/windows-isolation-proof' && github.event_name == 'push' && contains(github.event.head_commit.message, '[identity-serviced-stage0-runtime]') }}
+    needs: [compile, host-unit, qmp-media-gate]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Establish absolute native job deadline
+        timeout-minutes: 1
+        run: echo "STOCK_JOB_DEADLINE=$(( $(date +%s) + 10500 ))" >> "$GITHUB_ENV"
+      - name: Remaining absolute budget for step 0
+        id: stock_budget_0
+        timeout-minutes: 1
+        run: |
+          remaining=$(( STOCK_JOB_DEADLINE - $(date +%s) - 180 ))
+          minutes=$(( remaining / 60 ))
+          test "$minutes" -ge 1
+          if [ "$minutes" -gt 2 ]; then minutes=2; fi
+          echo "minutes=$minutes" >> "$GITHUB_OUTPUT"
+      - name: Read-only provider capacity admission, never cache deletion
+        timeout-minutes: ${{ fromJSON(steps.stock_budget_0.outputs.minutes) }}
+        run: |
+          /usr/bin/python3 -B - <<'READ_ONLY_CAPACITY'
+          import json, os, shutil
+          from pathlib import Path
+          workspace=Path(os.environ['GITHUB_WORKSPACE'])
+          root=Path(os.environ['RUNNER_TEMP'])/'identity-serviced-capacity'
+          root.mkdir(mode=0o700, exist_ok=False)
+          same=workspace.stat().st_dev==root.stat().st_dev
+          free=shutil.disk_usage(workspace).free
+          required=64*1024**3+512*1024**2
+          okay=same and free>=required
+          report={'schema_version':1,'kind':'read_only_capacity_preflight',
+                  'status':'admitted' if okay else 'insufficient_capacity',
+                  'required_free_bytes':required,'observed_free_bytes':free,
+                  'same_filesystem':same,'provider_changes':False,
+                  'provider_deletion_attempted':False,'recovery_performed':False}
+          (root/'public.json').write_text(json.dumps(report,sort_keys=True)+'\n',encoding='ascii')
+          if not okay: raise SystemExit('Read-only capacity admission failed; no provider cleanup attempted')
+          READ_ONLY_CAPACITY
+          sudo /usr/bin/python3 -c 'import os,fcntl; fd=os.open("/dev/kvm",os.O_RDWR|os.O_CLOEXEC); v=fcntl.ioctl(fd,0xAE00,0); os.close(fd); assert v==12'
+      - name: Observe preparation baseline on the same filesystem before checkout
+        timeout-minutes: 1
+        run: |
+          /usr/bin/python3 -B - <<'PY'
+          import json, os, shutil, sys
+          from pathlib import Path
+          workspace=Path(os.environ['GITHUB_WORKSPACE'])
+          output=Path(os.environ['RUNNER_TEMP'])/'identity-serviced-capacity/preparation-public.json'
+          device=workspace.stat().st_dev
+          same=device==output.parent.stat().st_dev
+          free=shutil.disk_usage(workspace).free
+          allowance=512*1024**2; floor=64*1024**3
+          okay=same and sys.version_info[:2]==(3,12) and free>=floor+allowance
+          report={'schema_version':1,'allowance_bytes':allowance,'minimum_free_bytes':floor,
+                  'baseline_free_bytes':free,'same_filesystem':same,
+                  'status':'observed_within_allowance' if okay else 'blocked',
+                  'peak_measured':False,'provider_background_writes_excluded':False,
+                  'samples':[{'phase':'before_checkout','free_bytes':free,'net_decline_bytes':0}]}
+          output.write_text(json.dumps(report,sort_keys=True)+'\n',encoding='ascii')
+          if not okay: raise SystemExit('Preparation baseline unavailable; no checkout or package installation')
+          with open(os.environ['GITHUB_ENV'],'a',encoding='ascii') as environment:
+              environment.write('STOCK_PREP_DEVICE_ID='+str(device)+'\n')
+          PY
+      - name: Remaining absolute budget for step 1
+        id: stock_budget_1
+        timeout-minutes: 1
+        run: |
+          remaining=$(( STOCK_JOB_DEADLINE - $(date +%s) - 180 ))
+          minutes=$(( remaining / 60 ))
+          test "$minutes" -ge 1
+          if [ "$minutes" -gt 8 ]; then minutes=8; fi
+          echo "minutes=$minutes" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v5
+        timeout-minutes: ${{ fromJSON(steps.stock_budget_1.outputs.minutes) }}
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Remaining absolute budget for step 2
+        id: stock_budget_2
+        timeout-minutes: 1
+        run: |
+          remaining=$(( STOCK_JOB_DEADLINE - $(date +%s) - 180 ))
+          minutes=$(( remaining / 60 ))
+          test "$minutes" -ge 1
+          if [ "$minutes" -gt 8 ]; then minutes=8; fi
+          echo "minutes=$minutes" >> "$GITHUB_OUTPUT"
+      - name: Check preinstalled system Python and observed checkout consumption
+        timeout-minutes: ${{ fromJSON(steps.stock_budget_2.outputs.minutes) }}
+        run: |
+          /usr/bin/python3 -B .github/windows_identity_serviced_stage0.py --check-preparation --preparation-phase post_checkout \
+            --output "$RUNNER_TEMP/identity-serviced-capacity/preparation-public.json"
+      - name: Remaining absolute budget for step 3
+        id: stock_budget_3
+        timeout-minutes: 1
+        run: |
+          remaining=$(( STOCK_JOB_DEADLINE - $(date +%s) - 180 ))
+          minutes=$(( remaining / 60 ))
+          test "$minutes" -ge 1
+          if [ "$minutes" -gt 8 ]; then minutes=8; fi
+          echo "minutes=$minutes" >> "$GITHUB_OUTPUT"
+      - name: Install only the existing disposable VM tools
+        timeout-minutes: ${{ fromJSON(steps.stock_budget_3.outputs.minutes) }}
+        run: |
+          sudo apt-get update
+          /usr/bin/python3 -B .github/windows_identity_serviced_stage0.py --check-preparation --preparation-phase post_apt_indexes \
+            --output "$RUNNER_TEMP/identity-serviced-capacity/preparation-public.json"
+          /usr/bin/python3 -B .github/windows_identity_serviced_stage0.py --check-apt-plan \
+            --output "$RUNNER_TEMP/identity-serviced-capacity/preparation-public.json"
+          sudo apt-get install -y --no-install-recommends --no-remove qemu-system-x86 qemu-utils ovmf swtpm xorriso curl 7zip
+          /usr/bin/python3 -B .github/windows_identity_serviced_stage0.py --check-preparation --preparation-phase post_apt \
+            --output "$RUNNER_TEMP/identity-serviced-capacity/preparation-public.json"
+      - name: Remaining absolute budget for step 4
+        id: stock_budget_4
+        timeout-minutes: 1
+        run: |
+          remaining=$(( STOCK_JOB_DEADLINE - $(date +%s) - 180 ))
+          minutes=$(( remaining / 60 ))
+          test "$minutes" -ge 1
+          if [ "$minutes" -gt 8 ]; then minutes=8; fi
+          echo "minutes=$minutes" >> "$GITHUB_OUTPUT"
+      - uses: actions/download-artifact@v8
+        timeout-minutes: ${{ fromJSON(steps.stock_budget_4.outputs.minutes) }}
+        with:
+          name: client-stage0-actor
+          path: client-stage0-actor
+      - name: Remaining absolute budget for step 5
+        id: stock_budget_5
+        timeout-minutes: 1
+        run: |
+          /usr/bin/python3 -B .github/windows_identity_serviced_stage0.py --check-preparation --preparation-phase post_actor \
+            --output "$RUNNER_TEMP/identity-serviced-capacity/preparation-public.json"
+          remaining=$(( STOCK_JOB_DEADLINE - $(date +%s) - 180 ))
+          minutes=$(( remaining / 60 ))
+          test "$minutes" -ge 1
+          if [ "$minutes" -gt 8 ]; then minutes=8; fi
+          echo "minutes=$minutes" >> "$GITHUB_OUTPUT"
+      - uses: actions/download-artifact@v8
+        timeout-minutes: ${{ fromJSON(steps.stock_budget_5.outputs.minutes) }}
+        with:
+          artifact-ids: 11938733475
+          run-id: 38660663692
+          github-token: ${{ github.token }}
+          repository: Shermanxwz/Rule-proxy-Web
+          path: g-source-download
+          skip-decompress: true
+          digest-mismatch: error
+      - name: Remaining absolute budget for step 6
+        id: stock_budget_6
+        timeout-minutes: 1
+        run: |
+          /usr/bin/python3 -B .github/windows_identity_serviced_stage0.py --check-preparation --preparation-phase post_g_download \
+            --output "$RUNNER_TEMP/identity-serviced-capacity/preparation-public.json"
+          remaining=$(( STOCK_JOB_DEADLINE - $(date +%s) - 180 ))
+          minutes=$(( remaining / 60 ))
+          test "$minutes" -ge 1
+          if [ "$minutes" -gt 8 ]; then minutes=8; fi
+          echo "minutes=$minutes" >> "$GITHUB_OUTPUT"
+      - name: Verify the fixed artifact wrapper and deterministic G runtime
+        timeout-minutes: ${{ fromJSON(steps.stock_budget_6.outputs.minutes) }}
+        run: |
+          /usr/bin/python3 -B - <<'PY'
+          import hashlib, stat, zipfile
+          from pathlib import Path, PurePosixPath
+          import install_runtime
+          files=[p for p in Path('g-source-download').iterdir() if p.is_file()]
+          if len(files)!=1 or files[0].is_symlink() or files[0].stat().st_size!=2059230 or hashlib.sha256(files[0].read_bytes()).hexdigest()!='8a771727002d5f6f03ff00f5e26f99340fbbd17383dc7405ba99f7dd3388f036':
+              raise SystemExit('Fixed G artifact wrapper mismatch')
+          needed={'build-manifest.json','wxc-exec.exe','MXC-LICENSE.md'}
+          source=Path('g-source'); source.mkdir()
+          with zipfile.ZipFile(files[0]) as z:
+              if len(z.infolist())!=3 or sum(i.file_size for i in z.infolist())!=5682058:
+                  raise SystemExit('Fixed G archive expansion mismatch')
+              selected={}
+              for item in z.infolist():
+                  p=PurePosixPath(item.filename)
+                  if p.is_absolute() or '..' in p.parts or ':' in item.filename or '\\' in item.filename or stat.S_ISLNK(item.external_attr>>16):
+                      raise SystemExit('Unsafe pinned artifact member')
+                  if not item.is_dir() and p.name in needed:
+                      if p.name in selected or item.file_size>32*1024*1024: raise SystemExit('Invalid pinned member')
+                      selected[p.name]=item
+              if set(selected)!=needed: raise SystemExit('Missing fixed G input')
+              for name,item in selected.items(): (source/name).write_bytes(z.read(item))
+          if install_runtime.build_g_bundle(source,Path('g-bundle.zip'))!=install_runtime.MXC_G_BUNDLE_SHA256:
+              raise SystemExit('Deterministic G bundle mismatch')
+          if Path('g-bundle.zip').stat().st_size!=5682398:
+              raise SystemExit('Fixed G bundle size mismatch')
+          PY
+      - name: Remaining absolute budget for step 7
+        id: stock_budget_7
+        timeout-minutes: 1
+        run: |
+          /usr/bin/python3 -B .github/windows_identity_serviced_stage0.py --check-preparation --preparation-phase post_g_bundle \
+            --output "$RUNNER_TEMP/identity-serviced-capacity/preparation-public.json"
+          remaining=$(( STOCK_JOB_DEADLINE - $(date +%s) - 180 ))
+          minutes=$(( remaining / 60 ))
+          test "$minutes" -ge 1
+          if [ "$minutes" -gt 8 ]; then minutes=8; fi
+          echo "minutes=$minutes" >> "$GITHUB_OUTPUT"
+      - name: Fetch and statically verify only the existing pinned official embedded Python
+        timeout-minutes: ${{ fromJSON(steps.stock_budget_7.outputs.minutes) }}
+        run: |
+          /usr/bin/python3 -B .github/windows_identity_stock_stage0.py --download-python \
+            --output client-stage0-python/python-3.14.8-embed-amd64.zip
+      - name: Remaining absolute budget for step 8
+        id: stock_budget_8
+        timeout-minutes: 1
+        run: |
+          /usr/bin/python3 -B .github/windows_identity_serviced_stage0.py --check-preparation --preparation-phase post_python \
+            --output "$RUNNER_TEMP/identity-serviced-capacity/preparation-public.json"
+          now=$(date +%s)
+          remaining=$(( STOCK_JOB_DEADLINE - now ))
+          minutes=$(( remaining / 60 ))
+          test "$minutes" -ge 1
+          if [ "$minutes" -gt 161 ]; then minutes=161; fi
+          host_deadline=$(( now + minutes * 60 - 30 ))
+          if [ "$host_deadline" -gt "$STOCK_JOB_DEADLINE" ]; then host_deadline=$STOCK_JOB_DEADLINE; fi
+          echo "minutes=$minutes" >> "$GITHUB_OUTPUT"
+          echo "deadline=$host_deadline" >> "$GITHUB_OUTPUT"
+      - name: Run one exact serviced ordinary-user Stage0 in the disposable client
+        timeout-minutes: ${{ fromJSON(steps.stock_budget_8.outputs.minutes) }}
+        run: |
+          /usr/bin/python3 -B .github/windows_identity_serviced_stage0.py --check-preparation --preparation-phase pre_vm \
+            --output "$RUNNER_TEMP/identity-serviced-capacity/preparation-public.json"
+          actor=$(cat client-stage0-actor/actor-sha256.txt)
+          STOCK_HOST_DEADLINE=${{ steps.stock_budget_8.outputs.deadline }}
+          remaining=$(( STOCK_HOST_DEADLINE - $(date +%s) ))
+          test "$remaining" -ge 9000
+          exec timeout --signal=TERM --kill-after=30s "${remaining}s" sudo /usr/bin/python3 -B .github/windows_identity_serviced_stage0.py \
+            --approved-disposable-vm --python-archive "$PWD/client-stage0-python/python-3.14.8-embed-amd64.zip" \
+            --actor "$PWD/client-stage0-actor/windows_identity_actor.exe" --actor-sha256 "$actor" \
+            --bundle "$PWD/g-bundle.zip" --output client-stage0-public --timeout-seconds 9600 --job-deadline-epoch "$STOCK_HOST_DEADLINE"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        timeout-minutes: 2
+        with:
+          name: serviced-capacity-preflight-public
+          path: ${{ runner.temp }}/identity-serviced-capacity/public.json
+          retention-days: 14
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v7
+        if: always()
+        timeout-minutes: 2
+        with:
+          name: windows-11-serviced-ordinary-stage0-public
+          path: client-stage0-public/public-report.json
+          retention-days: 14
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v7
+        if: always()
+        timeout-minutes: 2
+        with:
+          name: serviced-preparation-public
+          path: ${{ runner.temp }}/identity-serviced-capacity/preparation-public.json
+          retention-days: 14
+          if-no-files-found: warn

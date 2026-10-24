@@ -1,0 +1,464 @@
+{
+  "api_or_experiment_run_by_reader": false,
+  "assign_attempted_count": 3,
+  "atomic_inner_creation_proven": false,
+  "constructor_policy": "bootstrap-held-primary-matched-security-capabilities-aap-only-v1",
+  "continuous_outer_supervision_proven": false,
+  "creation_transfer_crash_gap_resolved": false,
+  "held_bound_physical_receipt_count": 9,
+  "held_worker_result_available": true,
+  "missing_assignment_or_membership_synthesized": false,
+  "physical_receipt_count": 9,
+  "physical_receipts": [
+    {
+      "bound_to_validated_held_worker_result": true,
+      "bytes": 2412,
+      "directory": "pretransfer",
+      "kind": "guard",
+      "raw_private_text_published": false,
+      "role": "ac",
+      "sha256": "187f38a7b1a6d5aa170052c42cf81952203b069bf0625b60c697c19253b28fb7",
+      "unvalidated_or_incomplete_forensic_only": false,
+      "used_for_independent_qualification": false
+    },
+    {
+      "bound_to_validated_held_worker_result": true,
+      "bytes": 2404,
+      "directory": "pretransfer",
+      "kind": "guard",
+      "raw_private_text_published": false,
+      "role": "bootstrap",
+      "sha256": "d30ea200758fab7285a3f3e930bee2a538c9c1389b06a14fffdc4b84734f2f12",
+      "unvalidated_or_incomplete_forensic_only": false,
+      "used_for_independent_qualification": false
+    },
+    {
+      "bound_to_validated_held_worker_result": true,
+      "bytes": 2429,
+      "directory": "pretransfer",
+      "kind": "guard",
+      "raw_private_text_published": false,
+      "role": "lpac",
+      "sha256": "1e4cbeda40595b915215123e408ebeb4a537eaae66629cc49b7464a7630a0ad9",
+      "unvalidated_or_incomplete_forensic_only": false,
+      "used_for_independent_qualification": false
+    },
+    {
+      "bound_to_validated_held_worker_result": true,
+      "bytes": 989,
+      "directory": "transfers",
+      "kind": "intent",
+      "raw_private_text_published": false,
+      "role": "ac",
+      "sha256": "2300d8586e54314cbf540cc06d8e9006fe0aa8c1dd6413fe4497550935d77859",
+      "unvalidated_or_incomplete_forensic_only": false,
+      "used_for_independent_qualification": false
+    },
+    {
+      "bound_to_validated_held_worker_result": true,
+      "bytes": 1275,
+      "directory": "transfers",
+      "kind": "receipt",
+      "raw_private_text_published": false,
+      "role": "ac",
+      "sha256": "ec3bc097c6c83f4a124058f6731ce221d7db78c5b140a25736ff9694550b6a62",
+      "unvalidated_or_incomplete_forensic_only": false,
+      "used_for_independent_qualification": false
+    },
+    {
+      "bound_to_validated_held_worker_result": true,
+      "bytes": 996,
+      "directory": "transfers",
+      "kind": "intent",
+      "raw_private_text_published": false,
+      "role": "bootstrap",
+      "sha256": "66dcf46e5d2d60461591d7c5285df5c963ca5beaa7b2ea7843392aaacf62ebd5",
+      "unvalidated_or_incomplete_forensic_only": false,
+      "used_for_independent_qualification": false
+    },
+    {
+      "bound_to_validated_held_worker_result": true,
+      "bytes": 1282,
+      "directory": "transfers",
+      "kind": "receipt",
+      "raw_private_text_published": false,
+      "role": "bootstrap",
+      "sha256": "d37e1ae48caf1237c69206867901b4846a541ad7b104970a2d36257545070f0b",
+      "unvalidated_or_incomplete_forensic_only": false,
+      "used_for_independent_qualification": false
+    },
+    {
+      "bound_to_validated_held_worker_result": true,
+      "bytes": 991,
+      "directory": "transfers",
+      "kind": "intent",
+      "raw_private_text_published": false,
+      "role": "lpac",
+      "sha256": "ca51b7e4385a2aa374e15c880da32f48f408a1c89361a3d4f66f3b7e4e945fb7",
+      "unvalidated_or_incomplete_forensic_only": false,
+      "used_for_independent_qualification": false
+    },
+    {
+      "bound_to_validated_held_worker_result": true,
+      "bytes": 1277,
+      "directory": "transfers",
+      "kind": "receipt",
+      "raw_private_text_published": false,
+      "role": "lpac",
+      "sha256": "ad2a4d777bd3474f11085391d2071fd7a40870740434c1456fc59539141d28ba",
+      "unvalidated_or_incomplete_forensic_only": false,
+      "used_for_independent_qualification": false
+    }
+  ],
+  "pretransfer_record_count": 3,
+  "raw_handles_pid_sid_job_name_creation_or_qpc_published": false,
+  "records": [
+    {
+      "all_recorded_post_assignment_exact_jobs_verified": true,
+      "constructor_policy": "bootstrap-held-primary-matched-security-capabilities-aap-only-v1",
+      "decision_within_original_work_deadline": true,
+      "exception": {
+        "message_published": false,
+        "private_sha256": null,
+        "recorded": false
+      },
+      "never_resumed": true,
+      "original_assignment_intent": {
+        "bytes": 996,
+        "sha256": "66dcf46e5d2d60461591d7c5285df5c963ca5beaa7b2ea7843392aaacf62ebd5"
+      },
+      "original_assignment_returned_receipt": {
+        "bytes": 1282,
+        "sha256": "d37e1ae48caf1237c69206867901b4846a541ad7b104970a2d36257545070f0b"
+      },
+      "post_assignment_job_observation_count": 11,
+      "pretransfer_guard": {
+        "exact_outer_true_inner_false_verified": true,
+        "exception": {
+          "message_published": false,
+          "private_sha256": null,
+          "recorded": false
+        },
+        "generation_after": {
+          "alive": true,
+          "exception": {
+            "message_published": false,
+            "private_sha256": null,
+            "recorded": false
+          },
+          "held_generation_verified": true,
+          "image_verified": true,
+          "within_original_work_deadline": true
+        },
+        "generation_before": {
+          "alive": true,
+          "exception": {
+            "message_published": false,
+            "private_sha256": null,
+            "recorded": false
+          },
+          "held_generation_verified": true,
+          "image_verified": true,
+          "within_original_work_deadline": true
+        },
+        "inner_query": {
+          "api_success": true,
+          "attempted": true,
+          "exception": {
+            "message_published": false,
+            "private_sha256": null,
+            "recorded": false
+          },
+          "immediate_win32_error": 0,
+          "membership": false,
+          "returned": true,
+          "within_original_work_deadline": true
+        },
+        "original_disk_receipt": {
+          "bytes": 2404,
+          "sha256": "d30ea200758fab7285a3f3e930bee2a538c9c1389b06a14fffdc4b84734f2f12"
+        },
+        "outer_query": {
+          "api_success": true,
+          "attempted": true,
+          "exception": {
+            "message_published": false,
+            "private_sha256": null,
+            "recorded": false
+          },
+          "immediate_win32_error": 0,
+          "membership": true,
+          "returned": true,
+          "within_original_work_deadline": true
+        },
+        "purpose": "pretransfer",
+        "query_resources": {
+          "cleanup_verified": true,
+          "close_api_success": true,
+          "close_attempted": true,
+          "close_returned": true,
+          "close_uncertain": false,
+          "close_within_original_work_deadline": true,
+          "immediate_close_win32_error": 0,
+          "immediate_open_win32_error": 0,
+          "one_shot_close_source_bound": true,
+          "open_attempted": true,
+          "open_returned": true,
+          "protected_handle_alias": false
+        },
+        "sequence": 1
+      },
+      "primary_identity_admitted": true,
+      "raw_assign_observation": {
+        "api_success": true,
+        "attempted": true,
+        "call_once_source_bound": true,
+        "exception": {
+          "message_published": false,
+          "private_sha256": null,
+          "recorded": false
+        },
+        "immediate_win32_error": 0,
+        "return_value": 1,
+        "returned": true,
+        "within_original_work_deadline": true
+      },
+      "role": "bootstrap",
+      "transfer_verified": true
+    },
+    {
+      "all_recorded_post_assignment_exact_jobs_verified": true,
+      "constructor_policy": "bootstrap-held-primary-matched-security-capabilities-aap-only-v1",
+      "decision_within_original_work_deadline": true,
+      "exception": {
+        "message_published": false,
+        "private_sha256": null,
+        "recorded": false
+      },
+      "never_resumed": true,
+      "original_assignment_intent": {
+        "bytes": 989,
+        "sha256": "2300d8586e54314cbf540cc06d8e9006fe0aa8c1dd6413fe4497550935d77859"
+      },
+      "original_assignment_returned_receipt": {
+        "bytes": 1275,
+        "sha256": "ec3bc097c6c83f4a124058f6731ce221d7db78c5b140a25736ff9694550b6a62"
+      },
+      "post_assignment_job_observation_count": 7,
+      "pretransfer_guard": {
+        "exact_outer_true_inner_false_verified": true,
+        "exception": {
+          "message_published": false,
+          "private_sha256": null,
+          "recorded": false
+        },
+        "generation_after": {
+          "alive": true,
+          "exception": {
+            "message_published": false,
+            "private_sha256": null,
+            "recorded": false
+          },
+          "held_generation_verified": true,
+          "image_verified": true,
+          "within_original_work_deadline": true
+        },
+        "generation_before": {
+          "alive": true,
+          "exception": {
+            "message_published": false,
+            "private_sha256": null,
+            "recorded": false
+          },
+          "held_generation_verified": true,
+          "image_verified": true,
+          "within_original_work_deadline": true
+        },
+        "inner_query": {
+          "api_success": true,
+          "attempted": true,
+          "exception": {
+            "message_published": false,
+            "private_sha256": null,
+            "recorded": false
+          },
+          "immediate_win32_error": 0,
+          "membership": false,
+          "returned": true,
+          "within_original_work_deadline": true
+        },
+        "original_disk_receipt": {
+          "bytes": 2412,
+          "sha256": "187f38a7b1a6d5aa170052c42cf81952203b069bf0625b60c697c19253b28fb7"
+        },
+        "outer_query": {
+          "api_success": true,
+          "attempted": true,
+          "exception": {
+            "message_published": false,
+            "private_sha256": null,
+            "recorded": false
+          },
+          "immediate_win32_error": 0,
+          "membership": true,
+          "returned": true,
+          "within_original_work_deadline": true
+        },
+        "purpose": "pretransfer",
+        "query_resources": {
+          "cleanup_verified": true,
+          "close_api_success": true,
+          "close_attempted": true,
+          "close_returned": true,
+          "close_uncertain": false,
+          "close_within_original_work_deadline": true,
+          "immediate_close_win32_error": 0,
+          "immediate_open_win32_error": 0,
+          "one_shot_close_source_bound": true,
+          "open_attempted": true,
+          "open_returned": true,
+          "protected_handle_alias": false
+        },
+        "sequence": 1
+      },
+      "primary_identity_admitted": true,
+      "raw_assign_observation": {
+        "api_success": true,
+        "attempted": true,
+        "call_once_source_bound": true,
+        "exception": {
+          "message_published": false,
+          "private_sha256": null,
+          "recorded": false
+        },
+        "immediate_win32_error": 0,
+        "return_value": 1,
+        "returned": true,
+        "within_original_work_deadline": true
+      },
+      "role": "ac",
+      "transfer_verified": true
+    },
+    {
+      "all_recorded_post_assignment_exact_jobs_verified": true,
+      "constructor_policy": "bootstrap-held-primary-matched-security-capabilities-aap-only-v1",
+      "decision_within_original_work_deadline": true,
+      "exception": {
+        "message_published": false,
+        "private_sha256": null,
+        "recorded": false
+      },
+      "never_resumed": true,
+      "original_assignment_intent": {
+        "bytes": 991,
+        "sha256": "ca51b7e4385a2aa374e15c880da32f48f408a1c89361a3d4f66f3b7e4e945fb7"
+      },
+      "original_assignment_returned_receipt": {
+        "bytes": 1277,
+        "sha256": "ad2a4d777bd3474f11085391d2071fd7a40870740434c1456fc59539141d28ba"
+      },
+      "post_assignment_job_observation_count": 6,
+      "pretransfer_guard": {
+        "exact_outer_true_inner_false_verified": true,
+        "exception": {
+          "message_published": false,
+          "private_sha256": null,
+          "recorded": false
+        },
+        "generation_after": {
+          "alive": true,
+          "exception": {
+            "message_published": false,
+            "private_sha256": null,
+            "recorded": false
+          },
+          "held_generation_verified": true,
+          "image_verified": true,
+          "within_original_work_deadline": true
+        },
+        "generation_before": {
+          "alive": true,
+          "exception": {
+            "message_published": false,
+            "private_sha256": null,
+            "recorded": false
+          },
+          "held_generation_verified": true,
+          "image_verified": true,
+          "within_original_work_deadline": true
+        },
+        "inner_query": {
+          "api_success": true,
+          "attempted": true,
+          "exception": {
+            "message_published": false,
+            "private_sha256": null,
+            "recorded": false
+          },
+          "immediate_win32_error": 0,
+          "membership": false,
+          "returned": true,
+          "within_original_work_deadline": true
+        },
+        "original_disk_receipt": {
+          "bytes": 2429,
+          "sha256": "1e4cbeda40595b915215123e408ebeb4a537eaae66629cc49b7464a7630a0ad9"
+        },
+        "outer_query": {
+          "api_success": true,
+          "attempted": true,
+          "exception": {
+            "message_published": false,
+            "private_sha256": null,
+            "recorded": false
+          },
+          "immediate_win32_error": 0,
+          "membership": true,
+          "returned": true,
+          "within_original_work_deadline": true
+        },
+        "purpose": "pretransfer",
+        "query_resources": {
+          "cleanup_verified": true,
+          "close_api_success": true,
+          "close_attempted": true,
+          "close_returned": true,
+          "close_uncertain": false,
+          "close_within_original_work_deadline": true,
+          "immediate_close_win32_error": 0,
+          "immediate_open_win32_error": 0,
+          "one_shot_close_source_bound": true,
+          "open_attempted": true,
+          "open_returned": true,
+          "protected_handle_alias": false
+        },
+        "sequence": 1
+      },
+      "primary_identity_admitted": true,
+      "raw_assign_observation": {
+        "api_success": true,
+        "attempted": true,
+        "call_once_source_bound": true,
+        "exception": {
+          "message_published": false,
+          "private_sha256": null,
+          "recorded": false
+        },
+        "immediate_win32_error": 0,
+        "return_value": 1,
+        "returned": true,
+        "within_original_work_deadline": true
+      },
+      "role": "lpac",
+      "transfer_verified": true
+    }
+  ],
+  "schema_version": 1,
+  "scope": "one-local-cpse-deny-all-outer-guarded-matched-secaps-identity-v1",
+  "source_commit": "ec45dffb66cc88bb48578101afb93ce7044a6521",
+  "source_sha256": "f77fdff1de75ba53d6dca04d65659deb43fd6bdc91c2feaf1c6a03ade7c008db",
+  "stage": "psec-matchedcaps-inner-transfers-private-safe-projection",
+  "unbound_files_used_for_qualification": false,
+  "verified_transfer_count": 3,
+  "worker_result_validated": true
+}

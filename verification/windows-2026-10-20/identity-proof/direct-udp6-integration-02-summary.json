@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "experiment": "default-OFF UDP6 integration short gate 02",
+  "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39672075160",
+  "head": "cb2082969e5bfd43e328c7925cdf3b4ae01da479",
+  "result_sha256": "b7c09414f5365963f42e4dda409012b8e4163b4bb3dc84240cf7eb221dc13b60",
+  "overall": "failed Windows fixture prerequisite; Linux provenance mechanism passed",
+  "observations": [
+    "Linux 649 required tests and actual paused owned-QEMU provenance/cleanup passed. Windows builds passed; its 649-test suite had three failures and two errors. Later Windows verifier/PS/ZIP/mechanics stages did not execute.",
+    "The Windows closed metadata comparator observed ctime different and device/inode/size/mtime/mode equal for its owned file. Linux comparator observed all six equal. This is current-job evidence, not recovery of the first job suppressed admission predicate.",
+    "The actual traceback shows test-model recursion: modeled stat opens a descriptor through fixture nofollow-open, which calls pathlib symlink detection and re-enters modeled stat. Production provenance did not change.",
+    "Unconditional observer cleanup removed the earlier visible open-file removal error from these failures, but this is not a successful Windows fixture result or global descendant cleanup proof."
+  ],
+  "limits": [
+    "No Windows VM, guest alias, packet absence or isolation result. Runtime remains OFF.",
+    "Mapped backing-file hashes and local package agreement are not resident-image or upstream-source equivalence.",
+    "All earlier failed receipts remain immutable; another gate requires exact reviewed fixture correction."
+  ]
+}

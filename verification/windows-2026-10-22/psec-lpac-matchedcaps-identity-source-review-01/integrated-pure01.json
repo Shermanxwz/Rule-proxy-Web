@@ -1,0 +1,79 @@
+{
+  "actual_experiment_executed": false,
+  "all_new_test_method_counts": {
+    "tests/test_windows_identity_psec_lpac_matchedcaps_bridge.py": 13,
+    "tests/test_windows_identity_psec_lpac_matchedcaps_bridge_local.py": 17,
+    "tests/test_windows_identity_psec_lpac_matchedcaps_native.py": 3
+  },
+  "baseline_tests": 922,
+  "constructor_policy": "bootstrap-held-primary-matched-security-capabilities-aap-only-v1",
+  "dll_loaded": false,
+  "full_expected": 955,
+  "native_compiled_assertions": 254,
+  "native_compiled_assertions_are_in_three_tests": true,
+  "native_dependency_count": 31,
+  "native_freeze_sha256": "7e702eac67a463682878c9d40ee1d8665d30a2f596a9ebf1edf1b2801de3fc1f",
+  "native_source_count": 6,
+  "network_executed": false,
+  "new_native_tests": 3,
+  "new_python_tests": 30,
+  "new_source_and_test_files": {
+    ".github/native/windows_psec_lpac_matchedcaps_bridge.cpp": {
+      "bytes": 16460,
+      "git_blob": "8d0fb5840c31e3fa6e72851d98b1d5fcc7c7e399",
+      "sha256": "5e3e83c19788136404c5d412315aa08502a2ffc0c0cb41235ba4b20159deb497"
+    },
+    ".github/native/windows_psec_lpac_matchedcaps_bridge.hpp": {
+      "bytes": 4483,
+      "git_blob": "4c1a8aa94b89e70ec4e067d93ca90490fadc28b3",
+      "sha256": "b088676f846d3690f58b01afaf06df41e2cedbae10f140cd404cce8a0d814cd1"
+    },
+    ".github/native/windows_psec_lpac_matchedcaps_bridge_core.hpp": {
+      "bytes": 8144,
+      "git_blob": "a797df830ab6ea6faf71721d5907ae4068d5d65e",
+      "sha256": "8d06377a923bede038d2ff19e206da695b7a5d918c610a12a9c1a5dacde2820d"
+    },
+    ".github/windows_identity_psec_lpac_matchedcaps_bridge.py": {
+      "bytes": 102221,
+      "sha256": "36c0f7d6b289ba26ee469a10a985ed27c376cd9ea2104cff8f78b1065a28d178"
+    },
+    ".github/windows_identity_psec_lpac_matchedcaps_bridge_local.py": {
+      "bytes": 20805,
+      "sha256": "d4fcb5172f21496e28d65843f0f045be9786eecb220b8ddcb7d0d0696dd68c98"
+    },
+    "tests/test_windows_identity_psec_lpac_matchedcaps_bridge.py": {
+      "bytes": 18370,
+      "sha256": "40b2a37d5cdfbc0c1c8a974d4a9688f3937ebfff5b25da178b8e196616e5babb"
+    },
+    "tests/test_windows_identity_psec_lpac_matchedcaps_bridge_local.py": {
+      "bytes": 24258,
+      "sha256": "6258f8b17e8b3f44b7b7c9354badafcd68947b269ec0d74b506c61a3b37aae18"
+    },
+    "tests/test_windows_identity_psec_lpac_matchedcaps_native.py": {
+      "bytes": 10464,
+      "git_blob": "fadcec0b48fee8b0a61bc2cc50a108daf87635c2",
+      "sha256": "118bcae9cd00ed200b3dab843cf98b633cf893a895524b86f068502917c0c1fa"
+    }
+  },
+  "old_327_assertions_not_added_as_new_tests": true,
+  "old_scopes_and_shared_sources_unchanged": true,
+  "pre_stage_head": "3c3a6b56f11d8f5bbdb4625a151982d905c6c51b",
+  "promotion_freeze_sha256": "dfdfcf9a9afd67fc9f15e0a252fdfcd672f3bcfd07417ba3a23e259a4537e762",
+  "runtime_shared_count": 34,
+  "runtime_source_count": 36,
+  "schema_version": 1,
+  "source_scope": "one-local-cpse-deny-all-outer-guarded-matched-secaps-identity-v1",
+  "source_sha256": "f77fdff1de75ba53d6dca04d65659deb43fd6bdc91c2feaf1c6a03ade7c008db",
+  "stage": "matchedcaps-source03-integrated-pure",
+  "tests": {
+    "errors": 0,
+    "existing_symlink_skips": true,
+    "failures": 0,
+    "linux_executed": false,
+    "log_bytes": 179734,
+    "log_sha256": "a573b78178d9afd550026a9a85db817d9f7781583568d8fac2e3f2b19e06af3c",
+    "seconds": 83.64,
+    "skips": 2,
+    "tests": 955
+  }
+}

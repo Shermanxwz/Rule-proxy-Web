@@ -1,0 +1,81 @@
+{
+  "experiment": "dns-request3-hosted-test-only-mechanism",
+  "freeze": {
+    "controlled_pair": "d7bfb06408604bad07f5c53a6d28bac87883b668150625b066b60c4e1efc0dd7",
+    "initial": "9e384816b734da623cc439bccfcc1a568cb077204f8f18c2e3dce785c60cfbf1",
+    "official_header": "0f5bea0f6f21ead7dde29a24fef946321fce20312d236c231c0ce3805394f75f"
+  },
+  "interpretation": {
+    "api87_cause_identified": false,
+    "cancel_pointer_hypothesis": "Null optional cancellation pointer did not resolve API87 in the same-name/port controlled pair",
+    "cleanup": "All reported owned children/handles, responder socket/thread and temporary work cleanup confirmed",
+    "mechanism_positive": false,
+    "pending_control": "Injected lifetime/owned termination control, not an actual asynchronous DNS completion or broker cancellation proof",
+    "receiver_attribution": "Temporal deltas with shared nonce, not independent broker identity",
+    "receiver_zero": "No fixture datagram observed; API inadmission, not DNS denial",
+    "result_status_zero": "Zero matches the initialized value; it is not successful resolution"
+  },
+  "limits": {
+    "appcontainer_tested": false,
+    "dns_isolation_tested": false,
+    "existing_stage0_and_connect_capture_unchanged": true,
+    "full_windows_guest": false,
+    "global_dns_or_nrpt_changed": false,
+    "harness_default_resolver_fallback": false,
+    "ordinary_nonadmin_tested": false,
+    "packet_capture_tested": false,
+    "production_dns_integration": false,
+    "test_only": true,
+    "windows_unit_suites_after_failed_mechanism_executed": false
+  },
+  "next_action": "No replay of the cancel-pointer hypothesis; read-only official API/layout/runtime-version diagnosis.",
+  "observed_os": {
+    "build": 26100,
+    "major": 10,
+    "minor": 0,
+    "product": "Windows Server 2025",
+    "source": "job setup and final harness sys.getwindowsversion"
+  },
+  "observed_sdk": "10.0.26100.0",
+  "privacy": "Closed API statuses/counts/cleanup and public code/CI metadata only; no nonce, port, query bytes, raw logs, process identity or credentials",
+  "runs": [
+    {
+      "api_executed": false,
+      "conclusion": "failure",
+      "head": "726c0c44e7cd00068725c96b2a59fea7181349d7",
+      "linux_tests": 39,
+      "observed_failure": "C2039 ServerAddr unavailable without official ws2tcpip header guard",
+      "run_id": 39595518393,
+      "windows_phase": "compile"
+    },
+    {
+      "api_executed": true,
+      "api_status": 87,
+      "cleanup_confirmed": true,
+      "conclusion": "failure",
+      "head": "5a55159fe62382b38c6d7474ac852bb352b302d9",
+      "linux_tests": 39,
+      "query_observed": false,
+      "result_sha256": "e7b995041bfdf8959eb97d6f6f9ab62f4e8bad5f40b2bfc349c77c64bf90033c",
+      "run_id": 39596064259,
+      "windows_compile": true,
+      "windows_phase": "mechanism"
+    },
+    {
+      "baseline_api_status": 87,
+      "cleanup_confirmed": true,
+      "conclusion": "failure",
+      "head": "3f74e5bad85dc352ad46eca289998a2668626f5d",
+      "linux_tests": 44,
+      "null_cancel_api_status": 87,
+      "query_observed": false,
+      "result_sha256": "cb471fa97f55dd72dc947ba6465da535e1e7bb4d889f793c13bcc0366012da1a",
+      "run_id": 39597168358,
+      "windows_compile": true,
+      "windows_phase": "controlled_cancel_pointer_pair"
+    }
+  ],
+  "runtime_dnsapi_file_version_observed": false,
+  "schema": 1,
+  "scope": "Hosted Windows owned-loopback API mechanism only; no AppContainer, ordinary nonadmin, guest admission or DNS isolation result"
+}

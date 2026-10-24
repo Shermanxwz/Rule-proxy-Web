@@ -1,0 +1,607 @@
+diff --git a/.github/windows_identity_psec_lpac_bridge.py b/.github/windows_identity_psec_lpac_bridge.py
+index 6a644d5..f7decb1 100644
+--- a/.github/windows_identity_psec_lpac_bridge.py
++++ b/.github/windows_identity_psec_lpac_bridge.py
+@@ -228,11 +228,218 @@ class Bridge:
+ class NativeAPI(base.LPACAPI):
+     def bridge(self,path):return Bridge(path)
+     def access_api(self):return access.NativeAPI()
++    def query_exact_jobs(self,process,inner_job,outer_name,budget,cutoff,*,protected_handles):
++        """Two read-only queries, even when one API returns known false.
++
++        A fresh scoped handle ledger permits legal numeric HANDLE reuse across
++        later queries. No assignment, token lookup, resume or fallback occurs.
++        """
++        protected=sorted(set(int(value) for value in protected_handles))
++        require(len(protected)<=32 and all(0<value<(1<<64)-1 for value in protected)
++            and int(process) in protected and int(inner_job) in protected,'cpse_job_protected_handles')
++        result=job_query_blank(process,inner_job,outer_name,budget.frequency,budget.deadline,cutoff,protected)
++        resource=result['outer_resource'];owners=None
++        self.k.IsProcessInJob.argtypes=[C.c_void_p,C.c_void_p,C.POINTER(C.c_int)];self.k.IsProcessInJob.restype=C.c_int
++        self.k.CloseHandle.argtypes=[C.c_void_p];self.k.CloseHandle.restype=C.c_int
++        def stamp(row,key):
++            value=budget.read();row[key]=value
++            require(value<cutoff,'cpse_job_query_deadline');return value
++        def query(job,row):
++            try:
++                stamp(row,'before_qpc');value=C.c_int(-1)
++                row['attempted']=True;C.set_last_error(0)
++                returned=self.k.IsProcessInJob(process,job,C.byref(value))
++                error=C.get_last_error()  # Immediate: before output reads or QPC.
++                row.update(returned=True,api_success=bool(returned),win32_error=0 if returned else int(error))
++                if returned:
++                    require(value.value in (0,1),'cpse_job_membership_output')
++                    row['membership']=bool(value.value)
++                stamp(row,'after_qpc');row['within_deadline']=True
++            except BaseException as error:row['exception']=base.private_failure_detail(error,'IsProcessInJob(exact)')
++        # The borrowed owned inner handle is never closed by this observation.
++        query(inner_job,result['inner'])
++        try:
++            stamp(resource,'open_before_qpc')
++            self.k.OpenJobObjectW.argtypes=[C.c_uint32,C.c_int,C.c_wchar_p];self.k.OpenJobObjectW.restype=C.c_void_p
++            resource['open_attempted']=True;C.set_last_error(0)
++            value=self.k.OpenJobObjectW(0x0004,False,outer_name)
++            error=C.get_last_error()  # Immediate: query-only open has separate failure facts.
++            resource.update(open_returned=True,handle_value=int(value) if value else None,open_win32_error=0 if value else int(error))
++            if value:
++                require(type(value) is int and 0<value<(1<<64)-1,'cpse_outer_query_handle')
++                if value in protected:
++                    resource['alias']=resource['close_uncertain']=True
++                    raise ValueError('cpse_outer_query_alias')
++                def close_query(handle):
++                    resource['close_attempted']=True
++                    try:resource['close_before_qpc']=budget.read()
++                    except BaseException:pass  # Known handle must still be consumed once.
++                    C.set_last_error(0);returned=self.k.CloseHandle(handle)
++                    close_error=C.get_last_error()  # Immediate, independent of the membership result.
++                    resource.update(close_returned=True,close_api_success=bool(returned),close_win32_error=0 if returned else int(close_error))
++                    require(bool(returned),'cpse_outer_query_close_failed')
++                owners=helpers.OneShotHandles(close_query);owners.add(value)
++            stamp(resource,'open_after_qpc');resource['open_within_deadline']=True
++            if value:query(value,result['outer'])
++        except BaseException as error:resource['exception']=base.private_failure_detail(error,'OpenJobObjectW(exact-query)')
++        finally:
++            if resource['open_attempted'] and not resource['open_returned']:resource['close_uncertain']=True
++            if resource['handle_value'] is not None and owners is None:resource['close_uncertain']=True
++            if owners is not None:
++                for handle in tuple(owners.pending):
++                    try:owners.close(handle)
++                    except BaseException as error:
++                        resource['close_uncertain']=True
++                        resource['exception']=base.private_failure_detail(error,'CloseHandle(exact-query)')
++                    finally:
++                        try:
++                            resource['close_after_qpc']=budget.read()
++                            resource['close_within_deadline']=bool(resource['close_before_qpc'] is not None and
++                                budget.deadline-115*budget.frequency<=resource['close_before_qpc']<=resource['close_after_qpc']<cutoff)
++                        except BaseException:pass
++                if not owners.confirmed_closed:resource['close_uncertain']=True
++            if resource['close_uncertain'] or resource['alias']:
++                self.controls_uncertain=True
++                launcher._RETAINED_SCOPED_OWNERS.append((self,owners,'exact_outer_query_unknown'))
++        result['resource_cleanup_verified']=job_resource_clean(resource)
++        return result
+     def processmodel_path(self):
+         self.k.GetSystemDirectoryW.argtypes=[C.c_wchar_p,C.c_uint32];self.k.GetSystemDirectoryW.restype=C.c_uint32
+         buffer=C.create_unicode_buffer(32768);n=self.k.GetSystemDirectoryW(buffer,len(buffer));require(0<n<len(buffer),'processmodel_system_directory')
+         return launcher.checked_path(Path(buffer.value)/'processmodel.dll')
+ 
++
++JOB_QUERY_KEYS=('attempted','returned','api_success','membership','win32_error','before_qpc','after_qpc','within_deadline','exception')
++JOB_RESOURCE_KEYS=('open_attempted','open_returned','handle_value','open_win32_error','open_before_qpc','open_after_qpc','open_within_deadline',
++    'close_attempted','close_returned','close_api_success','close_win32_error','close_before_qpc','close_after_qpc','close_within_deadline','close_uncertain','alias','exception')
++def job_query_blank(process,inner,outer,frequency,deadline,cutoff,protected=()):
++    def row():return dict(attempted=False,returned=False,api_success=None,membership=None,win32_error=None,
++        before_qpc=None,after_qpc=None,within_deadline=False,exception=None)
++    return dict(schema_version=1,process=int(process),inner_job=int(inner),outer_job=outer,frequency=frequency,deadline_qpc=deadline,
++        work_cutoff_qpc=cutoff,protected_handles=list(protected),inner=row(),outer=row(),outer_resource=dict(open_attempted=False,open_returned=False,handle_value=None,
++            open_win32_error=None,open_before_qpc=None,open_after_qpc=None,open_within_deadline=False,close_attempted=False,
++            close_returned=False,close_api_success=None,close_win32_error=None,close_before_qpc=None,close_after_qpc=None,
++            close_within_deadline=False,close_uncertain=False,alias=False,exception=None),resource_cleanup_verified=True)
++
++def job_resource_clean(v):
++    return bool(not v['close_uncertain'] and not v['alias'] and (not v['open_attempted'] or v['open_returned'])
++        and (v['handle_value'] is None or v['close_attempted'] and v['close_returned'] and v['close_api_success'] is True))
++
++def job_query_passed(v):
++    return bool(v is not None and v['resource_cleanup_verified'] and all(v[key]['attempted'] and v[key]['returned']
++        and v[key]['api_success'] is True and v[key]['membership'] is True and v[key]['win32_error']==0
++        and v[key]['within_deadline'] and v[key]['exception'] is None for key in ('inner','outer'))
++        and v['outer_resource']['open_within_deadline'] and v['outer_resource']['close_within_deadline']
++        and v['outer_resource']['exception'] is None)
++
++def validate_job_query(v,c,*,process,inner):
++    template=job_query_blank(process,inner,c['guard_job_name'],c['frequency'],c['deadline_qpc'],work_cutoff(c))
++    require(type(v) is dict and set(v)==set(template),'cpse_job_query_schema')
++    for key in ('schema_version','process','inner_job','outer_job','frequency','deadline_qpc','work_cutoff_qpc'):
++        require(type(v[key]) is type(template[key]) and v[key]==template[key],'cpse_job_query_binding')
++    require(type(v['protected_handles']) is list and len(v['protected_handles'])<=32
++        and all(live.integer(h,1,(1<<64)-2) for h in v['protected_handles'])
++        and v['protected_handles']==sorted(set(v['protected_handles']))
++        and process in v['protected_handles'] and inner in v['protected_handles'],'cpse_job_query_protected_handles')
++    def clock(row,prefix='',flag='within_deadline'):
++        before,after=row[prefix+'before_qpc'],row[prefix+'after_qpc']
++        for tick in (before,after):require(tick is None or live.integer(tick,1,live.MAX_SIGNED),'cpse_job_query_tick')
++        require(type(row[flag]) is bool and (not row[flag] or before is not None and after is not None
++            and c['start_qpc']<=before<=after<work_cutoff(c)),'cpse_job_query_clock')
++    for key in ('inner','outer'):
++        row=v[key];require(type(row) is dict and set(row)==set(JOB_QUERY_KEYS),'cpse_job_query_call_schema')
++        require(all(type(row[k]) is bool for k in ('attempted','returned','within_deadline'))
++            and all(row[k] is None or type(row[k]) is bool for k in ('api_success','membership')),'cpse_job_query_call_types')
++        require(row['win32_error'] is None or live.integer(row['win32_error']),'cpse_job_query_error')
++        require(not row['returned'] or row['attempted'] and type(row['api_success']) is bool
++            and ((type(row['membership']) is bool or row['membership'] is None and row['exception'] is not None)
++                and row['win32_error']==0 if row['api_success'] else row['membership'] is None and type(row['win32_error']) is int),'cpse_job_query_api_vs_membership')
++        require(row['returned'] or row['api_success'] is row['membership'] is row['win32_error'] is None,'cpse_job_query_unreturned_output')
++        base.validate_failure_detail(row['exception']);clock(row)
++    r=v['outer_resource'];require(type(r) is dict and set(r)==set(JOB_RESOURCE_KEYS),'cpse_job_resource_schema')
++    require(all(type(r[k]) is bool for k in ('open_attempted','open_returned','open_within_deadline','close_attempted','close_returned',
++        'close_within_deadline','close_uncertain','alias')) and (r['close_api_success'] is None or type(r['close_api_success']) is bool),'cpse_job_resource_types')
++    require(r['handle_value'] is None or live.integer(r['handle_value'],1,(1<<64)-1),'cpse_job_resource_handle')
++    require(r['alias']==(r['handle_value'] is not None and r['handle_value'] in v['protected_handles']),'cpse_job_resource_alias')
++    require(all(r[k] is None or live.integer(r[k]) for k in ('open_win32_error','close_win32_error')),'cpse_job_resource_error')
++    require(not r['open_returned'] or r['open_attempted'] and type(r['open_win32_error']) is int,'cpse_job_open_return')
++    require(r['open_returned'] or r['handle_value'] is r['open_win32_error'] is None,'cpse_job_open_unknown')
++    require(not r['close_attempted'] or r['handle_value'] is not None and not r['alias'],'cpse_job_close_authority')
++    require(not r['close_returned'] or r['close_attempted'] and type(r['close_api_success']) is bool
++        and type(r['close_win32_error']) is int and (not r['close_api_success'] or r['close_win32_error']==0),'cpse_job_close_return')
++    require(r['close_returned'] or r['close_api_success'] is r['close_win32_error'] is None,'cpse_job_close_unknown')
++    require(not (r['open_attempted'] and not r['open_returned'] or r['alias'] or r['close_attempted'] and not r['close_api_success'])
++        or r['close_uncertain'],'cpse_job_resource_unknown_sticky')
++    require(not v['outer']['attempted'] or r['handle_value'] is not None and r['open_returned'] and not r['alias'],'cpse_job_outer_handle_bound')
++    base.validate_failure_detail(r['exception']);clock(r,'open_','open_within_deadline');clock(r,'close_','close_within_deadline')
++    require(type(v['resource_cleanup_verified']) is bool and v['resource_cleanup_verified']==job_resource_clean(r),'cpse_job_resource_cleanup')
++    return v
++
++
++GENERATION_KEYS={'before_qpc','after_qpc','within_deadline','alive','pid','created','image_verified','exception'}
++def validate_generation(v,c):
++    require(type(v) is dict and set(v)==GENERATION_KEYS and type(v['within_deadline']) is bool
++        and type(v['image_verified']) is bool and (v['alive'] is None or type(v['alive']) is bool),'cpse_job_generation_schema')
++    require(v['pid'] is None or live.integer(v['pid'],1),'cpse_job_generation_pid')
++    require(v['created'] is None or live.integer(v['created'],1,(1<<64)-1),'cpse_job_generation_created')
++    for key in ('before_qpc','after_qpc'):require(v[key] is None or live.integer(v[key],1,live.MAX_SIGNED),'cpse_job_generation_tick')
++    require(not v['within_deadline'] or v['before_qpc'] is not None and v['after_qpc'] is not None
++        and c['start_qpc']<=v['before_qpc']<=v['after_qpc']<work_cutoff(c),'cpse_job_generation_clock')
++    base.validate_failure_detail(v['exception']);return v
++
++def generation_passed(v,row,c):
++    return bool(v is not None and v['within_deadline'] and v['alive'] is True and v['pid']==row['pid']
++        and v['created']==row['created'] and v['image_verified'] and v['exception'] is None)
++
++def job_admission_value(entry,row,c,inner,pi_receipt_sha256):
++    return dict(schema_version=1,stage='cpse-exact-job-admission-observation',scope=SCOPE,run=c['run'],config_sha256=sha(encode(c)),
++        source_sha256=c['source_sha256'],role=row['name'],sequence=entry['sequence'],purpose=entry['purpose'],
++        process=row['pi']['process'],pid=row['pid'],created=row['created'],pi_receipt_sha256=pi_receipt_sha256,actor_sha256=c['actor_sha256'],
++        frequency=c['frequency'],root_deadline_qpc=c['root_deadline_qpc'],deadline_qpc=c['deadline_qpc'],work_cutoff_qpc=work_cutoff(c),
++        inner_job=inner,outer_job=c['guard_job_name'],before=entry['before'],after=entry['after'],query=entry['query'],
++        admission_decision_recorded=False)
++
++def job_admission_passed(entry,row,c):
++    return bool(entry['receipt'] is not None and entry['exception'] is None and generation_passed(entry['before'],row,c)
++        and generation_passed(entry['after'],row,c) and job_query_passed(entry['query'])
++        and type(entry['decision_qpc']) is int and entry['after']['after_qpc']<=entry['decision_qpc']<work_cutoff(c))
++
++def validate_job_admissions(row,j,c,operation):
++    entries=row['job_admissions'];require(type(entries) is list and len(entries)<=16,'cpse_job_admission_bound')
++    common=j['common'];require(not entries or type(common) is dict and type(common.get('child')) is dict
++        and live.integer(common['child'].get('job'),1,(1<<64)-1),'cpse_job_admission_owned_inner')
++    for index,entry in enumerate(entries,1):
++        require(type(entry) is dict and set(entry)=={'sequence','purpose','before','after','query','receipt','decision_qpc','exception'}
++            and type(entry['sequence']) is int and entry['sequence']==index
++            and entry['purpose']==('initial' if index==1 else 'held'),'cpse_job_admission_schema')
++        base.validate_failure_detail(entry['exception'])
++        require(entry['decision_qpc'] is None or live.integer(entry['decision_qpc'],c['start_qpc'],live.MAX_SIGNED),'cpse_job_decision_tick')
++        for label in ('before','after'):
++            if entry[label] is not None:validate_generation(entry[label],c)
++        if entry['query'] is not None:
++            validate_job_query(entry['query'],c,process=row['pi']['process'],inner=common['child']['job'])
++            query=entry['query']
++            if entry['before'] is not None and entry['before']['after_qpc'] is not None:
++                for tick in (query['inner']['before_qpc'],query['outer_resource']['open_before_qpc']):
++                    require(tick is None or tick>=entry['before']['after_qpc'],'cpse_job_query_after_generation')
++            if entry['after'] is not None and entry['after']['before_qpc'] is not None:
++                for tick in (query['inner']['after_qpc'],query['outer']['after_qpc'],query['outer_resource']['close_after_qpc']):
++                    require(tick is None or tick<=entry['after']['before_qpc'],'cpse_job_query_before_generation')
++        receipt=entry['receipt']
++        if receipt is not None:
++            require(type(receipt) is dict and set(receipt)=={'name','text','sha256'}
++                and receipt['name']=='%s-%02d.json'%(row['name'],index) and type(receipt['text']) is str
++                and len(receipt['text'])<=16384 and sha(receipt['text'].encode('ascii'))==receipt['sha256'],'cpse_job_admission_receipt')
++            require(operation['receipt'] is not None and entry['query'] is not None and entry['before'] is not None
++                and entry['after'] is not None and decode(receipt['text'].encode('ascii'))==
++                    job_admission_value(entry,row,c,common['child']['job'],operation['receipt']['sha256']),'cpse_job_admission_receipt_binding')
++        else:require(entry['exception'] is not None,'cpse_job_admission_missing_receipt')
++    require(not row['assigned'] or entries and job_admission_passed(entries[0],row,c),'cpse_job_assignment_proof')
++    if entries and not job_admission_passed(entries[0],row,c):
++        require(not row['assigned'] and not row['admitted'] and row['expected_primary'] is None and row['held_checks']==[],
++            'cpse_job_failure_before_token')
++    return entries
++
+ def native_ok(v):
+     if not (v['wrapper_status']==0 and v['within_deadline']==1 and v['opaque_outcome_unknown']==0
+             and v['api_entered']==v['api_returned']==1 and v['win32_error']==0):return False
+@@ -273,7 +480,7 @@ class Cell:
+         self.job=None;self.rows=[];self.bridge=None;self.phase='setup';self.operations=[]
+         self.j=dict(schema_version=1,stage='cpse-matched-identity-result',scope=SCOPE,config_sha256=sha(encode(c)),failure=None,failure_detail=None,
+             child_environment=launcher.default_child_environment(),common=None,intents=[],operations=self.operations,tasks=[],proofs=[],
+-            first_appcontainer_sid=None,common_inputs_verified=False,observer_resources_cleanup_verified=True,child_resources_cleanup=False,workload_cleanup=False,
++            first_appcontainer_sid=None,common_inputs_verified=False,observer_resources_cleanup_verified=True,job_query_resources_cleanup_verified=True,child_resources_cleanup=False,workload_cleanup=False,
+             workload_job_empty=False,opaque_outcome_unknown=False,api_obligations_closed=False,module_unbound=False,
+             actor_resumed=False,token_class46_queried=False,external_environment_absence_verified=False,broker_cancellation_proven=False,
+             network_tested=False,dns_tested=False,proxy_tested=False,product_acceptance=False)
+@@ -306,20 +513,51 @@ class Cell:
+             if label in ('create','close'):
+                 if not opaque_return_known(label,record['return_status'],record['native'],self.c):self.j['opaque_outcome_unknown']=True
+             raise
++    def generation(self,row):
++        value=dict(before_qpc=None,after_qpc=None,within_deadline=False,alive=None,pid=None,created=None,image_verified=False,exception=None)
++        try:
++            value['before_qpc']=self.budget.read();self.budget.require_ms(work_cutoff(self.c))
++            process=row['info'].hProcess;value['alive']=not self.api.wait(process,0)
++            value['pid']=self.api.process_id(process);value['created']=self.api.creation_time(process)
++            self.api.verify_image(process,self.root/'inputs'/live.ACTOR)
++            require(sha(local.bounded(self.root/'inputs'/live.ACTOR,8*1024*1024))==self.c['actor_sha256'],'cpse_held_image')
++            value['image_verified']=True;value['after_qpc']=self.budget.read()
++            value['within_deadline']=self.c['start_qpc']<=value['before_qpc']<=value['after_qpc']<work_cutoff(self.c)
++        except BaseException as error:value['exception']=base.private_failure_detail(error,'cpse-held-generation')
++        return value
++    def job_admission(self,row,purpose):
++        entry=dict(sequence=len(row['job_admissions'])+1,purpose=purpose,before=None,after=None,query=None,receipt=None,decision_qpc=None,exception=None)
++        row['job_admissions'].append(entry)
++        try:
++            entry['before']=self.generation(row)
++            entry['query']=self.api.query_exact_jobs(row['info'].hProcess,self.job,self.c['guard_job_name'],self.budget,work_cutoff(self.c),
++                protected_handles=tuple(self.owners.pending|self.jobowners.pending))
++            entry['after']=self.generation(row)
++            self.j['job_query_resources_cleanup_verified']&=entry['query']['resource_cleanup_verified']
++            operation=next(op for op in self.operations if op['label']==row['name'])
++            require(operation['receipt'] is not None,'cpse_job_pi_receipt_required')
++            value=job_admission_value(entry,row,self.c,self.job,operation['receipt']['sha256'])
++            raw=encode(value);directory=self.root/'job-admissions';directory.mkdir(exist_ok=True)
++            name='%s-%02d.json'%(row['name'],entry['sequence']);base.durable_private(directory/name,raw)
++            entry['receipt']=dict(name=name,text=raw.decode('ascii'),sha256=sha(raw))
++            validate_job_query(entry['query'],self.c,process=row['pi']['process'],inner=self.job)
++            entry['decision_qpc']=self.budget.read();self.budget.require_ms(work_cutoff(self.c))
++        except BaseException as error:
++            entry['exception']=base.private_failure_detail(error,'cpse-exact-job-admission')
++            if entry['query'] is None:
++                self.j['job_query_resources_cleanup_verified']=False;self.api.controls_uncertain=True
++            raise
++        require(job_admission_passed(entry,row,self.c),'cpse_exact_jobs_not_admitted')
+     def held(self,row):
+-        self.budget.require_ms(work_cutoff(self.c));process=row['info'].hProcess
+-        require(not self.api.wait(process,0) and self.api.process_id(process)==row['pid']
+-            and self.api.creation_time(process)==row['created'],'cpse_held_generation')
+-        self.api.verify_job(self.job,process);self.api.verify_outer(self.c['guard_job_name'],process)
+-        self.api.verify_image(process,self.root/'inputs'/live.ACTOR)
+-        require(sha(local.bounded(self.root/'inputs'/live.ACTOR,8*1024*1024))==self.c['actor_sha256'],'cpse_held_image')
++        self.budget.require_ms(work_cutoff(self.c));phase=self.phase;self.phase='admission'
++        self.job_admission(row,'held');self.phase=phase
+         primary=identity.capture_primary(self.api,row['token'],self.parent,self.c['capability_catalog'],self.j['first_appcontainer_sid'],self.budget,work_cutoff(self.c))
+         require(primary==row['expected_primary'],'cpse_primary_changed');row['held_checks'].append(self.budget.read());return primary
+     def arm(self,role):
+         self.phase='construct';self.budget.require_ms(work_cutoff(self.c));pi=PI();info=self.api.process_info()
+         for prior in self.rows:self.held(prior)
+         row=dict(name=role,info=info,token=None,attempted=True,assigned=False,exited=False,exit_code=None,pid=None,created=None,
+-            admitted=False,resumed=False,expected_primary=None,held_checks=[],pi=dict.fromkeys(('process','thread','process_id','thread_id'),0),return_status=None,native=None)
++            admitted=False,resumed=False,expected_primary=None,held_checks=[],job_admissions=[],pi=dict.fromkeys(('process','thread','process_id','thread_id'),0),return_status=None,native=None)
+         self.rows.append(row)
+         try:row['native']=self.call(role,child=self.child,pi=pi)
+         finally:
+@@ -333,8 +571,7 @@ class Cell:
+             if pi.process_id:row['pid']=int(pi.process_id)
+         require(native_ok(row['native']) and all(row['pi'].values()) and pi.process!=pi.thread,'cpse_arm_return')
+         self.phase='admission';process=info.hProcess;row['created']=self.api.creation_time(process)
+-        self.api.verify_job(self.job,process);self.api.verify_outer(self.c['guard_job_name'],process);row['assigned']=True
+-        self.api.verify_image(process,self.root/'inputs'/live.ACTOR)
++        self.job_admission(row,'initial');row['assigned']=True
+         row['token']=self.api.token_for_process(process);self.owners.add(row['token'])
+         observed=self.api.identity(row['token'])
+         if self.j['first_appcontainer_sid'] is None:
+@@ -379,14 +616,20 @@ class Cell:
+     def cleanup(self):
+         try:
+             if any(row['info'].hProcess and not row['exited'] for row in self.rows):self.intent('stop')
+-            rows=[row for row in self.rows if not known_no_child(row,self.c)]
++            originals=[row for row in self.rows if not known_no_child(row,self.c)]
++            # A later failed membership observation must not cause cleanup to
++            # rely solely on an earlier successful Job admission. Preserve the
++            # historical row and use only this derived view for exact stop.
++            rows=[dict(row,assigned=False) if row['assigned'] and row['job_admissions']
++                and not job_admission_passed(row['job_admissions'][-1],row,self.c) else row for row in originals]
+             clean,empty,_=base.ac._cleanup(self.api,live.CleanupView(self.budget,self.budget.cutoff(12)),self.job,rows,self.owners)
++            for original,view in zip(originals,rows):original.update(exited=view['exited'],exit_code=view['exit_code'])
+             self.j.update(child_resources_cleanup=clean,workload_job_empty=empty)
+         except BaseException:pass
+         if self.bridge is not None:
+             last=next((r['native'] for r in reversed(self.operations) if r['native'] is not None),None)
+             if last is not None and last['opaque_outcome_unknown']:self.j['opaque_outcome_unknown']=True
+-            clean=self.j['child_resources_cleanup'] and self.j['workload_job_empty'] and self.j['observer_resources_cleanup_verified'] and not self.api.controls_uncertain
++            clean=self.j['child_resources_cleanup'] and self.j['workload_job_empty'] and self.j['observer_resources_cleanup_verified'] and self.j['job_query_resources_cleanup_verified'] and not self.api.controls_uncertain
+             if clean and not self.j['opaque_outcome_unknown']:
+                 try:
+                     if last is not None and last['environment_state']==2:
+@@ -410,19 +653,19 @@ class Cell:
+             try:self.jobowners.close(handle)
+             except BaseException:jobclosed=False
+         self.j['workload_cleanup']=bool(self.j['child_resources_cleanup'] and jobclosed and self.jobowners.confirmed_closed)
+-        if not all(self.j[k] for k in ('workload_cleanup','workload_job_empty','observer_resources_cleanup_verified','api_obligations_closed','module_unbound')):
++        if not all(self.j[k] for k in ('workload_cleanup','workload_job_empty','observer_resources_cleanup_verified','job_query_resources_cleanup_verified','api_obligations_closed','module_unbound')):
+             self.j['failure']=self.j['failure'] or 'cleanup'
+ 
+ def execute(root,c,parent,api,budget):
+     config_validate(c);require(launcher.token_is_ordinary(parent) and budget.deadline==c['deadline_qpc'] and budget.frequency==c['frequency'],'cpse_parent_budget')
+     return Cell(root,c,parent,api,budget).execute()
+ 
+-RESULT_BOOLS=('common_inputs_verified','observer_resources_cleanup_verified','child_resources_cleanup','workload_cleanup','workload_job_empty','opaque_outcome_unknown',
++RESULT_BOOLS=('common_inputs_verified','observer_resources_cleanup_verified','job_query_resources_cleanup_verified','child_resources_cleanup','workload_cleanup','workload_job_empty','opaque_outcome_unknown',
+     'api_obligations_closed','module_unbound','actor_resumed','token_class46_queried','external_environment_absence_verified',
+     'broker_cancellation_proven','network_tested','dns_tested','proxy_tested','product_acceptance')
+ RESULT_KEYS={'schema_version','stage','scope','config_sha256','failure','failure_detail','child_environment','common','intents','operations','tasks','proofs',
+     'first_appcontainer_sid',*RESULT_BOOLS}
+-TASK_KEYS={'name','attempted','assigned','exited','exit_code','pid','created','admitted','resumed','expected_primary','held_checks','pi','return_status','native'}
++TASK_KEYS={'name','attempted','assigned','exited','exit_code','pid','created','admitted','resumed','expected_primary','held_checks','job_admissions','pi','return_status','native'}
+ 
+ def validate_result(j,c,*,parent):
+     config_validate(c);require(launcher.token_is_ordinary(parent),'cpse_result_parent')
+@@ -498,6 +741,10 @@ def validate_result(j,c,*,parent):
+         require(not row['exited'] or row['pi']['process'] and row['exit_code'] is not None,'cpse_exit_receipt')
+         require(type(row['held_checks']) is list and len(row['held_checks'])<=16 and row['held_checks']==sorted(row['held_checks'])
+             and all(live.integer(t,c['start_qpc'],work_cutoff(c)-1) for t in row['held_checks']),'cpse_held_checks')
++        entries=validate_job_admissions(row,j,c,op)
++        held=[entry for entry in entries if entry['purpose']=='held' and job_admission_passed(entry,row,c)]
++        require(len(row['held_checks'])<=len(held) and all(any(entry['after']['after_qpc']<=tick
++            for entry in held) for tick in row['held_checks']),'cpse_held_job_checks')
+         prior=row['expected_primary']
+         if prior is not None:
+             access.identity(prior,primary=True);live.capability_set(prior['capabilities'],'agentic-pncs',c['capability_catalog'])
+@@ -505,8 +752,15 @@ def validate_result(j,c,*,parent):
+                 and prior['appcontainer'] and prior['integrity_rid']==4096 and not prior['elevated'] and not prior['ui_access'],'cpse_primary_binding')
+         if row['admitted']:
+             require(prior is not None and row['created'] is not None and row['assigned'] and row['held_checks'] and row['native'] is not None
+-                and native_ok(row['native']) and all(row['pi'].values()) and row['pi']['process']!=row['pi']['thread'],'cpse_task_admitted')
++                and native_ok(row['native']) and all(row['pi'].values()) and row['pi']['process']!=row['pi']['thread']
++                and len(entries)>=2 and job_admission_passed(entries[1],row,c),'cpse_task_admitted')
+         if j['workload_cleanup']:require(known_no_child(row,c) or row['exited'],'cpse_clean_child')
++    job_clean=all(entry['query'] is not None and entry['query']['resource_cleanup_verified']
++        for row in tasks for entry in row['job_admissions'])
++    require(j['job_query_resources_cleanup_verified']==job_clean,'cpse_job_resources_cleanup_binding')
++    for index,row in enumerate(tasks):
++        if row['job_admissions'] and not job_admission_passed(row['job_admissions'][0],row,c):
++            require(index==len(tasks)-1 and not j['proofs'],'cpse_job_failure_stops_next_arm')
+     common=j['common']
+     if common is not None:
+         require(type(common) is dict and set(common)=={'actor_sha256','spec_sha256','environment_sha256','child','parent','catalog','outer_job'}
+@@ -532,11 +786,12 @@ def validate_result(j,c,*,parent):
+         and all(p['resource_cleanup_verified'] for p in proofs),'cpse_observer_cleanup')
+     require(not j['workload_cleanup'] or j['child_resources_cleanup'] and j['workload_job_empty'],'cpse_cleanup_empty')
+     if 'close' in labels:
+-        require(j['child_resources_cleanup'] and j['workload_job_empty'] and j['observer_resources_cleanup_verified'] and 'create' in native
++        require(j['child_resources_cleanup'] and j['workload_job_empty'] and j['observer_resources_cleanup_verified']
++            and j['job_query_resources_cleanup_verified'] and 'create' in native
+             and native['create']['environment_state']==2,'cpse_close_order')
+         require(not any(row['pi']['process'] and not row['exited'] for row in tasks),'cpse_close_live_child')
+     if j['api_obligations_closed']:
+-        require(not j['opaque_outcome_unknown'] and ('close' in native and opaque_return_known('close',statuses['close'],native['close'],c)
++        require(j['job_query_resources_cleanup_verified'] and not j['opaque_outcome_unknown'] and ('close' in native and opaque_return_known('close',statuses['close'],native['close'],c)
+             and native['close']['close_invoked_once']==native['close']['close_returned_normally']==1
+             or 'close' not in labels and ('create' not in labels or 'create' in native and native['create']['api_returned']==native['create']['hresult_valid']==1
+                 and native['create']['hresult']<0 and native['create']['environment_state']==1 and not native['create']['opaque_outcome_unknown'])),'cpse_obligation_receipt')
+@@ -544,9 +799,10 @@ def validate_result(j,c,*,parent):
+         and native['unbind']['module_close_attempted']==native['unbind']['module_close_confirmed']==1),'cpse_unbind_receipt')
+     if j['failure'] is None:
+         require(j['common_inputs_verified'] and len(proofs)==2 and all(p['qualified'] for p in proofs)
+-            and all(j[k] for k in ('observer_resources_cleanup_verified','workload_cleanup','workload_job_empty','api_obligations_closed','module_unbound'))
++            and all(j[k] for k in ('observer_resources_cleanup_verified','job_query_resources_cleanup_verified','workload_cleanup','workload_job_empty','api_obligations_closed','module_unbound'))
+             and not j['opaque_outcome_unknown'] and all(native_ok(v) for v in native.values()) and len(labels)==6,'cpse_complete')
+         require(all(row['exception'] is None and row['receipt'] is not None for row in operations),'cpse_complete_returned_receipts')
++        require(all(job_admission_passed(entry,row,c) for row in tasks for entry in row['job_admissions']),'cpse_complete_job_receipts')
+     require(len(encode(j))<=MAX_REPORT,'cpse_result_bound');return j
+ 
+ def project(j,c,*,parent):
+diff --git a/tests/test_windows_identity_psec_lpac_bridge.py b/tests/test_windows_identity_psec_lpac_bridge.py
+index 78d1295..b0187fe 100644
+--- a/tests/test_windows_identity_psec_lpac_bridge.py
++++ b/tests/test_windows_identity_psec_lpac_bridge.py
+@@ -4,6 +4,7 @@ import importlib.util
+ import os
+ from pathlib import Path
+ import tempfile
++from types import SimpleNamespace as NS
+ import unittest
+ from unittest.mock import patch
+ 
+@@ -32,6 +33,41 @@ def native(label,now,state=0):
+     if label=='unbind':v.update(module_close_attempted=1,module_close_confirmed=1)
+     return v
+ 
++class Function:
++    def __init__(self,fn):self.fn=fn
++    def __call__(self,*args):return self.fn(*args)
++
++class JobKernel:
++    """ctypes-shaped kernel callbacks: no OS handle or native call is used."""
++    def __init__(self,api):
++        self.api=api;self.calls=[];self.closed=[];self.next_handle=900001
++        self.IsProcessInJob=Function(self.query);self.OpenJobObjectW=Function(self.open);self.CloseHandle=Function(self.close)
++    def query(self,process,job,out):
++        a=self.api;inner=job==a.owner.job;label='inner' if inner else 'outer';self.calls.append(('query',process,job))
++        # A failed API may leave stale TRUE in the caller buffer. It must not
++        # become membership evidence, even when the immediate error is valid.
++        m.C.cast(out,m.C.POINTER(m.C.c_int))[0]=1
++        if a.fault==label+'-api-error':m.C.set_last_error(5 if inner else 87);return 0
++        if a.fault==label+'-exception':raise OSError('pure query exception')
++        if a.fault==label+'-no-output':m.C.cast(out,m.C.POINTER(m.C.c_int))[0]=-1;return 1
++        if a.fault in (label+'-false','outerjob' if not inner else ''):m.C.cast(out,m.C.POINTER(m.C.c_int))[0]=0
++        if a.fault=='held-inner-false' and inner and sum(call[0]=='query' and call[2]==job for call in self.calls)>=2:
++            m.C.cast(out,m.C.POINTER(m.C.c_int))[0]=0
++        if a.fault=='query-late' and not inner:a.now=m.work_cutoff(a.owner.c)
++        return 1
++    def open(self,access,inherit,name):
++        self.calls.append(('open',access,inherit,name))
++        if self.api.fault=='open-null':m.C.set_last_error(5);return None
++        if self.api.fault=='open-exception':raise OSError('pure open unknown')
++        if self.api.fault=='open-invalid':return (1<<64)-1
++        if self.api.fault=='open-alias':return self.api.alias
++        return self.next_handle
++    def close(self,handle):
++        self.calls.append(('close-query',handle));self.closed.append(handle)
++        if self.api.fault=='query-close-false':m.C.set_last_error(6);return 0
++        if self.api.fault=='query-close-exception':raise OSError('pure close unknown')
++        return 1
++
+ class Probe(fixture.Probe):
+     def verify_process(self,process,pid,creation):
+         return not self.parent.wait(process,0) and pid==self.parent.process_id(process) and creation==self.parent.creation_time(process)
+@@ -72,7 +108,7 @@ class FakeBridge:
+             # rejects the old wrong order rather than supplying only empty=True.
+             job=self.api.owner.job
+             assert job not in a.closed and a.job_empty(job),'Job must stay held through VOID close'
+-            assert all(r['info'].hProcess in a.closed and r['info'].hThread in a.closed and r['token'] in a.closed
++            assert all(r['info'].hProcess in a.closed and r['info'].hThread in a.closed and (r['token'] is None or r['token'] in a.closed)
+                 for r in a.owner.rows if r['info'].hProcess),'kernel handles must close before opaque'
+             if a.fault=='close-exception':raise OSError('VOID close did not return')
+             self.state=3;v.update(environment_state=3)
+@@ -87,16 +123,26 @@ class FakeBridge:
+ class API(fixture.API):
+     def __init__(self,root,fault=None,probe_fault=None):
+         super().__init__(root,fault,probe_fault);self.children_inputs=[];self.loaded=[]
++        self.kernel=JobKernel(self)
++        for name in ('IsProcessInJob','OpenJobObjectW','CloseHandle'):setattr(self.k,name,getattr(self.kernel,name))
++    query_exact_jobs=m.NativeAPI.query_exact_jobs
+     def bridge(self,path):self.loaded.append(path);return FakeBridge(self)
+     def processmodel_path(self):return self.root/'processmodel.dll'
+     def access_api(self):return Probe(self)
+     def creation_time(self,h):return 133900000000000000+h if self.fault=='filetime-real' else super().creation_time(h)
+     def process_id(self,h):return self.rows[h].get('pid',h)
+     def close(self,h):self.events.append(('close',h));return super().close(h)
++    def token_for_process(self,h):self.events.append(('open-primary',h));return super().token_for_process(h)
++    def terminate_process(self,h):self.events.append(('terminate-process',h));return super().terminate_process(h)
+     def resume(self,*a):raise AssertionError('CPSE identity actors must never resume')
+ 
+ class BridgeTests(unittest.TestCase):
+     def setUp(self):
++        # Linux ctypes lacks these Windows entry points. Only the fake's error
++        # slot is supplied; the production backend receives no fallback API.
++        errors={'value':0}
++        self.enterContext(patch.object(m.C,'set_last_error',side_effect=lambda value:errors.update(value=value),create=True))
++        self.enterContext(patch.object(m.C,'get_last_error',side_effect=lambda:errors['value'],create=True))
+         # Lifecycle fakes use the host's TemporaryDirectory syntax. Only this
+         # fixture's path-syntax seam is replaced on POSIX; production remains
+         # Windows-only and SpecTests always exercise real Windows syntax.
+@@ -264,4 +310,114 @@ class BridgeTests(unittest.TestCase):
+         value=m.decode(raw);self.assertEqual(value['native']['size'],95);self.assertTrue(all(value['pi'].values()))
+         self.assertIsNotNone(row['exception']);self.assertEqual(j['failure'],'construct')
+         with self.assertRaises(ValueError):m.validate_result(j,cell.c,parent=b.PARENT)
++
++    def test_exact_job_known_false_or_api_error_records_both_before_token(self):
++        for fault,key,api_success,error in (('inner-false','inner',True,0),('outer-false','outer',True,0),
++                ('inner-api-error','inner',False,5),('outer-api-error','outer',False,87)):
++            with self.subTest(fault=fault):
++                cell,api,j,p=self.run_cell(fault);row=j['tasks'][0];entry=row['job_admissions'][0];q=entry['query']
++                self.assertEqual(j['failure'],'admission');self.assertFalse(p['inner_complete']);self.assertEqual(len(j['tasks']),1)
++                self.assertEqual(q[key]['api_success'],api_success);self.assertEqual(q[key]['win32_error'],error)
++                self.assertEqual(q[key]['membership'],False if api_success else None)
++                self.assertEqual([call[0] for call in api.kernel.calls[:4]],['query','open','query','close-query'])
++                self.assertTrue(q['resource_cleanup_verified']);self.assertFalse(row['assigned']);self.assertFalse(row['admitted'])
++                self.assertIsNone(row['expected_primary']);self.assertFalse(any(isinstance(x,tuple) and x[0]=='open-primary' for x in api.events))
++                self.assertNotIn('lpac',api.events);self.assertEqual(j['proofs'],[])
++                raw=(cell.root/'job-admissions'/entry['receipt']['name']).read_bytes();value=m.decode(raw)
++                self.assertEqual(raw,entry['receipt']['text'].encode('ascii'));self.assertEqual(m.sha(raw),entry['receipt']['sha256'])
++                self.assertFalse(value['admission_decision_recorded']);self.assertEqual(value['query'],q)
++                operation=next(op for op in j['operations'] if op['label']=='ac')
++                self.assertEqual(value['pi_receipt_sha256'],operation['receipt']['sha256'])
++                self.assertTrue(j['api_obligations_closed']);self.assertTrue(row['exited'])
++
++    def test_exact_job_native_shaped_signatures_and_immediate_errors(self):
++        # This invokes production code via __new__, not an overridden query
++        # method. A later QPC call deliberately changes the fake last-error.
++        c=config(Path(r'C:\RuleProxyProof\synthetic'));state=NS(now=T+1,fault='inner-api-error',owner=NS(job=50,c=c))
++        kernel=JobKernel(state);api=m.NativeAPI.__new__(m.NativeAPI);api.k=kernel;api.controls_uncertain=False
++        class Clock:
++            frequency=F;deadline=D
++            def read(self):m.C.set_last_error(999);return state.now
++        q=api.query_exact_jobs(100,50,c['guard_job_name'],Clock(),m.work_cutoff(c),protected_handles=(50,100,101,102))
++        m.validate_job_query(q,c,process=100,inner=50)
++        self.assertEqual(q['inner']['win32_error'],5);self.assertIsNone(q['inner']['membership']);self.assertFalse(q['inner']['api_success'])
++        self.assertTrue(q['outer']['membership']);self.assertEqual(kernel.closed,[900001]);self.assertFalse(api.controls_uncertain)
++        self.assertEqual(kernel.calls[1],('open',4,False,c['guard_job_name']))
++        self.assertEqual(kernel.IsProcessInJob.argtypes,[m.C.c_void_p,m.C.c_void_p,m.C.POINTER(m.C.c_int)])
++        self.assertIs(kernel.IsProcessInJob.restype,m.C.c_int)
++        self.assertEqual(kernel.OpenJobObjectW.argtypes,[m.C.c_uint32,m.C.c_int,m.C.c_wchar_p]);self.assertIs(kernel.OpenJobObjectW.restype,m.C.c_void_p)
++        self.assertEqual(kernel.CloseHandle.argtypes,[m.C.c_void_p]);self.assertIs(kernel.CloseHandle.restype,m.C.c_int)
++
++    def test_exact_job_query_handle_alias_invalid_and_null_never_blind_close(self):
++        c=config(Path(r'C:\RuleProxyProof\synthetic'))
++        for fault,alias in [('open-alias',h) for h in (50,100,101,102)]+[('open-invalid',None),('open-null',None)]:
++            with self.subTest(fault=fault,alias=alias):
++                state=NS(now=T+1,fault=fault,alias=alias,owner=NS(job=50,c=c));kernel=JobKernel(state)
++                api=m.NativeAPI.__new__(m.NativeAPI);api.k=kernel;api.controls_uncertain=False
++                budget=NS(frequency=F,deadline=D,read=lambda:state.now)
++                q=api.query_exact_jobs(100,50,c['guard_job_name'],budget,m.work_cutoff(c),protected_handles=(50,100,101,102))
++                m.validate_job_query(q,c,process=100,inner=50);self.assertFalse(m.job_query_passed(q));self.assertEqual(kernel.closed,[])
++                self.assertFalse(q['outer']['attempted']);self.assertEqual(api.controls_uncertain,fault!='open-null')
++                self.assertEqual(q['resource_cleanup_verified'],fault=='open-null')
++
++    def test_exact_job_query_close_unknown_keeps_recovery_and_consumes_once(self):
++        for fault in ('query-close-false','query-close-exception','open-exception'):
++            with self.subTest(fault=fault):
++                _,api,j,p=self.run_cell(fault);q=j['tasks'][0]['job_admissions'][0]['query']
++                self.assertFalse(p['inner_complete']);self.assertFalse(j['job_query_resources_cleanup_verified'])
++                self.assertFalse(j['api_obligations_closed']);self.assertFalse(j['module_unbound']);self.assertNotIn('close',api.events)
++                self.assertTrue(api.controls_uncertain);self.assertEqual(len(api.kernel.closed),0 if fault=='open-exception' else 1)
++                self.assertFalse(q['resource_cleanup_verified']);self.assertTrue(q['outer_resource']['close_uncertain'])
++                if fault=='query-close-false':self.assertEqual(q['outer_resource']['close_win32_error'],6)
++
++    def test_exact_job_durable_failure_prevents_admission_without_erasing_query(self):
++        writer=m.base.durable_private
++        def write(path,raw):
++            if path.parent.name=='job-admissions':raise OSError('pure job observation write failure')
++            return writer(path,raw)
++        with patch.object(m.base,'durable_private',side_effect=write):_,api,j,p=self.run_cell()
++        row=j['tasks'][0];entry=row['job_admissions'][0]
++        self.assertFalse(row['assigned']);self.assertFalse(row['admitted']);self.assertIsNone(entry['receipt']);self.assertIsNotNone(entry['exception'])
++        self.assertTrue(m.job_query_passed(entry['query']));self.assertTrue(j['job_query_resources_cleanup_verified']);self.assertFalse(p['inner_complete'])
++        self.assertNotIn('lpac',api.events);self.assertIsNone(row['expected_primary']);self.assertEqual(j['proofs'],[])
++
++    def test_durable_job_write_consumes_original_budget_before_any_admission(self):
++        original=API.qpc
++        def qpc(api):
++            if (api.root/'job-admissions'/'ac-01.json').exists():api.now=m.work_cutoff(api.owner.c)
++            return original(api)
++        with patch.object(API,'qpc',qpc):cell,api,j,p=self.run_cell()
++        row=j['tasks'][0];entry=row['job_admissions'][0]
++        self.assertIsNotNone(entry['receipt']);self.assertTrue(m.job_query_passed(entry['query']))
++        self.assertEqual(entry['decision_qpc'],m.work_cutoff(cell.c));self.assertIsNotNone(entry['exception'])
++        self.assertFalse(row['assigned']);self.assertIsNone(row['expected_primary']);self.assertFalse(p['inner_complete'])
++        self.assertNotIn('lpac',api.events);self.assertEqual(cell.budget.deadline,D)
++
++    def test_later_job_false_keeps_historical_assignment_but_exact_stops_held_actor(self):
++        _,api,j,p=self.run_cell('held-inner-false');row=j['tasks'][0]
++        self.assertTrue(row['assigned']);self.assertFalse(row['admitted']);self.assertEqual(len(row['job_admissions']),2)
++        self.assertTrue(m.job_admission_passed(row['job_admissions'][0],row,config(api.root)))
++        self.assertFalse(m.job_query_passed(row['job_admissions'][-1]['query']));self.assertIn(('terminate-process',row['pi']['process']),api.events)
++        self.assertTrue(row['exited']);self.assertEqual(row['exit_code'],1);self.assertFalse(p['inner_complete']);self.assertEqual(j['proofs'],[])
++
++    def test_query_late_or_unwritten_success_output_never_admits_or_extends_budget(self):
++        for fault in ('query-late','inner-no-output','outer-no-output'):
++            with self.subTest(fault=fault):
++                cell,api,j,p=self.run_cell(fault);row=j['tasks'][0]
++                self.assertFalse(p['inner_complete']);self.assertFalse(row['assigned']);self.assertIsNone(row['expected_primary'])
++                self.assertEqual(cell.budget.deadline,D);self.assertEqual(len(api.kernel.closed),1)
++                self.assertNotIn('lpac',api.events);self.assertTrue(j['job_query_resources_cleanup_verified'])
++
++    def test_job_admission_receipt_and_cleanup_boolean_cannot_be_rewritten_to_qualify(self):
++        cell,_,j,_=self.run_cell()
++        def rejected(mut,value=j):
++            bad=copy.deepcopy(value);mut(bad)
++            with self.assertRaises((ValueError,m.launcher.GateFailure)):m.validate_result(bad,cell.c,parent=b.PARENT)
++        rejected(lambda x:x['tasks'][0]['job_admissions'][0]['receipt'].update(sha256='0'*64))
++        rejected(lambda x:x['tasks'][0]['job_admissions'][0]['query']['inner'].update(membership=False))
++        rejected(lambda x:x['tasks'][0]['job_admissions'][0]['query'].update(outer_job='Local\\wrong'))
++        rejected(lambda x:x.update(job_query_resources_cleanup_verified=False))
++        _,_,failed,_=self.run_cell('query-close-false')
++        rejected(lambda x:x.update(job_query_resources_cleanup_verified=True),failed)
++        rejected(lambda x:x.update(api_obligations_closed=True),failed)
+ if __name__=='__main__':unittest.main()

@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "experiment": "N0a-connect",
+  "receipt_verified": true,
+  "reason": "none",
+  "result": {
+    "schema_version": 1,
+    "experiment": "N0a-connect",
+    "status": "observed_connect_denial",
+    "endpoints": {
+      "guest": {
+        "status": "observed_connect_denial",
+        "profile_verified": true,
+        "controls_verified": true,
+        "window_overlap_verified": true,
+        "explicit_denials": 3,
+        "connect_success_observed": false
+      },
+      "runner": {
+        "status": "observed_connect_denial",
+        "profile_verified": true,
+        "controls_verified": true,
+        "window_overlap_verified": true,
+        "explicit_denials": 3,
+        "connect_success_observed": false
+      }
+    },
+    "packet_egress_tested": false,
+    "stage0_passed": false,
+    "product_acceptance": false,
+    "privacy_qualified": false,
+    "psec_cleanup_independently_verified": false,
+    "exploratory_below_support_floor": true,
+    "continuous_token_identity_proven": false
+  },
+  "execution": {
+    "phase": "completed",
+    "failed": false,
+    "cleanup_confirmed": true
+  },
+  "receiver": {
+    "socket_cleanup_confirmed": true,
+    "endpoint_error": false,
+    "receiver_counts": {
+      "accepted": 42,
+      "ordinary_verified_frames": 42,
+      "contained_verified_frames": 0,
+      "rejected": 0,
+      "timed_out": 0
+    }
+  },
+  "launcher": {
+    "phase": "completed",
+    "failure": "none",
+    "python_exit_code": 0,
+    "process_exit_confirmed": true,
+    "timed_out": false,
+    "budget_exhausted": false
+  },
+  "original_stage0_receipt_verified": true,
+  "host_receiver": {
+    "socket_cleanup_confirmed": true,
+    "endpoint_error": false,
+    "receiver_counts": {
+      "accepted": 42,
+      "ordinary_verified_frames": 42,
+      "contained_verified_frames": 0,
+      "rejected": 0,
+      "timed_out": 0
+    }
+  },
+  "vm_destroyed": true,
+  "host_wait_state": "received"
+}

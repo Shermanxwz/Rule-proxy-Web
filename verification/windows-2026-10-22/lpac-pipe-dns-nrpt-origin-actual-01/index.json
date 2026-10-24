@@ -1,0 +1,115 @@
+{
+  "binding_input": {
+    "bytes": 2312,
+    "sha256": "d10239ae291fa6fb30b6f6529b8f9658c625ca2c4afaa0486f3e7b188b9c2208"
+  },
+  "files": [
+    {
+      "bytes": 8184,
+      "path": "verification/windows-2026-10-22/lpac-pipe-dns-nrpt-origin-actual-01/summary.json",
+      "sha256": "d09629920f1c610b1b24383a749d508ebfaf600e5fac3470c7958a9c1b3c6d4e"
+    },
+    {
+      "bytes": 36392,
+      "path": "verification/windows-2026-10-22/lpac-pipe-dns-nrpt-origin-actual-01/components.json",
+      "sha256": "59fc6f5e27e4be9660039af24b1227c4bc28681b5b024818dbdd19742d700418"
+    },
+    {
+      "bytes": 3963,
+      "path": "verification/windows-2026-10-22/lpac-pipe-dns-nrpt-origin-actual-01/pure-CI-summary.json",
+      "sha256": "75194076cd631a94519f68955725a90607fb7abeca6caa78ae347d967f486508"
+    },
+    {
+      "bytes": 19638,
+      "path": "verification/windows-2026-10-22/lpac-pipe-dns-nrpt-origin-actual-01/source-build-index.json",
+      "sha256": "d3cf922c732ae054494c13fd481d8bf3b2ca5f61fc79e471c52cc143a59b2c15"
+    },
+    {
+      "bytes": 13061,
+      "path": "verification/windows-2026-10-22/lpac-pipe-dns-nrpt-origin-actual-01/runner.py",
+      "sha256": "485142543ba13eaafec9a0fc58a0d465047b7390af57b4f51f6e5424525ac91b"
+    },
+    {
+      "bytes": 19679,
+      "path": "verification/windows-2026-10-22/lpac-pipe-dns-nrpt-origin-actual-01/reader.py",
+      "sha256": "f2f81f10564e46972a53cda87e3282ca6870413f285012051ae330c46853584b"
+    },
+    {
+      "bytes": 2798,
+      "path": "docs/validation/2026-10-23-lpac-pipe-dns-nrpt-origin-01.md",
+      "sha256": "78490efb88afda76d5da035888776be1da109c6442c1b003fa41281e48ee1e96"
+    }
+  ],
+  "independent_review": {
+    "bytes": 41463,
+    "sha256": "5b115409eaa3d6e1c8ba941532e286c8389a774096bc79fa0289433be1b9524d"
+  },
+  "old_history_and_failure_records_unchanged": true,
+  "original_preflight": {
+    "bytes": 2510,
+    "path": "verification/windows-2026-10-22/lpac-pipe-dns-nrpt-origin-local-01-preflight.json",
+    "sha256": "4c8b49083e73c808235daa898981ce1f1e40f4d9cb49f768c416a6f15dd985a8"
+  },
+  "original_public": {
+    "bytes": 4794,
+    "path": "verification/windows-2026-10-22/lpac-pipe-dns-nrpt-origin-local-01-public.json",
+    "sha256": "820e2a936da85ac76dc2a3361c53eef453eb066695d5ba1a164a99903ff2d6bb"
+  },
+  "physical_originals_not_copied": true,
+  "privacy": "No raw user/profile/capability SID, PID, HANDLE, token statistics, QPC, host paths, query nonce, NRPT namespace/server or failure message is copied. Source paths and exact hashes are public.",
+  "private_commitments": {
+    "config": {
+      "bytes": 7024,
+      "sha256": "1737c8918094890abbf27e305bfdef149229e9585eac302889ad0be889371132"
+    },
+    "driver": {
+      "bytes": 13061,
+      "sha256": "485142543ba13eaafec9a0fc58a0d465047b7390af57b4f51f6e5424525ac91b"
+    },
+    "forensic": {
+      "bytes": 77171,
+      "sha256": "15266330b35ed868a44fcb807beeff0541589b478833351afb67de820245a6fb"
+    },
+    "outer_report": {
+      "bytes": 620,
+      "sha256": "b41004d4ad8f83cb4339f4cca3e55f85b819f87ce52163cc4377518c1dd2fd93"
+    },
+    "plan": {
+      "bytes": 2092,
+      "sha256": "f9e1d6b0c7074e4597a68ec59f2e40057bbfa5aa2702873925d796c4d966e002"
+    },
+    "stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "stdout": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "worker_report": {
+      "bytes": 77171,
+      "sha256": "15266330b35ed868a44fcb807beeff0541589b478833351afb67de820245a6fb"
+    }
+  },
+  "publisher": {
+    "bytes": 23964,
+    "sha256": "8ce1bbfdcce60d8e70cfd16a905f6f96d7d0b0c58469ff1b5064ff2b14fa7f88"
+  },
+  "reader": {
+    "bytes": 19679,
+    "sha256": "f2f81f10564e46972a53cda87e3282ca6870413f285012051ae330c46853584b"
+  },
+  "reader_helpers": {
+    "DNS01": {
+      "name": "verify_lpac_pipe_dns_origin_actual_01_candidate.py",
+      "sha256": "787aa85d0903d7fa491a33f7185dbcbdbcf7db6f5b6639f1d4ccaf0696d21285"
+    },
+    "IPC": {
+      "name": "verify_lpac_pipe_origin_actual_01.py",
+      "sha256": "faae99c4bebafd4a54d41ae607d9b895a4ee60cee3bcffbf0c2de32436c231bb"
+    }
+  },
+  "schema_version": 1,
+  "source_commit": "c9633b2cbb82f9a3c47ac5b8624d3cc1a1b39ce0",
+  "stage": "lpac-pipe-dns-nrpt-origin-actual01-thin-index"
+}

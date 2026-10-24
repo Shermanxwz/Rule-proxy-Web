@@ -1,0 +1,282 @@
+{
+  "actions": {
+    "actor_or_DLL_loaded": false,
+    "candidate_or_main_modified": false,
+    "compiler_or_tests_repeated": false,
+    "native_API_or_network_called": false,
+    "profile_token_or_ACL_changed": false
+  },
+  "author_native_pure": {
+    "receipt": {
+      "actor_cpp_never_compiled": true,
+      "actor_never_executed": true,
+      "command": "python -I -S -B -m unittest discover -s work/registry-read-same-sid-loopback-candidate/tests -p test_windows_identity_lpac_registry_loopback_native.py -v",
+      "compiler_environment": "Installed MSVC x64 developer shell; process-local environment only",
+      "coverage": [
+        "production fixed registryRead SID48 all-bit mutations, count1/attrs4, other role zero-cap requirement",
+        "production SID pointer extent underflow/overflow/shortbuffer including near UINTPTR_MAX",
+        "production4B empty capability header and x64 nonzero entry extent",
+        "production RLP1 packet64 and RCL1 command128 canonical/role/case/reserved/deadline/release checks",
+        "source scope/no extra cap/fallback/UI API and pointer-bound-before-SDK checks"
+      ],
+      "errors": 0,
+      "failures": 0,
+      "log": {
+        "bytes": 839,
+        "path": "registry-read-loopback-native-pure-02.log",
+        "sha256": "7f7486f93af8949e3cd50e30e341355c79e53d28b53188495b8a492c0a1ef55a"
+      },
+      "seconds": 1.078,
+      "sid_and_capability_harness_assertions": 436,
+      "skipped": 0,
+      "test_count": 3,
+      "test_source": {
+        "bytes": 9387,
+        "sha256": "7fbf38f66a8f458df53e85cf03afbf664b0d6b02c4f90d02bc36d26c5c9613dc"
+      }
+    },
+    "reviewer_reran": false
+  },
+  "compile_binding": {
+    "actor": {
+      "bytes": 299008,
+      "path": "windows_identity_lpac_registry_loopback_actor.exe",
+      "sha256": "ff5ce2453d91902b516eed4d9266735579c3ee7fd936b4fbdf915ce086b531f0"
+    },
+    "actual_precompile_input_snapshot": {
+      "bytes": 727,
+      "path": "input-snapshot.json",
+      "sha256": "f6cf0f55eb1d59c6b71521a911cd42ecb388853954a0451befba06ba0b334868"
+    },
+    "compile_log": {
+      "bytes": 51,
+      "path": "compile.log",
+      "sha256": "a2476fd5b70b79310ee4b5fd00ab66ae7b198c4fb13aa0326704795a855281f5"
+    },
+    "immutable_source_copy_matches_freeze": true,
+    "manifest": {
+      "bytes": 387,
+      "path": "identity-lpac-registry-loopback-manifest.json",
+      "sha256": "72679ffee1c1e110730207b9cae747385afb8a0f4a6a65f5fe78e6b2b76758a1"
+    },
+    "root_executed_helper": {
+      "bytes": 4491,
+      "path": "compile_registry_read_loopback_01.ps1",
+      "sha256": "7b2942ed3617be8e76f3bfd0cd9fec31fcb97ca93faefb86f69ea42535f22252"
+    },
+    "toolchain": {
+      "bytes": 400,
+      "path": "toolchain.json",
+      "sha256": "4de0bc8d4e4f7e5089279efb2f8b883d4d19e6b63838ec9acb60b74bbe169cc6"
+    },
+    "unused_root_input_is_not_actual_snapshot": true,
+    "unused_root_preparer_input": {
+      "bytes": 717,
+      "path": "registry-read-loopback-native-compile-input-01.json",
+      "sha256": "20269745f2d0862e3701c527a8601253ca69a4ff79ee5833906397c1daa28791"
+    }
+  },
+  "frozen_native_sources": {
+    ".github/native/windows_identity_lpac_registry_loopback_actor.cpp": {
+      "bytes": 30847,
+      "sha256": "e585646ff2ddc3b29b987e8191455acea96bfc0a347129a6f57936e4ac1ca079"
+    },
+    ".github/native/windows_identity_lpac_registry_loopback_contract.hpp": {
+      "bytes": 5839,
+      "sha256": "842658f2771a34722276805948cb2b65123a9407f7f323c94ea46f56a53ca966"
+    }
+  },
+  "independent_pe": {
+    "delay_imports": [],
+    "dll": false,
+    "entrypoint_nonzero": true,
+    "imported_symbols": {
+      "ADVAPI32.dll": [
+        "GetTokenInformation",
+        "GetSidSubAuthority",
+        "GetLengthSid",
+        "OpenProcessToken",
+        "IsValidSid"
+      ],
+      "KERNEL32.dll": [
+        "SetFilePointerEx",
+        "GetProcessHeap",
+        "SetStdHandle",
+        "FreeEnvironmentStringsW",
+        "GetEnvironmentStringsW",
+        "GetCommandLineA",
+        "HeapSize",
+        "GetACP",
+        "IsValidCodePage",
+        "FindNextFileW",
+        "FindFirstFileExW",
+        "FindClose",
+        "GetConsoleOutputCP",
+        "GetConsoleMode",
+        "WriteConsoleW",
+        "GetOEMCP",
+        "GetCurrentThreadId",
+        "GetCommandLineW",
+        "CreateFileW",
+        "FlushFileBuffers",
+        "GetFileSizeEx",
+        "ReadFile",
+        "WriteFile",
+        "CloseHandle",
+        "GetHandleInformation",
+        "SetHandleInformation",
+        "GetLastError",
+        "QueryPerformanceCounter",
+        "QueryPerformanceFrequency",
+        "Sleep",
+        "GetCurrentProcess",
+        "GetCurrentProcessId",
+        "IsProcessInJob",
+        "GetFileInformationByHandleEx",
+        "WideCharToMultiByte",
+        "EnterCriticalSection",
+        "LeaveCriticalSection",
+        "InitializeCriticalSectionEx",
+        "DeleteCriticalSection",
+        "EncodePointer",
+        "DecodePointer",
+        "MultiByteToWideChar",
+        "LCMapStringEx",
+        "GetStringTypeW",
+        "GetCPInfo",
+        "RtlCaptureContext",
+        "RtlLookupFunctionEntry",
+        "RtlVirtualUnwind",
+        "UnhandledExceptionFilter",
+        "SetUnhandledExceptionFilter",
+        "TerminateProcess",
+        "IsProcessorFeaturePresent",
+        "GetSystemTimeAsFileTime",
+        "InitializeSListHead",
+        "IsDebuggerPresent",
+        "GetStartupInfoW",
+        "GetModuleHandleW",
+        "HeapReAlloc",
+        "RtlPcToFileHeader",
+        "RaiseException",
+        "RtlUnwindEx",
+        "SetLastError",
+        "InitializeCriticalSectionAndSpinCount",
+        "TlsAlloc",
+        "TlsGetValue",
+        "TlsSetValue",
+        "TlsFree",
+        "FreeLibrary",
+        "GetProcAddress",
+        "LoadLibraryExW",
+        "GetStdHandle",
+        "GetModuleFileNameW",
+        "ExitProcess",
+        "GetModuleHandleExW",
+        "HeapAlloc",
+        "HeapFree",
+        "GetFileType",
+        "FlsAlloc",
+        "FlsGetValue",
+        "FlsSetValue",
+        "FlsFree",
+        "VirtualProtect",
+        "LCMapStringW",
+        "GetLocaleInfoW",
+        "IsValidLocale",
+        "GetUserDefaultLCID",
+        "EnumSystemLocalesW"
+      ],
+      "WS2_32.dll": [
+        "#2",
+        "WSASocketW",
+        "#111",
+        "#116",
+        "#115",
+        "#22",
+        "#21",
+        "#19",
+        "#18",
+        "#16",
+        "#15",
+        "#13",
+        "#9",
+        "#8",
+        "#7",
+        "#6",
+        "#5",
+        "#10",
+        "#4",
+        "#3",
+        "#1"
+      ]
+    },
+    "imports": [
+      "WS2_32.dll",
+      "ADVAPI32.dll",
+      "KERNEL32.dll"
+    ],
+    "machine": "AMD64",
+    "no_shell32_user32_dnsapi_or_dynamic_crt_import": true,
+    "section_count": 6,
+    "subsystem": "WINDOWS_GUI"
+  },
+  "limits": [
+    "RegistryRead capability derivation and ACL research support a new test hypothesis, not a unique explanation of WSAStartup10107.",
+    "Compile/static GO does not establish LPAC Winsock startup, loopback reachability, network authorization or any isolation qualification.",
+    "Python owner review, explicit ready promotion, source-bound full checks and parent-controlled actual experiment remain separate.",
+    "registryRead may grant reads to other existing same-capability ACE registry objects; no PNCS or InternetClient implication."
+  ],
+  "native_freeze": {
+    "bytes": 5447,
+    "path": "registry-read-loopback-native-freeze-01.json",
+    "sha256": "456f5c83ba8c35d9af31cedbb63c8be248ca4bab15dbce288287511580d5e5ce"
+  },
+  "preserved_non_runtime_history": [
+    {
+      "observed_evidence": "The unused root input JSON physically exists and differs from the actual helper snapshot. The preparer uses exclusive creation and could stop at the already-existing helper.",
+      "raw_failure_log_available": false,
+      "root_report": "FileExistsError at helper xb after extra unused input JSON; no compile from that failed preparer; actual existing helper subsequently executed.",
+      "script": {
+        "bytes": 1987,
+        "path": "prepare_registry_read_native_compile_01.py",
+        "sha256": "6e34b0dd1319542b2a69111d73e925b2be8ece480a2e7ca8f5fbeb1121715933"
+      },
+      "stage": "root-preparation"
+    },
+    {
+      "exact_change": "utf8-sig to utf-8-sig only",
+      "fresh_reader": {
+        "bytes": 4341,
+        "path": "inspect_registry_read_loopback_compile_01_reader02.py",
+        "sha256": "48f18f71e01a4898c330d7370c95f61c3eb27d98a6f5e8dcf1929e29563905cb"
+      },
+      "original": {
+        "bytes": 4340,
+        "path": "inspect_registry_read_loopback_compile_01.py",
+        "sha256": "5cf84fe936ce7e0a63ca38d09de8b65186746948944b62c866c23d66785fbb81"
+      },
+      "raw_failure_log_available": false,
+      "root_report": "LookupError before receipt; fresh file-only reader02 succeeded; no recompilation.",
+      "stage": "root-static-reader-01"
+    }
+  ],
+  "research": {
+    "bytes": 4988,
+    "path": "lpac-registry-read-winsock-research-01.json",
+    "sha256": "485b023e693ac77a7e8f5ba759ba378633fb61f16934722f8bdc8dbd2535adca"
+  },
+  "root_native_source_review": {
+    "bytes": 3171,
+    "path": "registry-read-loopback-native-source-independent-review-01.json",
+    "sha256": "a89d8a9c2d00d805dd2207292c545fc70e13e13a56cfd45629c6cdca54a0af0c"
+  },
+  "root_static_review": {
+    "bytes": 1635,
+    "path": "registry-read-loopback-compile-static-review-01.json",
+    "sha256": "6a0dbcf069ab6b435b5a42d1c312bfac6f29707bcdf720fb6247d2b965727255"
+  },
+  "schema_version": 1,
+  "stage": "registry-read-loopback-compile-independent-file-review",
+  "verdict": "GO-compile-and-static-evidence-only"
+}

@@ -1,0 +1,192 @@
+{
+  "actions": {
+    "helper_or_wrapper_executed": false,
+    "main_source_modified": false,
+    "new_experiment_run": false
+  },
+  "contract_baseline_commit": "277c112f81fb4e3b70305d9e881beada4758b115",
+  "raw_actual_reports_published": false,
+  "raw_and_view_commitments_separately_recorded": true,
+  "raw_guard_report_published": false,
+  "records": [
+    {
+      "executable_installation_copy": false,
+      "kind": "redacted_source_or_design_view",
+      "original": {
+        "bytes": 17884,
+        "sha256": "73bba54b6fb35fe7e8f8d6008849dc21b4de9aa6a87cfcfd45c96431501e2e89"
+      },
+      "original_raw_bytes_published": true,
+      "source_label": "read_afd_device_dacl_readonly_01.py",
+      "transformations": [],
+      "view": {
+        "bytes": 17884,
+        "path": "helper.source-view.py",
+        "sha256": "73bba54b6fb35fe7e8f8d6008849dc21b4de9aa6a87cfcfd45c96431501e2e89"
+      }
+    },
+    {
+      "executable_installation_copy": false,
+      "kind": "redacted_source_or_design_view",
+      "original": {
+        "bytes": 5027,
+        "sha256": "cd77f37f45686700192436d945702613cb58aa6993fe92fee5db1599601b96c9"
+      },
+      "original_raw_bytes_published": true,
+      "source_label": "run_afd_readonly_supervised_01.py",
+      "transformations": [],
+      "view": {
+        "bytes": 5027,
+        "path": "supervisor.source-view.py",
+        "sha256": "cd77f37f45686700192436d945702613cb58aa6993fe92fee5db1599601b96c9"
+      }
+    },
+    {
+      "executable_installation_copy": false,
+      "kind": "redacted_source_or_design_view",
+      "original": {
+        "bytes": 5030,
+        "sha256": "86fb29b41f652a1b8a897c135db7c4faec63d15f250b31f7525e8519411639a8"
+      },
+      "original_raw_bytes_published": false,
+      "source_label": "afd-device-dacl-readonly-helper-freeze-01.json",
+      "transformations": [
+        {
+          "count": 1,
+          "kind": "workspace_prefix_redacted"
+        }
+      ],
+      "view": {
+        "bytes": 4946,
+        "path": "helper-freeze.source-view.json",
+        "sha256": "d8b7d0aa7f8652b5f4665c064f99814933a6ee5dd112053e4b6a180eaff5a842"
+      }
+    },
+    {
+      "executable_installation_copy": false,
+      "kind": "redacted_source_or_design_view",
+      "original": {
+        "bytes": 1481,
+        "sha256": "819221831150988a8c0cc2e471af0fcee46a7339601e5d56159e136d1357cca8"
+      },
+      "original_raw_bytes_published": true,
+      "source_label": "afd-device-readonly-root-review-01.json",
+      "transformations": [],
+      "view": {
+        "bytes": 1481,
+        "path": "root-review.source-view.json",
+        "sha256": "819221831150988a8c0cc2e471af0fcee46a7339601e5d56159e136d1357cca8"
+      }
+    },
+    {
+      "executable_installation_copy": false,
+      "kind": "redacted_source_or_design_view",
+      "original": {
+        "bytes": 3106,
+        "sha256": "22e6639b265b84ab751733b6e95a92476c79e488c1724d8c8715d7b532116779"
+      },
+      "original_raw_bytes_published": true,
+      "source_label": "afd-device-readonly-independent-review-01.json",
+      "transformations": [],
+      "view": {
+        "bytes": 3106,
+        "path": "independent-review.source-view.json",
+        "sha256": "22e6639b265b84ab751733b6e95a92476c79e488c1724d8c8715d7b532116779"
+      }
+    },
+    {
+      "executable_installation_copy": false,
+      "kind": "redacted_source_or_design_view",
+      "original": {
+        "bytes": 33381,
+        "sha256": "50c679695df76c6a1288abf7a040daf14c126187ea620e38eeb7246c5b126cd0"
+      },
+      "original_raw_bytes_published": true,
+      "source_label": "lpac-ipc-origin-scope-contract-01.json",
+      "transformations": [],
+      "view": {
+        "bytes": 33381,
+        "path": "lpac-ipc-origin-scope-contract-01.json",
+        "sha256": "50c679695df76c6a1288abf7a040daf14c126187ea620e38eeb7246c5b126cd0"
+      }
+    },
+    {
+      "executable_installation_copy": false,
+      "kind": "redacted_source_or_design_view",
+      "original": {
+        "bytes": 2790,
+        "sha256": "8fbcf55420ddf303fed8c91a93d3cabef7419b52451c7b2025d3ccf6ba3ec549"
+      },
+      "original_raw_bytes_published": true,
+      "source_label": "lpac-ipc-origin-scope-contract-01.txt",
+      "transformations": [],
+      "view": {
+        "bytes": 2790,
+        "path": "lpac-ipc-origin-scope-contract-01.txt",
+        "sha256": "8fbcf55420ddf303fed8c91a93d3cabef7419b52451c7b2025d3ccf6ba3ec549"
+      }
+    },
+    {
+      "executable_installation_copy": false,
+      "kind": "redacted_source_or_design_view",
+      "original": {
+        "bytes": 1343,
+        "sha256": "5ac3c19579e23e78c74d1605afe98a60b9710e68aa39f22a899258261483f909"
+      },
+      "original_raw_bytes_published": true,
+      "source_label": "lpac-ipc-origin-scope-contract-freeze-01.json",
+      "transformations": [],
+      "view": {
+        "bytes": 1343,
+        "path": "lpac-ipc-origin-scope-contract-freeze-01.json",
+        "sha256": "5ac3c19579e23e78c74d1605afe98a60b9710e68aa39f22a899258261483f909"
+      }
+    },
+    {
+      "kind": "safe_actual_projection",
+      "original": {
+        "bytes": 5662,
+        "sha256": "4a542201053d1ea550c939d7eab39ab0acad28dd738ed4e664f81e55d929a7f7"
+      },
+      "original_raw_bytes_published": false,
+      "source_label": "afd-device-dacl-readonly-01.json",
+      "transformations": [
+        {
+          "kind": "closed_whitelist_projection_no_identifiers_or_clock_values"
+        }
+      ],
+      "view": {
+        "bytes": 3198,
+        "path": "observation-safe.json",
+        "sha256": "e006e9eb6c7f880ba8e415dd4de5db68ca2ef8f9d1a4b4dcf7bd69188e0d767f"
+      }
+    },
+    {
+      "kind": "safe_actual_projection",
+      "original": {
+        "bytes": 6039,
+        "sha256": "7760cb9a25f5b31333895813bc9ef9f8fc4da7f0a5eed03c1290808bd97d5c8d"
+      },
+      "original_raw_bytes_published": false,
+      "source_label": "afd-device-readonly-supervision-01.json",
+      "transformations": [
+        {
+          "kind": "closed_whitelist_projection_no_identifiers_or_clock_values"
+        }
+      ],
+      "view": {
+        "bytes": 1260,
+        "path": "supervision-safe.json",
+        "sha256": "88a6646c7b2e0b3fc715e3b2c1f945e8b1b9ea44111d49708096f432782bd6a0"
+      }
+    }
+  ],
+  "schema_version": 1,
+  "source_commit": "d309ae322cca84360923d6bc51013057991a4218",
+  "stage": "afd-readonly-design-evidence-index",
+  "summary": {
+    "bytes": 2469,
+    "path": "summary.json",
+    "sha256": "ef5b95419bbaa9816d6aac5f8df084b8096765e8d8e9a7217c227f141a87a093"
+  }
+}

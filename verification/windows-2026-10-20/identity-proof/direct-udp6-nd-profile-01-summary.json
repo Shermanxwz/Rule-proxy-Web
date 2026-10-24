@@ -1,0 +1,101 @@
+{
+  "bounds": {
+    "full_host_composition_measured_bytes": 9370,
+    "full_host_measurement_is_not_a_new_cap": true,
+    "guest_envelope_limit": 4096,
+    "native_limit": 32768,
+    "packet_nested_indent2_newline_conservative_bytes": 4060,
+    "packet_projection_limit": 4096,
+    "private_body_limit": 65536
+  },
+  "conclusion": "success",
+  "diagnostic_contract": {
+    "complex_quotes_unknown": true,
+    "icmp_first_encountered_pairs": 2,
+    "icmp_omitted_distinct_count_claimed": false,
+    "icmp_omitted_event_total": true,
+    "joint_correlations_computed_per_event": true,
+    "ndp_failure_mask": 524287,
+    "ndp_vector_fields": 10,
+    "next_header_detail_rows": 2,
+    "next_header_omitted_category_and_event_totals": true,
+    "partial_quotes_not_malformed": true,
+    "quoted_checksums_do_not_authenticate": true,
+    "raw_selected_bytes_separate_from_direct_udp": true,
+    "version": 3
+  },
+  "experiment": "Strict fixture Neighbor Discovery profile short validation",
+  "freeze_sha256": "13455728e9bc0bfe0259e986328defb3fa2642377a6fb4a87357adf7712906de",
+  "head": "0681294778b56f84e4daab77ba46452617cb46bf",
+  "interpretation": [
+    "All tests are the required scoped suites, not every repository test. Actual Linux and Windows completed 759 tests each with no skips.",
+    "Inner packet schema 2 explicitly identifies changed decoder admission, even when optional diagnostics are null. Diagnostic version 3 retains reached next-header candidate totals, including admitted ND; the historical opaque_next_header_counts field name does not mean every listed candidate is rejected.",
+    "Only a per-packet strict fixture NS/NA profile may avoid adding opaque_protocol. Other unsupported or rejected packets still prevent the existing narrow selected-UDP-payload absence conclusion. This is not a blanket exclusion of ICMPv6 or types 135/136.",
+    "The profile requires a unique usable communication-source address witnessed by every ordinary manifest row with matching nonce/ports/guest MAC/fixed endpoint and a valid nonzero UDP checksum. Bad-checksum duplicates, conflicting sources, missing controls, port conflict, structural capture failure or relevant extension layout taint this admission. This is capture correlation, not OS address ownership or actor authentication; prior runtime05 did not export these new witness predicates.",
+    "The strict profile requires direct IPv6 ICMP, hop limit 255, code 0, valid checksum and exact 24-byte or 32-byte supported shapes. NS/NA source-target, reserved/flag and optional single Ethernet link-layer-address relationships are fixture-specific. Other RFC-legal shapes/options may remain unsupported rather than malformed.",
+    "Complete selected-frame bytes and the separate shared ASCII case nonce are conservatively checked before the exception. Either match prevents ND admission; they do not by themselves prove genuine UDP framing, selected-actor attribution or delivery. Existing packet/receiver/native observations remain separate and sticky.",
+    "Two sequential parsing passes reuse the same existing immutable capture bytes with bounded witness state and no new capture-sized copy or frame list. The legacy reader already has transient chunks/join duplication and was not changed. The 65 MiB reserve is filesystem capacity admission, not a proved RAM bound.",
+    "Hosted IPv6 loopback remains TEST_ONLY. Contained is a fixture phase, not AppContainer isolation. The isolated production-input verifier executes no PE; a separate production invalid-CLI check does not exercise a valid production network CLI. All seven owned children and two receivers report cleanup and work removal.",
+    "The Linux paused no-guest QEMU mechanism observes mapped backing-file identity and separate local package integrity, not resident bytes, upstream equivalence or guest networking.",
+    "Runtime05 remains failed/inconclusive: it reported type 135/code 0 and 136/code 0 with consistent outer checksums, but not the new hop-limit, address, option or ordinary-checksum witness predicates. Deleted private capture cannot be reclassified or reconstructed by this short gate. Runtime04 and earlier histories likewise remain unchanged.",
+    "No Windows guest VM or new runtime was launched. This gate does not establish selected UDP payload absence on real guest traffic, no IPv6 egress, DNS/proxy, descendant IPv6, Linux parity or product acceptance."
+  ],
+  "observations": {
+    "hosted_cleanup_confirmed": true,
+    "hosted_ipv6_main_verified_echoes": 45,
+    "hosted_work_removed": true,
+    "hosted_wrong_echo_native_payload_rejected": true,
+    "hosted_wrong_echo_native_send_accepted": true,
+    "hosted_wrong_echo_receiver_frames": 1,
+    "isolated_production_inputs_verified": true,
+    "isolated_verifier_executed_pe": false,
+    "linux_guest_executed": false,
+    "nd_profile_tests": "Synthetic checksummed packet fixtures only, including mixed opaque, raw-byte veto, witness conflicts and invalid duplicates; no new guest capture.",
+    "owned_children": 7,
+    "owned_receivers": 2,
+    "paused_linux_qemu_cleanup_confirmed": true,
+    "paused_linux_qemu_provenance_passed": true,
+    "production_actor_invalid_cli_only": true,
+    "production_valid_network_cli_executed": false,
+    "windows_power_shell_checks": [
+      78,
+      48,
+      60,
+      57
+    ],
+    "zip_boundaries_inert": true,
+    "zip_checks": 66,
+    "zip_member_modes": [
+      10,
+      14,
+      15,
+      17,
+      22,
+      17
+    ],
+    "zip_negative_cases": 12
+  },
+  "privacy": {
+    "closed_records_only": true,
+    "raw_logs_pcap_private_bodies_identifiers_excluded": true
+  },
+  "required_tests": {
+    "linux": 759,
+    "skips": 0,
+    "windows": 759
+  },
+  "result_sha256": "d64565a2ed376ce3c56df925a79c0a22e068e0774ec0a6fd55fb314c3c28b742",
+  "run_id": 39714454451,
+  "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39714454451",
+  "schema_version": 1,
+  "source_scope": {
+    "actor_guest_network_capture_workflow_unchanged": true,
+    "changed_files": 4,
+    "decoder_diagnostic_version": 3,
+    "inner_packet_schema_version": 2,
+    "no_global_reason_removal": true,
+    "strict_per_packet_nd_admission_change": true,
+    "unchanged_pins": 406,
+    "unqualified_nd_and_other_opaque_still_fail": true
+  }
+}

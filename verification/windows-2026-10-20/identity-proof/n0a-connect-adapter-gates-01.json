@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "repository": "Shermanxwz/Rule-proxy-Web",
+  "repository_id": 1412843902,
+  "source_commit": "51b6d7cb35917ad458e32888febec89744ed923d",
+  "run_id": 39565487398,
+  "conclusion": "success",
+  "manifest_sha256": "dceaf0d151a8493cfaf48d1793a8b76632a39780ebd3c686ef723ef6728b9730",
+  "jobs": {
+    "windows": {
+      "id": 119106623906,
+      "unit_tests": 127,
+      "skipped": 0
+    },
+    "linux": {
+      "id": 119106623537,
+      "unit_tests": 127,
+      "skipped": 0
+    }
+  },
+  "powershell_adapter_fixture": {
+    "schema_version": 1,
+    "checks": 29,
+    "guest_entrypoint_executed": false,
+    "network_executed": false,
+    "native_acceptance": false
+  },
+  "native_fixture": {
+    "checks": {
+      "actual_report_composition_max40": true,
+      "good": true,
+      "invalid_role_rejected_without_output": true,
+      "native_profile_contract_12_synthetic_cases": true,
+      "production_contained_guard_rejects_source_token": true,
+      "production_ordinary_guard_rejects_observed_admin": true,
+      "timeout": true,
+      "wrong": true
+    },
+    "owned_cleanup_confirmed": true,
+    "runtime_acceptance": false,
+    "schema_version": 1,
+    "token_guard_exercised_by_socket_fixture": false,
+    "wire_binding_synthetic": true
+  },
+  "optional_wire_max_bytes": 1680,
+  "optional_wire_cap_bytes": 4096,
+  "vm_started": false,
+  "artifact_uploaded": false,
+  "production_adapter_enabled": false,
+  "original_stage0_acceptance_changed": false,
+  "interpretation": "Actual Windows PowerShell lifecycle helpers and native transport fixtures passed. Adapter process/transport fixtures use owned mocks; native socket fixture is separately compiled and nondeployable with synthetic identity binding. These are not genuine ordinary-token, PSEC execution, network-denial or product-acceptance results."
+}

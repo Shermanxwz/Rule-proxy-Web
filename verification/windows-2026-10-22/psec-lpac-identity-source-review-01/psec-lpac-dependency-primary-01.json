@@ -1,0 +1,182 @@
+{
+  "schema_version": 1,
+  "stage": "cpse-dependency-primary-read-only-projection",
+  "flatbuffers_tag": "v25.12.19",
+  "tag_object": "282dcb1c3266b45600510da4810092f6ec4c85f2",
+  "commit": "7e163021e59cca4f8e1e35a7c828b5c6b7915953",
+  "flatc_zip": {
+    "name": "Windows.flatc.binary.zip",
+    "bytes": 1412094,
+    "sha256": "fff9445c9db907227bc64b54cc98743084c4949282aa4e576cff6a955724ddc8",
+    "url": "https://github.com/google/flatbuffers/releases/download/v25.12.19/Windows.flatc.binary.zip"
+  },
+  "headers": [
+    {
+      "path": "include/flatbuffers/allocator.h",
+      "bytes": 2588,
+      "git_blob": "d451818568a2aa77f6d95c0cfbabcc274b094b61"
+    },
+    {
+      "path": "include/flatbuffers/array.h",
+      "bytes": 9117,
+      "git_blob": "163d8c363d421ef993a13025ac4a33c70089918e"
+    },
+    {
+      "path": "include/flatbuffers/base.h",
+      "bytes": 17469,
+      "git_blob": "1d2ab5858bae535a6950866231a57a1db9e7fff5"
+    },
+    {
+      "path": "include/flatbuffers/buffer.h",
+      "bytes": 8144,
+      "git_blob": "154d187ab755812bb763fc760b479f1a69264e9b"
+    },
+    {
+      "path": "include/flatbuffers/buffer_ref.h",
+      "bytes": 1512,
+      "git_blob": "746903eb972945dac98a265de7be77894921135d"
+    },
+    {
+      "path": "include/flatbuffers/code_generator.h",
+      "bytes": 3048,
+      "git_blob": "bfd771dae625e485a17889ed98539f07d31e7c0d"
+    },
+    {
+      "path": "include/flatbuffers/code_generators.h",
+      "bytes": 8287,
+      "git_blob": "d284ac5a6835d7012b02c023ff10dc0b74d968dd"
+    },
+    {
+      "path": "include/flatbuffers/default_allocator.h",
+      "bytes": 2380,
+      "git_blob": "d1cab08d7431003c543d501b9c375698a2983cac"
+    },
+    {
+      "path": "include/flatbuffers/detached_buffer.h",
+      "bytes": 3266,
+      "git_blob": "0577a42d9692d79db03a233ef5921d4648ac7146"
+    },
+    {
+      "path": "include/flatbuffers/file_manager.h",
+      "bytes": 1909,
+      "git_blob": "bafe6f29b9764184a50c11b8d11fe91635084488"
+    },
+    {
+      "path": "include/flatbuffers/flatbuffer_builder.h",
+      "bytes": 63212,
+      "git_blob": "636d3776bae8d70115cdb2b047d3cc9b029f42a8"
+    },
+    {
+      "path": "include/flatbuffers/flatbuffers.h",
+      "bytes": 10995,
+      "git_blob": "87b271e7c2e057f62b89eb88e335727662bae7ae"
+    },
+    {
+      "path": "include/flatbuffers/flatc.h",
+      "bytes": 4035,
+      "git_blob": "da24762c265e4f8267ef3f249f5ba1b95dca8594"
+    },
+    {
+      "path": "include/flatbuffers/flex_flat_util.h",
+      "bytes": 1249,
+      "git_blob": "70c0a45860befb6555b877d689ec3b06562eb9b0"
+    },
+    {
+      "path": "include/flatbuffers/flexbuffers.h",
+      "bytes": 67675,
+      "git_blob": "2784dafbfac5bccfd70c01ed7a456f26764af3d3"
+    },
+    {
+      "path": "include/flatbuffers/grpc.h",
+      "bytes": 9968,
+      "git_blob": "74633fd67f2f91f13cb9f8142861a7d847406ba1"
+    },
+    {
+      "path": "include/flatbuffers/hash.h",
+      "bytes": 3634,
+      "git_blob": "2e92c09a212a0dd3244f2393d93114cd79c316e7"
+    },
+    {
+      "path": "include/flatbuffers/idl.h",
+      "bytes": 47600,
+      "git_blob": "3e35b48be2c84b4672ed79cdc4ae7df8e76e0a30"
+    },
+    {
+      "path": "include/flatbuffers/minireflect.h",
+      "bytes": 13780,
+      "git_blob": "77be5165111d413d21d6f042a4b1ce819e8a34c7"
+    },
+    {
+      "path": "include/flatbuffers/reflection.h",
+      "bytes": 22124,
+      "git_blob": "371df72526137cff5bf7ee4b5c2f83b411b1becb"
+    },
+    {
+      "path": "include/flatbuffers/reflection_generated.h",
+      "bytes": 59052,
+      "git_blob": "32ee1aa6bec41fda84a58d0f3d51970f6fb070ae"
+    },
+    {
+      "path": "include/flatbuffers/registry.h",
+      "bytes": 4518,
+      "git_blob": "e70cfc33e41fbda645fbcf34c2089e5d454028d7"
+    },
+    {
+      "path": "include/flatbuffers/stl_emulation.h",
+      "bytes": 19148,
+      "git_blob": "fc8e4b1d13f47b24dc433ebccdd9f284401560b1"
+    },
+    {
+      "path": "include/flatbuffers/string.h",
+      "bytes": 2197,
+      "git_blob": "d9c62f96c270d6a8b497b381a9eb656db2ae553f"
+    },
+    {
+      "path": "include/flatbuffers/struct.h",
+      "bytes": 1581,
+      "git_blob": "3aa434c0e57abc9b7ebf4a4dd6387917d6fde92b"
+    },
+    {
+      "path": "include/flatbuffers/table.h",
+      "bytes": 9602,
+      "git_blob": "622d134089008e20852f5143c30057566918c6ba"
+    },
+    {
+      "path": "include/flatbuffers/util.h",
+      "bytes": 26963,
+      "git_blob": "d8387e175d875b8f8ed1d2ca3719857ba8ced0f5"
+    },
+    {
+      "path": "include/flatbuffers/vector.h",
+      "bytes": 14430,
+      "git_blob": "759a92696ce5bd74a4b53fbbe936bd7e13c1d02b"
+    },
+    {
+      "path": "include/flatbuffers/vector_downward.h",
+      "bytes": 8699,
+      "git_blob": "3e6da8e9da78771718da1ba0d2ee3e9ac96fc83d"
+    },
+    {
+      "path": "include/flatbuffers/verifier.h",
+      "bytes": 13516,
+      "git_blob": "a0b793597c80c364485463d0f91bb6d84564586f"
+    }
+  ],
+  "license": {
+    "path": "LICENSE",
+    "bytes": 11358,
+    "git_blob": "d645695673349e3947e8e5ae42332d0ac3164cd7"
+  },
+  "schema": {
+    "commit": "7bf210247986cb73b1b314df60c2f1109c479c0b",
+    "path": "external/windows-sdk/ProcessSecurityEnvironment.fbs",
+    "git_blob": "ccace182ce2ca53bbda760c038f1c6af0bfb1f7f"
+  },
+  "sources": [
+    "https://api.github.com/repos/google/flatbuffers/releases/tags/v25.12.19",
+    "https://api.github.com/repos/google/flatbuffers/git/tags/282dcb1c3266b45600510da4810092f6ec4c85f2",
+    "https://api.github.com/repos/google/flatbuffers/contents/include/flatbuffers?ref=7e163021e59cca4f8e1e35a7c828b5c6b7915953",
+    "https://github.com/microsoft/mxc/blob/7bf210247986cb73b1b314df60c2f1109c479c0b/external/windows-sdk/ProcessSecurityEnvironment.fbs"
+  ],
+  "download_or_code_execution": false
+}

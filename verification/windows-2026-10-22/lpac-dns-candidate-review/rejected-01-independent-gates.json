@@ -1,0 +1,6 @@
+{
+  "complete_result_selfconsistent_disabled_wrong_capabilities": "ACCEPTED",
+  "complete_result_with_profile_never_created_and_no_acl_attempt": "ACCEPTED",
+  "phase_begin_before_actual_go_is_not_rejected": "ACCEPTED",
+  "public_observed_with_no_api_no_digests_no_network": "ACCEPTED"
+}

@@ -1,0 +1,85 @@
+{
+  "actions": {
+    "actor_or_network_executed": false,
+    "candidate_modified": false,
+    "cpse_called": false,
+    "dll_loaded": false,
+    "main_modified": false,
+    "native_api_called": false,
+    "original_evidence_modified": false
+  },
+  "actual_executed": false,
+  "actual_ready": true,
+  "files": {
+    ".github/windows_identity_psec_lpac_postassign_bridge.py": {
+      "bytes": 86461,
+      "sha256": "af65c045b04e1651ce9443172e618231caef8dd5aba832fc3860e60bc3580f79"
+    },
+    ".github/windows_identity_psec_lpac_postassign_bridge_local.py": {
+      "bytes": 20081,
+      "sha256": "7506bf5178ae697996361fd2e93c54edcd75d70de0f61c2cd21769eace7772b6"
+    },
+    "tests/test_windows_identity_psec_lpac_postassign_bridge.py": {
+      "bytes": 43772,
+      "sha256": "ad0b60abc0ea6d6b52ed1b35669d6080505d6c4429608afe7d8b54efb3c123b4"
+    },
+    "tests/test_windows_identity_psec_lpac_postassign_bridge_local.py": {
+      "bytes": 21279,
+      "sha256": "2a2a2c68286e22cad795e679445b1ef0b8a64118dc729133939ddb25f0ad9ad9"
+    }
+  },
+  "focused_pure": {
+    "author_full50_is_separate": true,
+    "core_critical": 10,
+    "errors": 0,
+    "failures": 0,
+    "guard_critical": 5,
+    "independent_real_outer_physical_receipt_probe": 1,
+    "log": "psec-lpac-postassign-python-independent-pure-02.log",
+    "log_bytes": 3172,
+    "log_sha256": "c3f5256387dd18f544759f01260065e3ef457a5c9991b11006936b7a41148cde",
+    "skipped": 0,
+    "tests": 16,
+    "wall_seconds": 4.266
+  },
+  "limits": [
+    "This is a code and fake-only review, not evidence that the OS accepts a new Assign combination or that either identity matrix has been observed in this scope.",
+    "The creation-to-first-exact-outer-observation crash boundary remains unresolved and explicitly unqualified. A normal held experiment must not be described as an atomic creation or continuous-supervision proof.",
+    "VOID close has caller-side normal-return semantics only; no external environment absence or broker cancellation follows.",
+    "Full repository discovery and any real run remain separate root actions after final source commit/pins; no real API/backend/compiler/DLL was executed by this review."
+  ],
+  "native_or_network_executed": false,
+  "promotion": {
+    "other_three_files_unchanged": true,
+    "previous_false_freeze": {
+      "bytes": 17024,
+      "sha256": "73d0432dd1fc2437cb04981359af10c890dd5c12c99cc68e7198520f56506d0b"
+    },
+    "promotion_does_not_assert_mechanism_success": true,
+    "single_source_change": "ACTUAL_READY=False -> True"
+  },
+  "reviewed_freeze": {
+    "bytes": 18818,
+    "sha256": "5a7b92ab97c472333ed28f9888ffec99dd4f4ec1018a721bfd1858a0d896ab06"
+  },
+  "reviewed_invariants": [
+    "New scope/constructor policy/new DLL plus ABI2/15-key manifest; original atomic scope and 34 shared runtime bytes are not modified.",
+    "Pretransfer original PI handle/generation/image; successful exact inner=false/outer=true observations with once-closed QUERY-only outer handle are durably bound before assignment.",
+    "Exactly one AssignProcessToJobObject on owned inner Job and original returned process HANDLE; immediate error independent of postcall QPC; no process reopen/retry/privilege fallback.",
+    "Original F/root120/worker115/workcutoff remains fixed; guard/intent/returned fsync consumption cannot renew a phase or authorize late token access.",
+    "Both exact Jobs must be successful true observations after assignment before primary token/AccessCheck; later held checks and exact-process cleanup remain required.",
+    "Known or unknown assignment failures remain distinct from unknown opaque CPSE creation/VOID-close outcomes; cleanup cannot fabricate missing returns or broker absence.",
+    "Worker and outer guard each pass the real private stage into result/project physical-receipt validation. Tampering each pretransfer/assign-intent/assign-return/post-job physical category rejects before public worker binding.",
+    "Public atomic-inner/continuous-outer/crash-gap-proven claims stay false even for a completed identity cell; all actor resume/network/DNS/proxy/product permissions remain false."
+  ],
+  "reviewed_patch": {
+    "bytes": 174673,
+    "sha256": "05e8973be1ed967880139d63cac287485d33f43ad1b60e906b5f0434d08c5b5b"
+  },
+  "schema_version": 1,
+  "source_and_dependency_bytes_unchanged_by_review": true,
+  "source_count": 36,
+  "source_sha256": "d625a45670dc4b544c73e7dfb0acb55f483064dca23495e5e12f9dcbf8705f9f",
+  "stage": "psec-lpac-postassign-python-promotion02-independent-review",
+  "verdict": "GO-no-identified-code-blocker"
+}

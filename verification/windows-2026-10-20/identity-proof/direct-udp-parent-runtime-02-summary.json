@@ -1,0 +1,32 @@
+{
+  "schema": 1,
+  "experiment": "Descendant UDP controlled runtime prerequisite attempt02",
+  "run_id": 39651926679,
+  "head": "7d3d07c9353a4fb047953303e3bacced63085e25",
+  "url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39651926679",
+  "conclusion": "failure",
+  "source_freeze": "582da811423c9bddfa5ddca8003f8846aa4f86dc17b97b1c5a751faf2b967ba8",
+  "observed": {
+    "compile_success": true,
+    "host_unit_success": true,
+    "required_tests_each": 440,
+    "native_failure_operation": "preflight",
+    "native_failure_type": "unclassified",
+    "qemu_present": false,
+    "tpm_present": false,
+    "guest_receipt_verified": false,
+    "parent_receipt_verified": false,
+    "work_removed": true,
+    "cleanup_error_count": 0,
+    "preparation_status": "observed_within_allowance",
+    "vm_experiment_executed": false
+  },
+  "limits": [
+    "This attempt failed before QEMU/TPM or guest startup; no descendant creation, identity inheritance, network or packet result was observed.",
+    "vm_destroyed=true reflects verified cleanup of preflight work with no QEMU/TPM present, not evidence of a VM experiment.",
+    "Parent result false/zero fields accompany report_absent/not_started; they are not observed API denials, zero sends or network absence.",
+    "The original Bash timeout did not recur, but its historical cause remains unknown.",
+    "Actual22-member production package and capture admission were not reached; passing binary build admission does not establish payload fit.",
+    "No further runtime retry was launched."
+  ]
+}

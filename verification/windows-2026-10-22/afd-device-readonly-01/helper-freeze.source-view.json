@@ -1,0 +1,88 @@
+{
+  "api_rules": [
+    "Only exact STATUS_SUCCESS plus valid returned handle is an owned completed open.",
+    "STATUS_PENDING is never completion; no query or wait/retry/fallback. Unknown output/context retained until process exit.",
+    "NtOpenFile nonpending return is authoritative; IO_STATUS_BLOCK is not substituted for it.",
+    "Each known device/token handle and successful SDDL allocation is consumed before its sole CloseHandle/LocalFree; unknown close never retried.",
+    "SD/ACL/SID raw extents are checked before pointer casts. Unsupported ACE layouts remain uninterpreted.",
+    "Safe summary emits only fixed known builtin/network/registryRead SID names; unknown user SID and raw SDDL/SD are not emitted."
+  ],
+  "ast_parse_passed": true,
+  "deadline": "Only explicit parent absolute QPC/F; original deadline sampled before/after observations; never now+15s.",
+  "default_cli_calls_native": false,
+  "desired_access": {
+    "names": [
+      "READ_CONTROL",
+      "SYNCHRONIZE"
+    ],
+    "value": "0x00120000"
+  },
+  "exact_cli": "python -I -S -B <workspace>\\read_afd_device_dacl_readonly_01.py --query-afd-dacl --deadline-qpc <parent-absolute-work-D> --frequency <actual-F>",
+  "fixed_output": "afd-device-dacl-readonly-01.json (fresh xb; existing output refuses before any native call)",
+  "helper": {
+    "bytes": 17884,
+    "path": "read_afd_device_dacl_readonly_01.py",
+    "sha256": "73bba54b6fb35fe7e8f8d6008849dc21b4de9aa6a87cfcfd45c96431501e2e89"
+  },
+  "helper_imported_or_executed": false,
+  "implicit_winsock_import_avoided": {
+    "avoided_chain": "Local module -> controller -> pipe_helpers -> proof -> smoke -> socket",
+    "cpython_blob": "27afd73d9704db9bb0d1bfb28af1e6013c97f7cc",
+    "cpython_version": "v3.12.10",
+    "fact": "Windows _socket module execution invokes os_init/WSAStartup. Helper refuses socket/_socket in sys.modules.",
+    "imported_identity_backend": "ordinary-launcher NativeAPI (same base inherited by LocalNativeAPI)",
+    "lines": [
+      7346,
+      7350,
+      7432,
+      7434
+    ],
+    "parent_wrapper_winsock_activity_not_covered": true,
+    "source": "https://github.com/python/cpython/blob/v3.12.10/Modules/socketmodule.c"
+  },
+  "limits": [
+    "Synchronous native APIs cannot be forcibly cancelled by internal deadline checks; parent external process watchdog is required.",
+    "No EA, IOCTL, Winsock call, socket API, ACL write, privilege/token edit, profile/process creation or adaptive target fallback.",
+    "An AFD device DACL read is not a trace of the failed socket path, a held-LPAC effective-access result, or proof of AFD internal endpoint absence.",
+    "No network, fixed-peer, isolation or product qualification is inferred."
+  ],
+  "native_api_called": false,
+  "object_attributes": "OBJ_CASE_INSENSITIVE only; not inheritable",
+  "open_options": {
+    "names": [
+      "FILE_NON_DIRECTORY_FILE",
+      "FILE_SYNCHRONOUS_IO_NONALERT"
+    ],
+    "value": "0x60"
+  },
+  "prepared_only": true,
+  "primary_references": [
+    "https://learn.microsoft.com/en-us/windows/win32/api/winternl/nf-winternl-ntopenfile",
+    "https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/nf-wdm-zwopenfile",
+    "https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/nf-wdm-zwcreatefile",
+    "https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/nf-ntifs-ntquerysecurityobject",
+    "https://learn.microsoft.com/en-us/windows/win32/api/ntdef/ns-ntdef-_unicode_string",
+    "https://learn.microsoft.com/en-us/windows/win32/api/ntdef/ns-ntdef-_object_attributes",
+    "https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/ns-wdm-_io_status_block",
+    "https://learn.microsoft.com/en-us/windows/win32/api/sddl/nf-sddl-convertsecuritydescriptortostringsecuritydescriptorw",
+    "https://learn.microsoft.com/en-us/windows/win32/secauthz/security-descriptors",
+    "https://learn.microsoft.com/en-us/windows/win32/api/handleapi/nf-handleapi-closehandle",
+    "https://learn.microsoft.com/en-us/windows/win32/api/profileapi/nf-profileapi-queryperformancecounter",
+    "https://learn.microsoft.com/en-us/windows/win32/api/profileapi/nf-profileapi-queryperformancefrequency"
+  ],
+  "query_call_limit": 2,
+  "schema_version": 1,
+  "sd_allocation_bound": 65536,
+  "security_information": "OWNER|GROUP|DACL (7); no SACL",
+  "share_access": 7,
+  "source_git_commit": "d309ae322cca84360923d6bc51013057991a4218",
+  "source_pin_git_bytes_match": true,
+  "source_pins": {
+    ".github/windows_identity_ordinary_launcher.py": "a890f4740bc2869586278158edad65dd8c649e09afed8c7aab355d842301d4a0",
+    "ruleproxy/windows_app_process.py": "8e62820f98d9dbe352d988501d211565aceecce84657200c2793b69404cbee33"
+  },
+  "stage": "prepared-fixed-afd-dacl-readonly-helper",
+  "supervision": "Parent supplies held ordinary atomic Job supervision, suggested20s root/15s work. Helper does not self-spawn.",
+  "target": "\\Device\\Afd",
+  "tests_run": false
+}

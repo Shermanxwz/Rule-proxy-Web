@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "experiment": "N0a-UDP runner-only bounded packet observation, corrected flow binding",
+  "repository": "Shermanxwz/Rule-proxy-Web",
+  "branch": "dot/windows-isolation-proof",
+  "head": "176899300f85527eb3d6509fc237049b28a906f5",
+  "workflow_run_id": 39618679419,
+  "native_job_id": 119286701044,
+  "source_head": "b197909d0bae3cdb9e7f0ddc85aa7abeab278858",
+  "source_freeze_sha256": "3a3d8177ac58c148eecbea8e929e06052861d00325eb48a3c0314205a2d43209",
+  "workflow_conclusion": "failure",
+  "classification": "Original strict Stage0 remains false; the separate UDP packet observation is qualified narrowly, not overall acceptance.",
+  "receipts": {
+    "direct-udp-02-result.json": "fa420c27edfb64195caad19f65588620e13ce9dc16818917c9ddaff8e371054c",
+    "direct-udp-02-stage0.json": "bd264a2101c0a2fa0101be74c5d44868f39c9c4ab094ec73a04a6215dfb7c56f"
+  },
+  "artifact_zip_sha256": {
+    "udp": "5afad607aa3cc23caed971f1b5a08e2774332d808f895bd269910770fae49ed6",
+    "stage0": "d385fd4a7ca43a5f694c8627e24bdf77311c427b77e425238dc22a58db3da8b3"
+  },
+  "independent_observations": {
+    "api": "All three selected sendto calls were invoked and locally accepted; explicit_send_denial=false. Local acceptance is not delivery.",
+    "receiver": "All42 ordinary frames (before,40 samples,after) were verified and echoed; no selected frame or selected echo was observed at the owned receiver.",
+    "flow": "Private body length/digest matched the result commitment, and the host normalized the controller-attested network objects. This is not host-independent authentication of native identity.",
+    "packet": "The reviewed closed contract reports bounded_no_selected_udp_datagram:16557 total capture records,0 selected payload matches,0 unknown destination flows,complete decoder/capture,unique ports,all ordinary payload witnesses,all selected sends invoked and cleanup prerequisites true.",
+    "profile": "Fresh same-actor profile/provenance checks for selected and ordinary invocations are controller-attested. Original IdentityOnly Stage0 still fails capabilities_empty with exactly one enabled AgenticAppContainer capability.",
+    "cleanup": "Published guest/launcher/socket/receiver/capture-read/QEMU/TPM/QMP/server/watcher/work cleanup is confirmed; teardown error_count0 and work_removed=true. Independent PSEC cleanup remains false."
+  },
+  "scope_limits": {
+    "bounded_only": "The absence observation concerns the selected fresh payloads and fixed runner IPv4 UDP endpoint in this bounded capture, not all UDP traffic, arbitrary applications, IPv6, DNS or broker-mediated resolution.",
+    "packet_attribution": "actor_attribution_established=false and isolation_acceptance=false remain explicit; no positive actor-origin claim is inferred from tuple coincidence.",
+    "capture_validation": "Checksums are not validated and guest QPC is not mapped onto PCAP timestamps.16557 is total captured records,not the number of selected attempts.",
+    "evidence": "Public receipts are closed controller attestations checked against reviewed source. Private bundle/PCAP were removed with owned work and were not published or independently reparsed for this archive.",
+    "admission": "payload_admitted=true and capacity_admitted=true establish the existing P<=24MiB and65MiB reserve checks; exact payload byte size was not exported. The planning allowance is not a hard free-space guarantee.",
+    "acceptance": "Build26300.9457 is below documented26300.9550 floor. Strict Stage0,product_acceptance,privacy_qualified and independent PSEC cleanup remain false. No Linux equivalence or product readiness claim.",
+    "history": "Original UDP01 remains unchanged and pre-decoder flow-inconclusive. UDP02 followed a concrete nominal-class identity fix and successful real-Windows composed fixtures; it does not reconstruct UDP01 lost private state.",
+    "authorization": "One corrected UDP02 run was authorized and launched; no third run was launched."
+  }
+}

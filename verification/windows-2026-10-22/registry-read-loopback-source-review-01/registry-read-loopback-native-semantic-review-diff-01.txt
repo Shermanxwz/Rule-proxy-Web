@@ -1,0 +1,52 @@
+--- old/.github/native/windows_identity_lpac_loopback_actor.cpp
++++ normalized-for-review/.github/native/windows_identity_lpac_registry_loopback_actor.cpp
+@@ -1,4 +1,5 @@
+-// Trusted fixed actors: zero-cap same-SID loopback mechanism, never a proxy or
++// Trusted fixed actors: front/ordinary caps0, selected exact registryRead-only LPAC.
++// Same-SID loopback mechanism, never a proxy or
+ // adversarial same-SID boundary. The external held owner is identity authority.
+ #define WIN32_LEAN_AND_MEAN
+ #define NOMINMAX
+@@ -127,8 +128,16 @@
+    &&scalar(h,TokenElevation,elev)&&scalar(h,TokenUIAccess,ui)&&scalar(h,TokenStatistics,stats);
+   std::vector<std::uint64_t> buffer;DWORD n=0;
+   if(ok&&variable(h,TokenCapabilities,buffer,n)){DWORD caps=0;std::memcpy(&caps,buffer.data(),sizeof caps);
+-   ok=zlp::capabilities_extent(n,caps,offsetof(TOKEN_GROUPS,Groups),sizeof(SID_AND_ATTRIBUTES))&&caps==0;
+-   token.caps=caps;if(!ok)issue.fail("identity");}else ok=false;
++   ok=zlp::capabilities_extent(n,caps,offsetof(TOKEN_GROUPS,Groups),sizeof(SID_AND_ATTRIBUTES));token.caps=caps;
++   if(ok&&p.role==Role::Selected&&caps==1){
++    SID_AND_ATTRIBUTES entry{};std::memcpy(&entry,reinterpret_cast<const BYTE*>(buffer.data())+offsetof(TOKEN_GROUPS,Groups),sizeof entry);
++    const auto begin=reinterpret_cast<std::uintptr_t>(buffer.data()),sid_address=reinterpret_cast<std::uintptr_t>(entry.Sid);
++    if(!zlp::registry_sid_extent(begin,n,sid_address))ok=false;
++    else {const auto* raw_sid=reinterpret_cast<const std::uint8_t*>(sid_address);
++     ok=zlp::admitted_capabilities(p.role,caps,raw_sid,zlp::RegistryReadSid.size(),entry.Attributes)
++      &&IsValidSid(entry.Sid)&&GetLengthSid(entry.Sid)==zlp::RegistryReadSid.size();}
++   }else if(ok)ok=zlp::admitted_capabilities(p.role,caps,nullptr,0,0);
++   if(!ok)issue.fail("identity");}else ok=false;
+   if(ok&&variable(h,TokenIntegrityLevel,buffer,n)){
+    if(n<sizeof(TOKEN_MANDATORY_LABEL)){ok=false;issue.fail("identity");}
+    else {const auto* label=reinterpret_cast<const TOKEN_MANDATORY_LABEL*>(buffer.data());
+--- old/.github/native/windows_identity_lpac_loopback_contract.hpp
++++ normalized-for-review/.github/native/windows_identity_lpac_registry_loopback_contract.hpp
+@@ -10,6 +10,21 @@
+ using Packet=std::array<std::uint8_t,64>;
+ using Command=std::array<std::uint8_t,128>;
+ enum class Role:std::uint32_t {Front=1,Selected=2,OrdinaryListener=3,OrdinaryClient=4};
++// Fixed OS named-capability catalog value, independently derived by the
++// external owner. Research receipt SHA256 485b023e693ac77a7e8f5ba759ba378633fb61f16934722f8bdc8dbd2535adca.
++// Chromium's uppercase UTF-16LE SHA256 algorithm agrees with the local OS
++// derivation; the native actor never adapts this constant to an observed token.
++constexpr std::array<std::uint8_t,48> RegistryReadSid{1,10,0,0,0,0,0,15,3,0,0,0,0,4,0,0,176,49,128,63,108,188,99,76,60,224,80,209,151,12,161,98,15,1,203,25,126,122,166,192,250,230,151,241,25,163,12,206};
++inline bool registry_sid_extent(std::uintptr_t begin,std::size_t returned,std::uintptr_t sid){
++ return begin!=0&&sid>=begin&&sid-begin<=returned&&RegistryReadSid.size()<=returned-(sid-begin);
++}
++inline bool admitted_capabilities(Role role,std::uint32_t count,const std::uint8_t* sid,
++ std::size_t bytes,std::uint32_t attributes){
++ if(role!=Role::Selected)return (role==Role::Front||role==Role::OrdinaryListener||role==Role::OrdinaryClient)&&count==0;
++ if(count!=1||sid==nullptr||bytes!=RegistryReadSid.size()||attributes!=4)return false;
++ for(std::size_t i=0;i<RegistryReadSid.size();++i)if(sid[i]!=RegistryReadSid[i])return false;
++ return true;
++}
+ inline bool listener(Role r){return r==Role::Front||r==Role::OrdinaryListener;}
+ inline bool ordinary(Role r){return r==Role::OrdinaryListener||r==Role::OrdinaryClient;}
+ inline const char* name(Role r){switch(r){case Role::Front:return "front-listener";

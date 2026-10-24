@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "stage": "model2-wrong-port-01-public-evidence-index",
+  "date": "2026-10-23",
+  "evidence": [
+    {
+      "path": "verification/windows-2026-10-22/model2-wrong-port-01-preflight.json",
+      "bytes": 2612,
+      "sha256": "da5a2a9030e0df757f5f3fff5cd02540bb1244333f9538f77a4000da238ae306"
+    },
+    {
+      "path": "verification/windows-2026-10-22/model2-wrong-port-01-public.json",
+      "bytes": 2672,
+      "sha256": "0d98aa7eef4629cbda6ea1f3991590040cb91fa8042a3328e6cc1d2832556997"
+    },
+    {
+      "path": "verification/windows-2026-10-22/model2-wrong-port-01-runner.py",
+      "bytes": 1210,
+      "sha256": "89e467414080f07ae21631ddd95c92be88237f59ceb8a000a52424a7a5790805"
+    },
+    {
+      "path": "verification/windows-2026-10-22/model2-wrong-port-01-summary.json",
+      "bytes": 3075,
+      "sha256": "e0a3f0de46c04058898d29cda48332e57228ccdb2fc763816a80b7f2119286b4"
+    },
+    {
+      "path": "verification/windows-2026-10-22/model2-wrong-port-01-component-projection.json",
+      "bytes": 8074,
+      "sha256": "a24c6d0104e313d08ebb9c6c7e6ad3081ae503998fa46f7894376e735a368f94"
+    }
+  ],
+  "retained_runner_dependency": {
+    "path": "verification/windows-2026-10-22/model2-diagnostic-01-runner.py",
+    "bytes": 2742,
+    "sha256": "a41b9f88be5f2e124d080217a384f66e3156069b17d1b518741c40804691b925"
+  },
+  "original_public_and_preflight_files_modified": false,
+  "private_identifiers_published": false,
+  "selected_wrong_port_network_go_published": false,
+  "wrong_port_denial_proven": false,
+  "wrong_port_leak_proven": false,
+  "strict_network_isolation_qualified": false,
+  "product_acceptance": false
+}

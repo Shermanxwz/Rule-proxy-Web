@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "run_id": 39439336156,
+  "source_commit": "f3f5a7cc1aa070078605159c5ac85b9dc2f89ccd",
+  "conclusion": "success",
+  "windows": {
+    "job_id": 118684727248,
+    "parse": true,
+    "synthetic_checks": 63,
+    "actual_powershell_python_wire_cases": 11,
+    "actor_compile": true,
+    "direct_tests": 31,
+    "stock_tests": 48,
+    "stock_platform_skips": 1
+  },
+  "linux": {
+    "job_id": 118684727299,
+    "direct_tests": 31,
+    "stock_tests": 48,
+    "proof_tests": 53,
+    "skips": 0
+  },
+  "native": {
+    "job_id": 118685079836,
+    "conclusion": "skipped"
+  },
+  "runtime_acceptance": false,
+  "product_acceptance": false,
+  "exploratory_build": "26300.9457",
+  "documented_support_floor": "26300.9550"
+}

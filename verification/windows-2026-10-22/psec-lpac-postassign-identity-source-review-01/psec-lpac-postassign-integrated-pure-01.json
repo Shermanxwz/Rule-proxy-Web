@@ -1,0 +1,60 @@
+{
+  "baseline_test_count": 872,
+  "existing_327_native_assertions_not_added_to_test_count": true,
+  "final_promotion_freeze": {
+    "bytes": 18818,
+    "name": "psec-lpac-postassign-python-candidate-freeze-02.json",
+    "sha256": "5a7b92ab97c472333ed28f9888ffec99dd4f4ec1018a721bfd1858a0d896ab06"
+  },
+  "native_source_freeze": {
+    "bytes": 9090,
+    "name": "psec-lpac-postassign-native-freeze-01.json",
+    "sha256": "f7d62220f30d11ad245ab7de859bd4c93ca4bee13294c1c8b64e5db5aad4b981"
+  },
+  "new_native_cpp_count": 1,
+  "new_native_pin_count": 37,
+  "new_runtime_module_count": 2,
+  "new_test_method_count": 50,
+  "new_test_method_counts": {
+    "tests/test_windows_identity_psec_lpac_postassign_bridge.py": 34,
+    "tests/test_windows_identity_psec_lpac_postassign_bridge_local.py": 16
+  },
+  "no_archive_paths_staged": true,
+  "old_actual01_unknown_preserved": true,
+  "old_actual02_03_and_dns_not_rewritten": true,
+  "old_native37_unchanged": true,
+  "old_runtime36_unchanged": true,
+  "postassign_experiment_executed": false,
+  "pre_stage_head": "6374895503ecd18dce664d809008a5050334761c",
+  "protected_git_tree_sha256": "b819ded5e117c358a8914ca6305ed2eefdeb7ba9ddb0898a3205ee7ece708e3a",
+  "protected_tests_count": 224,
+  "protected_tracked_bytes": 24329994,
+  "protected_tracked_file_count": 1925,
+  "protected_validation_docs_count": 55,
+  "protected_verification_count": 1646,
+  "runtime_shared_count": 34,
+  "runtime_source_count": 36,
+  "runtime_source_sha256": "d625a45670dc4b544c73e7dfb0acb55f483064dca23495e5e12f9dcbf8705f9f",
+  "schema_version": 1,
+  "scope": "one-local-cpse-deny-all-outer-guarded-postassign-identity-v1",
+  "shared_native_pin_count": 36,
+  "stage": "psec-lpac-postassign-source01-integrated-pure-receipt",
+  "staged_files": {
+    ".github/native/windows_psec_lpac_postassign_bridge.cpp": "806ead04ee3f583bac1f0d7dc72f51fa10de4634bb7cd2b597f0a3a3c8b29f36",
+    ".github/windows_identity_psec_lpac_postassign_bridge.py": "af65c045b04e1651ce9443172e618231caef8dd5aba832fc3860e60bc3580f79",
+    ".github/windows_identity_psec_lpac_postassign_bridge_local.py": "7506bf5178ae697996361fd2e93c54edcd75d70de0f61c2cd21769eace7772b6",
+    "tests/test_windows_identity_psec_lpac_postassign_bridge.py": "ad0b60abc0ea6d6b52ed1b35669d6080505d6c4429608afe7d8b54efb3c123b4",
+    "tests/test_windows_identity_psec_lpac_postassign_bridge_local.py": "2a2a2c68286e22cad795e679445b1ef0b8a64118dc729133939ddb25f0ad9ad9"
+  },
+  "test_or_native_or_actor_or_api_or_network_or_cleanup_run_by_this_script": false,
+  "tests": {
+    "duration_seconds": 68.7,
+    "errors": 0,
+    "failures": 0,
+    "linux_executed": false,
+    "log_bytes": 172246,
+    "log_sha256": "aee3aae8e1da63c1366eae6e84f4ddd864e29d475a8f0eb5d6e1f836bf574d24",
+    "skipped": 2,
+    "tests": 922
+  }
+}

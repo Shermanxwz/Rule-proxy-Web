@@ -1,0 +1,281 @@
+{
+  "cleanup": {
+    "acl_removed": true,
+    "cleanup_tools": true,
+    "labels_restored": true,
+    "observer_resources_cleanup_verified": true,
+    "parent_pipe_handles_closed": true,
+    "pipe_allocation_known": true,
+    "profile_deleted": true,
+    "sid_released": true,
+    "workload_cleanup": true,
+    "workload_job_empty": true
+  },
+  "fixed_false_claims": {
+    "all_protocol_isolation": false,
+    "arbitrary_application_adapter": false,
+    "broker_cancellation_proven": false,
+    "broker_pid_attributed": false,
+    "browser_integration": false,
+    "class46_queried": false,
+    "default_resolver_tested": false,
+    "direct_network_denial": false,
+    "dns_isolation": false,
+    "dns_isolation_qualified": false,
+    "hostile_same_sid_authentication": false,
+    "ipv6_tested": false,
+    "kernel_tcp_snapshot_observed": false,
+    "linux_equivalence": false,
+    "product_acceptance": false,
+    "psec_network_preservation_proven": false,
+    "psec_or_g_support": false,
+    "selected_proxy_qualification": false,
+    "selected_socket_api_tested": false,
+    "service_broker_isolation": false,
+    "udp_tested": false
+  },
+  "globals": {
+    "NRPT_is_separate_runtime_inventory_not_global_capture": true,
+    "all_four_before_after_equal": true,
+    "capture": {
+      "bytes": 2733,
+      "sha256": "a7c9209a44901c43e17b28650874d5d05391d68b9f845431c9257f6dc2ee8b0c"
+    },
+    "object_equalities": {
+      "before_after": {
+        "dns": true,
+        "firewall_profiles": true,
+        "routes": true,
+        "user_proxy": true
+      },
+      "original_after": {
+        "dns": true,
+        "firewall_profiles": true,
+        "routes": false,
+        "user_proxy": true
+      },
+      "original_before": {
+        "dns": true,
+        "firewall_profiles": true,
+        "routes": false,
+        "user_proxy": true
+      }
+    },
+    "raw_bytes_before_after_equal": true,
+    "route_changed_or_deleted_by_reader": false,
+    "route_difference_observed": false,
+    "route_writer_attributed": false,
+    "snapshot_commitments": [
+      {
+        "bytes": 7378,
+        "sha256": "f05d91ee76ee8a97ae5ab3bfa092167a8ee560c083255f142e6c453f2edf7ab3"
+      },
+      {
+        "bytes": 7645,
+        "sha256": "96ba4618bdcee58d28de676038b661681b955502799cdce7aae5fa24d61e8f95"
+      },
+      {
+        "bytes": 7645,
+        "sha256": "96ba4618bdcee58d28de676038b661681b955502799cdce7aae5fa24d61e8f95"
+      }
+    ],
+    "whole_JSON_before_after_equal": true
+  },
+  "held_tasks": [
+    {
+      "admitted": true,
+      "all_held_generation_image_both_jobs": true,
+      "attempted": true,
+      "capabilities_empty": true,
+      "created": true,
+      "exit_code": 1,
+      "exit_observed": true,
+      "held_snapshot_count": 3,
+      "resumed": true,
+      "return_receipt": {
+        "bytes": 435,
+        "sha256": "605ae76ff27095b97826467e85e62b34c2542602cebb2a92d3c0019bf5bd96ce"
+      },
+      "role": "ordinary-origin-fixture"
+    }
+  ],
+  "inventory": {
+    "commitment": {
+      "bytes": 659,
+      "sha256": "34cddcab01fbac2b5d239f2b6c8a7ecf10d873f7a3a70512115b57ad1ed99725"
+    },
+    "dns_server_count": 19,
+    "effective_nrpt_count": 2,
+    "read_only": true,
+    "tcp53_count": 0,
+    "udp53_count": 0
+  },
+  "native_reports": [
+    {
+      "commitment": {
+        "bytes": 239,
+        "sha256": "ced357ea49ca4ffe39412e035d208bf21e7b41ca2902a21c183f021892c02ebd"
+      },
+      "embedded_equals_physical": true,
+      "slot": "ready",
+      "status": "valid"
+    },
+    {
+      "commitment": null,
+      "slot": "selected",
+      "status": "unavailable"
+    },
+    {
+      "commitment": null,
+      "slot": "relay",
+      "status": "unavailable"
+    },
+    {
+      "commitment": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "embedded_equals_physical": true,
+      "slot": "origin",
+      "status": "invalid"
+    }
+  ],
+  "not_entered": {
+    "GO": false,
+    "fixture_bound": false,
+    "ordinary_DNS_controls": false,
+    "pair": false,
+    "proofs": false,
+    "receiver": false,
+    "selected_API": false,
+    "selected_or_relay": false
+  },
+  "original_independent_review": {
+    "bytes": 18419,
+    "sha256": "0567e5680141be6c43a1109300a21f8addb95cbc8f2768cab3bb1788eace740f"
+  },
+  "original_preflight": {
+    "bytes": 2062,
+    "sha256": "22075e30cb06e26b1e969e0fde324856879fe8b7c5d51f952e639d0aaec5601d"
+  },
+  "original_public": {
+    "bytes": 3620,
+    "sha256": "031c151b5fc21d69e5fa2fa40d708bbb89b31bf5204682588156ed495a27b01a"
+  },
+  "outer_cleanup_known": true,
+  "physical_evidence_commitments": {
+    "journal": [
+      {
+        "bytes": 317,
+        "sha256": "489dfb9067c59b10d167df76bfc33ab401bff0e100f5288bfb9189d790e44a05"
+      },
+      {
+        "bytes": 312,
+        "sha256": "1b139868dca7ec70771a8786a2209a61c191844de1026fbd830e3198620122d5"
+      },
+      {
+        "bytes": 319,
+        "sha256": "27b5c834ffd91a3c981164b85c28c9547e1c365a32cb91b40fb1de78cf288138"
+      },
+      {
+        "bytes": 321,
+        "sha256": "8899b84de5dc4192e1b57e0fe471ad7dd079fffdb75bbd8689ef3bfed3c60af5"
+      },
+      {
+        "bytes": 330,
+        "sha256": "cca76602ac0d78e420c5a1bf49bdca4075bef4742154ae511b94e3e002a57025"
+      },
+      {
+        "bytes": 314,
+        "sha256": "69f9ad952ad1918bab58391cd3993c65c56216334246adfe0d35e2d92b173918"
+      },
+      {
+        "bytes": 332,
+        "sha256": "f3c0eb27329c36e1ab2386b3fdb224dc39e26ffc2f29a6923a95db677f1a5708"
+      },
+      {
+        "bytes": 352,
+        "sha256": "e044973765a1b647f19eae7ff28b218106da51079b9ca94ff1a7df287b4d1182"
+      },
+      {
+        "bytes": 318,
+        "sha256": "4fd75625dd5acd743bb82930bcf937e23c878e29e867b636fc76377220d06097"
+      },
+      {
+        "bytes": 316,
+        "sha256": "b0e7a2b2020596a8a589e1c3c7932403ccbf2d9605b82a8b52de64eeb886f692"
+      },
+      {
+        "bytes": 316,
+        "sha256": "fec94b6108208e4c73daac4b55ee81b0a7e1ff6a014495e29cf7ffae9d4bb656"
+      },
+      {
+        "bytes": 313,
+        "sha256": "325528a57fb2c140fbe18690e13c08cdf23570146585c552a96f3d8862135d2f"
+      },
+      {
+        "bytes": 315,
+        "sha256": "d94a7ddede22088d7db4ac716a4c327f8a49aee4133a8cada56861360c715a9d"
+      },
+      {
+        "bytes": 317,
+        "sha256": "c1ea59893ae199250a60cdcf0be4b47a7c45ff1af85a2dd9826d03a52c8d2a3d"
+      }
+    ],
+    "returns": [
+      {
+        "bytes": 435,
+        "sha256": "605ae76ff27095b97826467e85e62b34c2542602cebb2a92d3c0019bf5bd96ce"
+      }
+    ]
+  },
+  "private_commitments": {
+    "config": {
+      "bytes": 6687,
+      "sha256": "336352449a96b666afd1809b67418f46217eb429c7ad83ce7ff76586d9461e14"
+    },
+    "driver": {
+      "bytes": 12519,
+      "sha256": "c39d99bfc624a79a9a43a07cdba590d03c7683bedd6c64cd68b65e07704f1b5e"
+    },
+    "forensic": {
+      "bytes": 28308,
+      "sha256": "95c22072b116312dfaa01edc122510e11f1482a6ceb17099f77eac9cf7b2f505"
+    },
+    "outer_report": {
+      "bytes": 620,
+      "sha256": "a85216d48d06c49a789140d98118a4f34374ec2fb3a1ad362413f7da8531fa43"
+    },
+    "plan": {
+      "bytes": 2023,
+      "sha256": "87fbde99531ed7fe023232f66f0b9d76ae9fe32618df63c91e5d0e8dbdbecd7c"
+    },
+    "stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "stdout": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "worker_report": {
+      "bytes": 28308,
+      "sha256": "95c22072b116312dfaa01edc122510e11f1482a6ceb17099f77eac9cf7b2f505"
+    }
+  },
+  "schema_version": 1,
+  "source_commit": "eb3d9d34023a11935e863f86c0888862de63109a",
+  "source_sha256": "b42726c094e7619ee579a29d414bfc632dde09b1d6d13d29bc97b9add851f706",
+  "stage": "lpac-pipe-dns-origin-actual01-safe-component-view",
+  "worker_validation": {
+    "binding_error": null,
+    "dns_projection_error": null,
+    "projection_error": null,
+    "public_projection_exact": true,
+    "safe_projection_complete": true,
+    "validation_error": null,
+    "worker_binding_valid": true,
+    "worker_report_present": true,
+    "worker_result_valid": true
+  }
+}

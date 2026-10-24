@@ -1,0 +1,21 @@
+{
+  "content": {
+    "actor_or_native_called": false,
+    "default_preview_executed": false,
+    "error": "SyntaxError: unexpected EOF while parsing",
+    "evidence_kind": "transcribed prior exec result; not a raw saved stderr stream",
+    "failure": "PowerShell quoting truncated an inline python -c bytes literal before script execution",
+    "new_candidate_written": false,
+    "schema_version": 1,
+    "source_modified": false,
+    "stage": "work-driver-candidate-preparation-rejected"
+  },
+  "raw_commitment": {
+    "bytes": 459,
+    "sha256": "45d880ca21dc51eba13f0ac38888ddd6bfa177a14193ffe57be91ac2f7ac6e98"
+  },
+  "schema_version": 1,
+  "stage": "source-evidence-safe-view",
+  "temporal_scope": "Original preparation/review snapshot: its pending/false runtime fields are historical snapshot fields, not the current result.",
+  "transformation": "JSON value projection; account identifiers/user paths redacted if present; no runtime inference"
+}

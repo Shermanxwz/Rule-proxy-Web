@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "experiment": "failed capture finalization cleanup correction",
+  "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39702870484",
+  "head": "6c00b40b8f28b64a9d777849ba0f03b0ddbac40b",
+  "freeze_sha256": "812f4760b7b0793cab6292d23c5f7484c0d4bc0df75de85c78ce8ecaf575b5ab",
+  "result_sha256": "427ae433dd74dffeeca327d61e5bc5bf394bee38a8b6e2679a4278d677697272",
+  "status": "short lifecycle mechanism gates passed; original UDP6 runtime capture remains incomplete",
+  "observations": [
+    "Independent hash-bound execution of the original finish/command/wait/stop methods with deterministic clocks and owned-process doubles reproduced the defect: a sticky host read error prevented authorization acknowledgment acceptance and suppressed finalize, producing simulated 119/299-second waits for 120/300-second cleanup cutoffs. This is a source counterexample, not a recovered runtime03 stack or measured blocking interval.",
+    "The two-file correction separately tracks authorization transmission, sends ordered cleanup finalization only after observed producer exit, and bounds failed-path drain grace to at most two seconds within the original absolute cutoff. Sent is not acknowledged. Original errors remain sticky; normal drain allowance, general wait and complete-capture predicate are unchanged.",
+    "The hosted Linux gate ran 108 required tests with zero skips, including deterministic lost/unsent acknowledgment, unknown exit, failed finalize, new drain error, expired/short deadline, close uncertainty and unchanged healthy drain cases. A real owned Python producer/drain-child fixture also verifies failed-capture finalization without promoting capture completeness. Separate local workflow-equivalent UDP6 regression ran 710 tests with zero skips.",
+    "Actual paused QEMU 8.2.2 FIFO and owned-worker gates passed normal, forced-stop, dump-write-error and overflow mechanisms. No guest executed. Normal capture completes; forced/error/overflow cases remain incomplete. The overflow fixture retained 64 of 102 drained bytes, observed child exit 4 without forced child termination, and preserved overflow failure. This synthetic 64-byte cap is not the production 64 MiB run measurement.",
+    "All reported process exits, descriptors, QMP/network sockets and owned work/root cleanup completed in the actual mechanism gates. No raw PCAP or logs were uploaded. The path-triggered direct runtime workflow had compile/native jobs skipped; no Windows VM or production network CLI ran."
+  ],
+  "limits": [
+    "This corrects a reproducible failure-finalization delay, not the capture overflow source or opaque/truncated decoder causes. Runtime03 remains immutable and inconclusive; no packet absence is restored retrospectively.",
+    "The actual QEMU fixture injects ingress frames to exercise capture lifecycle; it is not ordinary guest IPv6 egress calibration, isolation, DNS/proxy or product acceptance.",
+    "No capture limit, packet acceptance, identity/policy, networking configuration or original work deadline was increased or relaxed. No automatic guest retry occurred."
+  ]
+}

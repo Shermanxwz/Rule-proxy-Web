@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "experiment": "direct UDP6 guest joint NA relation diagnostic 07",
+  "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39720373388",
+  "head": "0689d56f78d00ab3a30df976d9d1faf8901e5097",
+  "source_head": "73a43b061b4c85c9d01da1a88e1b102dec850244",
+  "freeze_sha256": "21bc51709cd65f7115a2f1fbb056df0e308fc1e9b276ee02d562164d3e69be6c",
+  "receipt_sha256": {
+    "udp6": "07182696914af0c89511837babdc0c16c5f70b9f8e6dae9707bbd67db5bbdb78",
+    "stage0": "77c809b90db45a8d705bc2699d6153a40bb6db3dd8a54db3fb61589c3c8d3d58",
+    "preparation": "c004ab2b6fd62a8474da46802acff2a20b37bacb9dadabd8df788533f2aeda9c"
+  },
+  "status": "workflow failed; capture complete; one NA remains unsupported by strict fixture address relation; no packet-absence conclusion",
+  "observations": [
+    "All four phase reports passed fresh profile/provenance and network binding. The fixed driver completed without failure; before admission passed every predicate. Production ordinary native receive context [1,1023,1023] and exact nonce echo were verified under the reviewed owned-NIC/site-zone/pktinfo contract; scope-zero remained an observation, not required true.",
+    "Three selected sendto invocations locally accepted their datagrams. explicit_send_denial=false; selected_echo_observed=false and selected_nonce_payload_observed=false. The owned receiver verified and echoed 42 ordinary payloads (before 1 / sample 40 / after 1), with zero selected observations. These separate facts do not prove API enforcement, delivery failure or universal no-egress.",
+    "The private flow body passed digest/length admission and separate manifest/binding/control predicates. This run reports capture_complete_contract=true: configured retention limit 67,108,864 bytes; retained=drained=22,603,983; overflow=false; final status, child/QEMU exit, authorization, status EOF, descriptor closure, cleanup and drain completeness all true. Capture read cleanup and host prerequisites also passed. This is source-bound receipt evidence, not an independent reparse of deleted raw data.",
+    "Decoder processed 19,151 total PCAP records, not actor attempts. Inner packet schema 2 and diagnostic v4 retain the strict ND admission unchanged. Ordinary payload controls and unique ports passed; zero selected and zero unknown-flow direct UDP matches were reported. decoder_complete=false solely because opaque_protocol remained; bounded_no_selected_udp_datagram=false. Two reached NH58 candidates have type/code135/0 once and136/0 once, no omitted detail, no truncation, and two consistent outer checksums.",
+    "The exact ndp vector [1,0,0,1,64,42,42,0,1,false,8,0] records one admitted strict fixture NS, zero admitted NA, zero definite RFC/framing rejections and one unsupported/unbound NA. All 42 complete ordinary witnesses had valid nonzero UDP checksums and one unique usable communication source G, without invalid-checksum or source-conflict taint. This is communication correlation, not kernel address ownership or actor authentication. Joint-pattern presence mask 8 sets bit3, representing pattern12: the NA source equals its target, but both differ from G; the outer destination equals the fixed fixture address. Unknown count is zero, and the type/code table reports exactly one NA in this run. The mask itself reports presence, not frequency. No address value, link-local classification, interface ownership or selected-actor origin follows. Sole failure bit6 preserves the fixture-address refusal and opaque_protocol. Full selected-frame-pattern and separate shared ASCII case-nonce observations are false; these bounded raw-byte facts are not universal absence or authenticity.",
+    "Binary and payload P<=24MiB/65MiB reserve admission passed, without an exact ZIP size claim. Owned-QEMU mapped backing-file and separate local-package integrity admission/pre-stop/close passed. This does not attest resident pages or unpatched upstream-source equivalence.",
+    "QEMU/TPM exits were observed as zero; QMP/server/watcher/receiver/socket/thread and owned work cleanup completed with zero teardown errors. host_wait_state=received, capture_abort absent and host_failure absent. Strict Stage0 remains false at capabilities_empty; observed build 26300.9457 remains below support floor 26300.9550. Existing acceptance remains unchanged."
+  ],
+  "timing": [
+    "Closed breadcrumbs: QEMU start 04:09:23 UTC; guest beacon 04:23:26; original result 04:23:39; cleanup done 04:23:59 with 5462 seconds remaining. No outer-deadline exhaustion occurred.",
+    "This job had no capture overflow and does not by itself test the repaired sticky-error cleanup branch in a Windows VM. That branch has separate deterministic/owned-process/paused-QEMU evidence. Shorter wall time here must not be attributed solely to the cleanup correction."
+  ],
+  "limits": [
+    "This was one separately authorized diagnostic collection with unchanged strict admission, workload and network behavior. It identifies a current-run joint relation, not a repair or proof of invalid NA. The run remains failed/inconclusive. No automatic subsequent run occurred.",
+    "Runtime06 retains its source!=G OR target!=G ambiguity. This result does not establish that its NA had the same relation. Runtime05/04 and Runtime03 incomplete-capture histories remain unchanged.",
+    "Raw PCAP and private flow body were deleted under the reviewed cleanup contract. This audit checks sanitized receipts against pinned source, not an independent raw reparse. Exact private address values and unexported packet details cannot be recovered.",
+    "No capture-window, retention/resource limit, endpoint, network configuration, identity/policy/capability, send count or deadline was changed. No IPv4 fallback or networking repair was attempted.",
+    "This is not IPv6 isolation, universal egress prevention, ND authenticity or selected-actor attribution, DNS/proxy, descendant IPv6, Linux parity or product acceptance. No NA address whitelist was expanded. Any future decoder scope or admission change requires formal claim review, primary-source reasoning and separate tests/authorization."
+  ],
+  "references": [
+    {
+      "title": "RFC4861 Neighbor Discovery for IPv6, sections4.3,4.4,7.1.1,7.1.2",
+      "url": "https://www.rfc-editor.org/rfc/rfc4861.html"
+    }
+  ],
+  "preparation_limit": "Preparation is a sampled net-capacity ledger, not measured peak usage, a hard quota, or verification of the installed package plan."
+}

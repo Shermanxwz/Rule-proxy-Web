@@ -1,0 +1,58 @@
+{
+  "content": {
+    "actor_executed": false,
+    "base_commit": "eda726acca449b9e8b21c8ec3bc061d77165a964",
+    "files": {
+      ".github/native/windows_identity_lpac_pipe_front_actor.cpp": {
+        "bytes": 6869,
+        "sha256": "ecc4a793fa1afc33a5c9407486ee9f463bd68132b8090eb259270a89d19ca48d"
+      },
+      ".github/windows_identity_lpac_pipe_origin.py": {
+        "bytes": 66975,
+        "sha256": "da0e7a479b0803d4550f0a77ba15603023414f877f7a7ad81e98b01dc2a9bd5c"
+      },
+      ".github/windows_identity_lpac_pipe_origin_local.py": {
+        "bytes": 17255,
+        "sha256": "a69fec199a9c7252ed733f3f71e4408afabd0c6f9e7ac36612105ba431e71ce6"
+      },
+      "tests/test_windows_identity_lpac_pipe_front_native.py": {
+        "bytes": 12628,
+        "sha256": "9557ab2e2376c8c08f91dba67245fa43328cb187a4f74b7f0f695ede3ac52444"
+      },
+      "tests/test_windows_identity_lpac_pipe_origin.py": {
+        "bytes": 25701,
+        "sha256": "cc7e00b425eeb5b7aa60cd958f02d35d78804209ddb3c3685d2807bab7fa8152"
+      },
+      "tests/test_windows_identity_lpac_pipe_origin_local.py": {
+        "bytes": 10315,
+        "sha256": "e813cb0866c4ab1e8f1fdc8ed586cb9c53c4fa402f5e2d09c23157bb8fa396a3"
+      }
+    },
+    "full_pure": {
+      "count": 1061,
+      "errors": 0,
+      "failures": 0,
+      "log": {
+        "bytes": 200837,
+        "sha256": "e2b8d1daaca25d0cd7062c130dda59780100673ad18e6ea974e27a981e64e06c"
+      },
+      "seconds": "155.245",
+      "skips": 2
+    },
+    "index_bytes_verified": true,
+    "ready_freeze_sha256": "0358797358a256495b50885698bebddecb53369f25be05755da80ad240e4be83",
+    "schema_version": 1,
+    "source_count": 40,
+    "source_sha256": "0844e0bb4900ea0146094f4abf3ed4c564eae0825379950e4e9b87ec2961f146",
+    "stage": "lpac-pipe-origin-source-stage",
+    "stage_executed": true
+  },
+  "raw_commitment": {
+    "bytes": 1714,
+    "sha256": "ef684593deb3a7464d2da40f84e0fe4e27d2ced8a341592a9a36343f659c16a9"
+  },
+  "schema_version": 1,
+  "stage": "source-evidence-safe-view",
+  "temporal_scope": "Original preparation/review snapshot: its pending/false runtime fields are historical snapshot fields, not the current result.",
+  "transformation": "JSON value projection; account identifiers/user paths redacted if present; no runtime inference"
+}

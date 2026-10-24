@@ -1,0 +1,15 @@
+{
+  "actual_or_actor_failure": false,
+  "byte_exact_copy": false,
+  "first_test_assumption_failure": true,
+  "original": {
+    "bytes": 3488,
+    "sha256": "06153f48c64ea225fef0c24fab5e4083ab2cb5b671d17b2ddc1bd7b598fb748b"
+  },
+  "public_view": {
+    "bytes": 3257,
+    "sha256": "f0e5978bb2a43c2795669142c99eb9cc64d7684f0434031417e292dac774247b"
+  },
+  "schema_version": 1,
+  "transformation": "Replace workspace prefix and any user-root prefix only; original remains in WORK."
+}

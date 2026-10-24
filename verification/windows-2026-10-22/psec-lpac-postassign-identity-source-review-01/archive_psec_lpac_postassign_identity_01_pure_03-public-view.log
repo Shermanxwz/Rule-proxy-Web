@@ -1,0 +1,10 @@
+test_assign_error_is_not_success_or_membership (__main__.ProjectionTests.test_assign_error_is_not_success_or_membership) ... ok
+test_lpac_first_grant3_retains_one_call_and_no_complete_matrix (__main__.ProjectionTests.test_lpac_first_grant3_retains_one_call_and_no_complete_matrix) ... ok
+test_missing_and_modified_physical_return_receipts_rejected (__main__.ProjectionTests.test_missing_and_modified_physical_return_receipts_rejected) ... ok
+test_one_raw_assign_per_arm_and_physical_binding (__main__.ProjectionTests.test_one_raw_assign_per_arm_and_physical_binding) ... ok
+test_unbound_physical_files_do_not_supply_transfer_qualification (__main__.ProjectionTests.test_unbound_physical_files_do_not_supply_transfer_qualification) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 1.452s
+
+OK

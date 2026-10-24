@@ -1,0 +1,48 @@
+{
+  "archive_executed": false,
+  "file_only_prepare_validated": true,
+  "files": {
+    "archive_registry_read_loopback_01.py": {
+      "bytes": 29176,
+      "sha256": "067fdf331bb6bfdcd13fd7afad48e5c9a5b2671c2ecc3e03ac22bff26615fdd1"
+    },
+    "archive_registry_read_loopback_01_command.ps1": {
+      "bytes": 843,
+      "sha256": "972f70881c67593bfbcd76969fc4dd0a61409f2021916a5c281afd940d6a6631"
+    },
+    "freeze_registry_read_loopback_archive_01.py": {
+      "bytes": 3685,
+      "sha256": "90b4ce48fc351d6f5d31813e79a1503440c0194d39735d7cbc50d697d15d1656"
+    },
+    "registry-read-loopback-archive-planned-files-01.json": {
+      "bytes": 3444,
+      "sha256": "6a4ae7411392a94230eb581989c98468330e5488a8b58a8513a2585f9573382d"
+    }
+  },
+  "independent_review": {
+    "bytes": 42527,
+    "sha256": "7b1606aa434d5da2d78836dce65541b566e41571efc63539bfe44b7c43332e5f"
+  },
+  "main_written": false,
+  "native_API_or_actor_or_network_or_cleanup_run": false,
+  "prior_zero_cap_32_and_10107_and_PSEC_DNS_leak_and_atomic01_unknown_preserved": true,
+  "public": {
+    "bytes": 3038,
+    "sha256": "641ea1db8e80b19da7778ad2180c83a6d63c2c0fc421276922f36e390da5b65f"
+  },
+  "result": {
+    "archive_file_count": 12,
+    "native_API_network_or_cleanup_executed": false,
+    "original_recovery_required": false,
+    "original_status": "inconclusive",
+    "reachability_verified": false,
+    "source_commit": "d309ae322cca84360923d6bc51013057991a4218",
+    "source_sha256": "069d9f2702e235f03603d11b5962f320fe0f077cd81ccfabafefd48cbd11dfb6",
+    "verified": true,
+    "worker_result_validated": true
+  },
+  "schema_version": 1,
+  "source_commit": "d309ae322cca84360923d6bc51013057991a4218",
+  "source_sha256": "069d9f2702e235f03603d11b5962f320fe0f077cd81ccfabafefd48cbd11dfb6",
+  "stage": "registry-read-loopback-actual01-archive-work-freeze"
+}

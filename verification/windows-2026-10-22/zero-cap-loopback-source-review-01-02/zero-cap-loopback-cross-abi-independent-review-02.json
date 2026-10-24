@@ -1,0 +1,130 @@
+{
+  "abi": {
+    "bytes": 11517,
+    "sha256": "d55a880640c02f7e5ca2b6ae9bb9c6a2ddb24f9d322af9660186f010e0c900e3"
+  },
+  "acl_or_label_changed": false,
+  "actor_executed": false,
+  "actual_acceptance": false,
+  "author_pure_log": {
+    "bytes": 5680,
+    "path": "zero-cap-loopback-python-pure-02.log",
+    "sha256": "7d5f1dfe505dbf91da1a4b8614136335ccfd3af18da59b585a3c56fa5ed30766"
+  },
+  "checks": {
+    "argv15_exact": true,
+    "closed_read_only_error32_retry_original_epoch": true,
+    "false_worker_and_runtime_block_before_backend": true,
+    "manifest_seven_keys_and_source_order": true,
+    "native_narrow_flow_network_field_does_not_erase_front_setup": true,
+    "no_native_share_mode_change": true,
+    "nullable_ports_and_final_role_checked": true,
+    "ordinary_client_same_held_two_cases": true,
+    "outer_launch_raw_sha_physically_bound": true,
+    "python_command128_matches_native_contract": true,
+    "python_packet64_matches_native_contract": true,
+    "received_only_front": true,
+    "release_keeps_original_main_phase_deadline": true,
+    "report_keysets_equal": true,
+    "roles_four_and_nonces_eight": true
+  },
+  "independent_native_pure_rerun": false,
+  "limitations": [
+    "False candidate remains runtime blocked until the parent separately authorizes and pins promotion.",
+    "This review covers cross-language wiring, not an actual reachability result or same-SID adversarial boundary."
+  ],
+  "manifest": {
+    "bytes": 387,
+    "sha256": "0c371e646873d3970bb3aea2e05ba05a10bb1b3e0b4c02c84963f7f265537a52"
+  },
+  "method": "file/AST inspection plus isolated pure Python packet/control/argv functions; no backend constructors or native calls",
+  "native_freeze": {
+    "bytes": 3375,
+    "sha256": "f5553c70716112a3ff2338b3c6a3a755c9b261b56ecddbe0198ebea2d474f7fd"
+  },
+  "native_scope_note": "Native only: client connect_attempted OR listener accepted_count>0. Does not mean all network API calls: WSA/socket/bind/listen failures can have false. Typed failure/wsa_error and resource facts independently record such calls. External public must never infer no network API from this field being false.",
+  "network_called": false,
+  "pure_serializer_observations": {
+    "argv_roles_checked": 4,
+    "commands": [
+      {
+        "bytes": 128,
+        "release": false,
+        "role": "front-listener",
+        "sequence": 1,
+        "sha256": "37c9c3632a8287e4e5013311037001e257004d8e7499064a619c0d57026a2c71"
+      },
+      {
+        "bytes": 128,
+        "release": false,
+        "role": "ordinary-client",
+        "sequence": 1,
+        "sha256": "607a5a44b67534739fc7e670adb594900b0a186fc5d624bf71b053d62449d6c2"
+      },
+      {
+        "bytes": 128,
+        "release": false,
+        "role": "ordinary-client",
+        "sequence": 2,
+        "sha256": "f6cdbd816e48fe6028a211c6d8cb8327230e929a8dd097a015c1f35dc943eedb"
+      },
+      {
+        "bytes": 128,
+        "release": false,
+        "role": "ordinary-listener",
+        "sequence": 1,
+        "sha256": "ea6695a4a0e7c473ccb404b66a15118e5120270b0c62a110d423c243586ede28"
+      },
+      {
+        "bytes": 128,
+        "release": false,
+        "role": "ordinary-listener",
+        "sequence": 2,
+        "sha256": "8473e318e777aa09b6237ae6a465241005e5e319559d852c6914cbcc1886d968"
+      },
+      {
+        "bytes": 128,
+        "release": false,
+        "role": "selected-client",
+        "sequence": 1,
+        "sha256": "5932e538215c463ca6bbc36a97e21278003ea16c664570f7f9d79af9afc149f9"
+      },
+      {
+        "bytes": 128,
+        "release": true,
+        "role": "front-listener",
+        "sequence": 1,
+        "sha256": "00ce331c65c21e9cbef6045f372b12f17a634e79efc7791b9b8e85c2481ab9f1"
+      }
+    ],
+    "commands_checked": 7,
+    "packets_checked": 6
+  },
+  "python_freeze": {
+    "bytes": 12060,
+    "sha256": "dfa25c54ad2193292e1e36af6313e9fe3897a5554c0955689d9d67eaaf12d7af"
+  },
+  "reviewed_python_files": {
+    ".github/windows_identity_lpac_loopback.py": {
+      "bytes": 101275,
+      "sha256": "975daa0f445c331e80142cb00565122a43fcd5d976444d9e5c77f32696222844"
+    },
+    ".github/windows_identity_lpac_loopback_local.py": {
+      "bytes": 17938,
+      "sha256": "2830e42bee7cf0ebcfbb07eeea3c7c2aa33abf1f0112889759c1adcff26bdfc7"
+    },
+    "tests/test_windows_identity_lpac_loopback.py": {
+      "bytes": 24883,
+      "sha256": "608bfc22ec7f33ebcf7134d68dd2d7ca90a825512286a8fa767cfbd537843824"
+    },
+    "tests/test_windows_identity_lpac_loopback_local.py": {
+      "bytes": 11729,
+      "sha256": "5d201a5e50aff4ada4b4b7db13ed06d6dd5bb6bbf3b8bb885e3df70de7e9432b"
+    }
+  },
+  "runtime_source_count": 37,
+  "runtime_source_sha256": "97b53aee73a6040cc2753c55e463aef6fbec42cf853f6758e4ec09056d459520",
+  "schema_version": 1,
+  "stage": "zero-cap-loopback-cross-abi-independent-review",
+  "verdict": "GO-for-reviewed-promotion-only"
+}

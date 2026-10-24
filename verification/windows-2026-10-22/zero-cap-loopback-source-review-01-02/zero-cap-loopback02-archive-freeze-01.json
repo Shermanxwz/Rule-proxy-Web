@@ -1,0 +1,39 @@
+{
+  "actual_public": {
+    "bytes": 2731,
+    "sha256": "457c26fdf13707807a5412ff81951bba7b4112129c472c6f09804c073a6813ed"
+  },
+  "actual_review": {
+    "bytes": 40162,
+    "sha256": "1f7667177453f7f924891608a57084972d033d5217137580237926ac854b71ea"
+  },
+  "actual_source_commit": "c7145b9d50dc99c14f11764a03ad23f31ce3e638",
+  "actual_source_sha256": "b726d48d6dddfed2533168ac0921add834488f333931f08b75dc6195cd9fc4ac",
+  "archive_builder_called": false,
+  "archive_written": false,
+  "control_fix_history_appended": true,
+  "files": {
+    "archive_zero_cap_loopback_02.py": {
+      "bytes": 35549,
+      "sha256": "600756d7b0580e6be12579f309f67bf9d5c81c397a337a443018b5a150fafa96"
+    },
+    "archive_zero_cap_loopback_02_command.ps1": {
+      "bytes": 849,
+      "sha256": "615d65d0c9b31e67e90482c193a1b4f90e89e5d2219ddf2fdd6980666c4583d5"
+    }
+  },
+  "main_actual_source_public_reader_stage_or_outputs_modified": false,
+  "native_API_actor_network_or_cleanup_invoked": false,
+  "original_actual01_builder03": {
+    "bytes": 29610,
+    "sha256": "88748927b9514c831701f59ce728e571e015e5980f864ffed823429feda79c2a"
+  },
+  "original_actual01_unchanged": true,
+  "original_initial_source_history_preserved": true,
+  "previous_control32_preserved": true,
+  "raw_failed_log_retained_in_work_public_view_redaction_explicit": true,
+  "root_runs_dry_before_archive": true,
+  "schema_version": 1,
+  "selected_startup10107_not_network_denial": true,
+  "stage": "zero-cap-loopback-actual-02-archive-preparation"
+}

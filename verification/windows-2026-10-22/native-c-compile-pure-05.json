@@ -1,0 +1,68 @@
+{
+  "archive_scope": "read-and-copy-only; in-flight relay death runtime remains separate evidence",
+  "artifact_bytes": 330752,
+  "artifact_sha256": "e50a8186378437638ea13efc20ab6b4f6331594f4d47a4199e04ba4f624a6cf7",
+  "attempt": 5,
+  "compile_only": true,
+  "compile_runner_byte_identical": true,
+  "compile_runner_bytes": 1698,
+  "compile_runner_sha256": "8a45a2ec734ff38c09a24d431414248a7cbd992b89970dad64eda2cdf45cd671",
+  "date": "2026-10-23",
+  "direct_imports": {
+    "libraries": [
+      "ADVAPI32.dll",
+      "KERNEL32.dll",
+      "WS2_32.dll"
+    ],
+    "library_count": 3,
+    "raw_output_bytes": 6049,
+    "raw_output_kept_private": true,
+    "raw_output_sha256": "f4b171ad76c500df991fd340a9abc199ba29440cf4e0ef87ebf53949d15a65b9",
+    "transitive_imports_or_runtime_dll_initialization_proven": false
+  },
+  "frozen_origin_regression": {
+    "actual_actor_or_network_executed": false,
+    "errors": 0,
+    "failures": 0,
+    "skips": 0,
+    "tests_run": 4
+  },
+  "manifest": {
+    "actorSourceSha256": "c758ad42cfafad3ac174507935745b3a6bc479724f86cf451770aa6723cf858b",
+    "compileOnly": true,
+    "coreSha256": "f03e45166265f02a65abc12930efd73634a332596d22aa78cadc1267a80b6356",
+    "executableSha256": "e50a8186378437638ea13efc20ab6b4f6331594f4d47a4199e04ba4f624a6cf7",
+    "identitySourceSha256": "530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553",
+    "liveContractSha256": "1d960ca5fe4bdbb51f307c6ce771aba1b7a36fd2e32684f52cee3a003fd43956",
+    "originActorSha256": "3d079e77e387ba77545c27f5b5c260f591657ef3a44384426cd2039fa8c04010",
+    "originTransportSha256": "bed113e5e20064722cbb2c6d3e71b4d3ca6c4769ebd694c86997abec0af661c4",
+    "pipeHelperSha256": "26636a6b9979e91452cf6e7d2049d6fbbfa43639a35708ee18d4a71e67fb8dd0",
+    "runtimeAcceptance": false,
+    "schemaVersion": 1
+  },
+  "manifest_byte_identical": true,
+  "manifest_bytes": 851,
+  "manifest_sha256": "192252e43ba80623f2ea0c90e8476e239a804e0fd69a178019df94559e8ae030",
+  "native_actor_executed_by_compile_runner": false,
+  "native_pure": {
+    "actual_actor_or_network_executed": false,
+    "command": "python -I -S -B -m unittest discover -s tests -p test_windows_identity_proxy_c_native.py -v",
+    "compiled_fake_scenarios": 2538,
+    "errors": 0,
+    "failures": 0,
+    "result_basis": "completed compile-runner and separate independent review supplied to primary; not rerun during archival",
+    "skips": 0,
+    "tests_run": 5
+  },
+  "runtime_acceptance": false,
+  "schema_version": 1,
+  "scope": {
+    "network_isolation_qualified": false,
+    "product_acceptance": false,
+    "runtime_compatibility_proven": false,
+    "selected_application_tested_by_compile": false
+  },
+  "source_commit": "ed5de334aa6bfda66fd37217a91f8bb0f1bc3bd8",
+  "source_git_blob_pins_verified": 7,
+  "stage": "native-c-compile-and-direct-import-summary"
+}

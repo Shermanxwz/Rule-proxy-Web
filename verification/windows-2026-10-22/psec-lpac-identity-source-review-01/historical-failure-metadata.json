@@ -1,0 +1,31 @@
+{
+  "actual01_report_failure_preserved": true,
+  "compile01_final_source_binding_claimed": false,
+  "compile02_snapshot_is_separate": true,
+  "failed_logs_or_dll_binary_published": false,
+  "files": [
+    {
+      "bytes": 2813,
+      "raw_log_published": false,
+      "reason": "Mutable WIP failed compile; no precompile immutable input snapshot.",
+      "sha256": "ae11c95b40c245d0041e51a7216adf13985b9a44a2205f5dab4a8838f60235d9",
+      "source_work_path": "work/psec-lpac-bridge-compile-01/compile.log"
+    },
+    {
+      "bytes": 8647,
+      "raw_log_published": false,
+      "reason": "Earlier failed ordinary-shell test attempt; compiler environment was unavailable.",
+      "sha256": "2e0dee1605959c0ad9f06653ceddb937c439b56872c30c16f2cdd86b487b5719",
+      "source_work_path": "work/psec-lpac-python-pure-01.log"
+    },
+    {
+      "bytes": 31134,
+      "raw_log_published": false,
+      "reason": "Intentional Windows simulation with ctypes error helpers removed; failed baseline.",
+      "sha256": "6e8f61079d4530599e1132e5767caa16ee921f75e9711c0450571534d1e06234",
+      "source_work_path": "work/lpac-tests-portability-baseline-01.log"
+    }
+  ],
+  "schema_version": 1,
+  "stage": "psec-source-review-omitted-private-failure-logs"
+}

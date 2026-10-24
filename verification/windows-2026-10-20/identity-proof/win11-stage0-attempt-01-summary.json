@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "sanitized": true,
+  "byte_exact": false,
+  "source_commit": "fce919828fac31bd3b6ba74bd10e374b6924931d",
+  "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39373330655",
+  "native_compile_passed": true,
+  "guest_powershell_syntax_passed": true,
+  "unit_tests_passed": 11,
+  "storage_preflight_passed": false,
+  "required_free_bytes": 59055800320,
+  "actual_free_bytes_recorded": false,
+  "kvm_check_reached": false,
+  "lab_artifacts_downloaded": false,
+  "media_downloaded": false,
+  "vm_created": false,
+  "temporary_account_created": false,
+  "global_cleanup_performed": false,
+  "stage0_passed": false,
+  "product_acceptance": false
+}

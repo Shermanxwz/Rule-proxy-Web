@@ -1,0 +1,70 @@
+{
+  "actor_compiled": false,
+  "actor_executed": false,
+  "author_portable_tests": {
+    "actor_cpp_never_compiled": true,
+    "actor_never_executed": true,
+    "command": "python -I -S -B -m unittest discover -s work/registry-read-same-sid-loopback-candidate/tests -p test_windows_identity_lpac_registry_loopback_native.py -v",
+    "compiler_environment": "Installed MSVC x64 developer shell; process-local environment only",
+    "coverage": [
+      "production fixed registryRead SID48 all-bit mutations, count1/attrs4, other role zero-cap requirement",
+      "production SID pointer extent underflow/overflow/shortbuffer including near UINTPTR_MAX",
+      "production4B empty capability header and x64 nonzero entry extent",
+      "production RLP1 packet64 and RCL1 command128 canonical/role/case/reserved/deadline/release checks",
+      "source scope/no extra cap/fallback/UI API and pointer-bound-before-SDK checks"
+    ],
+    "errors": 0,
+    "failures": 0,
+    "log": {
+      "bytes": 839,
+      "path": "registry-read-loopback-native-pure-02.log",
+      "sha256": "7f7486f93af8949e3cd50e30e341355c79e53d28b53188495b8a492c0a1ef55a"
+    },
+    "seconds": 1.078,
+    "sid_and_capability_harness_assertions": 436,
+    "skipped": 0,
+    "test_count": 3,
+    "test_source": {
+      "bytes": 9387,
+      "sha256": "7fbf38f66a8f458df53e85cf03afbf664b0d6b02c4f90d02bc36d26c5c9613dc"
+    }
+  },
+  "files": {
+    ".github/native/windows_identity_lpac_registry_loopback_actor.cpp": {
+      "bytes": 30847,
+      "sha256": "e585646ff2ddc3b29b987e8191455acea96bfc0a347129a6f57936e4ac1ca079"
+    },
+    ".github/native/windows_identity_lpac_registry_loopback_contract.hpp": {
+      "bytes": 5839,
+      "sha256": "842658f2771a34722276805948cb2b65123a9407f7f323c94ea46f56a53ca966"
+    },
+    "tests/test_windows_identity_lpac_registry_loopback_native.py": {
+      "bytes": 9387,
+      "sha256": "7fbf38f66a8f458df53e85cf03afbf664b0d6b02c4f90d02bc36d26c5c9613dc"
+    }
+  },
+  "helper_sha256": "7b2942ed3617be8e76f3bfd0cd9fec31fcb97ca93faefb86f69ea42535f22252",
+  "native_freeze": {
+    "bytes": 5447,
+    "sha256": "456f5c83ba8c35d9af31cedbb63c8be248ca4bab15dbce288287511580d5e5ce"
+  },
+  "native_resource_api_called": false,
+  "network_tested": false,
+  "old_zero_cap_native_unchanged": true,
+  "product_acceptance": false,
+  "profile_or_acl_changed": false,
+  "registry_sid_independently_recomputed": true,
+  "reviewed_delta": [
+    "Independent names/namespace/RLP1/RCL1/stages",
+    "Selected exact registryRead SID48/attrs4/count1; other roles count0",
+    "Nonzero TOKEN_GROUPS entries are bounded before memcpy",
+    "SID full48 pointer extent bounded inside actual API-filled vector before memcmp or SDK SID calls",
+    "All I/O, original absolute deadlines, exclusive controls, withheld response and once cleanup unchanged",
+    "Compile helper freezes both sources before invoking cl and never executes its output"
+  ],
+  "schema_version": 1,
+  "semantic_review_diff_sha256": "be8c61a8ab0d552d4f4eabe2e78a05e8b976fab0d93c53dbb7f9c1ad2732022d",
+  "stage": "root-registry-read-native-source-review",
+  "tests_repeated_by_root": false,
+  "verdict": "GO-for-compile-only"
+}

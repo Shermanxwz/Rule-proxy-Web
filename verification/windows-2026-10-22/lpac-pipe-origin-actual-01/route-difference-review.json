@@ -1,0 +1,77 @@
+{
+  "content": {
+    "added": [
+      {
+        "address_family": 6,
+        "destination_is_link_local": false,
+        "destination_is_loopback": false,
+        "destination_is_multicast": false,
+        "field_names": [
+          "DestinationPrefix",
+          "InterfaceIndex",
+          "NextHop",
+          "Protocol",
+          "RouteMetric"
+        ],
+        "next_hop_loopback": false,
+        "next_hop_unspecified": true,
+        "prefix_length": 128,
+        "protocol": 2,
+        "record_sha256": "45c8f0616f5c86819d1d4efdcb922dba2d28595da4d1811595c1c60dac0a9b26",
+        "route_metric": 256
+      },
+      {
+        "address_family": 6,
+        "destination_is_link_local": false,
+        "destination_is_loopback": false,
+        "destination_is_multicast": false,
+        "field_names": [
+          "DestinationPrefix",
+          "InterfaceIndex",
+          "NextHop",
+          "Protocol",
+          "RouteMetric"
+        ],
+        "next_hop_loopback": false,
+        "next_hop_unspecified": true,
+        "prefix_length": 128,
+        "protocol": 2,
+        "record_sha256": "0777d941d60c2f776da24a4e4074d5876236c522ffd43dfd1c5aca94a2f8e612",
+        "route_metric": 256
+      }
+    ],
+    "added_count": 2,
+    "after": {
+      "bytes": 7645,
+      "route_count": 52,
+      "sha256": "96ba4618bdcee58d28de676038b661681b955502799cdce7aae5fa24d61e8f95"
+    },
+    "attribution": "unknown; snapshots do not identify the writer or event time",
+    "before": {
+      "bytes": 7378,
+      "route_count": 50,
+      "sha256": "f05d91ee76ee8a97ae5ab3bfa092167a8ee560c083255f142e6c453f2edf7ab3"
+    },
+    "limitations": [
+      "The native IPC mechanism success does not establish route configuration preservation.",
+      "Do not delete or rewrite the changed routes without attribution and a reviewed concrete recovery plan."
+    ],
+    "no_live_query_called": true,
+    "no_route_write_called_by_this_reader": true,
+    "other_three_objects_equal": {
+      "dns": true,
+      "firewall_profiles": true,
+      "user_proxy": true
+    },
+    "removed": [],
+    "removed_count": 0,
+    "schema_version": 1,
+    "stage": "lpac-pipe-origin-route-snapshot-file-review",
+    "unchanged_route_count": 50
+  },
+  "original_commitment": {
+    "bytes": 2063,
+    "sha256": "23c331088c3eda490ea45e59d209f8001ed6dd873eaa9fe35a9cafc9ade576f8"
+  },
+  "transformation": "safe JSON value copy, no actual addresses or interface IDs"
+}

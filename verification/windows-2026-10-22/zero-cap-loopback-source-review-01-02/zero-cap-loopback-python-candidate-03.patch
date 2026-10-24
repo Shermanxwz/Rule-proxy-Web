@@ -1,0 +1,1817 @@
+--- /dev/null
++++ b/.github/windows_identity_lpac_loopback.py
+@@ -0,0 +1,1170 @@
++"""Independent trusted-actor zero-cap same-SID loopback mechanism.
++
++No class46, PSEC, extra capability, exemption, WFP or global configuration API.
++Only the separate source/plan/device-bound guarded entry may run this owner.
++"""
++from __future__ import annotations
++import ctypes as C
++import importlib.util
++import os
++from pathlib import Path
++import struct
++import subprocess
++
++ROOT=Path(__file__).resolve().parents[1]
++def load(name,file):
++    s=importlib.util.spec_from_file_location(name,Path(__file__).with_name(file));m=importlib.util.module_from_spec(s);s.loader.exec_module(m);return m
++identity_cell=load('zero_loopback_identity_base','windows_identity_lpac_identity_cell.py')
++base,access=identity_cell.owner,identity_cell.access
++launcher,helpers,live,local=base.launcher,base.helpers,base.live,base.local
++require,sha,encode,decode=base.require,base.sha,base.encode,base.decode
++SCOPE='one-local-zero-cap-same-sid-loopback-v1'
++PROFILE='same-sid-zero-cap-loopback-mechanism-v1'
++MODULE='.github/windows_identity_lpac_loopback.py'
++LOCAL_MODULE='.github/windows_identity_lpac_loopback_local.py'
++ACTOR='windows_identity_lpac_loopback_actor.exe'
++MANIFEST='identity-lpac-loopback-manifest.json'
++ACTUAL_READY=True
++MAX_REPORT=768*1024
++NONCES=('run','front_boot','selected_boot','ordinary_listener_boot','ordinary_client_boot','before_case','selected_case','after_case')
++NATIVE_SOURCES=('.github/native/windows_identity_lpac_loopback_actor.cpp','.github/native/windows_identity_lpac_loopback_contract.hpp')
++SOURCES=tuple(dict.fromkeys((*identity_cell.SOURCES,*NATIVE_SOURCES,MODULE,LOCAL_MODULE)))
++ACCESS_PROFILE='zero-cap-four-descriptor-lpac-v1'
++PIN=access.PIN.copy()
++EXPECTED,LABELS,SDDLS,FAILURES=access.EXPECTED,access.LABELS,access.SDDLS,access.FAILURES
++RESOURCE_KEYS,CALL_KEYS=access.RESOURCE_KEYS,access.CALL_KEYS
++TOKEN_QUERY,TOKEN_DUPLICATE,MAXIMUM_ALLOWED=access.TOKEN_QUERY,access.TOKEN_DUPLICATE,access.MAXIMUM_ALLOWED
++ApiError,_Owned,resources_clean=access.ApiError,access._Owned,access.resources_clean
++integer,digest,descriptor_expected=access.integer,access.digest,access.descriptor_expected
++identity_shape=access.identity_shape
++
++def api_version():return 1
++def stage_name(run):return 'local-zero-cap-same-sid-loopback-'+run
++def work_cutoff(c):return c['root_deadline_qpc']-35*c['frequency']
++
++def identity(value,*,primary):
++    identity_shape(value)
++    require(value['appcontainer'] is True and base.ac.ac_profile_sid(value['appcontainer_sid'])
++        and value['token_type']==(1 if primary else 2) and value['impersonation_level']==(None if primary else 1)
++        and value['integrity_rid']==4096 and value['elevated'] is False and value['ui_access'] is False
++        and value['capabilities']==[],'zero_cap_identity')
++    return value
++
++def duplicate_matches(source,duplicate):
++    identity(source,primary=True);identity(duplicate,primary=False)
++    return all(source[k]==duplicate[k] for k in access.IDENTITY_KEYS-{'token_type','impersonation_level','token_id'})
++
++class ZeroAccessAPI(access.NativeAPI):
++    def identity(self,token):
++        # A zero TOKEN_GROUPS count needs only its four-byte header. Never
++        # inspect a Groups pointer/entry unless the declared count is nonzero.
++        def token_sid(kind):
++            buf,n=self._information(token,kind);require(n>=C.sizeof(C.c_void_p),'token_sid_length')
++            p=C.cast(buf,C.POINTER(C.c_void_p))[0]
++            return self._sid(p,C.addressof(buf),n) if p else None
++        buf,n=self._information(token,30);require(n>=4,'capability_header_length')
++        count=C.cast(buf,C.POINTER(C.c_uint32))[0];require(count<=64,'capability_count')
++        require(not count or access.TOKEN_GROUPS.Groups.offset+count*C.sizeof(access.SID_AND_ATTRIBUTES)<=n,'capability_buffer')
++        caps=[]
++        if count:
++            entries=C.cast(C.addressof(buf)+access.TOKEN_GROUPS.Groups.offset,C.POINTER(access.SID_AND_ATTRIBUTES))
++            caps=[dict(sid=self._sid(entries[i].Sid,C.addressof(buf),n),attributes=entries[i].Attributes) for i in range(count)]
++        stats,n=self._information(token,10);require(n==C.sizeof(access.TOKEN_STATISTICS),'token_statistics_length')
++        st=C.cast(stats,C.POINTER(access.TOKEN_STATISTICS))[0];kind=self._scalar(token,8)
++        require(kind==st.TokenType and kind in (1,2),'token_statistics_kind')
++        level=self._scalar(token,9) if kind==2 else None;require(level is None or level==st.ImpersonationLevel,'token_statistics_level')
++        il=token_sid(25);is_ac,elevated,ui=(self._scalar(token,k) for k in (29,20,26))
++        require(all(v in (0,1) for v in (is_ac,elevated,ui)) and il is not None,'token_boolean')
++        luid=lambda x:x.LowPart|((x.HighPart&0xffffffff)<<32)
++        return dict(sid=token_sid(1),session_id=self._scalar(token,12),token_type=kind,impersonation_level=level,
++            appcontainer=bool(is_ac),appcontainer_sid=token_sid(31),integrity_rid=int(il.rsplit('-',1)[1]),
++            elevated=bool(elevated),ui_access=bool(ui),capabilities=sorted(caps,key=lambda row:row['sid']),
++            token_id=luid(st.TokenId),authentication_id=luid(st.AuthenticationId))
++
++def capture_zero_primary(api,token,parent,sid,budget,cutoff):
++    budget.require_ms(cutoff);observed=api.identity(token)
++    caps=[dict(sid=s,attributes=a) for s,a in api.groups(token,30,'TokenCapabilities')]
++    require(caps==[] and observed['capability_count']==0 and observed['appcontainer'] is True
++        and observed['appcontainer_sid']==sid and observed['token_type']==1 and observed['integrity_rid']==4096
++        and observed['sid']==parent['sid'] and observed['session_id']==parent['session_id']
++        and observed['elevated'] is False and observed['ui_access'] is False,'zero_held_identity')
++    raw,n=api.native.query(token,10,'TokenStatistics');require(n==C.sizeof(access.TOKEN_STATISTICS),'zero_statistics_length')
++    st=C.cast(raw,C.POINTER(access.TOKEN_STATISTICS))[0];require(st.TokenType==1,'zero_statistics_kind')
++    luid=lambda v:v.LowPart|((v.HighPart&0xffffffff)<<32)
++    result=dict(sid=observed['sid'],session_id=observed['session_id'],token_type=1,impersonation_level=None,
++        appcontainer=True,appcontainer_sid=sid,integrity_rid=4096,elevated=False,ui_access=False,capabilities=[],
++        token_id=luid(st.TokenId),authentication_id=luid(st.AuthenticationId))
++    identity(result,primary=True);budget.require_ms(cutoff);return result
++
++def observe_held(api, process, expected_primary_identity, *, expected_pid, expected_creation,
++                 expected_role, frequency, deadline):
++    """Read and duplicate ONLY an independently held process's primary token.
++
++    expected_primary_identity is the owner's prior primary-token snapshot,
++    including TokenStatistics.TokenId/AuthenticationId. It is not adapted to
++    observed results. No token is assigned to a process/thread by this module.
++    """
++    r = dict(schema_version=1, stage='held-appcontainer-accesscheck', profile=ACCESS_PROFILE, source_pin=PIN.copy(),
++        expected_role=expected_role, expected_primary_identity_sha256=sha(encode(expected_primary_identity)),
++        process_id=expected_pid, process_creation=expected_creation, frequency=frequency, deadline_qpc=deadline,
++        start_qpc=None, end_qpc=None, generation_before=False, generation_after=False,
++        source_primary=None, duplicate=None, source_identity_bound=False, duplicate_identity_bound=False,
++        calls=[], resources=[], resource_cleanup_verified=False, observation_complete=False,
++        qualified=False, classification='unknown', failure=None, error=None,
++        token_class46_queried=False, process_or_thread_impersonation_applied=False, network_tested=False,
++        dns_tested=False, product_acceptance=False)
++    live = set()
++    source = _Owned(api, 'source-primary', 'token', r['resources'], live)
++    duplicate = _Owned(api, 'duplicate-identification', 'token', r['resources'], live)
++    phase = 'input'
++
++    def tick():
++        v = api.qpc()
++        require(integer(v, 1, 0x7fffffffffffffff) and v < deadline, 'clock')
++        return v
++
++    try:
++        identity(expected_primary_identity, primary=True)
++        require(expected_role in EXPECTED and integer(process, 1, 0xffffffffffffffff)
++            and integer(expected_pid, 1) and integer(expected_creation, 1, 0x7fffffffffffffff)
++            and integer(frequency, 1, 1000000000) and integer(deadline, 1, 0x7fffffffffffffff), 'input')
++        phase = 'clock'
++        require(api.frequency() == frequency, 'clock')
++        r['start_qpc'] = tick()
++        require(deadline - r['start_qpc'] <= 120 * frequency, 'clock')
++        phase = 'process'
++        require(api.verify_process(process, expected_pid, expected_creation) is True, 'process')
++        r['generation_before'] = True
++        phase = 'open_token'; tick(); source.begin()
++        ok, handle, error = api.open_token(process, TOKEN_QUERY | TOKEN_DUPLICATE)
++        source.returned(handle)
++        if not ok or not handle:
++            raise ApiError('OpenProcessToken', error)
++        phase = 'source_identity'; tick()
++        r['source_primary'] = api.identity(handle)
++        identity(r['source_primary'], primary=True)
++        require(r['source_primary'] == expected_primary_identity, 'source_identity')
++        r['source_identity_bound'] = True
++        phase = 'duplicate_token'; tick(); duplicate.begin()
++        ok, handle, error = api.duplicate_token(source.value, TOKEN_QUERY, 1, 2)
++        duplicate.returned(handle)
++        if not ok or not handle:
++            raise ApiError('DuplicateTokenEx', error)
++        require(not duplicate.row['alias'], 'duplicate_token')
++        phase = 'duplicate_identity'; tick()
++        r['duplicate'] = api.identity(handle)
++        require(duplicate_matches(r['source_primary'], r['duplicate']), 'duplicate_identity')
++        r['duplicate_identity_bound'] = True
++        for label, expected in zip(LABELS, EXPECTED[expected_role]):
++            phase = 'descriptor'
++            call = dict(label=label, descriptor=None, descriptor_verified=False, attempted=False,
++                api_success=None, win32_error=None, access_status=None, granted_access=None, privilege_count=None,
++                start_qpc=None, end_qpc=None, within_deadline=False)
++            r['calls'].append(call)
++            sd = _Owned(api, 'descriptor-' + label, 'descriptor', r['resources'], live)
++            try:
++                tick(); sd.begin()
++                ok, pointer, error = api.create_descriptor(SDDLS[label])
++                sd.returned(pointer)
++                if not ok or not pointer:
++                    raise ApiError('ConvertStringSecurityDescriptorToSecurityDescriptorW', error)
++                require(not sd.row['alias'], 'descriptor')
++                call['descriptor'] = api.describe_descriptor(pointer)
++                observed = {k: v for k, v in call['descriptor'].items() if k not in ('bytes', 'sha256')}
++                require(observed == descriptor_expected(label) and integer(call['descriptor']['bytes'], 20, 4096)
++                    and digest(call['descriptor']['sha256']), 'descriptor')
++                call['descriptor_verified'] = True
++                phase = 'access_check'; call['start_qpc'] = tick(); call['attempted'] = True
++                ok, status, granted, privileges, error = api.access_check(pointer, duplicate.value, MAXIMUM_ALLOWED, (0, 0, 0, 0))
++                require(type(ok) is bool, 'access_check')
++                call['api_success'] = ok
++                if ok:
++                    require(type(status) is bool and integer(granted) and integer(privileges, 0, 64), 'access_check')
++                    call.update(access_status=status, granted_access=granted, privilege_count=privileges)
++                else:
++                    require(integer(error), 'access_check')
++                    call['win32_error'] = error  # other output bytes are INVALID on API failure
++                call['end_qpc'] = api.qpc()
++                call['within_deadline'] = (integer(call['end_qpc'], 1, 0x7fffffffffffffff)
++                    and call['start_qpc'] <= call['end_qpc'] < deadline)
++                if not ok:
++                    raise ApiError('AccessCheck', error)
++                require(call['within_deadline'], 'clock')
++                require(privileges == 0 and granted == expected and status is bool(expected), 'mask')
++            finally:
++                sd.close()
++            require(not sd.row['close_uncertain'], 'close')
++        phase = 'process'; tick()
++        require(api.verify_process(process, expected_pid, expected_creation) is True, 'process')
++        r['generation_after'] = True
++        phase = 'source_identity'; tick()
++        require(api.identity(source.value) == expected_primary_identity, 'source_identity')
++    except BaseException as exc:
++        code = str(exc) if type(exc) is ValueError else phase
++        r['failure'] = code if code in FAILURES else phase if phase in FAILURES else 'unexpected'
++        if isinstance(exc, ApiError):
++            r['error'] = dict(operation=exc.operation, win32_error=exc.code)
++    finally:
++        duplicate.close(); source.close()
++        r['resource_cleanup_verified'] = resources_clean(r['resources'])
++        if not r['resource_cleanup_verified']:
++            r['failure'] = r['failure'] or 'close'
++        try:
++            r['end_qpc'] = api.qpc()
++        except BaseException:
++            r['end_qpc'] = None
++        if r['start_qpc'] is None or not integer(r['end_qpc'], r['start_qpc'] or 1, deadline - 1):
++            r['failure'] = r['failure'] or 'clock'
++    r['observation_complete'] = (len(r['calls']) == 4 and all(c['descriptor_verified'] and c['api_success'] is True
++        and c['within_deadline'] for c in r['calls']) and r['generation_before'] and r['generation_after']
++        and r['source_identity_bound'] and r['duplicate_identity_bound'] and r['resource_cleanup_verified'])
++    r['qualified'] = r['observation_complete'] and r['failure'] is None
++    if r['qualified']:
++        r['classification'] = expected_role + '-semantic-match'
++    validate_proof(r, expected_primary_identity=expected_primary_identity, expected_role=expected_role,
++        expected_pid=expected_pid, expected_creation=expected_creation, frequency=frequency, deadline=deadline)
++    return r
++
++def validate_proof(r, *, expected_primary_identity, expected_role, expected_pid, expected_creation, frequency, deadline):
++    keys = {'schema_version', 'stage', 'profile', 'source_pin', 'expected_role', 'expected_primary_identity_sha256',
++        'process_id', 'process_creation', 'frequency', 'deadline_qpc', 'start_qpc', 'end_qpc', 'generation_before', 'generation_after',
++        'source_primary', 'duplicate', 'source_identity_bound', 'duplicate_identity_bound', 'calls', 'resources',
++        'resource_cleanup_verified', 'observation_complete', 'qualified', 'classification', 'failure', 'error',
++        'token_class46_queried', 'process_or_thread_impersonation_applied', 'network_tested', 'dns_tested', 'product_acceptance'}
++    require(type(r) is dict and set(r) == keys and type(r['schema_version']) is int and r['schema_version'] == 1
++        and r['stage'] == 'held-appcontainer-accesscheck' and r['profile'] == ACCESS_PROFILE and r['source_pin'] == PIN, 'proof_schema')
++    require(r['expected_role'] == expected_role and r['expected_primary_identity_sha256'] == sha(encode(expected_primary_identity))
++        and r['process_id'] == expected_pid and r['process_creation'] == expected_creation and r['frequency'] == frequency
++        and r['deadline_qpc'] == deadline, 'proof_binding')
++    for k in ('generation_before', 'generation_after', 'source_identity_bound', 'duplicate_identity_bound', 'resource_cleanup_verified',
++              'observation_complete', 'qualified', 'token_class46_queried', 'process_or_thread_impersonation_applied', 'network_tested', 'dns_tested', 'product_acceptance'):
++        require(type(r[k]) is bool, 'proof_boolean')
++    require(not any(r[k] for k in ('token_class46_queried', 'process_or_thread_impersonation_applied', 'network_tested', 'dns_tested', 'product_acceptance')), 'proof_scope')
++    require(r['failure'] is None or r['failure'] in FAILURES, 'proof_failure')
++    require(r['classification'] in ('unknown', 'ac-semantic-match', 'lpac-semantic-match'), 'classification')
++    if r['source_primary'] is not None:
++        identity_shape(r['source_primary'])
++    require(not r['source_identity_bound'] or r['source_primary'] == expected_primary_identity and r['generation_before'], 'source_binding')
++    if r['duplicate'] is not None:
++        # Invalid duplicate observations remain failure evidence; they cannot qualify.
++        identity_shape(r['duplicate'])
++    require(not r['duplicate_identity_bound'] or r['source_identity_bound'] and duplicate_matches(r['source_primary'], r['duplicate']), 'duplicate_binding')
++    resources = r['resources']
++    require(type(resources) is list and 2 <= len(resources) <= 6 and [x['name'] for x in resources[:2]] == ['source-primary', 'duplicate-identification'], 'resources')
++    require([x['name'] for x in resources[2:]] == ['descriptor-' + k for k in LABELS[:len(resources) - 2]], 'resource_order')
++    for i, x in enumerate(resources):
++        require(type(x) is dict and set(x) == RESOURCE_KEYS and x['kind'] == ('token' if i < 2 else 'descriptor')
++            and all(type(x[k]) is bool for k in RESOURCE_KEYS - {'name', 'kind'}), 'resource_schema')
++        require(not x['returned'] or x['attempted'] and x['creation_returned'], 'resource_returned')
++        require(not x['close_confirmed'] or x['returned'] and x['close_attempted'] and not x['close_uncertain'] and not x['alias'], 'resource_closed')
++        require(not x['close_attempted'] or x['returned'] and not x['alias'], 'resource_close')
++    require(r['resource_cleanup_verified'] == resources_clean(resources), 'resource_cleanup')
++    calls = r['calls']; require(type(calls) is list and len(calls) <= 4 and [c['label'] for c in calls] == list(LABELS[:len(calls)]), 'call_order')
++    require(len(resources) == 2 + len(calls), 'call_resource_count')
++    require(not r['source_identity_bound'] or all(resources[0][k] for k in ('attempted', 'creation_returned', 'returned')), 'source_resource')
++    require(not r['duplicate_identity_bound'] or all(resources[1][k] for k in ('attempted', 'creation_returned', 'returned')), 'duplicate_resource')
++    for i, c in enumerate(calls):
++        require(type(c) is dict and set(c) == CALL_KEYS and all(type(c[k]) is bool for k in ('descriptor_verified', 'attempted', 'within_deadline')), 'call_schema')
++        require(c['api_success'] is None or type(c['api_success']) is bool, 'call_api')
++        if c['descriptor_verified']:
++            d = c['descriptor']; require(type(d) is dict and set(d) == {*descriptor_expected(c['label']), 'bytes', 'sha256'}
++                and {k: v for k, v in d.items() if k not in ('bytes', 'sha256')} == descriptor_expected(c['label'])
++                and integer(d['bytes'], 20, 4096) and digest(d['sha256']), 'descriptor_proof')
++            require(all(resources[i + 2][k] for k in ('attempted', 'creation_returned', 'returned')), 'descriptor_resource')
++        require(not c['attempted'] or c['descriptor_verified'] and r['duplicate_identity_bound'], 'access_check_admission')
++        if c['api_success'] is True:
++            require(c['attempted'] and c['descriptor_verified'] and c['win32_error'] is None
++                and type(c['access_status']) is bool and integer(c['granted_access']) and integer(c['privilege_count'], 0, 64)
++                and (c['access_status'] or c['granted_access'] == 0), 'valid_api_outputs')
++        else:
++            require(c['access_status'] is c['granted_access'] is c['privilege_count'] is None, 'invalid_api_outputs')
++        if c['api_success'] is False:
++            require(c['attempted'] and integer(c['win32_error']), 'failed_api_error')
++        if c['within_deadline']:
++            require(integer(c['start_qpc'], r['start_qpc'], deadline - 1)
++                and integer(c['end_qpc'], c['start_qpc'], deadline - 1), 'call_clock')
++    complete = (len(calls) == 4 and all(c['descriptor_verified'] and c['api_success'] is True and c['within_deadline'] for c in calls)
++        and r['generation_before'] and r['generation_after'] and r['source_identity_bound'] and r['duplicate_identity_bound'] and r['resource_cleanup_verified'])
++    require(r['observation_complete'] == complete, 'complete')
++    qualified = (complete and r['failure'] is None and integer(r['start_qpc'], 1, deadline - 1)
++        and integer(r['end_qpc'], r['start_qpc'], deadline - 1) and expected_role in EXPECTED
++        and all(c['granted_access'] == mask and c['access_status'] is bool(mask) and c['privilege_count'] == 0
++            for c, mask in zip(calls, EXPECTED.get(expected_role, ()))))
++    require(r['qualified'] == qualified and r['classification'] == (expected_role + '-semantic-match' if qualified else 'unknown'), 'qualification')
++    if r['error'] is not None:
++        require(type(r['error']) is dict and set(r['error']) == {'operation', 'win32_error'} and type(r['error']['operation']) is str
++            and len(r['error']['operation']) <= 96 and integer(r['error']['win32_error']) and r['failure'] is not None, 'api_error')
++    return r
++
++ROLES={'front-listener':1,'selected-client':2,'ordinary-listener':3,'ordinary-client':4}
++BOOT_KEYS=dict(zip(ROLES,('front_boot','selected_boot','ordinary_listener_boot','ordinary_client_boot')))
++SEMANTICS={'front-listener':'ac','selected-client':'lpac'}
++POLICIES={'front-listener':0,'selected-client':1}
++ACKS=('fresh_profile_owned_acl_acknowledged','zero_capabilities_no_fallback_acknowledged',
++    'trusted_actor_mechanism_only_acknowledged','same_sid_shared_principal_acknowledged','residue_review_acknowledged')
++FALSE_CLAIMS=('same_sid_tamper_boundary_verified','injection_resistance_verified','pipe_theft_resistance_verified',
++    'direct_isolation_tested','default_resolver_tested','ipv6_tested','udp_tested','service_brokers_tested',
++    'proxy_qualified','WFP_policy_tested','DNS_isolation_tested','product_acceptance','linux_equivalence_proven')
++
++def config_validate(c,*,source_names=SOURCES):
++    keys={'schema_version','scope','profile',*NONCES,'ports','frequency','start_qpc','root_deadline_qpc','deadline_qpc',
++        'guard_job_name','source_hashes','source_sha256','device_sha256','actor_sha256','manifest_sha256','recovery_plan_sha256'}
++    require(type(c) is dict and set(c)==keys and type(c['schema_version']) is int and c['schema_version']==1
++        and c['scope']==SCOPE and c['profile']==PROFILE,'zero_config')
++    require(all(base.ac.nonce(c[k]) for k in NONCES) and len({c[k] for k in NONCES})==8,'zero_nonces')
++    live.clock_record(c['start_qpc'],c['frequency'],c['root_deadline_qpc'])
++    require(c['root_deadline_qpc']==c['start_qpc']+120*c['frequency'] and c['deadline_qpc']==c['root_deadline_qpc']-5*c['frequency']
++        and c['guard_job_name']=='Local\\RuleProxy.LocalGuard.'+c['run'],'zero_clock')
++    require(type(c['ports']) is dict and set(c['ports'])=={'frontend','ordinary'}
++        and all(live.integer(v,49153,65535) for v in c['ports'].values()) and len(set(c['ports'].values()))==2,'zero_ports')
++    require(type(c['source_hashes']) is dict and set(c['source_hashes'])==set(source_names)
++        and all(base.ac.digest(v) for v in c['source_hashes'].values()) and sha(encode(c['source_hashes']))==c['source_sha256'],'zero_sources')
++    require(all(base.ac.digest(c[k]) for k in keys if k.endswith('_sha256')),'zero_digests');return c
++
++def validate_plan(p,*,device,source,actor,manifest):
++    keys={'schema_version','scope','profile',*NONCES,'ports','device_sha256','source_sha256','actor_sha256','manifest_sha256',*ACKS,'recovery_reference'}
++    require(type(p) is dict and set(p)==keys and type(p['schema_version']) is int and p['schema_version']==1
++        and p['scope']==SCOPE and p['profile']==PROFILE,'zero_plan')
++    require(all(base.ac.nonce(p[k]) for k in NONCES) and len({p[k] for k in NONCES})==8,'zero_plan_nonces')
++    require(type(p['ports']) is dict and set(p['ports'])=={'frontend','ordinary'}
++        and all(live.integer(v,49153,65535) for v in p['ports'].values()) and len(set(p['ports'].values()))==2,'zero_plan_ports')
++    for k,v in (('device',device),('source',source),('actor',actor),('manifest',manifest)):
++        require(base.ac.digest(v) and p[k+'_sha256']==v,'zero_plan_binding')
++    require(all(p[k] is True for k in ACKS) and type(p['recovery_reference']) is str and 1<=len(p['recovery_reference'])<=512,'zero_plan_ack')
++    return p
++
++def verify_actor(actor,manifest,ah,mh,*,root):
++    raw=local.bounded(launcher.checked_path(actor,inside=root),8*1024*1024)
++    mr=local.bounded(launcher.checked_path(manifest,inside=root),65536);m=decode(mr)
++    require(Path(actor).name==ACTOR and Path(manifest).name==MANIFEST and sha(raw)==ah and sha(mr)==mh,'zero_artifacts')
++    require(type(m) is dict and set(m)=={'schemaVersion','compileOnly','runtimeAcceptance','interfaceVersion','executableSha256','actorSourceSha256','contractSourceSha256'}
++        and type(m['schemaVersion']) is int and m['schemaVersion']==1 and m['compileOnly'] is True and m['runtimeAcceptance'] is False
++        and type(m['interfaceVersion']) is int and m['interfaceVersion']==1 and m['executableSha256']==ah,'zero_manifest')
++    for name,key in zip(NATIVE_SOURCES,('actorSourceSha256','contractSourceSha256')):
++        require(base.ac.digest(m[key]) and sha(local.bounded(launcher.checked_path(root/name,inside=root),512*1024))==m[key],'zero_native_pin')
++    require(len(raw)>=256 and raw[:2]==b'MZ','zero_pe');at=struct.unpack_from('<I',raw,60)[0]
++    require(at+28<=len(raw) and raw[at:at+4]==b'PE\0\0' and struct.unpack_from('<H',raw,at+4)[0]==0x8664
++        and struct.unpack_from('<H',raw,at+24)[0]==0x20b and not struct.unpack_from('<H',raw,at+22)[0]&0x2000,'zero_pe_x64')
++    return m
++
++def packet(c,case,response=False):
++    require(case in [c[k] for k in ('before_case','selected_case','after_case')],'zero_packet_case')
++    return b'ZLP1'+struct.pack('<HH',1,2 if response else 1)+bytes.fromhex(case)+bytes.fromhex(c['run'])+bytes(24)
++
++def control(c,role,sequence,case,issued,end,*,release=False):
++    require(role in ROLES and type(sequence) is int and sequence==(2 if case==c['after_case'] else 1),'zero_control_sequence')
++    require(case==(c['selected_case'] if role in SEMANTICS else c['before_case'] if sequence==1 else c['after_case']),'zero_control_case')
++    require(not release or role=='front-listener' and sequence==1,'zero_release_role')
++    require(live.integer(issued,c['start_qpc'],work_cutoff(c)-1) and live.integer(end,issued+1,min(issued+8*c['frequency'],work_cutoff(c))),'zero_flow_deadline')
++    raw=bytearray(128);raw[:4]=b'ZCL1';struct.pack_into('<HHII',raw,4,1,2 if release else 1,sequence,ROLES[role])
++    for offset,value in ((16,c['run']),(32,c[BOOT_KEYS[role]]),(48,case)):raw[offset:offset+16]=bytes.fromhex(value)
++    struct.pack_into('<QQQHHIQ',raw,64,c['frequency'],c['root_deadline_qpc'],end,c['ports']['frontend'],c['ports']['ordinary'],0,issued)
++    return bytes(raw)
++
++def expected_acl(root,path):
++    if path==root:return [(0,0x1200a9)]
++    for name,mask in (('inputs',0x1200a9),('front-report',0x1301bf),('selected-report',0x1301bf),('front-control',0x1200a9),('selected-control',0x1200a9)):
++        directory=root/name
++        if path==directory:return [(3,mask)]
++        if directory in path.parents:return [(19 if path.is_dir() else 16,mask)]
++    return []
++
++def owned_tree(root):return base.contracts.owned_tree(root,max_nodes=512,max_depth=16,max_bytes=24*1024*1024)
++
++class API(base.LPACAPI):
++    def access_api(self):return ZeroAccessAPI()
++    def lpac_flag(self,token):raise ValueError('zero_class46_forbidden')
++    def create_zero_suspended(self,info,argv,cwd,environment,job,owners,state,*,profile_pointer,policy,budget,cutoff):
++        require(type(policy) is int and policy in (0,1) and profile_pointer and job and Path(argv[0]).name==ACTOR,'zero_constructor')
++        require(type(environment) is str and environment.endswith('\0\0') and len(environment.rstrip('\0').split('\0'))==2
++            and {p.split('=',1)[0] for p in environment.rstrip('\0').split('\0')}=={'SystemRoot','LOCALAPPDATA'},'zero_environment')
++        budget.require_ms(cutoff);state.update(create_status='not_entered',create_winerror=None,create_information='not_observed',create_exception_detail=None,returned_qpc=None)
++        size=C.c_size_t();self.k.InitializeProcThreadAttributeList(None,3,0,C.byref(size));require(1<=size.value<=65536,'zero_attrs')
++        attrs=C.create_string_buffer(size.value);self.native.check(self.k.InitializeProcThreadAttributeList(attrs,3,0,C.byref(size)),'InitializeProcThreadAttributeList')
++        try:
++            jobs=(C.c_void_p*1)(job);caps=self.proc._SecurityCapabilities(profile_pointer,None,0,0);aap=C.c_uint32(policy)
++            for kind,value in ((base.JOB_LIST,jobs),(base.SECURITY_CAPABILITIES,caps),(base.ALL_APPLICATION_PACKAGES_POLICY,aap)):
++                self.native.check(self.k.UpdateProcThreadAttribute(attrs,0,kind,C.byref(value),C.sizeof(value),None,None),'UpdateProcThreadAttribute(zero-cap)')
++            startup=self.proc._StartupInfoEx();startup.StartupInfo.cb=C.sizeof(startup);startup.lpAttributeList=C.cast(attrs,C.c_void_p)
++            cmd=C.create_unicode_buffer(subprocess.list2cmdline(argv));env=C.create_unicode_buffer(environment)
++            def create():
++                try:ok=self.k.CreateProcessW(argv[0],cmd,None,None,False,self.proc._CREATE_SUSPENDED|self.proc._CREATE_UNICODE_ENVIRONMENT|self.proc._EXTENDED_STARTUPINFO_PRESENT|0x08000000,
++                    env,str(cwd),C.byref(startup),C.byref(info))
++                except BaseException as e:state.update(create_status='exception',create_exception_detail=base.private_failure_detail(e,'CreateProcessW(zero-cap)'));raise
++                error=0 if ok else C.get_last_error()
++                state.update(create_status='returned_true' if ok else 'returned_false',create_winerror=None if ok else error,
++                    create_information='nonzero' if any((info.hProcess,info.hThread,info.dwProcessId,info.dwThreadId)) else 'all_zero')
++                return ok,error
++            def checked(v):
++                if not v[0]:raise launcher.NativeFailure('CreateProcessW(zero-cap)',v[1])
++            budget.require_ms(cutoff);helpers.create_suspended_owned(create,checked,info,owners,state)
++        finally:
++            try:self.k.DeleteProcThreadAttributeList(attrs)
++            except BaseException:self.controls_uncertain=True;raise
++            if state['create_status'] in ('returned_true','returned_false'):
++                try:state['returned_qpc']=budget.read()
++                except BaseException:pass
++    def tcp_snapshot(self,budget,cutoff):
++        budget.require_ms(cutoff);library=C.WinDLL('iphlpapi.dll',use_last_error=True,winmode=0x800)
++        query=library.GetExtendedTcpTable;query.argtypes=[C.c_void_p,C.POINTER(C.c_uint32),C.c_int,C.c_uint32,C.c_int,C.c_uint32];query.restype=C.c_uint32
++        size=C.c_uint32();require(query(None,C.byref(size),False,2,5,0)==122 and 4<=size.value<=1048576,'zero_tcp_size')
++        budget.require_ms(cutoff);capacity=size.value;raw=C.create_string_buffer(capacity)
++        require(query(raw,C.byref(size),False,2,5,0)==0 and 4<=size.value<=capacity,'zero_tcp_table')
++        budget.require_ms(cutoff);return raw.raw[:size.value]
++    def label_read(self,path):
++        self.a.GetNamedSecurityInfoW.argtypes=[C.c_wchar_p,C.c_int,C.c_uint32,C.c_void_p,C.c_void_p,C.c_void_p,C.POINTER(C.c_void_p),C.POINTER(C.c_void_p)]
++        self.a.GetNamedSecurityInfoW.restype=C.c_uint32
++        acl,sd=C.c_void_p(),C.c_void_p()
++        try:
++            result=self.a.GetNamedSecurityInfoW(str(path),1,16,None,None,None,C.byref(acl),C.byref(sd))
++            require(result==0 and sd.value,'zero_label_read')
++            if not acl.value:return None
++            head=C.string_at(acl.value,8);size=struct.unpack_from('<H',head,2)[0]
++            require(8<=size<=4096,'zero_label_size');raw=C.string_at(acl.value,size)
++            return label_acl(raw)
++        finally:
++            if sd.value:
++                pointer,sd.value=sd.value,None
++                try:require(not self.k.LocalFree(pointer),'zero_label_read_free')
++                except BaseException:self.controls_uncertain=True;raise
++    def label_set(self,path,raw):
++        require(raw in (LOW_LABEL,None),'zero_label_write_value')
++        value=raw or EMPTY_LABEL;buffer=C.create_string_buffer(value)
++        self.a.SetNamedSecurityInfoW.argtypes=[C.c_wchar_p,C.c_int,C.c_uint32,C.c_void_p,C.c_void_p,C.c_void_p,C.c_void_p]
++        self.a.SetNamedSecurityInfoW.restype=C.c_uint32
++        try:result=self.a.SetNamedSecurityInfoW(str(path),1,16,None,None,None,C.cast(buffer,C.c_void_p))
++        except BaseException:self.controls_uncertain=True;raise
++        require(result==0,'zero_label_set')
++
++EMPTY_LABEL=bytes.fromhex('0200080000000000')
++LOW_LABEL=bytes.fromhex('02001c00010000001103140001000000010100000000001000100000')
++def label_acl(raw):
++    require(type(raw) is bytes and 8<=len(raw)<=4096 and raw[0]==2 and raw[1]==0
++        and struct.unpack_from('<H',raw,2)[0]==len(raw) and raw[6:8]==bytes(2),'zero_label_acl_header')
++    count=struct.unpack_from('<H',raw,4)[0]
++    if count==0:require(len(raw)==8,'zero_empty_label');return None
++    require(count==1 and len(raw)==28 and raw[8]==17 and raw[9]&~31==0 and struct.unpack_from('<H',raw,10)[0]==20
++        and struct.unpack_from('<I',raw,12)[0]<=7 and raw[16:24]==bytes.fromhex('0101000000000010'),'zero_label_ace')
++    return raw
++
++def tcp_rows(raw):
++    require(type(raw) is bytes and 4<=len(raw)<=1048576,'zero_tcp_bytes');count=struct.unpack_from('<I',raw)[0]
++    require(count<=43690 and 4+24*count<=len(raw),'zero_tcp_count');rows=[]
++    for i in range(count):
++        state,la,lp,ra,rp,pid=struct.unpack_from('<6I',raw,4+24*i)
++        rows.append(dict(state=state,local_address=la.to_bytes(4,'little').hex(),local_port=int.from_bytes(lp.to_bytes(4,'little')[:2],'big'),
++            remote_address=ra.to_bytes(4,'little').hex(),remote_port=int.from_bytes(rp.to_bytes(4,'little')[:2],'big'),pid=pid,ports_canonical=lp<=65535 and rp<=65535))
++    return rows
++
++def exact_tcp(raw,front_pid,port,*,client_pid=None,client_port=None):
++    rows=tcp_rows(raw);loop='7f000001'
++    listener=[r for r in rows if r['state']==2 and r['local_port']==port]
++    require(len(listener)==1 and listener[0]['pid']==front_pid and listener[0]['local_address']==loop and listener[0]['ports_canonical'],'zero_exact_listener')
++    result=dict(listener=listener[0],client=None,server=None)
++    if client_pid is not None:
++        client=[r for r in rows if r['pid']==client_pid and r['local_port']==client_port and r['remote_port']==port]
++        server=[r for r in rows if r['pid']==front_pid and r['local_port']==port and r['remote_port']==client_port]
++        require(len(client)==len(server)==1 and client[0]['state'] in (6,7) and server[0]['state']==8
++            and all(r['ports_canonical'] and r['local_address']==r['remote_address']==loop for r in (*client,*server)),'zero_exact_halfclosed_pair')
++        result.update(client=client[0],server=server[0])
++    return result
++
++
++owner=base
++GRANTS=(('root','', 'RX'),('inputs','inputs','(OI)(CI)(RX)'),('front-report','front-report','(OI)(CI)(M)'),
++    ('selected-report','selected-report','(OI)(CI)(M)'),('front-control','front-control','(OI)(CI)(RX)'),('selected-control','selected-control','(OI)(CI)(RX)'))
++GRANT_NAMES=tuple('grant-'+item[0] for item in GRANTS)
++ACTOR_DIRS={'front-listener':('front-report','front-control'),'selected-client':('selected-report','selected-control'),
++    'ordinary-listener':('origin-report','origin-control'),'ordinary-client':('ordinary-report','ordinary-control')}
++EXTRA_KEYS=identity_cell.EXTRA_KEYS
++def projection(row):
++    value=base.task_projection(row);value.update({k:row.get(k,[] if k=='held_checks' else None) for k in EXTRA_KEYS});return value
++
++def capture_primary(api,token,parent,sid,budget,cutoff,container):
++    if container:return capture_zero_primary(api,token,parent,sid,budget,cutoff)
++    budget.require_ms(cutoff);observed=api.identity(token)
++    require(launcher.token_is_ordinary(observed) and launcher.same_identity(observed,parent)
++        and api.groups(token,30,'TokenCapabilities')==[],'zero_ordinary_primary')
++    raw,n=api.native.query(token,10,'TokenStatistics');require(n==C.sizeof(access.TOKEN_STATISTICS),'zero_ordinary_statistics')
++    st=C.cast(raw,C.POINTER(access.TOKEN_STATISTICS))[0];require(st.TokenType==1,'zero_ordinary_primary_type')
++    luid=lambda v:v.LowPart|((v.HighPart&0xffffffff)<<32)
++    value=dict(sid=observed['sid'],session_id=observed['session_id'],token_type=1,impersonation_level=None,appcontainer=False,
++        appcontainer_sid=None,integrity_rid=observed['integrity_rid'],elevated=False,ui_access=False,capabilities=[],
++        token_id=luid(st.TokenId),authentication_id=luid(st.AuthenticationId))
++    identity_shape(value);budget.require_ms(cutoff);return value
++
++class Owner(identity_cell.CellOwner):
++    def __init__(self,root,c,parent,api,budget):
++        super().__init__(root,c,parent,api,budget)
++        self.j.update(stage='zero-cap-same-sid-loopback-result',scope=SCOPE,profile=PROFILE,
++            profile_name='ruleproxy-zero-loopback-'+c['run'],labels=[],labels_restored=True,native=[],go=[],tcp=[],
++            ordinary_before=False,ordinary_after=False,after_attempted=False,front_listener_verified=False,
++            main_request_observed=False,main_connect_observed=False,main_tuple_verified=False,release_published=False,
++            main_response_verified=False,natural_exits=False,**dict.fromkeys(FALSE_CLAIMS,False))
++        self.phase='setup'
++    def journal(self,label):
++        allowed={'profile-create','acl-grant','workload-stop','acl-remove','profile-delete','label-lower-front-report','label-lower-selected-report',
++            'label-restore','observe-front-listener','observe-selected-client','release'}
++        allowed|={'spawn-'+n for n in (*GRANT_NAMES,'remove',*ROLES)}
++        allowed|={'go-'+role+'-'+str(seq) for role in ROLES for seq in (1,2)}
++        require(label in allowed and len(self.j['intents'])<48,'zero_intent')
++        directory=self.root/'journal';directory.mkdir(exist_ok=True)
++        raw=encode(dict(schema_version=1,scope=SCOPE,run=self.c['run'],config_sha256=sha(encode(self.c)),source_sha256=self.c['source_sha256'],
++            frequency=self.c['frequency'],deadline_qpc=self.c['deadline_qpc'],qpc=self.budget.read(),action=label))
++        name='%02d-%s.json'%(len(self.j['intents']),label);base.durable_private(directory/name,raw)
++        self.j['intents'].append(dict(name=name,text=raw.decode('ascii'),sha256=sha(raw)))
++    def acl_command(self,name):
++        exe=str(self.fixed_tool('icacls.exe'));sid='*'+self.profile['sid']
++        if name=='remove':return [exe,str(self.root),'/remove:g',sid,'/T','/Q']
++        matches=[row for row in GRANTS if 'grant-'+row[0]==name];require(len(matches)==1,'zero_grant_name')
++        _,path,right=matches[0];return [exe,str(self.root/path),'/grant',sid+':'+right,'/Q']
++    def scope_acl(self,removed=False):
++        for path in owned_tree(self.root):
++            self.budget.require_ms(self.budget.cutoff(3) if removed else work_cutoff(self.c))
++            require(self.api.acl_read(path,self.profile['sid'])==([] if removed else expected_acl(self.root,path)),'zero_acl_readback')
++    def setup(self):
++        owned_tree(self.root);self.budget.require_ms(work_cutoff(self.c))
++        verified=self.api.local_appdata(self.budget,self.j['child_environment'])
++        self.selected_environment=self.api.front_environment(verified,self.j['child_environment'])
++        require(launcher.child_environment_admitted(self.j['child_environment']),'zero_environment_admitted')
++        self.job=self.api.owned_job(self.owners);self.catalog={}
++        self.journal('profile-create')
++        try:self.api.create_profile(self.j['profile_name'],self.profile)
++        finally:
++            self.j['profile_state']={k:self.profile[k] for k in ('attempted','returned','created')}
++            self.j['profile_state']['sid_pointer_returned']=bool(self.profile['pointer']);self.j['profile_sid']=self.profile['sid']
++        require(self.profile['created'] and self.api.derive_profile_sid(self.j['profile_name'])==self.profile['sid'],'zero_fresh_profile')
++        self.j.update(profile_created=True,profile_sid=self.profile['sid'])
++        for path in owned_tree(self.root):require(self.api.acl_read(path,self.profile['sid'])==[],'zero_fresh_acl')
++        self.j['acl_attempted']=True;self.journal('acl-grant')
++        for name in GRANT_NAMES:self.tool(self.acl_command(name),name)
++        self.scope_acl()
++        for name in ('front-report','selected-report'):
++            path=self.root/name;before=self.api.label_read(path)
++            state=dict(name=name,before=None if before is None else before.hex(),attempted=False,lowered=False,restored=False);self.j['labels'].append(state)
++            require(before is None,'zero_fresh_label_absence')
++            self.journal('label-lower-'+name);state['attempted']=True;self.j['labels_restored']=False
++            self.api.label_set(path,LOW_LABEL);require(self.api.label_read(path)==LOW_LABEL,'zero_low_label_readback');state['lowered']=True
++        self.common=dict(actor_path=str(self.root/'inputs'/ACTOR),actor_sha256=self.c['actor_sha256'],profile_sid=self.profile['sid'],
++            environment_sha256=sha(self.selected_environment.encode('utf-16-le')),parent=self.parent,inner_job=self.job,outer_job=self.c['guard_job_name'],
++            frequency=self.c['frequency'],start_qpc=self.c['start_qpc'],root_deadline_qpc=self.c['root_deadline_qpc'],deadline_qpc=self.c['deadline_qpc'])
++        self.j['common']=self.common
++    def restore_labels(self):
++        if not any(row['attempted'] for row in self.j['labels']):self.j['labels_restored']=True;return
++        self.journal('label-restore')
++        for row in self.j['labels']:
++            if not row['attempted']:continue
++            require(row['before'] is None,'zero_restore_declared_absence');parent=self.root/row['name']
++            paths=owned_tree(parent)
++            for path in sorted(paths,key=lambda p:len(p.parts),reverse=True):
++                self.budget.require_ms(self.budget.cutoff(5));self.api.label_set(path,None)
++            for path in owned_tree(parent):require(self.api.label_read(path) is None,'zero_label_restore_readback')
++            row['restored']=True
++        self.j['labels_restored']=all(not row['attempted'] or row['restored'] for row in self.j['labels'])
++    def argv(self,role):
++        report,control=ACTOR_DIRS[role];c=self.c
++        return [str(self.root/'inputs'/ACTOR),role,c['run'],c[BOOT_KEYS[role]],str(self.root/report/'final.json'),
++            str(self.root/report/'ready.json'),str(self.root/control),str(c['frequency']),str(c['start_qpc']),str(c['root_deadline_qpc']),
++            str(c['ports']['frontend']),str(c['ports']['ordinary']),c['before_case'],c['selected_case'],c['after_case']]
++    def actor(self,role):
++        self.phase='construct';cutoff=work_cutoff(self.c);self.budget.require_ms(cutoff)
++        argv=self.argv(role);require(sha(local.bounded(Path(argv[0]),8*1024*1024))==self.c['actor_sha256'],'zero_actor_changed')
++        info=self.api.process_info();row=dict(info=info,name=role,attempted=False,assigned=False,exited=False,exit_code=None,pid=None,created=None,
++            process_returned=False,create_observation=dict(status='not_entered',winerror=None,process_information='not_observed',returned_qpc=None,work_cutoff=cutoff,exception_detail=None),
++            token=None,identity=None,capabilities=None,lpac=None,lpac_expected=role=='selected-client',resumed=False,admitted=False,image_sha256=self.c['actor_sha256'],
++            admission_qpc=None,resume_qpc=None,go_qpc=[],role=role,policy=POLICIES.get(role),arm_nonce=self.c[BOOT_KEYS[role]],expected_primary=None,
++            common_sha256=sha(encode(self.common)),held_checks=[])
++        self.children.append(row);self.tasks[role]=row;state=dict(creation_attempted=False);self.journal('spawn-'+role)
++        try:
++            if role in POLICIES:self.api.create_zero_suspended(info,argv,self.root/'inputs',self.selected_environment,self.job,self.owners,state,
++                profile_pointer=self.profile['pointer'],policy=POLICIES[role],budget=self.budget,cutoff=cutoff)
++            else:self.api.atomic_spawn(info,argv,self.root/'inputs',self.job,self.owners,state,
++                environment=self.api.native.environment(self.root/ACTOR_DIRS[role][0]),stdio=(),profile_pointer=None,catalog=None)
++        finally:
++            row.update(attempted=state['creation_attempted'],process_returned=bool(info.hProcess))
++            if info.dwProcessId:row['pid']=int(info.dwProcessId)
++            row['create_observation']=dict(status=state.get('create_status','not_entered'),winerror=state.get('create_winerror'),
++                process_information=state.get('create_information','not_observed'),returned_qpc=state.get('returned_qpc'),work_cutoff=cutoff,exception_detail=state.get('create_exception_detail'))
++            if row['create_observation']['status'] in ('returned_true','returned_false') and row['create_observation']['returned_qpc'] is None:
++                try:row['create_observation']['returned_qpc']=self.budget.read()
++                except BaseException:pass
++        self.phase='admission';self.budget.require_ms(cutoff);require(info.hProcess and info.hThread and info.dwProcessId,'zero_partial_create')
++        row['created']=self.api.creation_time(info.hProcess);self.api.verify_job(self.job,info.hProcess);row['assigned']=True
++        self.api.verify_outer(self.c['guard_job_name'],info.hProcess);self.api.verify_image(info.hProcess,Path(argv[0]))
++        row['token']=self.api.token_for_process(info.hProcess);self.owners.add(row['token']);row['identity']=self.api.identity(row['token']);row['capabilities']=[]
++        row['expected_primary']=capture_primary(self.api,row['token'],self.parent,self.profile['sid'],self.budget,cutoff,role in POLICIES)
++        self.held(row);row['admission_qpc']=self.budget.read();self.budget.require_ms(cutoff);row['admitted']=True;return row
++    def held(self,row):
++        cutoff=work_cutoff(self.c);self.budget.require_ms(cutoff);h=row['info'].hProcess
++        require(not self.api.wait(h,0) and self.api.process_id(h)==row['pid'] and self.api.creation_time(h)==row['created'],'zero_held_generation')
++        self.api.verify_job(self.job,h);self.api.verify_outer(self.c['guard_job_name'],h);self.api.verify_image(h,self.root/'inputs'/ACTOR)
++        require(sha(local.bounded(self.root/'inputs'/ACTOR,8*1024*1024))==self.c['actor_sha256'],'zero_held_image')
++        require(capture_primary(self.api,row['token'],self.parent,self.profile['sid'],self.budget,cutoff,row['role'] in POLICIES)==row['expected_primary'],'zero_primary_changed')
++        row['held_checks'].append(self.budget.read())
++    def resume(self,row):
++        if row.get('role') in ROLES:
++            self.held(row);require(self.j['common_inputs_verified'] and len(self.j['proofs'])==2
++                and all(p['qualified'] and p['resource_cleanup_verified'] for p in self.j['proofs']),'zero_resume_matrices')
++        else:
++            require(row['name'] in GRANT_NAMES and row['admitted'],'zero_tool_resume')
++            self.api.verify_job(self.job,row['info'].hProcess);self.api.verify_outer(self.c['guard_job_name'],row['info'].hProcess)
++        require(not row['resumed'],'zero_resume_once');self.budget.require_ms(work_cutoff(self.c))
++        self.api.resume(row['info'].hThread);row['resumed']=True;row['resume_qpc']=self.budget.read()
++    def read_native(self,row,name,kind,*,sequence=None,case=None,end=None):
++        path=self.root/ACTOR_DIRS[row['role']][0]/name;key=(row['role'],name)
++        prior=next((v for v in self.j['native'] if (v['role'],v['name'])==key),None)
++        if prior is not None:return prior['value']
++        path=launcher.checked_path(path,inside=self.root)
++        value,raw=base.contracts.read_when_closed(self.api,self.budget,path,row['info'].hProcess,
++            self.budget.cutoff(3) if row['exited'] else work_cutoff(self.c))
++        require(len(raw)<=65536,'zero_native_report_size')
++        validate_native(value,kind,row,self.c,sequence=sequence,case=case,end=end)
++        self.j['native'].append(dict(role=row['role'],name=name,kind=kind,sequence=sequence,case=case,end=end,
++            text=raw.decode('ascii'),sha256=sha(raw),value=value))
++        if row['role']=='front-listener' and kind in ('received','receipt') and value['request_exact'] and value['request_bytes']==64:
++            self.j['main_request_observed']=True
++        if row['role']=='selected-client' and kind=='phase' and value['connect_completed']:self.j['main_connect_observed']=True
++        self.j['network_tested']|=value['network_tested'];return value
++    def await_native(self,row,name,kind,wait_end,**kw):
++        path=self.root/ACTOR_DIRS[row['role']][0]/name
++        while not path.exists():
++            self.budget.require_ms(wait_end)
++            if self.api.wait(row['info'].hProcess,0):
++                if path.exists():break
++                final=path.with_name('final.json')
++                if final.exists():self.read_native(row,'final.json','final')
++                raise ValueError('zero_native_exited_without_report')
++            self.api.wait(row['info'].hProcess,min(10,self.budget.require_ms(wait_end)))
++        return self.read_native(row,name,kind,**kw)
++    def ready(self,row):
++        value=self.await_native(row,'ready.json','ready',work_cutoff(self.c))
++        require(ready_passed(value,row,self.c),'zero_native_ready');return value
++    def publish(self,row,sequence,case,issued,end,*,release=False):
++        self.held(row);self.budget.require_ms(min(end,work_cutoff(self.c)))
++        data=control(self.c,row['role'],sequence,case,issued,end,release=release)
++        name='release.bin' if release else 'phase-%02d.bin'%sequence
++        path=self.root/ACTOR_DIRS[row['role']][1]/name
++        self.journal('release' if release else 'go-'+row['role']+'-'+str(sequence))
++        atomic_publish(path,data,self.budget,min(end,work_cutoff(self.c)))
++        tick=self.budget.read();self.budget.require_ms(min(end,work_cutoff(self.c)))
++        self.j['go'].append(dict(role=row['role'],name=name,sequence=sequence,case=case,issued=issued,end=end,published_qpc=tick,
++            release=release,hex=data.hex(),sha256=sha(data)))
++        if not release:row['go_qpc'].append(tick)
++    def flow(self,sequence,case):
++        server=self.tasks['ordinary-listener'];client=self.tasks['ordinary-client']
++        self.held(server);self.held(client);issued=self.budget.read();end=min(issued+8*self.c['frequency'],work_cutoff(self.c))
++        self.publish(server,sequence,case,issued,end);self.publish(client,sequence,case,issued,end)
++        p=self.await_native(client,'phase-%02d.json'%sequence,'phase',end,sequence=sequence,case=case,end=end)
++        r=self.await_native(server,'receipt-%02d.json'%sequence,'receipt',end,sequence=sequence,case=case,end=end)
++        require(phase_passed(p) and receipt_passed(r,False) and p['local_port']==r['peer_port'],'zero_ordinary_flow')
++        self.j['ordinary_before' if sequence==1 else 'ordinary_after']=True
++    def tcp(self,kind,*,peer=None,end=None):
++        end=work_cutoff(self.c) if end is None else end;front=self.tasks['front-listener'];selected=self.tasks['selected-client']
++        self.held(front)
++        if peer is not None:self.held(selected)
++        before=self.budget.read();raw=self.api.tcp_snapshot(self.budget,end)
++        value=exact_tcp(raw,front['pid'],self.c['ports']['frontend'],client_pid=None if peer is None else selected['pid'],client_port=peer)
++        directory=self.root/'tcp-observations';directory.mkdir(exist_ok=True)
++        name='listen.bin' if kind=='listen' else 'withheld.bin';base.durable_private(directory/name,raw)
++        self.held(front)
++        if peer is not None:self.held(selected)
++        after=self.budget.read();self.budget.require_ms(end)
++        self.j['tcp'].append(dict(kind=kind,value=value,name=name,raw_bytes=len(raw),raw_sha256=sha(raw),before_qpc=before,after_qpc=after))
++        return value
++    def execute(self):
++        try:
++            self.setup();actors=[self.actor(role) for role in ROLES]
++            require(len({r['pid'] for r in actors})==4 and len({r['expected_primary']['token_id'] for r in actors})==4
++                and len({r['expected_primary']['authentication_id'] for r in actors})==1,'zero_distinct_actors')
++            self.j['common_inputs_verified']=True;self.phase='accesscheck';probe=self.api.access_api()
++            for role,semantic in SEMANTICS.items():
++                row=self.tasks[role]
++                for actor in actors:self.held(actor)
++                self.journal('observe-'+role);self.j['observer_attempted']=True;self.j['observer_resources_cleanup_verified']=False
++                proof=observe_held(probe,row['info'].hProcess,row['expected_primary'],expected_pid=row['pid'],expected_creation=row['created'],
++                    expected_role=semantic,frequency=self.c['frequency'],deadline=work_cutoff(self.c))
++                self.j['proofs'].append(proof);self.j['observer_resources_cleanup_verified']=all(p['resource_cleanup_verified'] for p in self.j['proofs'])
++                if not self.j['observer_resources_cleanup_verified']:self.api.controls_uncertain=True
++                for actor in actors:self.held(actor)
++                require(proof['qualified'],'zero_matrix')
++            self.phase='ordinary-before'
++            for role in ('ordinary-listener','ordinary-client'):self.resume(self.tasks[role]);self.ready(self.tasks[role])
++            self.flow(1,self.c['before_case']);self.phase='loopback'
++            front,selected=self.tasks['front-listener'],self.tasks['selected-client']
++            self.resume(front);self.ready(front);self.tcp('listen');self.j['front_listener_verified']=True
++            self.resume(selected);self.ready(selected)
++            issued=self.budget.read();end=min(issued+8*self.c['frequency'],work_cutoff(self.c))
++            self.publish(front,1,self.c['selected_case'],issued,end);self.publish(selected,1,self.c['selected_case'],issued,end)
++            received=self.await_native(front,'received.json','received',end,sequence=1,case=self.c['selected_case'],end=end)
++            require(received_passed(received),'zero_withheld_request')
++            self.tcp('withheld',peer=received['peer_port'],end=end);self.j['main_tuple_verified']=True
++            self.publish(front,1,self.c['selected_case'],self.budget.read(),end,release=True);self.j['release_published']=True
++            phase=self.await_native(selected,'phase-01.json','phase',end,sequence=1,case=self.c['selected_case'],end=end)
++            receipt=self.await_native(front,'receipt-01.json','receipt',end,sequence=1,case=self.c['selected_case'],end=end)
++            require(phase_passed(phase) and receipt_passed(receipt,True) and phase['local_port']==receipt['peer_port']==received['peer_port'],'zero_main_response')
++            self.j['main_response_verified']=True
++        except BaseException as error:self.j['failure']=self.phase;self.j['failure_detail']=base.private_failure_detail(error)
++        finally:
++            if self.j['ordinary_before']:
++                self.j['after_attempted']=True
++                try:self.flow(2,self.c['after_case'])
++                except BaseException as error:
++                    if self.j['failure'] is None:self.j['failure']='ordinary-after';self.j['failure_detail']=base.private_failure_detail(error)
++            try:
++                for role in ROLES:
++                    row=self.tasks.get(role)
++                    if row is not None and row['resumed']:
++                        self.wait(row,work_cutoff(self.c),code=None)
++                        if (self.root/ACTOR_DIRS[role][0]/'final.json').exists():self.read_native(row,'final.json','final')
++                self.j['natural_exits']=all(role in self.tasks and self.tasks[role]['resumed'] and self.tasks[role]['exited']
++                    and self.tasks[role]['exit_code']==0 for role in ROLES)
++                if self.j['failure'] is None:
++                    require(self.j['natural_exits'] and all(any(v['role']==role and v['kind']=='final'
++                        and final_passed(v['value']) for v in self.j['native']) for role in ROLES),'zero_final_resources')
++            except BaseException as error:
++                if self.j['failure'] is None:self.j['failure']='protocol';self.j['failure_detail']=base.private_failure_detail(error)
++            self.cleanup()
++            # Harvest immutable positive receipts after exact held cleanup, even
++            # when an earlier malformed/missing report aborted the happy path.
++            for go in tuple(self.j['go']):
++                if go['release']:continue
++                row=self.tasks[go['role']];listener=go['role'].endswith('listener')
++                names=[('receipt-%02d.json'%go['sequence'],'receipt')] if listener else [('phase-%02d.json'%go['sequence'],'phase')]
++                if go['role']=='front-listener':names.insert(0,('received.json','received'))
++                for name,kind in names:
++                    try:
++                        if (self.root/ACTOR_DIRS[go['role']][0]/name).exists():self.read_native(row,name,kind,sequence=go['sequence'],case=go['case'],end=go['end'])
++                    except BaseException:pass
++        self.j['actor_resumed']=any(r.get('role') in ROLES and r['resumed'] for r in self.children)
++        self.j['tasks']=[projection(row) for row in self.children];return self.j
++
++    def task(self,name,argv,work,*,lpac=False,stdio=False,owners=None,children=None,job=None,cleanup=False):
++        """Fixed ordinary icacls tools, with an existing per-tool TEMP/TMP.
++
++        This narrow seam avoids the DNS owner's unrelated health directory.
++        Atomic Job construction and held ordinary admission stay unchanged.
++        """
++        require(name in (*GRANT_NAMES,'remove') and not lpac and stdio and cleanup==(name=='remove'),'zero_ordinary_tool')
++        require(argv==self.acl_command(name) and work==self.root/'tools'/name and (work/'temp').is_dir(),'zero_fixed_tool')
++        cutoff=self.budget.cutoff(3 if cleanup else 25);self.budget.require_ms(cutoff)
++        owners=self.owners if owners is None else owners;children=self.children if children is None else children
++        job=self.job if job is None else job;image=launcher.checked_path(argv[0]);image_hash=sha(owner.local.bounded(image,8*1024*1024))
++        info=self.api.process_info();row=dict(info=info,name=name,attempted=False,assigned=False,exited=False,exit_code=None,
++            pid=None,created=None,process_returned=False,create_observation=dict(status='not_entered',winerror=None,
++            process_information='not_observed',returned_qpc=None,work_cutoff=cutoff,exception_detail=None),token=None,
++            identity=None,capabilities=None,lpac=None,lpac_expected=False,resumed=False,admitted=False,image_sha256=image_hash,
++            admission_qpc=None,resume_qpc=None,go_qpc=[])
++        children.append(row)
++        if not cleanup:self.tasks[name]=row
++        state=dict(creation_attempted=False);stdio_owners=helpers.OneShotHandles(self.api.close);handles=[];self.journal('spawn-'+name)
++        try:
++            for label in ('stdin','stdout','stderr'):
++                handle=self.api.open_stdio_file(work/label,read=label=='stdin');stdio_owners.add(handle);handles.append(handle)
++            environment=self.api.native.environment(work)
++            pairs=dict(value.split('=',1) for value in environment.rstrip('\0').split('\0'))
++            require(environment.endswith('\0\0') and set(pairs)=={'SystemRoot','WINDIR','TEMP','TMP'}
++                and pairs['SystemRoot']==pairs['WINDIR'] and pairs['TEMP']==pairs['TMP']==str(work/'temp'),'identity_tool_environment')
++            try:self.api.atomic_spawn(info,argv,work,job,owners,state,environment=environment,stdio=handles,profile_pointer=None,catalog=self.catalog)
++            finally:
++                row.update(attempted=state['creation_attempted'],process_returned=bool(info.hProcess))
++                if info.dwProcessId:row['pid']=int(info.dwProcessId)
++                row['create_observation']=dict(status=state.get('create_status','not_entered'),winerror=state.get('create_winerror'),
++                    process_information=state.get('create_information','not_observed'),returned_qpc=None,work_cutoff=cutoff,
++                    exception_detail=state.get('create_exception_detail'))
++                if row['create_observation']['status'] in ('returned_false','returned_true'):
++                    try:row['create_observation']['returned_qpc']=self.budget.read()
++                    except BaseException:pass
++        finally:
++            uncertain=False
++            for handle in tuple(stdio_owners.pending):
++                try:stdio_owners.close(handle)
++                except BaseException:uncertain=True
++            if uncertain or not stdio_owners.confirmed_closed:
++                self.api.controls_uncertain=True;launcher._RETAINED_SCOPED_OWNERS.append((self.api,stdio_owners));raise ValueError('identity_stdio_close')
++        self.budget.require_ms(cutoff);require(info.hProcess and info.hThread and info.dwProcessId,'identity_partial_tool')
++        row['created']=self.api.creation_time(info.hProcess);self.api.verify_job(job,info.hProcess);row['assigned']=True
++        self.api.verify_outer(self.c['guard_job_name'],info.hProcess);self.api.verify_image(info.hProcess,image)
++        require(sha(owner.local.bounded(image,8*1024*1024))==image_hash,'identity_tool_image_changed')
++        row['token']=self.api.token_for_process(info.hProcess);owners.add(row['token'])
++        row['identity'],row['capabilities'],row['lpac']=owner.held_identity(self.api,row,self.parent,self.catalog,self.profile['sid'],False)
++        row['admission_qpc']=self.budget.read();self.budget.require_ms(cutoff);row['admitted']=True
++        return row
++
++    def cleanup(self):
++        clean=False
++        try:
++            # Durable intent precedes the sole held workload Job stop. It is
++            # expected that suspended actors exit by this stop, never exit0.
++            if any(r['info'].hProcess and not r['exited'] for r in self.children):self.journal('workload-stop')
++            rows=[row for row in self.children if not owner.known_no_child(row,start=self.c['start_qpc'])]
++            clean,empty,stop=owner.ac._cleanup(self.api,live.CleanupView(self.budget,self.budget.cutoff(8)),self.job,rows,self.owners)
++            self.j.update(workload_cleanup=clean,workload_job_empty=empty,workload_stop=stop)
++        except BaseException:pass
++        if clean and self.j['observer_resources_cleanup_verified'] and not self.api.controls_uncertain:
++            try:self.restore_labels()
++            except BaseException:pass
++        if clean and self.j['labels_restored'] and self.j['observer_resources_cleanup_verified'] and not self.api.controls_uncertain:
++            if self.profile['created']:
++                toolowners=helpers.OneShotHandles(self.api.close);children=[];job=None
++                try:
++                    job=self.api.owned_job(toolowners);self.journal('acl-remove')
++                    self.tool([str(self.fixed_tool('icacls.exe')),str(self.root),'/remove:g','*'+self.profile['sid'],'/T','/Q'],
++                        'remove',cleanup=True,owners=toolowners,children=children,job=job)
++                    self.scope_acl(removed=True);self.j['acl_removed']=True
++                except BaseException:pass
++                finally:
++                    try:self.j['cleanup_tools']=owner.ac._cleanup(self.api,live.CleanupView(self.budget,self.budget.cutoff(3)),job,
++                        [row for row in children if not owner.known_no_child(row,start=self.c['start_qpc'])],toolowners)[0]
++                    except BaseException:pass
++                    self.j['cleanup_tasks']=[projection(row) for row in children]
++                if self.j['acl_removed'] and self.j['cleanup_tools'] and not self.api.controls_uncertain:
++                    try:self.journal('profile-delete');self.api.delete_profile(self.j['profile_name']);self.j['profile_deleted']=True
++                    except BaseException:pass
++            elif not self.profile['attempted']:
++                self.j.update(acl_removed=True,cleanup_tools=True,profile_deleted=True)
++        try:self.api.release_profile_sid(self.profile);self.j['sid_released']=True
++        except BaseException:pass
++        if not all(self.j[k] for k in ('workload_cleanup','workload_job_empty','observer_resources_cleanup_verified',
++                'labels_restored','acl_removed','cleanup_tools','profile_deleted','sid_released')):self.j['failure']=self.j['failure'] or 'cleanup'
++
++REPORT_KEYS={'ready': ('schema_version', 'stage', 'role', 'run_id', 'boot_case_id', 'pid', 'token', 'root_qpc', 'ready_qpc', 'ports', 'case_ids', 'listener', 'port', 'socket_held', 'wsa_started', 'token_close_confirmed', 'failure', 'network_tested', 'product_acceptance'), 'phase': ('schema_version', 'stage', 'role', 'run_id', 'boot_case_id', 'pid', 'token', 'root_qpc', 'sequence', 'case_id', 'phase_deadline_qpc', 'flow_qpc', 'target_port', 'local_port', 'connect_attempted', 'connect_completed', 'send_attempted', 'request_bytes', 'request_exact', 'send_shutdown', 'response_bytes', 'response_exact', 'response_eof', 'socket_close', 'wsa_cleanup', 'within_deadline', 'failure', 'wsa_error', 'win32_error', 'control_close_verified', 'network_tested', 'product_acceptance'), 'receipt': ('schema_version', 'stage', 'role', 'run_id', 'boot_case_id', 'pid', 'token', 'root_qpc', 'index', 'case_id', 'phase_deadline_qpc', 'flow_qpc', 'port', 'peer_port', 'request_bytes', 'request_exact', 'request_eof', 'response_bytes', 'response_complete', 'send_shutdown', 'response_withheld', 'socket_held', 'connection_close', 'release_verified', 'release_qpc', 'within_deadline', 'failure', 'wsa_error', 'win32_error', 'control_close_verified', 'network_tested', 'product_acceptance'), 'received': ('schema_version', 'stage', 'role', 'run_id', 'boot_case_id', 'pid', 'token', 'root_qpc', 'index', 'case_id', 'phase_deadline_qpc', 'flow_qpc', 'port', 'peer_port', 'request_bytes', 'request_exact', 'request_eof', 'response_bytes', 'response_complete', 'send_shutdown', 'response_withheld', 'socket_held', 'connection_close', 'release_verified', 'release_qpc', 'within_deadline', 'failure', 'wsa_error', 'win32_error', 'control_close_verified', 'network_tested', 'product_acceptance'), 'final': ('schema_version', 'stage', 'role', 'run_id', 'boot_case_id', 'pid', 'token', 'root_qpc', 'flow_qpc', 'ports', 'case_ids', 'listening_verified', 'listen_port', 'listen_close', 'wsa_started', 'wsa_cleanup', 'token_close_confirmed', 'control_close_verified', 'socket_resources_closed', 'accepted_count', 'receipt_count', 'phase_count', 'within_deadline', 'failure', 'wsa_error', 'win32_error', 'network_tested', 'product_acceptance')}
++REPORT_STAGES={'ready': 'zero-cap-loopback-ready', 'phase': 'zero-cap-loopback-client-phase', 'receipt': 'zero-cap-loopback-receipt', 'received': 'zero-cap-loopback-received', 'final': 'zero-cap-loopback-final'}
++TOKEN_KEYS=('is_appcontainer', 'capability_count', 'integrity_rid', 'session_id', 'primary', 'elevated', 'ui_access', 'token_id', 'authentication_id')
++NATIVE_FAILURES=(None, 'arguments', 'identity', 'identity-close', 'qpc', 'deadline', 'control-open', 'control-read', 'control-close', 'control', 'report', 'wsa-startup', 'socket', 'socket-inheritance', 'socket-setup', 'bind', 'listen', 'accept', 'connect', 'send', 'shutdown', 'receive', 'request', 'response', 'select', 'socket-close', 'wsa-cleanup')
++
++def atomic_publish(path,raw,budget,end):
++    path=Path(path);temporary=path.with_name('.'+path.name+'.pending')
++    require(not path.exists() and not temporary.exists(),'zero_fresh_control')
++    budget.require_ms(end);base.durable_private(temporary,raw);budget.require_ms(end)
++    temporary.rename(path);require(local.bounded(path,128)==raw,'zero_control_readback');budget.require_ms(end)
++
++def native_token(primary):
++    return dict(is_appcontainer=primary['appcontainer'],capability_count=len(primary['capabilities']),
++        integrity_rid=primary['integrity_rid'],session_id=primary['session_id'],primary=primary['token_type']==1,
++        elevated=primary['elevated'],ui_access=primary['ui_access'],token_id=primary['token_id'],authentication_id=primary['authentication_id'])
++
++def validate_native(v,kind,row,c,*,sequence=None,case=None,end=None):
++    require(kind in REPORT_KEYS and type(v) is dict and set(v)==set(REPORT_KEYS[kind]),'zero_native_schema')
++    require(kind!='received' or row['role']=='front-listener','zero_received_role')
++    require(kind not in ('phase','receipt') or row['role'].endswith('client' if kind=='phase' else 'listener'),'zero_native_role')
++    require(type(v['schema_version']) is int and v['schema_version']==1 and v['stage']==REPORT_STAGES[kind]
++        and v['role']==row['role'] and v['run_id']==c['run'] and v['boot_case_id']==c[BOOT_KEYS[row['role']]]
++        and type(v['pid']) is int and v['pid']==row['pid'] and v['root_qpc']==[c['frequency'],c['start_qpc'],c['root_deadline_qpc']]
++        and all(type(x) is int for x in v['root_qpc']),'zero_native_binding')
++    if v['token'] is None:
++        require(kind=='final' and v['failure'] in ('identity','identity-close','qpc','deadline'),'zero_native_null_identity')
++    else:
++        require(type(v['token']) is dict and set(v['token'])==set(TOKEN_KEYS)
++            and v['token']==native_token(row['expected_primary'])
++            and all(type(v['token'][k]) is bool for k in ('is_appcontainer','primary','elevated','ui_access'))
++            and all(type(v['token'][k]) is int for k in set(TOKEN_KEYS)-{'is_appcontainer','primary','elevated','ui_access'}),'zero_native_token')
++    require(v['failure'] in NATIVE_FAILURES and type(v['network_tested']) is bool and v['product_acceptance'] is False,'zero_native_scope')
++    boolean_names={'listener','socket_held','wsa_started','token_close_confirmed','connect_attempted','connect_completed','send_attempted',
++        'request_exact','send_shutdown','response_exact','response_eof','within_deadline','control_close_verified','request_eof',
++        'response_complete','response_withheld','release_verified','listening_verified','socket_resources_closed'}
++    for k in set(v)&boolean_names:require(type(v[k]) is bool,'zero_native_boolean')
++    for k in ('wsa_error','win32_error'):
++        if k in v:require(v[k] is None or live.integer(v[k]),'zero_native_error')
++    if 'ports' in v:
++        require(v['ports']==c['ports'] and all(type(x) is int for x in v['ports'].values())
++            and v['case_ids']==dict(before=c['before_case'],selected=c['selected_case'],after=c['after_case']),'zero_native_configuration')
++    if kind=='ready':
++        require(live.integer(v['ready_qpc'],c['start_qpc'],live.MAX_SIGNED)
++            and (v['port'] is None or live.integer(v['port'],1,65535)),'zero_native_ready_clock')
++    else:
++        flow=v['flow_qpc'];require(type(flow) is list and len(flow)==(3 if kind in ('receipt','received') else 2)
++            and all(live.integer(t,0,live.MAX_SIGNED) for t in flow),'zero_native_flow_clock')
++        require(flow[-1]>=flow[0] and (flow[0]==0 or flow[0]>=c['start_qpc']),'zero_native_clock_order')
++        if len(flow)==3:require(flow[1]==0 or flow[0]<=flow[1]<=flow[-1],'zero_native_eof_clock')
++        if kind=='final':
++            for k in ('accepted_count','receipt_count','phase_count'):require(live.integer(v[k],0,2),'zero_native_count')
++            require((v['listen_port'] is None or live.integer(v['listen_port'],1,65535)) and v['listen_close'] in ('not-created','confirmed','uncertain')
++                and v['wsa_cleanup'] in ('not-started','confirmed','uncertain'),'zero_native_final_resources')
++            require(not v['within_deadline'] or c['start_qpc']<=flow[0]<=flow[-1]<c['root_deadline_qpc'],'zero_native_final_timely')
++            expected=c['ports']['frontend' if row['role']=='front-listener' else 'ordinary'] if row['role'].endswith('listener') and v['listening_verified'] else None
++            require(v['listen_port']==expected and (row['role'].endswith('listener') or v['listening_verified'] is False),'zero_final_listen_port')
++        else:
++            require(type(sequence) is int and type(end) is int and case is not None
++                and v['case_id']==case and type(v['phase_deadline_qpc']) is int and v['phase_deadline_qpc']==end
++                and type(v['sequence' if kind=='phase' else 'index']) is int
++                and v['sequence' if kind=='phase' else 'index']==sequence,'zero_native_phase_binding')
++            require(case==(c['selected_case'] if row['role'] in SEMANTICS else c['before_case'] if sequence==1 else c['after_case'])
++                and sequence==(2 if case==c['after_case'] else 1),'zero_native_phase_case')
++            port=c['ports']['frontend' if row['role'] in SEMANTICS else 'ordinary']
++            require(v['target_port' if kind=='phase' else 'port']==port and type(v['target_port' if kind=='phase' else 'port']) is int,'zero_native_target')
++            peer=v['local_port' if kind=='phase' else 'peer_port'];require(peer is None or live.integer(peer,1,65535),'zero_native_peer')
++            for k in ('request_bytes','response_bytes'):require(live.integer(v[k],0,65),'zero_native_bytes')
++            require(not v['within_deadline'] or c['start_qpc']<=flow[0]<=flow[-1]<end,'zero_native_timely')
++            if kind=='phase':require(v['socket_close'] in ('not-created','confirmed','uncertain')
++                and v['wsa_cleanup'] in ('not-started','confirmed','uncertain') and (not v['connect_completed'] or v['connect_attempted']),'zero_native_phase_resources')
++            else:require(v['connection_close'] in ('not-created','held','confirmed','uncertain')
++                and live.integer(v['release_qpc'],0,live.MAX_SIGNED),'zero_native_receipt_resources')
++    return v
++
++def ready_passed(v,row,c):
++    listener=row['role'].endswith('listener');port=c['ports']['frontend' if row['role']=='front-listener' else 'ordinary'] if listener else None
++    return (v['failure'] is None and v['token'] is not None and v['token_close_confirmed'] and v['ready_qpc']<work_cutoff(c)
++        and v['listener'] is listener and v['port']==port and v['socket_held'] is listener
++        and v['wsa_started'] is listener and v['network_tested'] is False)
++
++def phase_passed(v):
++    return (v['failure'] is None and v['wsa_error'] is None and v['win32_error'] is None and v['within_deadline']
++        and v['connect_attempted'] and v['connect_completed'] and v['send_attempted'] and v['request_bytes']==64 and v['request_exact']
++        and v['send_shutdown'] and v['response_bytes']==64 and v['response_exact'] and v['response_eof']
++        and v['socket_close']=='confirmed' and v['wsa_cleanup']=='confirmed' and v['control_close_verified']
++        and v['network_tested'] and live.integer(v['local_port'],1,65535))
++
++def received_passed(v):
++    return (v['failure'] is None and v['wsa_error'] is None and v['win32_error'] is None and v['within_deadline']
++        and v['request_bytes']==64 and v['request_exact'] and v['request_eof'] and v['response_bytes']==0
++        and not v['response_complete'] and not v['send_shutdown'] and v['response_withheld'] and v['socket_held']
++        and v['connection_close']=='held' and not v['release_verified'] and v['release_qpc']==0
++        and v['control_close_verified'] and v['network_tested'] and live.integer(v['peer_port'],1,65535))
++
++def receipt_passed(v,front=False):
++    return (v['failure'] is None and v['wsa_error'] is None and v['win32_error'] is None and v['within_deadline']
++        and v['request_bytes']==64 and v['request_exact'] and v['request_eof'] and v['response_bytes']==64
++        and v['response_complete'] and v['send_shutdown'] and not v['socket_held'] and v['connection_close']=='confirmed'
++        and v['response_withheld'] is front and v['release_verified'] is front and (v['release_qpc']>0 if front else v['release_qpc']==0)
++        and v['control_close_verified'] and v['network_tested'] and live.integer(v['peer_port'],1,65535))
++
++def final_passed(v):
++    listener=v['role'].endswith('listener');count=1 if v['role'] in SEMANTICS else 2
++    return (v['failure'] is None and v['token'] is not None and v['wsa_error'] is None and v['win32_error'] is None
++        and v['within_deadline'] and v['token_close_confirmed'] and v['control_close_verified'] and v['socket_resources_closed']
++        and v['wsa_started'] and v['wsa_cleanup']=='confirmed' and v['network_tested']
++        and v['listening_verified'] is listener and v['listen_close']==('confirmed' if listener else 'not-created')
++        and v['accepted_count']==(count if listener else 0) and v['receipt_count']==(count if listener else 0)
++        and v['phase_count']==(0 if listener else count))
++
++BOOL_KEYS=tuple(dict.fromkeys((*identity_cell.BOOL_KEYS,'labels_restored','ordinary_before','ordinary_after','after_attempted',
++    'front_listener_verified','main_request_observed','main_connect_observed','main_tuple_verified','release_published',
++    'main_response_verified','natural_exits','actor_resumed','network_tested',*FALSE_CLAIMS)))
++CLEAN_KEYS=('observer_resources_cleanup_verified','workload_cleanup','workload_job_empty','labels_restored','acl_removed','cleanup_tools','profile_deleted','sid_released')
++FAILURE_STAGES=(None,'setup','construct','admission','accesscheck','ordinary-before','ordinary-after','loopback','protocol','cleanup')
++COMMON_KEYS={'actor_path','actor_sha256','profile_sid','environment_sha256','parent','inner_job','outer_job','frequency','start_qpc','root_deadline_qpc','deadline_qpc'}
++
++def _physical(root,path,raw):
++    if root is not None:require(local.bounded(launcher.checked_path(Path(root)/path,inside=root),MAX_REPORT)==raw,'zero_physical_commitment')
++
++def validate_result(j,c,*,parent,root=None):
++    config_validate(c);require(launcher.token_is_ordinary(parent),'zero_parent')
++    keys={'schema_version','stage','scope','profile','config_sha256','failure','failure_detail','profile_name','profile_sid',
++        'profile_state','child_environment','common','intents','proofs','tasks','cleanup_tasks','token_class46_queried',
++        'dns_tested','g_psec_tested','proxy_tested','labels','native','go','tcp',*BOOL_KEYS}
++    require(type(j) is dict and set(j)==keys and type(j['schema_version']) is int and j['schema_version']==1
++        and j['stage']=='zero-cap-same-sid-loopback-result' and j['scope']==SCOPE and j['profile']==PROFILE
++        and j['config_sha256']==sha(encode(c)) and j['profile_name']=='ruleproxy-zero-loopback-'+c['run']
++        and j['failure'] in FAILURE_STAGES,'zero_result_schema')
++    require(all(type(j[k]) is bool for k in BOOL_KEYS),'zero_result_booleans')
++    for k in (*FALSE_CLAIMS,'token_class46_queried','dns_tested','g_psec_tested','proxy_tested'):require(j[k] is False,'zero_result_scope')
++    base.validate_failure_detail(j['failure_detail']);require(j['failure'] is not None or j['failure_detail'] is None,'zero_failure_detail')
++    launcher.validate_child_environment(j['child_environment'])
++    require(j['profile_sid'] is None or base.ac.ac_profile_sid(j['profile_sid']),'zero_result_sid')
++    state=j['profile_state'];require(type(state) is dict and set(state)=={'attempted','returned','created','sid_pointer_returned'}
++        and all(type(v) is bool for v in state.values()) and (not state['returned'] or state['attempted'])
++        and (not state['created'] or state['returned']) and (not j['profile_created'] or state['created'] and j['profile_sid'] is not None),'zero_profile_state')
++    allowed={'profile-create','acl-grant','workload-stop','acl-remove','profile-delete','label-lower-front-report','label-lower-selected-report',
++        'label-restore','observe-front-listener','observe-selected-client','release'}
++    allowed|={'spawn-'+n for n in (*GRANT_NAMES,'remove',*ROLES)}
++    allowed|={'go-'+role+'-'+str(seq) for role in ROLES for seq in (1,2)}
++    require(type(j['intents']) is list and len(j['intents'])<=48,'zero_intents');actions={};last=c['start_qpc']
++    for i,r in enumerate(j['intents']):
++        require(type(r) is dict and set(r)=={'name','text','sha256'} and type(r['text']) is str,'zero_intent_row')
++        raw=r['text'].encode('ascii');require(1<=len(raw)<=4096 and sha(raw)==r['sha256'],'zero_intent_hash');v=decode(raw)
++        require(type(v) is dict and set(v)=={'schema_version','scope','run','config_sha256','source_sha256','frequency','deadline_qpc','qpc','action'}
++            and type(v['schema_version']) is int and v['schema_version']==1 and v['scope']==SCOPE and v['run']==c['run']
++            and v['config_sha256']==sha(encode(c)) and v['source_sha256']==c['source_sha256']
++            and v['frequency']==c['frequency'] and v['deadline_qpc']==c['deadline_qpc'] and v['action'] in allowed
++            and v['action'] not in actions and r['name']=='%02d-%s.json'%(i,v['action'])
++            and live.integer(v['qpc'],last,c['root_deadline_qpc']-1),'zero_intent_binding')
++        last=v['qpc'];actions[v['action']]=v['qpc'];_physical(root,Path('journal')/r['name'],raw)
++    require(not state['attempted'] or 'profile-create' in actions,'zero_profile_intent')
++    require(not j['acl_attempted'] or j['profile_created'] and 'acl-grant' in actions,'zero_acl_intent')
++    require(type(j['labels']) is list and len(j['labels'])<=2,'zero_labels')
++    for r,name in zip(j['labels'],('front-report','selected-report')):
++        require(type(r) is dict and set(r)=={'name','before','attempted','lowered','restored'} and r['name']==name
++            and (r['before'] is None or type(r['before']) is str and label_acl(bytes.fromhex(r['before'])) is not None)
++            and all(type(r[k]) is bool for k in ('attempted','lowered','restored')),'zero_label_state')
++        require(not r['attempted'] or r['before'] is None and 'label-lower-'+name in actions,'zero_label_mutation_intent')
++        require(not r['lowered'] or r['attempted'],'zero_label_lowered')
++        require(not r['restored'] or r['attempted'] and 'label-restore' in actions and j['workload_cleanup'],'zero_label_restored')
++    require(not j['labels_restored'] or all(not r['attempted'] or r['restored'] for r in j['labels']),'zero_labels_cleanup')
++    common=j['common']
++    if common is not None:
++        require(type(common) is dict and set(common)==COMMON_KEYS and common['actor_sha256']==c['actor_sha256']
++            and type(common['actor_path']) is str and Path(common['actor_path']).name==ACTOR
++            and Path(common['actor_path']).parent.name=='inputs' and base.ac.digest(common['environment_sha256'])
++            and common['profile_sid']==j['profile_sid'] and common['parent']==parent
++            and live.integer(common['inner_job'],1,0xffffffffffffffff) and common['outer_job']==c['guard_job_name']
++            and all(common[k]==c[k] for k in ('frequency','start_qpc','root_deadline_qpc','deadline_qpc')),'zero_common')
++        require(j['profile_created'] and j['acl_attempted'] and len(j['labels'])==2 and all(r['lowered'] for r in j['labels'])
++            and launcher.child_environment_admitted(j['child_environment']),'zero_common_setup')
++    tasks={}
++    for field,names in (('tasks',(*GRANT_NAMES,*ROLES)),('cleanup_tasks',('remove',))):
++        rows=j[field];require(type(rows) is list and len(rows)<=len(names) and [r.get('name') for r in rows]==list(names[:len(rows)]),'zero_task_order')
++        for r in rows:
++            require(type(r) is dict and set(r)==identity_cell.TASK_KEYS|EXTRA_KEYS,'zero_task_schema')
++            for k in ('attempted','assigned','exited','lpac_expected','resumed','admitted','process_returned'):require(type(r[k]) is bool,'zero_task_bool')
++            require(r['lpac'] is None and r['lpac_expected']==(r['name']=='selected-client') and base.ac.digest(r['image_sha256']),'zero_task_class46')
++            for k in ('pid','created','admission_qpc','resume_qpc'):require(r[k] is None or live.integer(r[k],1,live.MAX_SIGNED),'zero_task_number')
++            require(r['exit_code'] is None or live.integer(r['exit_code']),'zero_exit')
++            v=r['create_observation'];cutoff=work_cutoff(c) if r['name'] in ROLES else c['deadline_qpc']-(3 if field=='cleanup_tasks' else 25)*c['frequency']
++            require(type(v) is dict and set(v)=={'status','winerror','process_information','returned_qpc','work_cutoff','exception_detail'}
++                and v['status'] in ('not_entered','exception','returned_false','returned_true') and v['process_information'] in ('not_observed','all_zero','nonzero')
++                and v['work_cutoff']==cutoff,'zero_create_observation')
++            base.validate_failure_detail(v['exception_detail'])
++            require((v['exception_detail'] is not None)==(v['status']=='exception') and (v['winerror'] is None or live.integer(v['winerror']))
++                and (v['status']=='returned_false' or v['winerror'] is None),'zero_create_error')
++            require(v['returned_qpc'] is None or live.integer(v['returned_qpc'],c['start_qpc'],live.MAX_SIGNED),'zero_create_return_clock')
++            if v['status'] in ('not_entered','exception'):require(v['process_information']=='not_observed' and v['returned_qpc'] is None,'zero_unknown_create')
++            else:require(r['attempted'] and v['process_information']!='not_observed','zero_known_create')
++            require(not r['process_returned'] or r['attempted'] and v['process_information']=='nonzero','zero_process_return')
++            require(not r['assigned'] or r['process_returned'] and r['pid'] is not None and r['created'] is not None,'zero_job_assignment')
++            require(not r['exited'] or r['process_returned'] and r['exit_code'] is not None,'zero_task_exit')
++            require(not r['admitted'] or r['assigned'] and v['status']=='returned_true' and r['identity'] is not None
++                and live.integer(v['returned_qpc'],c['start_qpc'],cutoff-1)
++                and live.integer(r['admission_qpc'],v['returned_qpc'],cutoff-1),'zero_task_admission')
++            require(not r['resumed'] or r['admitted'] and live.integer(r['resume_qpc'],r['admission_qpc'],cutoff-1),'zero_task_resume')
++            require(not r['attempted'] or 'spawn-'+r['name'] in actions,'zero_spawn_intent')
++            if r['name'] in ROLES:
++                role=r['name'];require(r['role']==role and r['policy']==POLICIES.get(role) and type(r['policy']) is (int if role in POLICIES else type(None))
++                    and r['arm_nonce']==c[BOOT_KEYS[role]] and r['image_sha256']==c['actor_sha256'] and common is not None
++                    and r['common_sha256']==sha(encode(common)),'zero_actor_binding')
++                require(type(r['held_checks']) is list and len(r['held_checks'])<=128 and r['held_checks']==sorted(r['held_checks'])
++                    and all(live.integer(t,c['start_qpc'],work_cutoff(c)-1) for t in r['held_checks']),'zero_held_ticks')
++                prior=r['expected_primary']
++                if prior is not None:
++                    identity_shape(prior);require(prior['sid']==parent['sid'] and prior['session_id']==parent['session_id']
++                        and prior['token_type']==1 and prior['capabilities']==[],'zero_primary_parent')
++                    if role in POLICIES:identity(prior,primary=True);require(prior['appcontainer_sid']==j['profile_sid'],'zero_primary_profile')
++                    else:require(prior['appcontainer'] is False and prior['appcontainer_sid'] is None and prior['integrity_rid']==parent['integrity_rid']
++                        and prior['elevated'] is False and prior['ui_access'] is False,'zero_ordinary_actor')
++                require(not r['admitted'] or prior is not None and r['held_checks'] and r['capabilities']==[]
++                    and all(r['identity'][k]==prior[k] for k in ('sid','session_id','token_type','appcontainer','appcontainer_sid','integrity_rid','elevated','ui_access')),'zero_actor_primary_binding')
++            else:
++                require(all(r[k] is None for k in EXTRA_KEYS-{'held_checks'}) and r['held_checks']==[] and r['go_qpc']==[],'zero_tool_metadata')
++                if r['identity'] is not None:require(launcher.token_is_ordinary(r['identity']) and launcher.same_identity(r['identity'],parent) and r['capabilities']==[],'zero_tool_identity')
++            require(type(r['go_qpc']) is list and r['go_qpc']==sorted(r['go_qpc']) and all(live.integer(t,c['start_qpc'],work_cutoff(c)-1) for t in r['go_qpc']),'zero_go_clock')
++            if field=='tasks':tasks[r['name']]=r
++        if j['workload_cleanup'] and field=='tasks' or j['cleanup_tools'] and field=='cleanup_tasks':
++            require(all(not r['attempted'] or base.known_no_child(r,start=c['start_qpc']) or r['process_returned'] and r['exited'] and r['exit_code'] is not None for r in rows),'zero_cleanup_known_exits')
++    if j['common_inputs_verified']:
++        require(all(role in tasks and tasks[role]['admitted'] for role in ROLES)
++            and len({tasks[role]['pid'] for role in ROLES})==4 and len({tasks[role]['expected_primary']['token_id'] for role in ROLES})==4
++            and len({tasks[role]['expected_primary']['authentication_id'] for role in ROLES})==1
++            and all(n in tasks and tasks[n]['exited'] and tasks[n]['exit_code']==0 for n in GRANT_NAMES),'zero_common_inputs')
++    require(type(j['proofs']) is list and len(j['proofs'])<=2,'zero_proofs')
++    for p,role in zip(j['proofs'],SEMANTICS):
++        r=tasks[role];require(r['admitted'] and j['common_inputs_verified'] and 'observe-'+role in actions,'zero_proof_admission')
++        validate_proof(p,expected_primary_identity=r['expected_primary'],expected_role=SEMANTICS[role],expected_pid=r['pid'],expected_creation=r['created'],frequency=c['frequency'],deadline=work_cutoff(c))
++        if p['qualified']:require(any(t<=p['start_qpc'] for t in r['held_checks']) and any(t>=p['end_qpc'] for t in r['held_checks']),'zero_matrix_bracket')
++    count=sum(a.startswith('observe-') for a in actions)
++    require(j['observer_attempted']==bool(count) and len(j['proofs'])<=count and (not j['observer_resources_cleanup_verified']
++        or len(j['proofs'])==count and all(p['resource_cleanup_verified'] for p in j['proofs'])),'zero_observer_cleanup')
++    for r in tasks.values():
++        if r['name'] in ROLES and r['resumed']:require(len(j['proofs'])==2 and all(p['qualified'] and p['resource_cleanup_verified'] and p['end_qpc']<=r['resume_qpc'] for p in j['proofs']),'zero_resume_after_matrices')
++    # Canonical raw commands are validated independently of actor reports.
++    require(type(j['go']) is list and len(j['go'])<=7,'zero_commands');go_index={}
++    for g in j['go']:
++        require(type(g) is dict and set(g)=={'role','name','sequence','case','issued','end','published_qpc','release','hex','sha256'}
++            and g['role'] in tasks and type(g['release']) is bool,'zero_command_row')
++        raw=control(c,g['role'],g['sequence'],g['case'],g['issued'],g['end'],release=g['release'])
++        name='release.bin' if g['release'] else 'phase-%02d.bin'%g['sequence'];key=(g['role'],name)
++        require(g['name']==name and key not in go_index and g['hex']==raw.hex() and g['sha256']==sha(raw)
++            and live.integer(g['published_qpc'],g['issued'],g['end']-1) and tasks[g['role']]['resumed']
++            and tasks[g['role']]['resume_qpc']<=g['published_qpc'],'zero_command_binding')
++        if g['release']:
++            require(('front-listener','phase-01.bin') in go_index and go_index[('front-listener','phase-01.bin')]['end']==g['end'],'zero_release_original_deadline')
++        else:require(g['published_qpc'] in tasks[g['role']]['go_qpc'],'zero_command_task_clock')
++        go_index[key]=g;_physical(root,Path(ACTOR_DIRS[g['role']][1])/name,raw)
++    require(type(j['native']) is list and len(j['native'])<=19,'zero_reports');native={}
++    for r in j['native']:
++        require(type(r) is dict and set(r)=={'role','name','kind','sequence','case','end','text','sha256','value'} and r['role'] in tasks
++            and r['kind'] in REPORT_KEYS and type(r['text']) is str,'zero_report_row')
++        raw=r['text'].encode('ascii');require(1<=len(raw)<=65536 and sha(raw)==r['sha256'] and decode(raw)==r['value'],'zero_report_commitment')
++        kind=r['kind'];name={'ready':'ready.json','final':'final.json','received':'received.json'}.get(kind)
++        if kind in ('phase','receipt'):name=('phase-' if kind=='phase' else 'receipt-')+'%02d.json'%r['sequence']
++        require(r['name']==name and (r['role'],name) not in native,'zero_report_name')
++        if kind in ('phase','receipt','received'):
++            g=go_index[(r['role'],'phase-%02d.bin'%r['sequence'])];require((r['case'],r['end'])==(g['case'],g['end']),'zero_report_go')
++            require(r['value']['flow_qpc'][0]==0 or r['value']['flow_qpc'][0]>=g['issued'],'zero_native_after_go')
++        else:require(r['sequence'] is r['case'] is r['end'] is None,'zero_unphased_report')
++        validate_native(r['value'],kind,tasks[r['role']],c,sequence=r['sequence'],case=r['case'],end=r['end'])
++        native[(r['role'],name)]=r['value'];_physical(root,Path(ACTOR_DIRS[r['role']][0])/name,raw)
++    require(j['main_connect_observed']==any(r['role']=='selected-client' and r['kind']=='phase' and r['value']['connect_completed'] for r in j['native'])
++        and j['main_request_observed']==any(r['role']=='front-listener' and r['kind'] in ('receipt','received') and r['value']['request_exact'] and r['value']['request_bytes']==64 for r in j['native'])
++        and j['network_tested']==any(r['value']['network_tested'] for r in j['native']),'zero_sticky_facts')
++    require(type(j['tcp']) is list and len(j['tcp'])<=2,'zero_tcp_observations')
++    for r,kind in zip(j['tcp'],('listen','withheld')):
++        require(type(r) is dict and set(r)=={'kind','value','name','raw_bytes','raw_sha256','before_qpc','after_qpc'} and r['kind']==kind
++            and r['name']==('listen.bin' if kind=='listen' else 'withheld.bin') and live.integer(r['raw_bytes'],4,1048576)
++            and base.ac.digest(r['raw_sha256']) and live.integer(r['before_qpc'],c['start_qpc'],work_cutoff(c)-1)
++            and live.integer(r['after_qpc'],r['before_qpc'],work_cutoff(c)-1),'zero_tcp_observation')
++        val=r['value'];require(type(val) is dict and set(val)=={'listener','client','server'},'zero_tcp_projection')
++        l=val['listener'];require(l['pid']==tasks['front-listener']['pid'] and l['state']==2 and l['local_port']==c['ports']['frontend']
++            and l['local_address']=='7f000001' and l['ports_canonical'] is True,'zero_tcp_listener_binding')
++        if kind=='listen':require(val['client'] is val['server'] is None,'zero_tcp_no_pair')
++        else:
++            rec=native[('front-listener','received.json')];require(received_passed(rec),'zero_tcp_received')
++            a,b=val['client'],val['server'];require(a['pid']==tasks['selected-client']['pid'] and b['pid']==tasks['front-listener']['pid']
++                and a['state'] in (6,7) and b['state']==8 and a['local_port']==b['remote_port']==rec['peer_port']
++                and a['remote_port']==b['local_port']==c['ports']['frontend']
++                and all(x['local_address']==x['remote_address']=='7f000001' and x['ports_canonical'] is True for x in (a,b)),'zero_tcp_pair_binding')
++        if root is not None:
++            raw=local.bounded(launcher.checked_path(Path(root)/'tcp-observations'/r['name'],inside=root),1048576)
++            require(len(raw)==r['raw_bytes'] and sha(raw)==r['raw_sha256'] and exact_tcp(raw,tasks['front-listener']['pid'],c['ports']['frontend'],
++                client_pid=tasks['selected-client']['pid'] if kind=='withheld' else None,
++                client_port=native[('front-listener','received.json')]['peer_port'] if kind=='withheld' else None)==val,'zero_physical_tcp')
++        for role in ('front-listener',) if kind=='listen' else ('front-listener','selected-client'):
++            require(any(t<=r['before_qpc'] for t in tasks[role]['held_checks']) and any(t>=r['after_qpc'] for t in tasks[role]['held_checks']),'zero_tcp_held_bracket')
++    def pair_ok(server,client,seq):
++        p=native.get((client,'phase-%02d.json'%seq));r=native.get((server,'receipt-%02d.json'%seq))
++        return bool(p and r and phase_passed(p) and receipt_passed(r,server=='front-listener') and p['local_port']==r['peer_port'])
++    for field,seq in (('ordinary_before',1),('ordinary_after',2)):
++        require(not j[field] or pair_ok('ordinary-listener','ordinary-client',seq),'zero_ordinary_observation')
++    require(not j['ordinary_after'] or j['after_attempted'] and j['ordinary_before'],'zero_after_order')
++    require(not j['front_listener_verified'] or len(j['tcp'])>=1 and ready_passed(native[('front-listener','ready.json')],tasks['front-listener'],c),'zero_front_listener')
++    require(not j['main_tuple_verified'] or len(j['tcp'])==2 and j['front_listener_verified'],'zero_main_tuple')
++    require(not j['release_published'] or ('front-listener','release.bin') in go_index and j['main_tuple_verified'],'zero_release_gate')
++    if ('front-listener','release.bin') in go_index:
++        require(len(j['tcp'])==2 and go_index[('front-listener','release.bin')]['issued']>=j['tcp'][1]['after_qpc'],'zero_release_after_tuple')
++    require(not j['main_response_verified'] or j['release_published'] and pair_ok('front-listener','selected-client',1),'zero_main_response')
++    if j['main_response_verified']:
++        released=go_index[('front-listener','release.bin')];front=native[('front-listener','receipt-01.json')]
++        selected=native[('selected-client','phase-01.json')];received=native[('front-listener','received.json')]
++        require(released['issued']<=front['release_qpc']<=front['flow_qpc'][-1]
++            and selected['flow_qpc'][-1]>=released['issued']
++            and received['flow_qpc'][-1]<=front['flow_qpc'][-1] and received['flow_qpc'][1]<=front['flow_qpc'][1],'zero_release_response_causality')
++    require(j['actor_resumed']==any(r['name'] in ROLES and r['resumed'] for r in j['tasks']),'zero_resume_projection')
++    require(not j['natural_exits'] or all(role in tasks and tasks[role]['resumed'] and tasks[role]['exited'] and tasks[role]['exit_code']==0 for role in ROLES),'zero_natural_exits')
++    if j['workload_cleanup']:require(j['workload_job_empty'],'zero_empty_job')
++    if state['created'] and j['acl_removed']:
++        require(all(j[k] for k in ('workload_cleanup','observer_resources_cleanup_verified','labels_restored')) and 'acl-remove' in actions
++            and len(j['cleanup_tasks'])==1 and j['cleanup_tasks'][0]['exit_code']==0,'zero_remove_gate')
++    if state['created'] and j['profile_deleted']:require(j['acl_removed'] and j['cleanup_tools'] and 'profile-delete' in actions,'zero_profile_delete_gate')
++    if j['failure'] is None:
++        require(j['common_inputs_verified'] and len(j['proofs'])==2 and all(p['qualified'] for p in j['proofs'])
++            and all(j[k] for k in CLEAN_KEYS) and all(j[k] for k in ('ordinary_before','ordinary_after','front_listener_verified',
++            'main_tuple_verified','release_published','main_response_verified','natural_exits'))
++            and all((role,'final.json') in native and final_passed(native[(role,'final.json')]) for role in ROLES),'zero_complete')
++    require(len(encode(j))<=MAX_REPORT,'zero_report_bound');return j
++
++OBS_BOOL_KEYS=('front_held_verified','selected_held_verified','ordinary_held_verified','ac_accesscheck_verified','lpac_accesscheck_verified',
++    'ordinary_before','ordinary_after','front_listener_verified','main_request_observed','main_connect_observed','main_tuple_verified',
++    'release_published','main_response_verified','natural_exits',*CLEAN_KEYS,'reachability_verified')
++
++def project(j,c,*,parent,root=None):
++    validate_result(j,c,parent=parent,root=root);tasks={r['name']:r for r in j['tasks']};proofs={p['expected_role']:p for p in j['proofs']}
++    v=dict(failure=j['failure'],ac_granted_access=None,lpac_granted_access=None,network_tested=j['network_tested'],**dict.fromkeys(FALSE_CLAIMS,False))
++    for role,prefix in (('front-listener','front'),('selected-client','selected')):v[prefix+'_held_verified']=bool(role in tasks and tasks[role]['admitted'])
++    v['ordinary_held_verified']=all(role in tasks and tasks[role]['admitted'] for role in ('ordinary-listener','ordinary-client'))
++    for role in ('ac','lpac'):
++        p=proofs.get(role);v[role+'_accesscheck_verified']=bool(p and p['qualified'])
++        if p and len(p['calls'])==4 and all(x['api_success'] is True for x in p['calls']):v[role+'_granted_access']=[x['granted_access'] for x in p['calls']]
++    for k in OBS_BOOL_KEYS:
++        if k not in v and k!='reachability_verified':v[k]=j[k]
++    v['reachability_verified']=j['failure'] is None and all(v[k] for k in OBS_BOOL_KEYS if k!='reachability_verified')
++    return v
++
++def execute(root,c,parent,api,budget):return Owner(root,c,parent,api,budget).execute()
+--- /dev/null
++++ b/.github/windows_identity_lpac_loopback_local.py
+@@ -0,0 +1,204 @@
++"""Explicit local trusted-actor zero-cap same-SID loopback mechanism.
++
++Default performs read-only preflight. No class46, extra capabilities, loopback
++exemption, WFP, proxy, resolver, routes, firewall or global policy changes.
++"""
++from __future__ import annotations
++import argparse
++import importlib.util
++import os
++from pathlib import Path
++import sys
++
++ROOT=Path(__file__).resolve().parents[1]
++def load(name,file):
++    s=importlib.util.spec_from_file_location(name,Path(__file__).with_name(file));m=importlib.util.module_from_spec(s);s.loader.exec_module(m);return m
++core=load('zero_cap_same_sid_loopback','windows_identity_lpac_loopback.py')
++base,local,launcher,live=core.base,core.local,core.launcher,core.live
++require,sha,encode,decode=core.require,core.sha,core.encode,core.decode
++MODULE=core.LOCAL_MODULE
++SOURCES=core.SOURCES
++SCOPE=core.SCOPE
++MAX_REPORT=core.MAX_REPORT+64*1024
++CHECKS=('ordinary','sources','artifact','plan','guard','worker_exit','outer_cleanup','worker_bound','reachability')
++FAILURES=('inputs','identity','plan','staging','worker','report','deadline',*(v for v in core.FAILURE_STAGES if v is not None))
++SETUP_KEYS={'observed','failure','wsa_error','win32_error','wsa_started','listening_verified','listen_close','wsa_cleanup','socket_resources_closed'}
++OBS_KEYS={'failure','ac_granted_access','lpac_granted_access','network_tested','frontend_setup',*core.OBS_BOOL_KEYS,*core.FALSE_CLAIMS}
++
++def snapshot(root=ROOT):
++    files={n:local.bounded(launcher.checked_path(root/n,inside=root),256*1024) for n in SOURCES}
++    hashes={n:sha(v) for n,v in files.items()};return files,hashes,sha(encode(hashes))
++
++def validate_observation(v):
++    require(type(v) is dict and set(v)==OBS_KEYS and v['failure'] in core.FAILURE_STAGES,'zero_public_observation')
++    for k in (*core.OBS_BOOL_KEYS,'network_tested',*core.FALSE_CLAIMS):require(type(v[k]) is bool,'zero_public_boolean')
++    for k in core.FALSE_CLAIMS:require(v[k] is False,'zero_public_scope')
++    for role,expected in (('ac',[3,0,1,2]),('lpac',[2,0,0,2])):
++        masks=v[role+'_granted_access'];require(masks is None or type(masks) is list and len(masks)==4 and all(live.integer(x) for x in masks),'zero_public_masks')
++        require(not v[role+'_accesscheck_verified'] or masks==expected,'zero_public_matrix')
++    setup=v['frontend_setup'];require(type(setup) is dict and set(setup)==SETUP_KEYS,'zero_public_setup')
++    for k in ('observed','wsa_started','listening_verified','socket_resources_closed'):require(type(setup[k]) is bool,'zero_public_setup_boolean')
++    require(setup['failure'] in core.NATIVE_FAILURES and setup['listen_close'] in ('not-created','confirmed','uncertain')
++        and setup['wsa_cleanup'] in ('not-started','confirmed','uncertain'),'zero_public_setup_state')
++    for k in ('wsa_error','win32_error'):require(setup[k] is None or live.integer(setup[k]),'zero_public_setup_error')
++    require(setup['observed'] or setup==empty_setup(),'zero_public_setup_unobserved')
++    require(not v['reachability_verified'] or v['failure'] is None and all(v[k] for k in core.OBS_BOOL_KEYS),'zero_public_reachability')
++    require(not v['reachability_verified'] or setup['observed'] and setup['failure'] is None and setup['wsa_error'] is None
++        and setup['win32_error'] is None and setup['wsa_started'] and setup['listening_verified'] and setup['listen_close']=='confirmed'
++        and setup['wsa_cleanup']=='confirmed' and setup['socket_resources_closed'],'zero_public_frontend_resources')
++    return v
++
++def empty_setup():return dict(observed=False,failure=None,wsa_error=None,win32_error=None,wsa_started=False,listening_verified=False,
++    listen_close='not-created',wsa_cleanup='not-started',socket_resources_closed=False)
++
++def observation(j,c,parent,*,root):
++    v=core.project(j,c,parent=parent,root=root);v['frontend_setup']=empty_setup()
++    finals=[r['value'] for r in j['native'] if r['role']=='front-listener' and r['kind']=='final']
++    if finals:
++        r=finals[0];v['frontend_setup']=dict(observed=True,**{k:r[k] for k in SETUP_KEYS-{'observed'}})
++    return validate_observation(v)
++
++def blank(mode):
++    return dict(schema_version=1,stage='local-zero-cap-same-sid-loopback',scope=SCOPE,profile=core.PROFILE,mode=mode,status='inconclusive',failure=None,
++        source_sha256=None,actor_sha256=None,manifest_sha256=None,recovery_plan_sha256=None,outer_launch_report_sha256=None,checks=dict.fromkeys(CHECKS,False),
++        loopback_observation=None,observation_complete=False,tree_retained=False,recovery_required=False,
++        boundary='fixed-trusted-actors-shared-principal-reachability-only',**dict.fromkeys(core.FALSE_CLAIMS,False))
++
++def validate_public(v):
++    t=blank(v.get('mode') if type(v) is dict else None)
++    require(type(v) is dict and set(v)==set(t) and v['mode'] in ('preflight','runtime'),'zero_public_schema')
++    for k in ('schema_version','stage','scope','profile','boundary',*core.FALSE_CLAIMS):
++        require(type(v[k]) is type(t[k]) and v[k]==t[k],'zero_public_fixed')
++    require(v['status'] in ('ready','observed','inconclusive') and (v['failure'] is None or v['failure'] in FAILURES),'zero_public_status')
++    require(type(v['checks']) is dict and set(v['checks'])==set(CHECKS) and all(type(x) is bool for x in v['checks'].values()),'zero_public_checks')
++    for k in ('source_sha256','actor_sha256','manifest_sha256','recovery_plan_sha256','outer_launch_report_sha256'):require(v[k] is None or base.ac.digest(v[k]),'zero_public_digest')
++    require(not (v['checks']['guard'] or v['checks']['worker_bound']) or base.ac.digest(v['outer_launch_report_sha256']),'zero_public_outer_commitment')
++    for check,key in (('sources','source_sha256'),('artifact','actor_sha256'),('artifact','manifest_sha256'),('plan','recovery_plan_sha256')):
++        require(not v['checks'][check] or base.ac.digest(v[key]),'zero_public_commitment')
++    for k in ('observation_complete','tree_retained','recovery_required'):require(type(v[k]) is bool,'zero_public_resource_bool')
++    o=v['loopback_observation']
++    if o is not None:validate_observation(o)
++    require(v['checks']['reachability']==bool(o and o['reachability_verified']),'zero_public_projection')
++    require(v['observation_complete']==(v['mode']=='runtime' and v['failure'] is None and all(v['checks'].values())
++        and v['tree_retained'] and not v['recovery_required'] and o is not None and o['reachability_verified']),'zero_public_completed')
++    require((v['status']=='observed')==v['observation_complete'],'zero_public_observed')
++    if v['mode']=='preflight':
++        require(o is None and v['outer_launch_report_sha256'] is None and not any(v[k] for k in ('tree_retained','recovery_required','observation_complete'))
++            and not any(v['checks'][k] for k in CHECKS if k not in ('ordinary','sources','artifact','plan')),'zero_preflight_no_runtime')
++        require(v['status']!='ready' or v['failure'] is None and all(v['checks'][k] for k in ('ordinary','sources','artifact','plan')),'zero_preflight_ready')
++    else:require(v['status']!='ready','zero_runtime_no_ready')
++    require(len(encode(v))<=12288,'zero_public_bound');return v
++
++def preflight(actor,manifest,actor_hash,manifest_hash,parent_path,plan_path,*,api=None,root=ROOT):
++    r=blank('preflight');phase='inputs'
++    try:
++        require(os.name=='nt' and core.api_version()==1,'zero_platform');api=api or local.LocalNativeAPI();require(api.windows_x64(),'zero_platform')
++        phase='identity';local.ordinary(api);r['checks']['ordinary']=True
++        phase='inputs';_,_,source=snapshot(root);r['source_sha256']=source;r['checks']['sources']=True
++        core.verify_actor(actor,manifest,actor_hash,manifest_hash,root=root)
++        r.update(actor_sha256=actor_hash,manifest_sha256=manifest_hash);r['checks']['artifact']=True
++        launcher.checked_path(parent_path,inside=root/'private',is_file=False)
++        phase='plan';raw=local.bounded(plan_path,8192);core.validate_plan(decode(raw),device=api.device_sha256(),source=source,actor=actor_hash,manifest=manifest_hash)
++        r['recovery_plan_sha256']=sha(raw);r['checks']['plan']=True;r['status']='ready'
++    except BaseException:r['failure']=phase
++    return validate_public(r)
++
++def bind_report(report,c,parent,launch,result,*,root):
++    raw=encode(launch);require(sha(raw)==result['outer_launch_report_sha256']
++        and local.bounded(launcher.checked_path(Path(root)/'outer-launch-report.json',inside=root),MAX_REPORT)==raw,'zero_outer_launch_physical')
++    require(launch.get('started') is True and launch.get('resumed') is True and launch.get('native_identity_verified_before_resume') is True
++        and launch.get('cleanup',{}).get('process_exit_confirmed') is True and type(launch.get('child_pid')) is int and launch['child_pid']>0,'zero_worker_held')
++    require(type(report) is dict and set(report)=={'schema_version','stage','config','worker_pid','worker_identity','result'}
++        and type(report['schema_version']) is int and report['schema_version']==1 and report['stage']=='zero-cap-same-sid-loopback-worker'
++        and report['config']==c and type(report['worker_pid']) is int and report['worker_pid']==launch['child_pid'] and report['worker_identity']==parent,'zero_worker_binding')
++    o=observation(report['result'],c,parent,root=root)
++    result['checks']['worker_bound']=True;result['loopback_observation']=o;result['checks']['reachability']=o['reachability_verified'];result['failure']=o['failure']
++    result['recovery_required']=not (all(result['checks'][k] for k in ('guard','worker_exit','outer_cleanup','worker_bound')) and all(o[k] for k in core.CLEAN_KEYS))
++    return result
++
++def worker(config_path):
++    require(launcher.checked_path(config_path,inside=ROOT)==ROOT/'worker-config.json','zero_worker_path')
++    c=core.config_validate(decode(local.bounded(config_path,MAX_REPORT)),source_names=SOURCES);require(ROOT.name==core.stage_name(c['run']),'zero_worker_stage')
++    _,hashes,source=snapshot();require(hashes==c['source_hashes'] and source==c['source_sha256'] and core.ACTUAL_READY,'zero_worker_sources')
++    api=core.API();parent=local.ordinary(api);require(api.qpc_frequency()==c['frequency'],'zero_worker_frequency')
++    budget=launcher.QpcBudget(api,c['deadline_qpc'],c['frequency']);budget.require_ms(core.work_cutoff(c))
++    require(local.LocalNativeAPI.device_sha256(api.native)==c['device_sha256'],'zero_worker_device')
++    raw=local.bounded(ROOT/'recovery-plan.json',8192);require(sha(raw)==c['recovery_plan_sha256'],'zero_worker_plan')
++    p=core.validate_plan(decode(raw),device=c['device_sha256'],source=source,actor=c['actor_sha256'],manifest=c['manifest_sha256'])
++    require(all(p[k]==c[k] for k in (*core.NONCES,'ports')),'zero_worker_plan_nonces')
++    local.LocalNativeAPI.verify_private_directory(api.native,ROOT,'D:P(A;OICI;FA;;;SY)(A;OICI;FA;;;'+parent['sid']+')')
++    local.verify_guard_job(api.native,c['guard_job_name'])
++    core.verify_actor(ROOT/'inputs'/core.ACTOR,ROOT/'inputs'/core.MANIFEST,c['actor_sha256'],c['manifest_sha256'],root=ROOT)
++    private=core.execute(ROOT,c,parent,api,budget)
++    report=dict(schema_version=1,stage='zero-cap-same-sid-loopback-worker',config=c,worker_pid=os.getpid(),worker_identity=parent,result=private)
++    # Preserve the physical observations before strict result validation. This
++    # forensic file is never a qualification fallback or a reconstructed ledger.
++    base.durable_private(ROOT/'worker-result-forensic.json',encode(report))
++    core.validate_result(private,c,parent=parent,root=ROOT);budget.require_ms(budget.cutoff(1))
++    base.durable_private(ROOT/'worker-report.json',encode(report));return 0
++
++def run_local(actor,manifest,actor_hash,manifest_hash,parent_path,plan_path,*,approved=False,root=ROOT):
++    r=blank('runtime');phase='inputs';launched=False;stage=None
++    try:
++        require(approved and core.ACTUAL_READY and os.name=='nt','zero_explicit_reviewed_opt_in')
++        api=local.LocalNativeAPI();require(api.windows_x64(),'zero_platform');f=api.qpc_frequency();start=api.qpc();end=start+120*f
++        budget=launcher.QpcBudget(api,end,f)
++        check=preflight(actor,manifest,actor_hash,manifest_hash,parent_path,plan_path,api=api,root=root)
++        for k in ('source_sha256','actor_sha256','manifest_sha256','recovery_plan_sha256'):r[k]=check[k]
++        r['checks'].update(check['checks']);require(check['status']=='ready','zero_preflight')
++        parent=local.ordinary(api);files,hashes,source=snapshot(root);require(source==r['source_sha256'],'zero_source_changed')
++        planraw=local.bounded(plan_path,8192);require(sha(planraw)==r['recovery_plan_sha256'],'zero_plan_changed')
++        p=core.validate_plan(decode(planraw),device=api.device_sha256(),source=source,actor=actor_hash,manifest=manifest_hash)
++        c=dict(schema_version=1,scope=SCOPE,profile=core.PROFILE,**{k:p[k] for k in (*core.NONCES,'ports')},frequency=f,start_qpc=start,
++            root_deadline_qpc=end,deadline_qpc=end-5*f,source_hashes=hashes,source_sha256=source,device_sha256=api.device_sha256(),
++            actor_sha256=actor_hash,manifest_sha256=manifest_hash,recovery_plan_sha256=r['recovery_plan_sha256'])
++        c['guard_job_name']='Local\\RuleProxy.LocalGuard.'+c['run'];core.config_validate(c)
++        phase='staging';budget.require_ms(budget.cutoff(45));parent_path=launcher.checked_path(parent_path,inside=root/'private',is_file=False)
++        stage=parent_path/core.stage_name(c['run']);require(not stage.exists() and not stage.is_symlink(),'zero_fresh_stage')
++        r['tree_retained']=True;api.private_directory(stage,parent['sid'])
++        for name,raw in files.items():
++            path=stage/name;path.parent.mkdir(parents=True,exist_ok=True);launcher.write_private_bytes(path,raw)
++            require(sha(local.bounded(path,256*1024))==hashes[name],'zero_staged_source')
++        for name in ('inputs','tools','guard',*(p for pair in core.ACTOR_DIRS.values() for p in pair)):(stage/name).mkdir()
++        for name in ('guard','origin-report','ordinary-report'):(stage/name/'temp').mkdir()
++        for src in (Path(actor),Path(manifest)):launcher.write_private_bytes(stage/'inputs'/src.name,local.bounded(src,8*1024*1024))
++        core.verify_actor(stage/'inputs'/core.ACTOR,stage/'inputs'/core.MANIFEST,actor_hash,manifest_hash,root=stage)
++        base.durable_private(stage/'worker-config.json',encode(c));base.durable_private(stage/'recovery-plan.json',planraw)
++        api.worker_job_name=c['guard_job_name'];api.worker_sid=parent['sid']
++        python=launcher.checked_path(sys.executable,inside=launcher.checked_path(sys.base_prefix,is_file=False));require(python.name.casefold()=='python.exe','zero_python')
++        command=[str(python),'-I','-S','-B',str(stage/MODULE),'--worker',str(stage/'worker-config.json')]
++        phase='worker';launched=True
++        launch=launcher.launch_owned(api,command,stage/'guard',parent,parent,qpc_budget=budget,work_cutoff=budget.cutoff(3),cleanup_cutoff=end)
++        base.durable_private(stage/'outer-launch-report.json',encode(launch))
++        r['outer_launch_report_sha256']=sha(encode(launch))
++        r['checks']['guard']=api.atomic_job_requested and launch.get('native_identity_verified_before_resume') is True
++        r['checks']['worker_exit']=launch.get('cleanup',{}).get('process_exit_confirmed') is True;r['checks']['outer_cleanup']=local.guest.cleanup_verified(launch)
++        phase='report';require(r['checks']['worker_exit'] and launch.get('started') is True,'zero_unknown_worker')
++        report=decode(local.bounded(stage/'worker-report.json',MAX_REPORT));bind_report(report,c,parent,launch,r,root=stage)
++        require(launch.get('resumed') is True and launch.get('timed_out') is not True and launch.get('exit_code')==0 and 'error' not in launch,'zero_worker_launch')
++        phase='deadline';budget.require_ms(end)
++        r['observation_complete']=all(r['checks'].values()) and r['failure'] is None and not r['recovery_required']
++        if r['observation_complete']:r['status']='observed'
++    except BaseException:
++        r['failure']=phase;r['observation_complete']=False;r['status']='inconclusive';o=r['loopback_observation']
++        clean=(all(r['checks'][k] for k in ('guard','worker_exit','outer_cleanup','worker_bound')) and o is not None and all(o[k] for k in core.CLEAN_KEYS))
++        if launched and not clean or stage is not None and not launched:r['recovery_required']=True
++    return validate_public(r)
++
++def main(argv=None):
++    p=argparse.ArgumentParser(description=__doc__);p.add_argument('--worker',help=argparse.SUPPRESS)
++    p.add_argument('--run-local-zero-cap-same-sid-loopback',action='store_true');p.add_argument('--actor',type=Path);p.add_argument('--manifest',type=Path)
++    p.add_argument('--actor-sha256');p.add_argument('--manifest-sha256');p.add_argument('--work-parent',type=Path,default=ROOT/'private')
++    p.add_argument('--recovery-plan',type=Path);p.add_argument('--output',type=Path);a=p.parse_args(argv)
++    if a.worker:
++        require(not a.run_local_zero_cap_same_sid_loopback and not any((a.actor,a.manifest,a.actor_sha256,a.manifest_sha256,a.recovery_plan,a.output))
++            and a.work_parent==ROOT/'private','zero_worker_arguments');return worker(Path(a.worker))
++    if any(v is None for v in (a.actor,a.manifest,a.actor_sha256,a.manifest_sha256,a.recovery_plan)):
++        r=blank('runtime' if a.run_local_zero_cap_same_sid_loopback else 'preflight');r['failure']='inputs'
++    else:
++        function=run_local if a.run_local_zero_cap_same_sid_loopback else preflight
++        r=function(a.actor,a.manifest,a.actor_sha256,a.manifest_sha256,a.work_parent,a.recovery_plan,**({'approved':True} if a.run_local_zero_cap_same_sid_loopback else {}))
++    raw=encode(validate_public(r))
++    if a.output:base.durable_private(a.output,raw)
++    sys.stdout.buffer.write(raw);sys.stdout.buffer.flush();return 0 if r['status'] in ('ready','observed') else 1
++if __name__=='__main__':raise SystemExit(main())
+--- /dev/null
++++ b/tests/test_windows_identity_lpac_loopback.py
+@@ -0,0 +1,301 @@
++"""Injected Python/ctypes buffers only: no actors, sockets, token or ACL APIs."""
++import copy
++import ctypes as C
++import importlib.util
++from pathlib import Path
++import struct
++import tempfile
++from types import SimpleNamespace as NS
++import unittest
++from unittest.mock import patch
++
++ROOT=Path(__file__).resolve().parents[1]
++def load(name,path):
++    s=importlib.util.spec_from_file_location(name,path);m=importlib.util.module_from_spec(s);s.loader.exec_module(m);return m
++m=load('zero_cap_core_tests',ROOT/'.github/windows_identity_lpac_loopback.py')
++b=load('zero_cap_old_fake',Path(__file__).with_name('test_windows_identity_lpac_dns_local.py'))
++af=load('zero_cap_access_fake',Path(__file__).with_name('test_windows_identity_lpac_accesscheck.py'))
++F,T,D=b.F,b.T,b.D
++
++def config():
++    c={k:v for k,v in b.config().items() if k not in (*b.m.NONCES,'capability_catalog')}
++    c.update(scope=m.SCOPE,profile=m.PROFILE,**{n:'%032x'%(i+1) for i,n in enumerate(m.NONCES)},ports=dict(frontend=49153,ordinary=49154))
++    c['source_hashes']=dict.fromkeys(m.SOURCES,b.H);c['source_sha256']=m.sha(m.encode(c['source_hashes']));return c
++
++class Probe(af.FakeAPI):
++    def __init__(self,parent):super().__init__();self.parent=parent;self.process=None
++    def qpc(self):self.parent.now+=1;return self.parent.now
++    def frequency(self):return F
++    def verify_process(self,process,pid,creation):return not self.parent.wait(process,0) and pid==process and creation==self.parent.creation_time(process)
++    def open_token(self,process,rights):
++        self.process=process;self.role=m.SEMANTICS[self.parent.rows[process]['role']];self.fault=self.parent.probe_fault
++        return super().open_token(process,rights)
++    def identity(self,token):
++        value=copy.deepcopy(self.parent.owner.tasks[self.parent.rows[self.process]['role']]['expected_primary'])
++        if token==12:value.update(token_type=2,impersonation_level=1,token_id=value['token_id']+1)
++        return value
++
++def common(row,c,kind):
++    return dict(schema_version=1,stage=m.REPORT_STAGES[kind],role=row['role'],run_id=c['run'],boot_case_id=c[m.BOOT_KEYS[row['role']]],
++        pid=row['pid'],token=m.native_token(row['expected_primary']),root_qpc=[F,T,c['root_deadline_qpc']])
++
++def ready(row,c,now):
++    listener=row['role'].endswith('listener');v=common(row,c,'ready')
++    v.update(ready_qpc=now,ports=c['ports'],case_ids=dict(before=c['before_case'],selected=c['selected_case'],after=c['after_case']),listener=listener,
++        port=c['ports']['frontend' if row['role']=='front-listener' else 'ordinary'] if listener else None,socket_held=listener,wsa_started=listener,
++        token_close_confirmed=True,failure=None,network_tested=False,product_acceptance=False);return v
++
++def phase(row,c,seq,end,now):
++    v=common(row,c,'phase');v.update(sequence=seq,case_id=c['selected_case'] if row['role']=='selected-client' else c['before_case'] if seq==1 else c['after_case'],
++        phase_deadline_qpc=end,flow_qpc=[now,now+1],target_port=c['ports']['frontend' if row['role']=='selected-client' else 'ordinary'],local_port=50000+seq,
++        connect_attempted=True,connect_completed=True,send_attempted=True,request_bytes=64,request_exact=True,send_shutdown=True,response_bytes=64,response_exact=True,
++        response_eof=True,socket_close='confirmed',wsa_cleanup='confirmed',within_deadline=True,failure=None,wsa_error=None,win32_error=None,
++        control_close_verified=True,network_tested=True,product_acceptance=False);return v
++
++def receipt(row,c,seq,end,now,held=False):
++    front=row['role']=='front-listener';v=common(row,c,'received' if held else 'receipt')
++    v.update(index=seq,case_id=c['selected_case'] if front else c['before_case'] if seq==1 else c['after_case'],phase_deadline_qpc=end,
++        flow_qpc=[now,now+1,now+2],port=c['ports']['frontend' if front else 'ordinary'],peer_port=50000+seq,request_bytes=64,request_exact=True,request_eof=True,
++        response_bytes=0 if held else 64,response_complete=not held,send_shutdown=not held,response_withheld=front,socket_held=held,
++        connection_close='held' if held else 'confirmed',release_verified=front and not held,release_qpc=now+1 if front and not held else 0,
++        within_deadline=True,failure=None,wsa_error=None,win32_error=None,control_close_verified=True,network_tested=True,product_acceptance=False);return v
++
++def final(row,c,now,failure=None):
++    listener=row['role'].endswith('listener');count=1 if row['role'] in m.SEMANTICS else 2;v=common(row,c,'final')
++    v.update(flow_qpc=[T+1,now],ports=c['ports'],case_ids=dict(before=c['before_case'],selected=c['selected_case'],after=c['after_case']),
++        listening_verified=listener and failure is None,listen_port=c['ports']['frontend' if row['role']=='front-listener' else 'ordinary'] if listener and failure is None else None,
++        listen_close='confirmed' if listener else 'not-created',wsa_started=True,wsa_cleanup='confirmed',token_close_confirmed=True,control_close_verified=True,
++        socket_resources_closed=True,accepted_count=count if listener and failure is None else 0,receipt_count=count if listener and failure is None else 0,
++        phase_count=0 if listener else count,within_deadline=True,failure=failure,wsa_error=10013 if failure else None,win32_error=None,
++        network_tested=failure is None,product_acceptance=False);return v
++
++def tcp_raw(rows):
++    out=bytearray(struct.pack('<I',len(rows)))
++    port=lambda v:int.from_bytes(v.to_bytes(2,'big')+bytes(2),'little')
++    for state,pid,lp,rp,la,ra in rows:out+=struct.pack('<6I',state,int.from_bytes(bytes.fromhex(la),'little'),port(lp),int.from_bytes(bytes.fromhex(ra),'little'),port(rp),pid)
++    return bytes(out)
++
++class API(b.API):
++    def __init__(self,root,fault=None,probe_fault=None):
++        super().__init__(root,fault);self.probe_fault=probe_fault;self.native.query=self.statistics;self.labels={};self.done=set();self.resume_roles=[];self.killed=False
++    def process_id(self,h):return h
++    def statistics(self,token,kind,label):
++        assert kind==10;st=m.access.TOKEN_STATISTICS();st.TokenType=1;st.TokenId.LowPart=10000+token;st.AuthenticationId.LowPart=20
++        return C.create_string_buffer(C.string_at(C.byref(st),C.sizeof(st))),C.sizeof(st)
++    def atomic_spawn(self,info,argv,cwd,job,owners,state,**kw):
++        super().atomic_spawn(info,argv,cwd,job,owners,state,**kw)
++        if info.hProcess and len(argv)==15:self.rows[info.hProcess]['role']=argv[1]
++    def create_zero_suspended(self,info,argv,cwd,environment,job,owners,state,*,profile_pointer,policy,budget,cutoff):
++        assert policy==m.POLICIES[argv[1]]
++        try:self.atomic_spawn(info,argv,cwd,job,owners,state,environment=environment,stdio=(),profile_pointer=profile_pointer,catalog=None)
++        finally:state['returned_qpc']=self.now if state['create_status'] in ('returned_false','returned_true') else None
++    def identity(self,token):
++        v=super().identity(token)
++        if self.rows[token-2]['lpac']:v['capability_count']=0
++        return v
++    def groups(self,token,*args):return []
++    def acl_read(self,path,sid):return m.expected_acl(self.root,path) if self.granted and not self.removed else []
++    def label_read(self,path):
++        if self.fault=='label-readback' and path.name=='front-report' and path in self.labels:raise OSError('unknown label readback')
++        if self.fault=='label-restore' and getattr(self,'restoring',False) and path.name=='front-report':return m.LOW_LABEL
++        return self.labels.get(path)
++    def label_set(self,path,value):
++        if value is None:self.restoring=True
++        self.labels[path]=value
++    def access_api(self):return Probe(self)
++    def lpac_flag(self,token):raise AssertionError('class46 forbidden')
++    def write(self,role,name,value):(self.root/m.ACTOR_DIRS[role][0]/name).write_bytes(m.encode(value))
++    def resume(self,thread):
++        h=thread-1;r=self.rows[h]
++        if 'role' not in r:return super().resume(thread)
++        role=r['role'];self.resume_roles.append(role);self.events.append(('resume-role',role));row=self.owner.tasks[role];c=self.owner.c
++        assert len(self.owner.j['proofs'])==2 and all(p['qualified'] for p in self.owner.j['proofs'])
++        if role=='front-listener' and self.fault=='front10013':self.write(role,'final.json',final(row,c,self.now,'bind'));r.update(exited=True,exitcode=5)
++        else:self.write(role,'ready.json',ready(row,c,self.now))
++    def advance(self):
++        if not hasattr(self,'owner'):return
++        c=self.owner.c
++        for server,client,seq in (('ordinary-listener','ordinary-client',1),('front-listener','selected-client',1),('ordinary-listener','ordinary-client',2)):
++            key=(server,seq);paths=[self.root/m.ACTOR_DIRS[r][1]/('phase-%02d.bin'%seq) for r in (server,client)]
++            if not all(p.exists() for p in paths) or key in self.done:continue
++            end=struct.unpack_from('<Q',paths[0].read_bytes(),80)[0];self.now+=5
++            if server=='front-listener':
++                r=self.owner.tasks[server];received=receipt(r,c,1,end,self.now,True)
++                if self.fault=='withheld-response':received['response_bytes']=1
++                received_path=self.root/m.ACTOR_DIRS[server][0]/'received.json'
++                if not received_path.exists():self.write(server,'received.json',received)
++                if self.fault=='main-timeout':self.done.add(key);self.now=end;return
++                if not (self.root/m.ACTOR_DIRS[server][1]/'release.bin').exists():continue
++            self.write(server,'receipt-%02d.json'%seq,receipt(self.owner.tasks[server],c,seq,end,self.now))
++            self.write(client,'phase-%02d.json'%seq,phase(self.owner.tasks[client],c,seq,end,self.now));self.done.add(key)
++            if server=='front-listener' or seq==2:
++                for role in (server,client):
++                    self.write(role,'final.json',final(self.owner.tasks[role],c,self.now));self.rows[self.owner.tasks[role]['pid']].update(exited=True,exitcode=0)
++    def wait(self,h,ms):
++        self.advance()
++        if ms and not self.rows[h]['exited']:self.now+=min(ms,10)
++        return self.rows[h]['exited']
++    def exit_code(self,h):return self.rows[h].get('exitcode',0)
++    def terminate_job(self,job):self.killed=True;return super().terminate_job(job)
++    def tcp_snapshot(self,budget,cutoff):
++        self.advance();p=self.owner.c['ports']['frontend'];front=self.owner.tasks['front-listener']['pid'];selected=self.owner.tasks['selected-client']['pid'];L='7f000001'
++        rows=[(2,front,p,0,L,'00000000')]
++        if (self.root/'front-report/received.json').exists():rows += [(6,selected,50001,p,L,L),(8,front,p,50001,L,L)]
++        if self.fault=='wrong-tcp-pid':rows[0]=(2,front+1,p,0,L,'00000000')
++        return tcp_raw(rows)
++
++class CoreTests(unittest.TestCase):
++    def owner(self,fault=None,probe_fault=None):
++        td=tempfile.TemporaryDirectory();self.addCleanup(td.cleanup);root=Path(td.name).resolve()
++        for name in ('inputs','tools','guard',*(p for pair in m.ACTOR_DIRS.values() for p in pair)):(root/name).mkdir()
++        for name in ('origin-report','ordinary-report'):(root/name/'temp').mkdir()
++        (root/'inputs'/m.ACTOR).write_bytes(b'x'*512);tool=root/'win/System32/icacls.exe';tool.parent.mkdir(parents=True);tool.write_bytes(b'tool')
++        c=config();api=API(root,fault,probe_fault);owner=m.Owner(root,c,b.PARENT,api,m.launcher.QpcBudget(api,D,F));api.owner=owner
++        j=owner.execute();m.validate_result(j,c,parent=b.PARENT,root=root);return owner,api,j,m.project(j,c,parent=b.PARENT,root=root)
++    def test_real_owner_full_shape_all_roles_matched_zero_caps_complete_flow(self):
++        owner,api,j,p=self.owner();self.assertIsNone(j['failure']);self.assertTrue(p['reachability_verified'])
++        self.assertEqual(p['ac_granted_access'],[3,0,1,2]);self.assertEqual(p['lpac_granted_access'],[2,0,0,2])
++        self.assertEqual(api.resume_roles,['ordinary-listener','ordinary-client','front-listener','selected-client'])
++        self.assertTrue(j['main_request_observed'] and j['main_connect_observed']);self.assertEqual(len(j['go']),7)
++        self.assertTrue(all(j[k] for k in m.CLEAN_KEYS));self.assertFalse(any(p[k] for k in m.FALSE_CLAIMS));self.assertEqual(owner.budget.deadline,D)
++    def test_front_explicit_10013_harvests_final_and_never_resumes_selected_then_after(self):
++        _,api,j,p=self.owner('front10013');self.assertEqual(j['failure'],'loopback');self.assertNotIn('selected-client',api.resume_roles)
++        self.assertTrue(j['ordinary_before'] and j['ordinary_after']);self.assertFalse(p['reachability_verified'])
++        raw=[r['value'] for r in j['native'] if r['role']=='front-listener' and r['kind']=='final'][0]
++        self.assertEqual((raw['failure'],raw['wsa_error']),('bind',10013));self.assertFalse(raw['network_tested'])
++        self.assertTrue(all(j[k] for k in m.CLEAN_KEYS))
++    def test_matrix_mismatch_and_unknown_observer_prevent_all_actor_resume(self):
++        for fault in ('wrong-mask','open-unknown','close-false'):
++            with self.subTest(fault=fault):
++                _,api,j,p=self.owner(probe_fault=fault);self.assertEqual(api.resume_roles,[]);self.assertFalse(p['reachability_verified'])
++                if fault!='wrong-mask':self.assertFalse(j['observer_resources_cleanup_verified']);self.assertFalse(api.deleted)
++    def test_label_readback_and_restoration_failure_never_delete_profile(self):
++        for fault in ('label-readback','label-restore'):
++            with self.subTest(fault=fault):
++                _,api,j,p=self.owner(fault);self.assertFalse(j['labels_restored']);self.assertFalse(api.deleted);self.assertFalse(p['reachability_verified'])
++    def test_wrong_tcp_or_early_response_never_release(self):
++        for fault in ('wrong-tcp-pid','withheld-response'):
++            with self.subTest(fault=fault):
++                _,_,j,p=self.owner(fault);self.assertFalse(j['release_published']);self.assertFalse(any(g['release'] for g in j['go']));self.assertFalse(p['reachability_verified'])
++    def test_main_timeout_keeps_original_deadline_and_after_is_best_effort_only(self):
++        owner,_,j,p=self.owner('main-timeout');self.assertEqual(j['failure'],'loopback');self.assertFalse(j['release_published'])
++        self.assertFalse(p['reachability_verified']);self.assertEqual(owner.budget.deadline,D);self.assertTrue(j['ordinary_after'])
++    def test_real_label_adapter_queries_only_label_consumes_free_once_and_preserves_unknown(self):
++        api=m.API.__new__(m.API);api.controls_uncertain=False;held=C.create_string_buffer(m.LOW_LABEL);calls=[]
++        def get(path,kind,security,owner,group,dacl,sacl,sd):
++            self.assertEqual((kind,security,owner,group,dacl),(1,16,None,None,None));sacl._obj.value=C.addressof(held);sd._obj.value=55;return 0
++        def set_label(path,kind,security,owner,group,dacl,sacl):
++            self.assertEqual((kind,security,owner,group,dacl),(1,16,None,None,None));head=C.string_at(sacl,8);size=struct.unpack_from('<H',head,2)[0]
++            calls.append(C.string_at(sacl,size));return 0
++        class Fn:
++            def __init__(self,fn):self.fn=fn
++            def __call__(self,*args):return self.fn(*args)
++        freed=[];api.a=NS(GetNamedSecurityInfoW=Fn(get),SetNamedSecurityInfoW=Fn(set_label));api.k=NS(LocalFree=lambda p:freed.append(p) or 0)
++        self.assertEqual(api.label_read(Path('fresh')),m.LOW_LABEL);self.assertEqual(freed,[55])
++        api.label_set(Path('fresh'),m.LOW_LABEL);api.label_set(Path('fresh'),None);self.assertEqual(calls,[m.LOW_LABEL,m.EMPTY_LABEL])
++        api.k.LocalFree=lambda p:1
++        with self.assertRaises(ValueError):api.label_read(Path('fresh'))
++        self.assertTrue(api.controls_uncertain)
++    def test_root_physical_go_report_intent_tamper_rejected(self):
++        owner,_,j,_=self.owner()
++        for path in (owner.root/'front-control/phase-01.bin',owner.root/'selected-report/phase-01.json',owner.root/'tcp-observations/withheld.bin',owner.root/'journal'/j['intents'][0]['name']):
++            raw=path.read_bytes();path.write_bytes(raw+b'x')
++            with self.assertRaises(ValueError):m.validate_result(j,owner.c,parent=b.PARENT,root=owner.root)
++            path.write_bytes(raw)
++        for change in (lambda x:x['tcp'][1]['value']['client'].update(state=5),lambda x:x['tcp'][0].update(raw_sha256='0'*64)):
++            bad=copy.deepcopy(j);change(bad)
++            with self.assertRaises(ValueError):m.validate_result(bad,owner.c,parent=b.PARENT,root=owner.root)
++    def test_selected_and_ordinary_closed_phase_cannot_predate_its_go(self):
++        owner,_,j,_=self.owner()
++        for role in ('selected-client','ordinary-client'):
++            value=copy.deepcopy(j);row=next(r for r in value['native'] if r['role']==role and r['kind']=='phase' and r['sequence']==1)
++            go=next(g for g in value['go'] if g['role']==role and not g['release'] and g['sequence']==1)
++            row['value']['flow_qpc']=[go['issued']-2,go['issued']-1];raw=m.encode(row['value']);row.update(text=raw.decode('ascii'),sha256=m.sha(raw))
++            path=owner.root/m.ACTOR_DIRS[role][0]/row['name'];original=path.read_bytes();path.write_bytes(raw)
++            try:
++                with self.assertRaises(ValueError):m.validate_result(value,owner.c,parent=b.PARENT,root=owner.root)
++            finally:path.write_bytes(original)
++    def test_main_response_requires_release_and_received_clock_causality(self):
++        owner,_,j,_=self.owner();release=next(g for g in j['go'] if g['release'])
++        def release_backdated(value):value['release_qpc']=release['issued']-1
++        def response_before_release(value):
++            go=next(g for g in j['go'] if g['role']=='selected-client' and not g['release'])
++            value['flow_qpc']=[go['issued']+1,release['issued']-1]
++        def withheld_after_response(value):
++            receipt=next(r['value'] for r in j['native'] if r['role']=='front-listener' and r['kind']=='receipt')
++            value['flow_qpc']=[value['flow_qpc'][0],receipt['flow_qpc'][1]+1,receipt['flow_qpc'][-1]+1]
++        for kind,role,change in (('receipt','front-listener',release_backdated),('phase','selected-client',response_before_release),('received','front-listener',withheld_after_response)):
++            value=copy.deepcopy(j);row=next(r for r in value['native'] if r['kind']==kind and r['role']==role);change(row['value'])
++            raw=m.encode(row['value']);row.update(text=raw.decode('ascii'),sha256=m.sha(raw));path=owner.root/m.ACTOR_DIRS[role][0]/row['name'];original=path.read_bytes();path.write_bytes(raw)
++            try:
++                with self.assertRaises(ValueError):m.validate_result(value,owner.c,parent=b.PARENT,root=owner.root)
++            finally:path.write_bytes(original)
++    def test_closed_report_read_retries_only_sharing_violation_with_original_budget(self):
++        original=m.base.contracts.live.local.bounded;calls=[]
++        def read(path,limit):
++            if Path(path).name=='ready.json' and not calls:
++                calls.append(Path(path));error=OSError('pure sharing');error.winerror=32;raise error
++            return original(path,limit)
++        with patch.object(m.base.contracts.live.local,'bounded',side_effect=read):owner,_,j,p=self.owner()
++        self.assertEqual(len(calls),1);self.assertTrue(p['reachability_verified']);self.assertEqual(owner.budget.deadline,D)
++    def test_native_nullable_failure_and_late_positive_remain_typed_never_qualify(self):
++        owner,_,j,_=self.owner();row=owner.tasks['selected-client'];v=phase(row,owner.c,1,T+500,T+100)
++        v.update(flow_qpc=[T+100,T+501],within_deadline=False,failure='deadline')
++        m.validate_native(v,'phase',row,owner.c,sequence=1,case=owner.c['selected_case'],end=T+500)
++        self.assertTrue(v['connect_completed']);self.assertFalse(m.phase_passed(v))
++        v=final(owner.tasks['front-listener'],owner.c,T+100,'bind');v['token']=None;v['failure']='deadline'
++        m.validate_native(v,'final',owner.tasks['front-listener'],owner.c);self.assertFalse(m.final_passed(v))
++    def test_closed_result_rejects_laundered_matrix_go_identity_cleanup_or_claim(self):
++        owner,_,j,_=self.owner()
++        for mutate in (lambda x:x.update(product_acceptance=True),lambda x:x.update(labels_restored=False),lambda x:x.update(main_tuple_verified=False),
++                lambda x:x['tasks'][-1]['expected_primary'].update(capabilities=[dict(sid=m.live.PNCS,attributes=4)]),
++                lambda x:x['go'][-1].update(end=x['go'][-1]['end']+1),lambda x:x['proofs'][1]['calls'][0].update(granted_access=3)):
++            v=copy.deepcopy(j);mutate(v)
++            with self.assertRaises(ValueError):m.validate_result(v,owner.c,parent=b.PARENT)
++    def test_control_packet_canonical_exact_fields_and_no_deadline_renewal(self):
++        c=config();raw=m.control(c,'front-listener',1,c['selected_case'],T+1,T+8001)
++        self.assertEqual(len(raw),128);self.assertEqual(raw[:4],b'ZCL1');self.assertEqual(raw[104:],bytes(24));self.assertEqual(len(m.packet(c,c['selected_case'])),64)
++        for args in (('selected-client',1,c['before_case'],T+1,T+100),('front-listener',1,c['selected_case'],T+1,T+8002)):
++            with self.assertRaises(ValueError):m.control(c,*args)
++    def test_tcp_exact_pid_address_state_and_ports_are_required(self):
++        L='7f000001';rows=[(2,11,49153,0,L,'00000000'),(7,22,50001,49153,L,L),(8,11,49153,50001,L,L)]
++        m.exact_tcp(tcp_raw(rows),11,49153,client_pid=22,client_port=50001)
++        for index,column,value in ((0,1,12),(1,0,5),(2,0,5),(2,3,50002),(1,4,'00000000')):
++            bad=copy.deepcopy(rows);r=list(bad[index]);r[column]=value;bad[index]=tuple(r)
++            with self.assertRaises(ValueError):m.exact_tcp(tcp_raw(bad),11,49153,client_pid=22,client_port=50001)
++    def test_real_constructor_shape_zero_cap_pointer_job_aap_and_no_inheritance(self):
++        for policy in (0,1):
++            api=m.API.__new__(m.API);api.proc=b.proc;api.controls_uncertain=False;seen=[]
++            def initialize(buf,count,flags,size):self.assertEqual(count,3);size._obj.value=256;return int(buf is not None)
++            def update(buf,flags,kind,value,size,previous,returned):
++                seen.append(kind)
++                if kind==m.base.SECURITY_CAPABILITIES:self.assertEqual((value._obj.AppContainerSid,value._obj.Capabilities,value._obj.CapabilityCount,value._obj.Reserved),(77,None,0,0))
++                elif kind==m.base.JOB_LIST:self.assertEqual(C.cast(value,C.POINTER(C.c_void_p))[0],99)
++                else:self.assertEqual(value._obj.value,policy)
++                return 1
++            def create(actor,cmd,sa,ta,inherit,flags,env,cwd,start,info):
++                self.assertFalse(inherit);self.assertTrue(flags&4);info._obj.hProcess=201;info._obj.hThread=202;info._obj.dwProcessId=203;return 1
++            api.k=NS(InitializeProcThreadAttributeList=initialize,UpdateProcThreadAttribute=update,DeleteProcThreadAttributeList=lambda _:None,CreateProcessW=create)
++            api.native=NS(check=lambda x,label:m.require(x,label));info=b.proc._ProcessInfo();owners=m.helpers.OneShotHandles(lambda _:None);state={'creation_attempted':False}
++            budget=m.launcher.QpcBudget(NS(qpc=lambda:T+100,qpc_frequency=lambda:F),D,F)
++            api.create_zero_suspended(info,[m.ACTOR],Path('inputs'),'SystemRoot=C:\\Windows\0LOCALAPPDATA=x\0\0',99,owners,state,
++                profile_pointer=77,policy=policy,budget=budget,cutoff=D-30*F)
++            self.assertEqual(seen,[m.base.JOB_LIST,m.base.SECURITY_CAPABILITIES,m.base.ALL_APPLICATION_PACKAGES_POLICY]);self.assertEqual(set(owners.pending),{201,202})
++    def test_zero_access_identity_four_byte_empty_header_and_short_header_rejected(self):
++        api=m.ZeroAccessAPI.__new__(m.ZeroAccessAPI);retained=[]
++        def info(token,kind):
++            if kind==30:return C.create_string_buffer(bytes(4)),4
++            if kind==10:
++                st=m.access.TOKEN_STATISTICS();st.TokenType=1;return C.create_string_buffer(C.string_at(C.byref(st),C.sizeof(st))),C.sizeof(st)
++            raw=C.create_string_buffer(32);retained.append(raw);C.cast(raw,C.POINTER(C.c_void_p))[0]=C.addressof(raw)+8;return raw,32
++        api._information=info;api._scalar=lambda token,kind:{8:1,29:1,20:0,26:0,12:1}[kind]
++        api._sid=lambda ptr,start,n:'S-1-16-4096' if len(retained)==1 else b.ACSID if len(retained)==3 else b.SID
++        self.assertEqual(api.identity(1)['capabilities'],[])
++        good=api._information
++        for size in (0,1,3):
++            api._information=lambda token,kind,size=size:(C.create_string_buffer(4),size) if kind==30 else good(token,kind)
++            with self.assertRaises(ValueError):api.identity(1)
++        api._information=lambda token,kind:(C.create_string_buffer(struct.pack('<I',1)),4) if kind==30 else good(token,kind)
++        with self.assertRaises(ValueError):api.identity(1)
++
++if __name__=='__main__':unittest.main()
+--- /dev/null
++++ b/tests/test_windows_identity_lpac_loopback_local.py
+@@ -0,0 +1,130 @@
++"""Source/plan/worker/public guard composition with a fake native backend."""
++import copy
++import ctypes as C
++import importlib.util
++import io
++from pathlib import Path
++import tempfile
++from types import SimpleNamespace as NS
++import unittest
++from unittest.mock import patch
++
++ROOT=Path(__file__).resolve().parents[1]
++def load(name,path):
++    s=importlib.util.spec_from_file_location(name,path);m=importlib.util.module_from_spec(s);s.loader.exec_module(m);return m
++m=load('zero_loopback_local_tests',ROOT/'.github/windows_identity_lpac_loopback_local.py')
++f=load('zero_loopback_core_fixtures',Path(__file__).with_name('test_windows_identity_lpac_loopback.py'))
++H='1'*64
++
++def plan(source=H,actor=H,manifest=H):
++    return dict(schema_version=1,scope=m.SCOPE,profile=m.core.PROFILE,**{n:'%032x'%(i+1) for i,n in enumerate(m.core.NONCES)},
++        ports=dict(frontend=49153,ordinary=49154),device_sha256=H,source_sha256=source,actor_sha256=actor,manifest_sha256=manifest,
++        **dict.fromkeys(m.core.ACKS,True),recovery_reference='predeclared exact owned residue review')
++
++class GuardAPI:
++    atomic_job_requested=True
++    def __init__(self,fault=None):self.fault=fault;self.calls=[]
++    def windows_x64(self):return True
++    def qpc_frequency(self):return f.F
++    def qpc(self):return f.T
++    def device_sha256(self):return H
++    def private_directory(self,path,sid):
++        path.mkdir();self.calls.append(path)
++        if self.fault=='partial-directory':raise OSError('private mkdir returned but readback unknown')
++
++class LocalTests(unittest.TestCase):
++    def test_default_and_missing_flag_inputs_never_instantiate_backend(self):
++        for args in ([],['--run-local-zero-cap-same-sid-loopback']):
++            output=NS(buffer=io.BytesIO())
++            with patch.object(m.local,'LocalNativeAPI',side_effect=AssertionError('backend')),patch.object(m.sys,'stdout',output):self.assertEqual(m.main(args),1)
++            v=m.decode(output.buffer.getvalue());m.validate_public(v);self.assertEqual(v['failure'],'inputs')
++    def test_unreviewed_or_unapproved_runtime_stops_before_backend(self):
++        for ready,approved in ((False,True),(True,False)):
++            with patch.object(m.core,'ACTUAL_READY',ready),patch.object(m.local,'LocalNativeAPI',side_effect=AssertionError('backend')):
++                v=m.run_local(None,None,None,None,None,None,approved=approved)
++            self.assertFalse(v['recovery_required']);self.assertEqual(v['failure'],'inputs')
++    def test_worker_cli_rejects_other_run_or_public_options(self):
++        for extra in (['--run-local-zero-cap-same-sid-loopback'],['--actor','x'],['--output','x']):
++            with patch.object(m,'worker',side_effect=AssertionError('worker')),self.assertRaises(ValueError):m.main(['--worker','x',*extra])
++    def test_source_closure_is_exact_and_keeps_old_runtime_bytes(self):
++        self.assertEqual(len(m.SOURCES),37);self.assertEqual(len(set(m.SOURCES)),37)
++        files,hashes,source=m.snapshot(ROOT);self.assertEqual(set(files),set(m.SOURCES));self.assertEqual(source,m.sha(m.encode(hashes)))
++        self.assertIn('.github/windows_identity_lpac_accesscheck.py',m.SOURCES);self.assertIn('.github/windows_identity_lpac_identity_cell.py',m.SOURCES)
++        self.assertEqual(set(m.core.NATIVE_SOURCES),{'.github/native/windows_identity_lpac_loopback_actor.cpp','.github/native/windows_identity_lpac_loopback_contract.hpp'})
++    def test_plan_exact_nonce_ports_scope_and_ack_no_cap_fallback(self):
++        p=plan();m.core.validate_plan(p,device=H,source=H,actor=H,manifest=H)
++        for change in ({'scope':m.base.SCOPE},{'profile':'pncs'}, {'front_boot':p['run']},{'ports':dict(frontend=49153,ordinary=49153)},
++                {'zero_capabilities_no_fallback_acknowledged':False},{'capability_catalog':{}}):
++            with self.subTest(change=change),self.assertRaises(ValueError):m.core.validate_plan(p|change,device=H,source=H,actor=H,manifest=H)
++    def test_preflight_only_reads_new_plan_and_never_spawns(self):
++        with tempfile.TemporaryDirectory() as td:
++            root=Path(td).resolve();(root/'private').mkdir();p=root/'plan';p.write_bytes(m.encode(plan()));api=GuardAPI()
++            with patch.object(m,'os',NS(name='nt')),patch.object(m.local,'ordinary',return_value=f.b.PARENT),patch.object(m,'snapshot',return_value=({}, {},H)),\
++                    patch.object(m.core,'verify_actor'),patch.object(m.launcher,'launch_owned',side_effect=AssertionError('spawn')):
++                v=m.preflight(None,None,H,H,root/'private',p,api=api,root=root)
++                self.assertEqual(v['status'],'ready');self.assertEqual(api.calls,[])
++                p.write_bytes(m.encode(plan()|{'same_sid_shared_principal_acknowledged':False}))
++                self.assertEqual(m.preflight(None,None,H,H,root/'private',p,api=api,root=root)['failure'],'plan')
++    def run_guard(self,fault=None):
++        td=tempfile.TemporaryDirectory();self.addCleanup(td.cleanup);root=Path(td.name).resolve();(root/'private').mkdir()
++        actor=root/m.core.ACTOR;manifest=root/m.core.MANIFEST;actor.write_bytes(b'x'*512);manifest.write_bytes(b'{}')
++        files={n:b'# pure fixed source\n' for n in m.SOURCES};hashes={n:m.sha(raw) for n,raw in files.items()};source=m.sha(m.encode(hashes))
++        p=plan(source,m.sha(actor.read_bytes()),m.sha(manifest.read_bytes()));plan_path=root/'plan';plan_path.write_bytes(m.encode(p));api=GuardAPI(fault);calls=[];capture={}
++        ready=m.blank('preflight');ready.update(status='ready',source_sha256=source,actor_sha256=p['actor_sha256'],manifest_sha256=p['manifest_sha256'],recovery_plan_sha256=m.sha(plan_path.read_bytes()))
++        ready['checks'].update(dict.fromkeys(('ordinary','sources','artifact','plan'),True))
++        def launch(native,argv,cwd,parent,child,*,qpc_budget,work_cutoff,cleanup_cutoff):
++            self.assertIs(native,api);self.assertEqual(argv[1:4],['-I','-S','-B']);self.assertEqual(argv[-2],'--worker');calls.append(argv)
++            stage=cwd.parent;c=m.decode((stage/'worker-config.json').read_bytes());m.core.config_validate(c)
++            self.assertEqual({n:c[n] for n in m.core.NONCES},{n:p[n] for n in m.core.NONCES});self.assertEqual(c['ports'],p['ports'])
++            self.assertEqual((c['start_qpc'],c['root_deadline_qpc'],c['deadline_qpc'],work_cutoff,cleanup_cutoff),(f.T,f.T+120*f.F,f.D,f.T+117*f.F,f.T+120*f.F))
++            if fault=='unknown-worker':raise OSError('unknown spawn')
++            tool=stage/'win/System32/icacls.exe';tool.parent.mkdir(parents=True);tool.write_bytes(b'tool')
++            fake=f.API(stage,'front10013' if fault=='front10013' else None);owner=m.core.Owner(stage,c,parent,fake,m.launcher.QpcBudget(fake,c['deadline_qpc'],c['frequency']));fake.owner=owner
++            private=owner.execute();m.core.validate_result(private,c,parent=parent,root=stage)
++            report=dict(schema_version=1,stage='zero-cap-same-sid-loopback-worker',config=c,worker_pid=77,worker_identity=parent,result=private)
++            (stage/'worker-report.json').write_bytes(m.encode(report));capture.update(stage=stage,config=c,report=report,owner=owner)
++            if fault=='bad-report':report['worker_pid']=78;(stage/'worker-report.json').write_bytes(m.encode(report))
++            return dict(started=True,resumed=True,child_pid=77,native_identity_verified_before_resume=True,timed_out=False,exit_code=0,
++                cleanup=dict(process_exit_confirmed=True,job_empty_confirmed=True,handles_closed=True))
++        with patch.object(m.core,'ACTUAL_READY',True),patch.object(m,'os',NS(name='nt')),patch.object(m.local,'LocalNativeAPI',return_value=api),\
++                patch.object(m.local,'ordinary',return_value=f.b.PARENT),patch.object(m,'snapshot',return_value=(files,hashes,source)),\
++                patch.object(m,'preflight',return_value=ready),patch.object(m.core,'verify_actor'),patch.object(m.local.guest,'cleanup_verified',return_value=True),\
++                patch.object(m.launcher,'launch_owned',side_effect=launch),patch.object(m.sys,'executable',str(root/'python.exe')),patch.object(m.sys,'base_prefix',str(root)):
++            (root/'python.exe').write_bytes(b'pure')
++            r=m.run_local(actor,manifest,p['actor_sha256'],p['manifest_sha256'],root/'private',plan_path,approved=True,root=root)
++        return r,calls,api,capture
++    def test_real_owner_guard_composition_full_success_original_clock_and_false_claims(self):
++        r,calls,_,capture=self.run_guard();self.assertEqual(len(calls),1);self.assertEqual(r['status'],'observed');self.assertFalse(r['recovery_required'])
++        self.assertTrue(r['loopback_observation']['reachability_verified']);self.assertTrue((capture['stage']/'outer-launch-report.json').exists())
++        self.assertFalse(any(r[k] for k in m.core.FALSE_CLAIMS));self.assertFalse(any(r['loopback_observation'][k] for k in m.core.FALSE_CLAIMS))
++    def test_front10013_preserves_setup_observation_and_after_but_never_claims_reachability(self):
++        r,_,_,capture=self.run_guard('front10013');o=r['loopback_observation'];self.assertEqual(r['status'],'inconclusive')
++        self.assertFalse(r['recovery_required']);self.assertTrue(o['ordinary_before'] and o['ordinary_after']);self.assertFalse(o['reachability_verified'])
++        self.assertEqual((o['frontend_setup']['observed'],o['frontend_setup']['failure'],o['frontend_setup']['wsa_error']),(True,'bind',10013))
++        self.assertFalse(capture['owner'].tasks['selected-client']['resumed']);self.assertTrue(all(o[k] for k in m.core.CLEAN_KEYS))
++    def test_partial_stage_or_unknown_worker_retains_unknown_cleanup(self):
++        for fault in ('partial-directory','unknown-worker','bad-report'):
++            with self.subTest(fault=fault):
++                r,calls,_,_=self.run_guard(fault);self.assertTrue(r['tree_retained']);self.assertTrue(r['recovery_required']);self.assertFalse(r['observation_complete'])
++                self.assertEqual(len(calls),0 if fault=='partial-directory' else 1)
++    def test_independent_binding_rejects_worker_or_physical_raw_mismatch(self):
++        r,_,_,cap=self.run_guard();launch=m.decode((cap['stage']/'outer-launch-report.json').read_bytes())
++        for report in (cap['report']|{'worker_pid':78},cap['report']|{'config':cap['config']|{'deadline_qpc':f.D+1}}):
++            with self.assertRaises(ValueError):m.bind_report(report,cap['config'],f.b.PARENT,launch,copy.deepcopy(r),root=cap['stage'])
++        outer=cap['stage']/'outer-launch-report.json';raw=outer.read_bytes();outer.write_bytes(raw+b'x')
++        with self.assertRaises(ValueError):m.bind_report(cap['report'],cap['config'],f.b.PARENT,launch,copy.deepcopy(r),root=cap['stage'])
++        outer.write_bytes(raw)
++        path=cap['stage']/'tcp-observations/withheld.bin';path.write_bytes(path.read_bytes()+b'x')
++        with self.assertRaises(ValueError):m.bind_report(cap['report'],cap['config'],f.b.PARENT,launch,copy.deepcopy(r),root=cap['stage'])
++    def test_public_unknown_and_shared_sid_tamper_claims_cannot_be_promoted(self):
++        r,_,_,_=self.run_guard();m.validate_public(r)
++        for k in m.core.FALSE_CLAIMS:
++            with self.subTest(k=k),self.assertRaises(ValueError):m.validate_public(r|{k:True})
++        for change in ({'recovery_required':True},{'tree_retained':False},{'loopback_observation':None},{'source_sha256':None}):
++            with self.assertRaises(ValueError):m.validate_public(r|change)
++        altered=copy.deepcopy(r);altered['loopback_observation']['frontend_setup']=m.empty_setup()
++        with self.assertRaises(ValueError):m.validate_public(altered)
++        v=m.blank('preflight');v['loopback_observation']=r['loopback_observation']
++        with self.assertRaises(ValueError):m.validate_public(v)
++
++if __name__=='__main__':unittest.main()

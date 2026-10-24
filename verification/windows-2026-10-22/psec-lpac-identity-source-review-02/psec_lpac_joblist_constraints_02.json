@@ -1,0 +1,141 @@
+{
+  "schema_version": 1,
+  "stage": "cpse-job-list-primary-contract-and-next-observability-review",
+  "actual_executed": false,
+  "source_scope": {
+    "mxc_commit": "7bf210247986cb73b1b314df60c2f1109c479c0b",
+    "tested_project_commit": "b269c78eef15b6f71bdae5a5ee631a4e8a34ce9e",
+    "tested_spec": "identity-only-deny-all-v1",
+    "bridge_cpse_flags": 0
+  },
+  "facts": [
+    {
+      "id": "job_list_documented_contract",
+      "source": "https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-updateprocthreadattribute",
+      "fact": "JOB_LIST supplies the child Job handles in their assignment order. Attribute value storage must remain valid until the list is destroyed. The page does not document this combination with SECURITY_ENVIRONMENT.",
+      "scope": "Generic documented process-creation attribute contract; not CPSE combination evidence."
+    },
+    {
+      "id": "job_query_two_outputs",
+      "source": "https://learn.microsoft.com/en-us/windows/win32/api/jobapi/nf-jobapi-isprocessinjob",
+      "fact": "API success and membership are distinct: a successful call can return membership false. A non-null Job handle queries that exact Job; a null handle asks about any Job.",
+      "scope": "The observed child_not_in_owned_job is raised after API success and false membership in the project's source."
+    },
+    {
+      "id": "parent_inheritance_dependency",
+      "source": "https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-updateprocthreadattribute",
+      "fact": "The PARENT_PROCESS entry describes inheritance from a nominated parent, including its Job. The actual CPSE effective parent or service path was not observed in actual02.",
+      "scope": "Do not infer a broker PID or that ordinary caller Job inheritance necessarily applies to this combination."
+    },
+    {
+      "id": "fixed_upstream_post_assignment",
+      "source": "https://github.com/microsoft/mxc/blob/7bf210247986cb73b1b314df60c2f1109c479c0b/src/mxc-sdk/src/backends/process_container/common/base_container_runner.rs#L938",
+      "git_blob": "0556e58f7e8c1dfd9ee5b02f46c8cfce37e6dc03",
+      "lines": [
+        938,
+        978
+      ],
+      "fact": "Pinned G creates the process suspended, then creates a UiJobObject and assigns the returned process before resume. On assignment failure it directly terminates and reaps the held process.",
+      "scope": "This is implementation evidence for a post-create gate. It does not prove JOB_LIST atomic attachment and is not permission to replace the project's atomic gate."
+    },
+    {
+      "id": "fixed_upstream_cpse_flags",
+      "source": "https://github.com/microsoft/mxc/blob/7bf210247986cb73b1b314df60c2f1109c479c0b/src/mxc-sdk/src/backends/process_container/common/secenv.rs#L88",
+      "git_blob": "4d76514088e0de1c9189368c47c7308d6e500e0e",
+      "fact": "Pinned G uses NONE0. Its comment acknowledges a terminate-on-close bit but intentionally does not declare the numeric value; it explicitly closes after child exit.",
+      "scope": "No pinned upstream terminate-on-close or hard caller-crash mechanism is established by this code."
+    },
+    {
+      "id": "terminate_flag_sparse_primary",
+      "source": "https://learn.microsoft.com/en-us/windows/win32/api/processmodel/ne-processmodel-process_security_environment_flags",
+      "fact": "The current Microsoft page enumerates NONE and TERMINATE_ON_CLOSE but gives no behavioral description of caller death, crash cancellation, service ownership or reopen/recovery.",
+      "scope": "The name alone is insufficient proof that killing a caller closes its opaque environment or stops a child outside Jobs."
+    },
+    {
+      "id": "void_close_scope",
+      "source": "https://learn.microsoft.com/en-us/windows/win32/api/processmodel/nf-processmodel-closeprocesssecurityenvironment",
+      "fact": "The documented close returns VOID. The page does not provide a result or an external absence/caller-crash guarantee.",
+      "scope": "Actual normal return is a caller API obligation receipt, not independent environment absence or broker cancellation."
+    }
+  ],
+  "actual02_boundary": {
+    "raw_job_result": "one exact Job membership false; exact Job unknown",
+    "inner_or_outer_not_distinguishable": true,
+    "first_handle_creation_read_succeeded": true,
+    "first_constructor_complete_pi": true,
+    "first_primary_identity_observed": false,
+    "first_image_and_kernel_pid_not_yet_independently_admitted": true,
+    "second_arm_not_started": true,
+    "normal_exact_owned_process_cleanup_observed": true,
+    "crash_cleanup_equivalence_tested": false,
+    "original01_unknown_still_retained": true
+  },
+  "minimum_code_only_observation": {
+    "scope": "Separate read-only observations before retaining the same original all-true Job admission gate.",
+    "sequence": [
+      "Before any observation, hold the original returned process handle and original PI; independently read kernel PID, creation time and fixed image/hash, bracketed by generation/liveness and original QPC checks.",
+      "Query exact inner Job once and preserve API-success separately from membership and immediate Win32 error. Do not turn false into an exception before the second read-only observation is recorded.",
+      "Open the exact original named outer Job with QUERY access; query membership separately. Scope and once-close this new query handle and record close outcome. Never inherit or retain it across cleanup.",
+      "Bind both observations to source/config/spec/native returned-PI and receipt SHA, original run/F/T0/D, exact Job role/name commitment, held generation and image commitment. Save raw private observations before raising any admission error.",
+      "Require both successful queries with membership true plus the original Job limits and handle-ownership checks. Keep false, unknown, stale generation, uncertain close or deadline as rejection.",
+      "Do not ResumeThread, perform AccessCheck, create the LPAC second arm, auto-assign either Job, change policy/capabilities, use a null Job as an exact Job substitute, or repeat automatically after rejection."
+    ],
+    "suggested_closed_observation_fields": [
+      "schema_version",
+      "stage",
+      "role",
+      "config_sha256",
+      "native_pi_receipt_sha256",
+      "source_sha256",
+      "frequency",
+      "root_deadline_qpc",
+      "observation_start_qpc",
+      "observation_end_qpc",
+      "held_generation_before",
+      "held_generation_after",
+      "held_image_sha256",
+      "inner_query",
+      "outer_query",
+      "outer_query_handle_close",
+      "admitted"
+    ],
+    "query_fields": [
+      "api_entered",
+      "api_returned",
+      "api_success",
+      "membership_or_null",
+      "win32_error_or_zero",
+      "exact_job_scope_verified",
+      "limits_verified"
+    ],
+    "private_only_fields": [
+      "Job name or handle value",
+      "PID and process creation time",
+      "image path",
+      "original run and QPC epoch"
+    ],
+    "public_projection": "Only per-role query-known/membership/close/timing booleans and raw commitments; no private identifiers."
+  },
+  "crash_boundary": {
+    "if_inner_true_outer_false": "A still-owned non-inherited KILL_ON_JOB_CLOSE inner Job may protect its members when the worker dies, but actual02 did not separately record this membership. The original dual-Job predicate still rejects.",
+    "if_inner_false": "Do not assume the outer kill or inner Job closure covers the created process. Normal direct TerminateProcess cleanup is not evidence for the interval before the returned handle is transferred or a caller crashes.",
+    "no_invented_repair": [
+      "A caller-owned raw process HANDLE is not automatically a crash-terminating resource.",
+      "A second observer receiving a duplicated handle after CreateProcess returns leaves the earlier creation/transfer interval unproved.",
+      "Pinned Rust Drop runs on normal lifetime paths; it is not evidence of cleanup on hard process termination.",
+      "TERMINATE_ON_CLOSE must not be guessed into a flag or used to waive Job membership. Any future use needs a separate fixed contract/variant and a mechanism that actually establishes caller-crash behavior.",
+      "Generic JOB_LIST permits an ordered explicit Job list. A future exact outer-plus-inner constructor would be a new reviewed native ABI/artifact and request, with readback required; it is not demonstrated by this run."
+    ]
+  },
+  "next_actual_gate": "No new actual was authorized or executed by this research task. Before another construction, the parent must explicitly review the possible atomic/crash supervision gap, retain the same no-resume/no-network gate, and bind any new observation-only source. This review supplies no post-assignment or alternate supervision fallback.",
+  "actions": {
+    "official_docs_and_fixed_upstream_read": true,
+    "windows_api_or_cpse_called": false,
+    "dll_loaded": false,
+    "actor_spawned_or_resumed": false,
+    "job_or_token_mutated": false,
+    "network_or_settings_changed": false,
+    "cleanup_or_recovery_executed": false,
+    "main_source_modified": false
+  }
+}

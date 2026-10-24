@@ -1,0 +1,210 @@
+{
+  "schema_version": 1,
+  "experiment": "N0a-UDP6",
+  "receipt_verified": true,
+  "reason": "none",
+  "result": {
+    "all_selected_sendto_invoked": false,
+    "ordinary_controls_verified": false,
+    "explicit_send_denial": false,
+    "selected_send_accepted_count": 0,
+    "selected_echo_observed": false,
+    "sockets_cleanup_confirmed": false,
+    "profile_flags_verified": false,
+    "runtime_acceptance": false,
+    "schema_version": 1,
+    "experiment": "N0a-UDP6",
+    "profile_verified": {
+      "before": true,
+      "sample": false,
+      "contained": false,
+      "after": false
+    },
+    "provenance_verified": {
+      "before": true,
+      "sample": false,
+      "contained": false,
+      "after": false
+    },
+    "stage0_passed": false,
+    "product_acceptance": false,
+    "privacy_qualified": false,
+    "psec_cleanup_independently_verified": false,
+    "diagnostic": {
+      "failure": "admission",
+      "stage": "before_admission",
+      "failed_stage": "before_admission",
+      "phases": [
+        [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          "complete",
+          "object"
+        ],
+        [
+          false,
+          false,
+          false,
+          false,
+          null,
+          false,
+          "unavailable",
+          "unavailable"
+        ],
+        [
+          false,
+          false,
+          false,
+          false,
+          null,
+          false,
+          "unavailable",
+          "unavailable"
+        ],
+        [
+          false,
+          false,
+          false,
+          false,
+          null,
+          false,
+          "unavailable",
+          "unavailable"
+        ]
+      ],
+      "before": {
+        "checks": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          false
+        ],
+        "validation": "none",
+        "network": [
+          0,
+          true,
+          1
+        ],
+        "attempt": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          0,
+          null,
+          1,
+          1,
+          "nonzero",
+          true,
+          48,
+          false,
+          10022,
+          "echo_peer",
+          true,
+          0,
+          true,
+          true,
+          true,
+          false,
+          true,
+          true
+        ]
+      }
+    }
+  },
+  "execution": {
+    "phase": "completed",
+    "failed": false,
+    "cleanup_confirmed": true
+  },
+  "launcher": {
+    "phase": "completed",
+    "failure": "none",
+    "python_exit_code": 0,
+    "process_exit_confirmed": true,
+    "timed_out": false,
+    "budget_exhausted": false
+  },
+  "flow_transport_state": "commitment_missing",
+  "original_stage0_receipt_verified": true,
+  "host_receiver": {
+    "cleanup_confirmed": true,
+    "thread_stopped": true,
+    "socket_closed": true,
+    "error": false,
+    "datagram_observed": true,
+    "contained_observed": false,
+    "counts": {
+      "datagrams": 1,
+      "observed_bytes": 48,
+      "verified": 1,
+      "echoed": 1,
+      "rejected": 0,
+      "oversized": 0,
+      "send_errors": 0
+    },
+    "verified_indices": {
+      "before": [
+        0
+      ],
+      "sample": [],
+      "contained": [],
+      "after": []
+    },
+    "socket_cleanup_confirmed": true,
+    "endpoint_error": false
+  },
+  "vm_destroyed": true,
+  "host_wait_state": "received",
+  "mapped_provenance": {
+    "schema_version": 1,
+    "admitted": true,
+    "pre_stop_verified": true,
+    "close_confirmed": true,
+    "qemu": {
+      "sha256": "8a35ccba41582fc6c38b9df85fc9e35fa1d42f414d2d7d8090ee9b2f5e7c0854",
+      "name": "qemu-system-x86",
+      "architecture": "amd64",
+      "version": "1:8.2.2+ds-0ubuntu1.18",
+      "local_integrity_verified": true
+    },
+    "libslirp": {
+      "sha256": "1f71a24af59f3aa76c1e0bcf7852de08c1c21c40524479b9d5df404d903b2280",
+      "name": "libslirp0",
+      "architecture": "amd64",
+      "version": "4.7.0-1ubuntu3.1",
+      "local_integrity_verified": true
+    },
+    "failure": false,
+    "resident_bytes_verified": false,
+    "source_equivalence_verified": false
+  },
+  "packet": {
+    "schema_version": 1,
+    "scope": "runner_ipv6_udp_payload",
+    "status": "inconclusive",
+    "packet_egress_tested": false,
+    "packet": null,
+    "reason": "commitment_missing",
+    "capture_read_cleanup_confirmed": true,
+    "selected_payload_observed": null,
+    "actor_attribution_established": false,
+    "isolation_acceptance": false,
+    "host_prerequisites_verified": false,
+    "receiver_selected_observed": false
+  }
+}

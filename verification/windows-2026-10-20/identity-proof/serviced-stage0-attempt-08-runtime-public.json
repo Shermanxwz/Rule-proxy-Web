@@ -1,0 +1,182 @@
+{
+  "schema_version": 1,
+  "stage": "win11-serviced26200.9711-ordinary-deny-only-stage0",
+  "status": "blocked",
+  "stage0_passed": false,
+  "product_acceptance": false,
+  "privacy_qualified": false,
+  "network_tested": false,
+  "vm_destroyed": true,
+  "iso_sha256": "a61adeab895ef5a4db436e0a7011c92a2ff17bb0357f58b13bbc4062e535e7b9",
+  "actor_sha256": "f76b8239d94422143eff408d1113c9d2d8ed2ef2e9d0a53f71475839aaa36deb",
+  "premedia_free_bytes": 90997501952,
+  "phase_samples": [
+    {
+      "phase": "iso_verified",
+      "filesystem_free_bytes": 83904634880,
+      "qcow_size_bytes": null,
+      "qcow_allocated_bytes": null,
+      "remaining_work_seconds": 9317,
+      "filesystem_sample": "observed",
+      "qcow_sample": "absent"
+    },
+    {
+      "phase": "media_ready",
+      "filesystem_free_bytes": 83888734208,
+      "qcow_size_bytes": 197888,
+      "qcow_allocated_bytes": 200704,
+      "remaining_work_seconds": 9317,
+      "filesystem_sample": "observed",
+      "qcow_sample": "observed"
+    },
+    {
+      "phase": "qemu_started",
+      "filesystem_free_bytes": 83888730112,
+      "qcow_size_bytes": 197888,
+      "qcow_allocated_bytes": 200704,
+      "remaining_work_seconds": 9316,
+      "filesystem_sample": "observed",
+      "qcow_sample": "observed"
+    },
+    {
+      "phase": "guest_beacon",
+      "filesystem_free_bytes": 70758371328,
+      "qcow_size_bytes": 13150650368,
+      "qcow_allocated_bytes": 13130407936,
+      "remaining_work_seconds": 8525,
+      "filesystem_sample": "observed",
+      "qcow_sample": "observed"
+    },
+    {
+      "phase": "installer_reclaimed",
+      "filesystem_free_bytes": 77851185152,
+      "qcow_size_bytes": 13150650368,
+      "qcow_allocated_bytes": 13130407936,
+      "remaining_work_seconds": 8525,
+      "filesystem_sample": "observed",
+      "qcow_sample": "observed"
+    },
+    {
+      "phase": "updates_downloaded",
+      "filesystem_free_bytes": 72542363648,
+      "qcow_size_bytes": 13150650368,
+      "qcow_allocated_bytes": 13130407936,
+      "remaining_work_seconds": 8500,
+      "filesystem_sample": "observed",
+      "qcow_sample": "observed"
+    },
+    {
+      "phase": "update_iso_verified",
+      "filesystem_free_bytes": 67233165312,
+      "qcow_size_bytes": 13150650368,
+      "qcow_allocated_bytes": 13130407936,
+      "remaining_work_seconds": 8479,
+      "filesystem_sample": "observed",
+      "qcow_sample": "observed"
+    },
+    {
+      "phase": "update_sources_removed",
+      "filesystem_free_bytes": 72541986816,
+      "qcow_size_bytes": 13150650368,
+      "qcow_allocated_bytes": 13130407936,
+      "remaining_work_seconds": 8478,
+      "filesystem_sample": "observed",
+      "qcow_sample": "observed"
+    },
+    {
+      "phase": "servicing_admitted",
+      "filesystem_free_bytes": 72541986816,
+      "qcow_size_bytes": 13150650368,
+      "qcow_allocated_bytes": 13130407936,
+      "remaining_work_seconds": 8478,
+      "filesystem_sample": "observed",
+      "qcow_sample": "observed"
+    },
+    {
+      "phase": "cleanup_done",
+      "filesystem_free_bytes": 90996588544,
+      "qcow_size_bytes": null,
+      "qcow_allocated_bytes": null,
+      "remaining_work_seconds": 0,
+      "filesystem_sample": "observed",
+      "qcow_sample": "absent"
+    }
+  ],
+  "launch_free_bytes": 83888730112,
+  "disk_file_ceiling_bytes": 51539607552,
+  "reserve_guard_hard_guarantee": false,
+  "vm_work_seconds_available": 9316,
+  "qmp_diagnostic": {
+    "command": "ringbuf-read",
+    "error_class": "none",
+    "completed": true
+  },
+  "installed_guest_paused": true,
+  "installer_frontend_verified": true,
+  "installer_tray_opened": true,
+  "installer_medium_removed": true,
+  "installer_backend_released": true,
+  "installer_detach_verified": true,
+  "servicing_admission_before_download": {
+    "free_bytes": 77851185152,
+    "qcow_allocated_bytes": 13130407936,
+    "temporary_bytes": 10634401086,
+    "final_addition_bytes": 5325589151,
+    "remaining_qcow_allocation_bound": 38409199616,
+    "projected_floor_bytes": 34116396385
+  },
+  "update_media_members_verified": true,
+  "update_iso_sha256": "13e1bdfca1972f721702657751953f9307d9a998c9833d89e96844cdfcf8400d",
+  "update_iso_bytes": 5309188096,
+  "update_source_files_removed": true,
+  "servicing_admission_before_attach": {
+    "free_bytes": 72541986816,
+    "qcow_allocated_bytes": 13130407936,
+    "temporary_bytes": 0,
+    "final_addition_bytes": 0,
+    "remaining_qcow_allocation_bound": 38409199616,
+    "projected_floor_bytes": 34132787200
+  },
+  "update_frontend_verified": true,
+  "update_medium_changed": true,
+  "update_media_attached_readonly": true,
+  "installed_guest_resumed": true,
+  "host_failure": {
+    "type": "unclassified",
+    "errno": null,
+    "winerror": null,
+    "operation": "guest_wait"
+  },
+  "result_transport_state": "not_observed",
+  "teardown_diagnostic": {
+    "schema_version": 1,
+    "qemu_present": true,
+    "tpm_present": true,
+    "qemu_exit_before_cleanup": null,
+    "tpm_exit_before_cleanup": null,
+    "qemu_exit_after_cleanup": -9,
+    "tpm_exit_after_cleanup": -9,
+    "qemu_exit_confirmed": true,
+    "tpm_exit_confirmed": true,
+    "helper_count": 5,
+    "helper_exit_confirmed_count": 5,
+    "qmp_present": true,
+    "qmp_close_succeeded": true,
+    "qmp_file_closed": true,
+    "qmp_socket_closed": true,
+    "server_present": true,
+    "server_shutdown_succeeded": true,
+    "server_close_succeeded": true,
+    "server_thread_stopped": true,
+    "watcher_present": true,
+    "watcher_stopped": true,
+    "work_remove_attempted": true,
+    "work_removed": true,
+    "work_retained": false,
+    "first_failed_stage": null,
+    "error_count": 0,
+    "errors": []
+  },
+  "minimum_free_bytes": 55459676160,
+  "last_phase": "stock_guest_installation"
+}

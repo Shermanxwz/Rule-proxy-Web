@@ -1,0 +1,595 @@
+{
+  "actual_archive_index": {
+    "bytes": 3535,
+    "path": "verification/windows-2026-10-22/registry-read-loopback-local-01-evidence-index.json",
+    "sha256": "9be08b4be7c9adaa83a4530391fbbd315f5298ceaef28d7caeee1e5a150f49ec"
+  },
+  "actual_network_not_rerun_by_publication": true,
+  "actual_source_commit": "d309ae322cca84360923d6bc51013057991a4218",
+  "actual_source_sha256": "069d9f2702e235f03603d11b5962f320fe0f077cd81ccfabafefd48cbd11dfb6",
+  "ci_summary": {
+    "bytes": 3078,
+    "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/ci-summary.json",
+    "sha256": "d90d520f61bc5488a3d3202912db9891ea50c219151d352cd1849609c1ca8606"
+  },
+  "compile_pure_CI_not_runtime_evidence": true,
+  "files": [
+    {
+      "byte_exact_copy": false,
+      "original": {
+        "bytes": 244299,
+        "sha256": "01f59dcbefc89b30b5b0e0aa4569c03847149bf271ca0143b2df366caad67a33"
+      },
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/ci-registry-read-loopback-39899744500-full.txt",
+      "public_view": {
+        "bytes": 242908,
+        "sha256": "bcac2940ba96acaac7df7f909186296a71d3ce1ea1a5ef6f59faf412ac0556fb"
+      },
+      "source": "ci-registry-read-loopback-39899744500-full.txt",
+      "transformations": [
+        {
+          "count": 1,
+          "kind": "utf8_bom_removed"
+        },
+        {
+          "count": 9,
+          "kind": "hosted_workspace_prefix_redacted"
+        },
+        {
+          "count": 1244,
+          "kind": "line_endings_normalized_to_lf"
+        }
+      ]
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 3951,
+        "sha256": "c65d5a7dad7d5af47d55d573e8bc10613cbfc527461db423156bcfa41180da37"
+      },
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/ci-registry-read-loopback-39899744500-jobs-metadata.json",
+      "public_view": {
+        "bytes": 3951,
+        "sha256": "c65d5a7dad7d5af47d55d573e8bc10613cbfc527461db423156bcfa41180da37"
+      },
+      "source": "ci-registry-read-loopback-39899744500-jobs-metadata.json",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 12726,
+        "sha256": "253ec718161c360880e93665d8d0a3cf02b320b757d289488260918c69e8729f"
+      },
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/ci-registry-read-loopback-39899744500-runs-metadata.json",
+      "public_view": {
+        "bytes": 12726,
+        "sha256": "253ec718161c360880e93665d8d0a3cf02b320b757d289488260918c69e8729f"
+      },
+      "source": "ci-registry-read-loopback-39899744500-runs-metadata.json",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 4491,
+        "sha256": "7b2942ed3617be8e76f3bfd0cd9fec31fcb97ca93faefb86f69ea42535f22252"
+      },
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/compile_registry_read_loopback_01.ps1",
+      "public_view": {
+        "bytes": 4491,
+        "sha256": "7b2942ed3617be8e76f3bfd0cd9fec31fcb97ca93faefb86f69ea42535f22252"
+      },
+      "source": "compile_registry_read_loopback_01.ps1",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 4988,
+        "sha256": "485b023e693ac77a7e8f5ba759ba378633fb61f16934722f8bdc8dbd2535adca"
+      },
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/lpac-registry-read-winsock-research-01.json",
+      "public_view": {
+        "bytes": 4988,
+        "sha256": "485b023e693ac77a7e8f5ba759ba378633fb61f16934722f8bdc8dbd2535adca"
+      },
+      "source": "lpac-registry-read-winsock-research-01.json",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 5246,
+        "sha256": "51891fedf622656f1d4b02a94d26cdcfb5e9bb4639dbafb22255a86ece1df9f6"
+      },
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/lpac-socket-primary-research-findings-01.json",
+      "public_view": {
+        "bytes": 5246,
+        "sha256": "51891fedf622656f1d4b02a94d26cdcfb5e9bb4639dbafb22255a86ece1df9f6"
+      },
+      "source": "lpac-socket-primary-research-findings-01.json",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 6750,
+        "sha256": "9eb79763bd9ed926b3a6782a9efa37b028ccb516dd5a92c63ca2b246f292f6ad"
+      },
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/lpac-socket-primary-research-source-index-01.json",
+      "public_view": {
+        "bytes": 6750,
+        "sha256": "9eb79763bd9ed926b3a6782a9efa37b028ccb516dd5a92c63ca2b246f292f6ad"
+      },
+      "source": "lpac-socket-primary-research-source-index-01.json",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 2627,
+        "sha256": "5ba88644aeb2fb21b3677db9281e52dde1c9a8d0e84ab331b39c3c7abdf7056a"
+      },
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/lpac-winsock-primary-sources-01.json",
+      "public_view": {
+        "bytes": 2627,
+        "sha256": "5ba88644aeb2fb21b3677db9281e52dde1c9a8d0e84ab331b39c3c7abdf7056a"
+      },
+      "source": "lpac-winsock-primary-sources-01.json",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 8787,
+        "sha256": "1b45237c45b6109e2841cae1368b3e248df1b6836be13e17c8afbfc472775ba4"
+      },
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/lpac_brokered_transport_feasibility_01.json",
+      "public_view": {
+        "bytes": 8787,
+        "sha256": "1b45237c45b6109e2841cae1368b3e248df1b6836be13e17c8afbfc472775ba4"
+      },
+      "source": "lpac_brokered_transport_feasibility_01.json",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 42527,
+        "sha256": "7b1606aa434d5da2d78836dce65541b566e41571efc63539bfe44b7c43332e5f"
+      },
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/registry-read-loopback-actual-01-independent-review.json",
+      "public_view": {
+        "bytes": 42527,
+        "sha256": "7b1606aa434d5da2d78836dce65541b566e41571efc63539bfe44b7c43332e5f"
+      },
+      "source": "registry-read-loopback-actual-01-independent-review.json",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 1186,
+        "sha256": "1b0cfe138b4cc1beeea73ec20290f8e061a76e6566532419623507bc8ff36612"
+      },
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/registry-read-loopback-actual-reader-freeze-01.json",
+      "public_view": {
+        "bytes": 1186,
+        "sha256": "1b0cfe138b4cc1beeea73ec20290f8e061a76e6566532419623507bc8ff36612"
+      },
+      "source": "registry-read-loopback-actual-reader-freeze-01.json",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 1839,
+        "sha256": "b289ffe32fb1108cf14591d772fe5c9302c58e87961fd2cfcea332f90da29df1"
+      },
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/registry-read-loopback-archive-freeze-01.json",
+      "public_view": {
+        "bytes": 1839,
+        "sha256": "b289ffe32fb1108cf14591d772fe5c9302c58e87961fd2cfcea332f90da29df1"
+      },
+      "source": "registry-read-loopback-archive-freeze-01.json",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 9632,
+        "sha256": "ce24bade27c5369b8da0ecea18246a3f4d8873e4323f27c35aad9efbaa04d046"
+      },
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/registry-read-loopback-compile-independent-review-01.json",
+      "public_view": {
+        "bytes": 9632,
+        "sha256": "ce24bade27c5369b8da0ecea18246a3f4d8873e4323f27c35aad9efbaa04d046"
+      },
+      "source": "registry-read-loopback-compile-independent-review-01.json",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 1635,
+        "sha256": "6a0dbcf069ab6b435b5a42d1c312bfac6f29707bcdf720fb6247d2b965727255"
+      },
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/registry-read-loopback-compile-static-review-01.json",
+      "public_view": {
+        "bytes": 1635,
+        "sha256": "6a0dbcf069ab6b435b5a42d1c312bfac6f29707bcdf720fb6247d2b965727255"
+      },
+      "source": "registry-read-loopback-compile-static-review-01.json",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 2089,
+        "sha256": "8a00b259825f81e5c249da5d8d314c83d707b0763a85632c68cb0fca1a76669e"
+      },
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/registry-read-loopback-driver-independent-review-01.json",
+      "public_view": {
+        "bytes": 2089,
+        "sha256": "8a00b259825f81e5c249da5d8d314c83d707b0763a85632c68cb0fca1a76669e"
+      },
+      "source": "registry-read-loopback-driver-independent-review-01.json",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 2698,
+        "sha256": "57793812a9512a88f32bbae6d13b065e803f5ab63d61a693bda0af948744b4aa"
+      },
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/registry-read-loopback-integrated-pure-01.json",
+      "public_view": {
+        "bytes": 2698,
+        "sha256": "57793812a9512a88f32bbae6d13b065e803f5ab63d61a693bda0af948744b4aa"
+      },
+      "source": "registry-read-loopback-integrated-pure-01.json",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": false,
+      "original": {
+        "bytes": 193801,
+        "sha256": "c4d6754d7be8bf0ff6e50bd684ab03d69f4b1028f005edcb7ded83243f481ed3"
+      },
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/registry-read-loopback-main-pure-01.log",
+      "public_view": {
+        "bytes": 192767,
+        "sha256": "9dd723569edac168870f526ad1dd8b59dcc8a427f137f1658d0f59ba5475cb30"
+      },
+      "source": "registry-read-loopback-main-pure-01.log",
+      "transformations": [
+        {
+          "count": 1034,
+          "kind": "line_endings_normalized_to_lf"
+        }
+      ]
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 13724,
+        "sha256": "7194cfce1637ed778b67999e81cd2ea08e8af3097f8b6d94ae91029287247dea"
+      },
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/registry-read-loopback-native-abi-01.json",
+      "public_view": {
+        "bytes": 13724,
+        "sha256": "7194cfce1637ed778b67999e81cd2ea08e8af3097f8b6d94ae91029287247dea"
+      },
+      "source": "registry-read-loopback-native-abi-01.json",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 46980,
+        "sha256": "4564ae694b86df91789fb0c5c0a31b20bb5569fe959a3df43dcfc8c5c756d0e2"
+      },
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/registry-read-loopback-native-candidate-01.patch",
+      "public_view": {
+        "bytes": 46980,
+        "sha256": "4564ae694b86df91789fb0c5c0a31b20bb5569fe959a3df43dcfc8c5c756d0e2"
+      },
+      "source": "registry-read-loopback-native-candidate-01.patch",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 5447,
+        "sha256": "456f5c83ba8c35d9af31cedbb63c8be248ca4bab15dbce288287511580d5e5ce"
+      },
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/registry-read-loopback-native-freeze-01.json",
+      "public_view": {
+        "bytes": 5447,
+        "sha256": "456f5c83ba8c35d9af31cedbb63c8be248ca4bab15dbce288287511580d5e5ce"
+      },
+      "source": "registry-read-loopback-native-freeze-01.json",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": false,
+      "original": {
+        "bytes": 839,
+        "sha256": "f3099bde5bc8e23135b96753e6fb288e59cf8aac21619265d8ce4b64a05b75c4"
+      },
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/registry-read-loopback-native-pure-01.log",
+      "public_view": {
+        "bytes": 831,
+        "sha256": "670a0571b11c8c0a11fb5e6d1e94b48cc70b03fe54e4d9d1bcd355f175b2da0d"
+      },
+      "source": "registry-read-loopback-native-pure-01.log",
+      "transformations": [
+        {
+          "count": 8,
+          "kind": "line_endings_normalized_to_lf"
+        }
+      ]
+    },
+    {
+      "byte_exact_copy": false,
+      "original": {
+        "bytes": 839,
+        "sha256": "7f7486f93af8949e3cd50e30e341355c79e53d28b53188495b8a492c0a1ef55a"
+      },
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/registry-read-loopback-native-pure-02.log",
+      "public_view": {
+        "bytes": 831,
+        "sha256": "5741845f59a074860d7b024d23acda1ebf23035bfee4743b6ba8ffad5109ccd8"
+      },
+      "source": "registry-read-loopback-native-pure-02.log",
+      "transformations": [
+        {
+          "count": 8,
+          "kind": "line_endings_normalized_to_lf"
+        }
+      ]
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 1684,
+        "sha256": "ef4f9bca356b89dd659c87ae9ee289b100e9dbc349d36e35e61cb06a6e460e10"
+      },
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/registry-read-loopback-native-semantic-review-diff-01.json",
+      "public_view": {
+        "bytes": 1684,
+        "sha256": "ef4f9bca356b89dd659c87ae9ee289b100e9dbc349d36e35e61cb06a6e460e10"
+      },
+      "source": "registry-read-loopback-native-semantic-review-diff-01.json",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 3888,
+        "sha256": "be8c61a8ab0d552d4f4eabe2e78a05e8b976fab0d93c53dbb7f9c1ad2732022d"
+      },
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/registry-read-loopback-native-semantic-review-diff-01.txt",
+      "public_view": {
+        "bytes": 3888,
+        "sha256": "be8c61a8ab0d552d4f4eabe2e78a05e8b976fab0d93c53dbb7f9c1ad2732022d"
+      },
+      "source": "registry-read-loopback-native-semantic-review-diff-01.txt",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 3171,
+        "sha256": "a89d8a9c2d00d805dd2207292c545fc70e13e13a56cfd45629c6cdca54a0af0c"
+      },
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/registry-read-loopback-native-source-independent-review-01.json",
+      "public_view": {
+        "bytes": 3171,
+        "sha256": "a89d8a9c2d00d805dd2207292c545fc70e13e13a56cfd45629c6cdca54a0af0c"
+      },
+      "source": "registry-read-loopback-native-source-independent-review-01.json",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 168951,
+        "sha256": "bc51a475c396a968c7a1f68511c7f07d31e33bf1f664bc67757f64f76366f01d"
+      },
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/registry-read-loopback-python-candidate-01.patch",
+      "public_view": {
+        "bytes": 168951,
+        "sha256": "bc51a475c396a968c7a1f68511c7f07d31e33bf1f664bc67757f64f76366f01d"
+      },
+      "source": "registry-read-loopback-python-candidate-01.patch",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 168362,
+        "sha256": "a2e9de0572f8cb153b2cfbeee429de1127bbc4adc5bce7a1ac7e25f6ed88259f"
+      },
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/registry-read-loopback-python-candidate-02.patch",
+      "public_view": {
+        "bytes": 168362,
+        "sha256": "a2e9de0572f8cb153b2cfbeee429de1127bbc4adc5bce7a1ac7e25f6ed88259f"
+      },
+      "source": "registry-read-loopback-python-candidate-02.patch",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 2142,
+        "sha256": "cbccace09f155ea1bfc27edcc8a6b10f75d337b9a20937b9cbe15ab2159545de"
+      },
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/registry-read-loopback-python-candidate-abi-01.json",
+      "public_view": {
+        "bytes": 2142,
+        "sha256": "cbccace09f155ea1bfc27edcc8a6b10f75d337b9a20937b9cbe15ab2159545de"
+      },
+      "source": "registry-read-loopback-python-candidate-abi-01.json",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 12413,
+        "sha256": "659081e58c0f450937f76831dda62ce7fbec1c7cacadb152ef9bd6782771b61c"
+      },
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/registry-read-loopback-python-candidate-freeze-01.json",
+      "public_view": {
+        "bytes": 12413,
+        "sha256": "659081e58c0f450937f76831dda62ce7fbec1c7cacadb152ef9bd6782771b61c"
+      },
+      "source": "registry-read-loopback-python-candidate-freeze-01.json",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 13456,
+        "sha256": "48f4f10b020b78754511e1ba6c0db8dca59f5257aab6ce5e78288f391be46bac"
+      },
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/registry-read-loopback-python-candidate-freeze-02.json",
+      "public_view": {
+        "bytes": 13456,
+        "sha256": "48f4f10b020b78754511e1ba6c0db8dca59f5257aab6ce5e78288f391be46bac"
+      },
+      "source": "registry-read-loopback-python-candidate-freeze-02.json",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 1264,
+        "sha256": "bc84b93ad2178b6bfb50933e7d4fc252ed99b179a2ed1ffdf7b5dde117cd8215"
+      },
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/registry-read-loopback-python-independent-pure-01.log",
+      "public_view": {
+        "bytes": 1264,
+        "sha256": "bc84b93ad2178b6bfb50933e7d4fc252ed99b179a2ed1ffdf7b5dde117cd8215"
+      },
+      "source": "registry-read-loopback-python-independent-pure-01.log",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 3307,
+        "sha256": "f30d26aefa40a09587c3788cb1026cf77668309edec87c04a891c4b025f93df7"
+      },
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/registry-read-loopback-python-independent-review-01.json",
+      "public_view": {
+        "bytes": 3307,
+        "sha256": "f30d26aefa40a09587c3788cb1026cf77668309edec87c04a891c4b025f93df7"
+      },
+      "source": "registry-read-loopback-python-independent-review-01.json",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": false,
+      "original": {
+        "bytes": 6789,
+        "sha256": "cb59c4ee6a72da2e33b27e564bb6e4ddc264d62315446fc0f0816e1f364f18ae"
+      },
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/registry-read-loopback-python-pure-01.log",
+      "public_view": {
+        "bytes": 6751,
+        "sha256": "6917d473d1b256198ed078f3bbc57c8052fd772f03c4c7f019246d09b2869f40"
+      },
+      "source": "registry-read-loopback-python-pure-01.log",
+      "transformations": [
+        {
+          "count": 38,
+          "kind": "line_endings_normalized_to_lf"
+        }
+      ]
+    },
+    {
+      "byte_exact_copy": false,
+      "original": {
+        "bytes": 7002,
+        "sha256": "40d836c4f5d422da5c86eec9587410ef457ffdfb20da9cb55c49013d06e83de8"
+      },
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/registry-read-loopback-python-pure-02.log",
+      "public_view": {
+        "bytes": 6963,
+        "sha256": "ccff5119ca9bee28d0878767d2324001125a046a98c37c37edf23b6f8ac5db4a"
+      },
+      "source": "registry-read-loopback-python-pure-02.log",
+      "transformations": [
+        {
+          "count": 39,
+          "kind": "line_endings_normalized_to_lf"
+        }
+      ]
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 2603,
+        "sha256": "306e5320482d1f04675711f97ed5f88c504b9098394f7249003e0212f1bddb2e"
+      },
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/registry-read-loopback-ready-only-independent-review-02.json",
+      "public_view": {
+        "bytes": 2603,
+        "sha256": "306e5320482d1f04675711f97ed5f88c504b9098394f7249003e0212f1bddb2e"
+      },
+      "source": "registry-read-loopback-ready-only-independent-review-02.json",
+      "transformations": []
+    },
+    {
+      "byte_exact_copy": true,
+      "original": {
+        "bytes": 23173,
+        "sha256": "d1e69c3d4fb11be49f2998ec250f749528307e46210240e3f4cac533c14591e2"
+      },
+      "path": "verification/windows-2026-10-22/registry-read-loopback-source-review-01/verify_registry_read_loopback_actual_01.py",
+      "public_view": {
+        "bytes": 23173,
+        "sha256": "d1e69c3d4fb11be49f2998ec250f749528307e46210240e3f4cac533c14591e2"
+      },
+      "source": "verify_registry_read_loopback_actual_01.py",
+      "transformations": []
+    }
+  ],
+  "non_runtime_compile_history": [
+    {
+      "observed_evidence": "The unused root input JSON physically exists and differs from the actual helper snapshot. The preparer uses exclusive creation and could stop at the already-existing helper.",
+      "raw_failure_log_available": false,
+      "root_report": "FileExistsError at helper xb after extra unused input JSON; no compile from that failed preparer; actual existing helper subsequently executed.",
+      "script": {
+        "bytes": 1987,
+        "path": "prepare_registry_read_native_compile_01.py",
+        "sha256": "6e34b0dd1319542b2a69111d73e925b2be8ece480a2e7ca8f5fbeb1121715933"
+      },
+      "stage": "root-preparation"
+    },
+    {
+      "exact_change": "utf8-sig to utf-8-sig only",
+      "fresh_reader": {
+        "bytes": 4341,
+        "path": "inspect_registry_read_loopback_compile_01_reader02.py",
+        "sha256": "48f18f71e01a4898c330d7370c95f61c3eb27d98a6f5e8dcf1929e29563905cb"
+      },
+      "original": {
+        "bytes": 4340,
+        "path": "inspect_registry_read_loopback_compile_01.py",
+        "sha256": "5cf84fe936ce7e0a63ca38d09de8b65186746948944b62c866c23d66785fbb81"
+      },
+      "raw_failure_log_available": false,
+      "root_report": "LookupError before receipt; fresh file-only reader02 succeeded; no recompilation.",
+      "stage": "root-static-reader-01"
+    }
+  ],
+  "originals_retained_in_work": true,
+  "profile": "same-sid-registry-read-lpac-loopback-mechanism-v1",
+  "schema_version": 1,
+  "scope": "one-local-registry-read-same-sid-loopback-v1",
+  "stage": "registry-read-loopback01-source-review-index",
+  "unavailable_raw_fail_logs_not_invented": true
+}

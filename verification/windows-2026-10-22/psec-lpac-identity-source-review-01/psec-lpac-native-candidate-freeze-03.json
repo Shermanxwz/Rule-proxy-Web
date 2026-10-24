@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "stage": "cpse-lpac-native-candidate-freeze",
+  "actual_ready": false,
+  "native_calls_executed": false,
+  "dll_loaded": false,
+  "runtime_acceptance": false,
+  "files": {
+    ".github/native/windows_psec_lpac_bridge.hpp": "9417a1a377464eb5f96aeb899f6defaee5d4089809888e2209c99f8ad32b2076",
+    ".github/native/windows_psec_lpac_bridge_core.hpp": "7d68fb7c6553137cbd01a4003199d96fa926ba106d605b1935a79aac1f6f5e66",
+    ".github/native/windows_psec_lpac_bridge.cpp": "06969090ece3d5a74b7400f9808ebd60ee9234a7eed7a852c09abaf9942cf8ab",
+    "vendor/windows-sdk/ProcessSecurityEnvironment.fbs": "736cacef37a6c97a0cb97c7132da462a3b51811fca8f1e4076cac51085dfa516",
+    ".github/native/windows_psec_lpac_bridge_spec.hpp": "44eff1d580c79f1bffa081b2a35e9b29cdbd1e077339508a91fa33e9353b1991",
+    "generated/ProcessSecurityEnvironment_generated.h": "8bc22a17bf176be93817d8bda13058d7077386b72775643150a8f1a3e233eaae",
+    "tests/test_windows_identity_psec_lpac_bridge_native.py": "00484528e346f6bcd325ced6d1776f3bcd8fb88be2f3613fe12c0926978fb388"
+  },
+  "pure_tests": {
+    "run": 3,
+    "passed": 3,
+    "skipped": 0,
+    "duration_seconds": 2.18,
+    "compiled_portable_assertions": 327,
+    "log": "work/psec-lpac-bridge-native-pure-03.log",
+    "log_sha256": "11b48626ab80b883979799b4ea85a30be741566fe61a3c895d4a2d87197f98f5",
+    "cross_language_checks": 4,
+    "original_python_spec_bytes": 176,
+    "original_python_spec_sha256": "e045bdf6c5982de81f5ac34aea49a33ca64e81abb3fa01752aca078caa385992"
+  },
+  "abi": "work/psec-lpac-identity-bridge-abi-01.json",
+  "abi_sha256": "2b06f2815d36d5a3488903612985103771dc7e668efc250e0ebe91d79d22e70e",
+  "builder_generator": [
+    "flatc25.12.19",
+    "--cpp"
+  ],
+  "unimplemented": [
+    "Real owner/guard integration remains independent work-only WIP",
+    "No actual environment create/arm/close has run",
+    "Cross-process unknown opaque environment recovery has no supported reopen API; cannot claim absence"
+  ],
+  "supersedes": "work/psec-lpac-native-candidate-freeze-02.json",
+  "promotion_note": "Only native pure test changes: adds original Python-built spec bytes into compiled production C++ verifier; six DLL compilation sources unchanged.",
+  "test_dependencies": {
+    ".github/windows_identity_psec_spec.py": "c35dcb755a3e01faafd6888d4de846fbf8c4fea108e0a2fc30b6a837ecfdf7c5"
+  }
+}

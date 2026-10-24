@@ -1,0 +1,23 @@
+{
+  "baseline_runner_dependency": "verification/windows-2026-10-22/model2-first-02-04-runners/c_local_baseline.ps1",
+  "files": [
+    {
+      "bytes": 1014,
+      "path": "verification/windows-2026-10-22/model2-raw-dns-after02-capture.ps1",
+      "sha256": "488eefea61eac897000fa044c288b12025a0296560e5714688740b0939db893b"
+    },
+    {
+      "bytes": 2000,
+      "path": "verification/windows-2026-10-22/model2-raw-dns-after02-expanded.ps1",
+      "sha256": "8c0f810ba7944095bc511a5e50f63a730a2846985b3061529c2ebfbceb9e3fa6"
+    },
+    {
+      "bytes": 851,
+      "path": "verification/windows-2026-10-22/model2-raw-dns-after02-global-projection.json",
+      "sha256": "591e4f67cdc6e7b03bfa1f5bf9c3aa6be28dcf6516e9c846e0bdc91f1583b159"
+    }
+  ],
+  "schema_version": 1,
+  "source_commit": "962231bf9b07f2fb109d5e6343e3b7c5cea2397c",
+  "stage": "model2-raw-dns-after02-global-evidence-index"
+}

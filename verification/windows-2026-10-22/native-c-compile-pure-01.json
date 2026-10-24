@@ -1,0 +1,124 @@
+{
+  "schema_version": 1,
+  "stage": "native-c-identity-barrier-http-compile-and-pure",
+  "date": "2026-10-22",
+  "sources": [
+    {
+      "path": ".github/native/windows_identity_proxy_c_actor.cpp",
+      "bytes": 36889,
+      "sha256": "4d8aa016029187da3cc78b1736de45c7092dca5c08ac7f5e48de95e0a5480e29"
+    },
+    {
+      "path": ".github/native/windows_identity_proxy_c_contract.hpp",
+      "bytes": 2731,
+      "sha256": "a0b524c3f8c46e41ef73d64eba88831c77ec5ae2c099004a63b3d8a6b0407a19"
+    },
+    {
+      "path": ".github/native/windows_identity_proxy_origin_actor.cpp",
+      "bytes": 25762,
+      "sha256": "3d079e77e387ba77545c27f5b5c260f591657ef3a44384426cd2039fa8c04010"
+    },
+    {
+      "path": ".github/native/windows_identity_proxy_origin_transport.hpp",
+      "bytes": 6338,
+      "sha256": "bed113e5e20064722cbb2c6d3e71b4d3ca6c4769ebd694c86997abec0af661c4"
+    },
+    {
+      "path": ".github/native/windows_identity_proxy_pipe_actor.cpp",
+      "bytes": 16095,
+      "sha256": "26636a6b9979e91452cf6e7d2049d6fbbfa43639a35708ee18d4a71e67fb8dd0"
+    },
+    {
+      "path": ".github/native/windows_identity_proxy_bridge_core.hpp",
+      "bytes": 16902,
+      "sha256": "f03e45166265f02a65abc12930efd73634a332596d22aa78cadc1267a80b6356"
+    },
+    {
+      "path": ".github/native/windows_identity_actor.cpp",
+      "bytes": 31002,
+      "sha256": "530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553"
+    },
+    {
+      "path": ".github/build_windows_identity_proxy_c_actor.ps1",
+      "bytes": 4090,
+      "sha256": "7645ce78b0b41e74d3d8435fdef866e9b11b42ce002b4bdd2f4c3da4c9e4fba8"
+    },
+    {
+      "path": "tests/test_windows_identity_proxy_c_native.py",
+      "bytes": 8018,
+      "sha256": "48a8ab7a8bba8392dd19979ffd12c9fc1086ee213a63fee9aa4df0ea013d9cab"
+    }
+  ],
+  "compile": {
+    "compiler": "MSVC 19.44.35229.0",
+    "windows_sdk": "10.0.26100.0",
+    "architecture": "x64",
+    "subsystem": "windows",
+    "warnings_as_errors": true,
+    "compile_only": true,
+    "artifact_sha256": "b5fda518d9b621ecf86899eff5aa2a1f33f1c313305542fcde26832ac0065be7",
+    "artifact_bytes": 320000,
+    "manifest_sha256": "62f66d02d1ec1712d96c9b3e56c4ca05e5353ce6e800853abb81ed92badf3780",
+    "manifest": {
+      "schemaVersion": 1,
+      "compileOnly": true,
+      "runtimeAcceptance": false,
+      "actorSourceSha256": "4d8aa016029187da3cc78b1736de45c7092dca5c08ac7f5e48de95e0a5480e29",
+      "originActorSha256": "3d079e77e387ba77545c27f5b5c260f591657ef3a44384426cd2039fa8c04010",
+      "identitySourceSha256": "530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553",
+      "coreSha256": "f03e45166265f02a65abc12930efd73634a332596d22aa78cadc1267a80b6356",
+      "pipeHelperSha256": "26636a6b9979e91452cf6e7d2049d6fbbfa43639a35708ee18d4a71e67fb8dd0",
+      "originTransportSha256": "bed113e5e20064722cbb2c6d3e71b4d3ca6c4769ebd694c86997abec0af661c4",
+      "liveContractSha256": "a0b524c3f8c46e41ef73d64eba88831c77ec5ae2c099004a63b3d8a6b0407a19",
+      "executableSha256": "b5fda518d9b621ecf86899eff5aa2a1f33f1c313305542fcde26832ac0065be7"
+    },
+    "native_actor_executed": false
+  },
+  "pure": {
+    "command": "python -m unittest tests.test_windows_identity_proxy_c_native tests.test_windows_identity_proxy_origin_native -v",
+    "tests_run": 8,
+    "c_tests": 4,
+    "b_regression_tests": 4,
+    "failures": 0,
+    "errors": 0,
+    "skips": 0,
+    "successful": true,
+    "c_compiled_fake_scenarios": 1358,
+    "b_compiled_fake_scenarios": 390,
+    "elapsed_seconds": 1.453,
+    "source_unchanged_during_run": true,
+    "actor_executed": false,
+    "winsock_or_security_calls_in_fake_harness": false
+  },
+  "history": [
+    {
+      "attempt": "compile-01",
+      "outcome": "failed",
+      "reason": "MSVC-C4244-wchar-to-char-profile-conversion-under-WX"
+    },
+    {
+      "attempt": "compile-02",
+      "outcome": "compile-only-passed",
+      "artifact_sha256": "47c96114b710b65998b348cb8a94796cfe9aea19c791af5071dc4e3b55c6e7fc",
+      "superseded_by": "identity-only-network-gate-and-fresh-phase-case-and-final-QPC-sampling"
+    },
+    {
+      "attempt": "compile-03",
+      "outcome": "compile-only-passed",
+      "current": true
+    }
+  ],
+  "scope": {
+    "default_a_changed": false,
+    "frozen_b_source_changed": false,
+    "real_actor_network_executed": false,
+    "profile_or_acl_or_network_rule_changed": false,
+    "native_first_chain_runtime_qualified": false,
+    "wrong_peer_or_port_runtime_qualified": false,
+    "active_relay_death_runtime_qualified": false,
+    "winhttp_application_adaptation_tested": false,
+    "network_tested": false,
+    "proxy_tested": false,
+    "product_acceptance": false
+  }
+}

@@ -1,0 +1,176 @@
+{
+  "schema_version": 1,
+  "stage": "model2-diagnostic-runtime-summary",
+  "attempt": 1,
+  "date": "2026-10-23",
+  "execution_mode": "profiles-off-diagnostic",
+  "source_commit": "1a48fa7ba0a3b48bf48eeebe7db365c5fa998e63",
+  "source_closure_sha256": "495f6abe9013441e1b2d792c4d9d9f30e41c2f15a5aea808f6734e58625f2793",
+  "public_sha256": "8d51eee0da84f5d45018a9dea920937a875f72fdc86fbd483263ed974c8170a0",
+  "public_bytes": 2457,
+  "preflight_sha256": "37a4ab40d133b1d1d1dad97def24f3d190948eedaf09fc2d4dd362808b76787e",
+  "runner_sha256": "a41b9f88be5f2e124d080217a384f66e3156069b17d1b518741c40804691b925",
+  "runner_bytes": 2742,
+  "runner_byte_identical_to_workspace": true,
+  "ownership_journal_sha256": "d19298fc8cdb1b32a047a25b6fa475ea751755322a34d12c3b2f1c290f28db56",
+  "status": "inconclusive",
+  "outer_failure": "worker",
+  "controller_failure": "selected",
+  "failure_detail": "native_exited_without_report",
+  "exact_rule_scope_verified": true,
+  "profiles_off_verified": true,
+  "effective_full_verified": false,
+  "live_probe_passed": true,
+  "g_probe_exit_code": 0,
+  "g_live_launched": true,
+  "g_live_exit_code": 1,
+  "selected_ready_observed": false,
+  "selected_phase_report_count": 0,
+  "selected_final_report_observed": false,
+  "selected_go_count": 0,
+  "selected_process_creation_independently_established": false,
+  "selected_identity_admitted": false,
+  "selected_capabilities_admitted": false,
+  "ordinary_health_go_count": 1,
+  "task_exit_codes": [
+    {
+      "role": "origin",
+      "exited": true,
+      "exit_code": 1
+    },
+    {
+      "role": "health",
+      "exited": true,
+      "exit_code": 1
+    },
+    {
+      "role": "acl-root",
+      "exited": true,
+      "exit_code": 0
+    },
+    {
+      "role": "acl-inputs",
+      "exited": true,
+      "exit_code": 0
+    },
+    {
+      "role": "acl-front",
+      "exited": true,
+      "exit_code": 0
+    },
+    {
+      "role": "front",
+      "exited": true,
+      "exit_code": 1
+    },
+    {
+      "role": "relay",
+      "exited": true,
+      "exit_code": 1
+    },
+    {
+      "role": "g-probe",
+      "exited": true,
+      "exit_code": 0
+    },
+    {
+      "role": "g-live",
+      "exited": true,
+      "exit_code": 1
+    },
+    {
+      "role": "acl-remove",
+      "exited": true,
+      "exit_code": 0
+    }
+  ],
+  "waiting_workload_exit_code_caveat": "Cleanup may terminate waiting fixtures; their exit code alone does not identify a separate native API failure",
+  "maintenance": {
+    "admitted": true,
+    "exited": true,
+    "exit_code": 0,
+    "spawn_unknown": false,
+    "operations": [
+      {
+        "sequence": 2,
+        "operation": "read-persistent",
+        "child_exit_code": 0,
+        "failure": null,
+        "operation_success": true,
+        "profiles_off_verified": false,
+        "effective_full_verified": false
+      },
+      {
+        "sequence": 3,
+        "operation": "read-active",
+        "child_exit_code": 0,
+        "failure": null,
+        "operation_success": true,
+        "profiles_off_verified": false,
+        "effective_full_verified": false
+      },
+      {
+        "sequence": 4,
+        "operation": "create",
+        "child_exit_code": 0,
+        "failure": null,
+        "operation_success": true,
+        "profiles_off_verified": true,
+        "effective_full_verified": false
+      },
+      {
+        "sequence": 5,
+        "operation": "read-persistent",
+        "child_exit_code": 0,
+        "failure": null,
+        "operation_success": true,
+        "profiles_off_verified": false,
+        "effective_full_verified": false
+      },
+      {
+        "sequence": 6,
+        "operation": "read-active",
+        "child_exit_code": 0,
+        "failure": null,
+        "operation_success": true,
+        "profiles_off_verified": false,
+        "effective_full_verified": false
+      },
+      {
+        "sequence": 7,
+        "operation": "remove",
+        "child_exit_code": 0,
+        "failure": null,
+        "operation_success": true,
+        "profiles_off_verified": false,
+        "effective_full_verified": false
+      }
+    ]
+  },
+  "cleanup": {
+    "acl_removed": true,
+    "all_workloads_exited": true,
+    "cleanup": true,
+    "maintenance_cleanup_confirmed": true,
+    "maintenance_handles_closed": true,
+    "profile_deleted": true,
+    "sid_released": true,
+    "workload_cleanup_confirmed": true,
+    "workload_job_empty": true
+  },
+  "outer_cleanup_verified": true,
+  "recovery_required": false,
+  "private_tree_retained": true,
+  "owned_rule_absent_verified": true,
+  "historical_rule_uncertain": false,
+  "selected_network_attempted": false,
+  "proxy_positive_verified": false,
+  "direct_attempted": false,
+  "direct_deny_verified": false,
+  "diagnostic_completed": false,
+  "first_chain_verified": false,
+  "local_c_qualified": false,
+  "network_isolation_tested": false,
+  "product_acceptance": false,
+  "archive_scope": "read-and-copy-only; no actor, diagnostic or recovery executed during this archival task"
+}

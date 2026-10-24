@@ -1,0 +1,64 @@
+{
+  "CI_or_runtime_dispatched_by_publisher": false,
+  "actual_runtime_results_separate": true,
+  "automatic_CI": {
+    "complete_unittest_summary_present": true,
+    "conclusion": "success",
+    "job_conclusion": "success",
+    "job_id": 120570028969,
+    "jobs": {
+      "bytes": 3058,
+      "sha256": "4ab39044f05569342cc9ee96e5c7558b3967ce9a7e69b757a42418240f14f1a6"
+    },
+    "log_format": "connector decoded log; not raw ZIP or HTTP",
+    "passed": true,
+    "raw_log": {
+      "bytes": 286378,
+      "sha256": "db23b4f681fed00b1d9071aeecb0428e70471c7d1206c7a85bf58800535812be"
+    },
+    "run": {
+      "bytes": 12684,
+      "sha256": "07a1db3832f0b5b00a7af1f59c29e5fe60d08be38f6c5ee90b0456596d2b5303"
+    },
+    "run_id": 39999042801,
+    "runtime_steps5_to9": "skipped",
+    "seconds": 235.325,
+    "skips": 0,
+    "status": "completed",
+    "tests": 1207,
+    "url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39999042801"
+  },
+  "completed_local_full": {
+    "complete_unittest_summary_present": true,
+    "passed": true,
+    "raw_log": {
+      "bytes": 230311,
+      "sha256": "d7c433fbe8f44fd53c5c1df26f0c39e8a13a7e4a379ac9a2128953e69da567c0"
+    },
+    "receipt": {
+      "bytes": 1079,
+      "sha256": "8dbe35242f3ebdfed12ec226bf7860358783dd08767de73f57a278a62b3a52ff"
+    },
+    "seconds": 243.937,
+    "skips": 2,
+    "tests": 1207
+  },
+  "earlier_interrupted_full01": {
+    "classification": "Neither a complete pass nor an assertion/test failure; user-requested pause stopped capture. No total inferred from partial lines.",
+    "complete_unittest_summary_present": false,
+    "passed": null,
+    "raw_log": {
+      "bytes": 197206,
+      "sha256": "f06b67c25e4f26036f1e9b42ce015adb45f7d42c6ebefc0e97e5b235abff50fa"
+    },
+    "seconds": null,
+    "skips": null,
+    "status": "interrupted-at-user-request",
+    "tests": null
+  },
+  "portable_compiled_assertions_not_additional_unittest_methods": true,
+  "raw_logs_republished": false,
+  "schema_version": 1,
+  "source_commit": "99ae5695d3cfb66edaeff79074bca4c305014f5d",
+  "stage": "lpac-stream-mihomo-pure-CI-summary"
+}

@@ -1,0 +1,87 @@
+{
+  "DLL_loaded": false,
+  "actor_resumed": false,
+  "actual_ready": false,
+  "compiler_executed": false,
+  "limits": "Pure fake and static integration review only. Native Internal static_assert and both portable tests await root compile. Full lifecycle and physical ledger review is by the independent ownership reviewer; no actual or semantic success is inferred.",
+  "main_modified": false,
+  "native_API_called": false,
+  "native_freeze": {
+    "bytes": 13151,
+    "name": "psec-lpac-matchedcaps-native-freeze-01.json",
+    "sha256": "7e702eac67a463682878c9d40ee1d8665d30a2f596a9ebf1edf1b2801de3fc1f"
+  },
+  "network_executed": false,
+  "python_freeze": {
+    "bytes": 9463,
+    "name": "psec-lpac-matchedcaps-python-candidate-freeze-02.json",
+    "sha256": "3d5ac7715ee8effdc7a9e816defba096892ce33a3e5027aea8ed6654580268b8"
+  },
+  "reviewed": [
+    "SC64 default alignment/offsets, exact role and null bootstrap signature",
+    "Borrowed SID buffers and UTF16 path arrays remain strongly held across synchronous DLL return",
+    "Native context aligned512 and Result96/PI24/Plan48/Child88 tuple agrees with new header",
+    "SC canonical byte commitment includes all three SID bytes and both attrs4; no public private tuple",
+    "typed10 remains api00/hrinvalid/env2/nonopaque, allzero PI; late/partial cannot satisfy known-no-child",
+    "ABI1/2 types/source and default scope are independent and unmodified"
+  ],
+  "reviewed_native_files": {
+    ".github/native/windows_psec_lpac_matchedcaps_bridge.cpp": {
+      "bytes": 16460,
+      "git_blob": "8d0fb5840c31e3fa6e72851d98b1d5fcc7c7e399",
+      "sha256": "5e3e83c19788136404c5d412315aa08502a2ffc0c0cb41235ba4b20159deb497"
+    },
+    ".github/native/windows_psec_lpac_matchedcaps_bridge.hpp": {
+      "bytes": 4483,
+      "git_blob": "4c1a8aa94b89e70ec4e067d93ca90490fadc28b3",
+      "sha256": "b088676f846d3690f58b01afaf06df41e2cedbae10f140cd404cce8a0d814cd1"
+    },
+    ".github/native/windows_psec_lpac_matchedcaps_bridge_core.hpp": {
+      "bytes": 8144,
+      "git_blob": "a797df830ab6ea6faf71721d5907ae4068d5d65e",
+      "sha256": "8d06377a923bede038d2ff19e206da695b7a5d918c610a12a9c1a5dacde2820d"
+    },
+    "tests/test_windows_identity_psec_lpac_matchedcaps_native.py": {
+      "bytes": 10464,
+      "git_blob": "fadcec0b48fee8b0a61bc2cc50a108daf87635c2",
+      "sha256": "118bcae9cd00ed200b3dab843cf98b633cf893a895524b86f068502917c0c1fa"
+    }
+  },
+  "reviewed_python_files": {
+    ".github/windows_identity_psec_lpac_matchedcaps_bridge.py": {
+      "bytes": 102222,
+      "sha256": "b920a458bd489051284cad5deb8cbaf78341b9656602fab070ff99f0f9afbf11"
+    },
+    ".github/windows_identity_psec_lpac_matchedcaps_bridge_local.py": {
+      "bytes": 20805,
+      "sha256": "d4fcb5172f21496e28d65843f0f045be9786eecb220b8ddcb7d0d0696dd68c98"
+    },
+    "tests/test_windows_identity_psec_lpac_matchedcaps_bridge.py": {
+      "bytes": 18370,
+      "sha256": "40b2a37d5cdfbc0c1c8a974d4a9688f3937ebfff5b25da178b8e196616e5babb"
+    },
+    "tests/test_windows_identity_psec_lpac_matchedcaps_bridge_local.py": {
+      "bytes": 24258,
+      "sha256": "6258f8b17e8b3f44b7b7c9354badafcd68947b269ec0d74b506c61a3b37aae18"
+    }
+  },
+  "schema_version": 1,
+  "stage": "read-only-matchedcaps-abi3-python-integration-review",
+  "tests": {
+    "count": 2,
+    "errors": 0,
+    "failures": 0,
+    "log": {
+      "bytes": 484,
+      "name": "psec-lpac-matchedcaps-python-independent-pure-02.log",
+      "sha256": "a1731af7d729d84256fb26c5d454375a9e5895544e9ad2b663cc8a334e65d003"
+    },
+    "names": [
+      "test_real_abi3_adapter_uses_role0_null_then_identical_sc64_for_role1_role2",
+      "test_partial_or_late_precreate_return_is_unknown_and_never_qualifies"
+    ],
+    "reused_success_log_without_rerun": true,
+    "skips": 0
+  },
+  "verdict": "GO for reviewed ABI/ctypes and typed precreate seams; independent lifecycle/outer review is separate"
+}

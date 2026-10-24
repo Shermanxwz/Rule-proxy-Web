@@ -1,0 +1,399 @@
+{
+  "WS2_count": 35,
+  "actual_ready": false,
+  "export_manifest": {
+    "bytes": 11994,
+    "name": "lpac-curl-A4-export-manifest-proposal-03.json",
+    "sha256": "f8d7075efc12a956914094e75751fd8d3ade23df98ae7aef92789f7116c51e23"
+  },
+  "exports": [
+    {
+      "failure_contract": "INVALID_SOCKET; private thread error and sticky unsupported",
+      "implemented": false,
+      "name": "accept",
+      "ordinal": 1,
+      "proposed_implementation": "sticky-recorded-unsupported-no-real-WS2",
+      "sdk_header": "WinSock2.h",
+      "signature": "SOCKET WSAAPI accept(SOCKET, sockaddr*, int*)"
+    },
+    {
+      "failure_contract": "SOCKET_ERROR; private thread error and sticky unsupported",
+      "implemented": false,
+      "name": "bind",
+      "ordinal": 2,
+      "proposed_implementation": "sticky-recorded-unsupported-no-real-WS2",
+      "sdk_header": "WinSock2.h",
+      "signature": "int WSAAPI bind(SOCKET, const sockaddr*, int)"
+    },
+    {
+      "failure_contract": "SOCKET_ERROR; private thread error and sticky unsupported",
+      "implemented": false,
+      "name": "closesocket",
+      "ordinal": 3,
+      "proposed_implementation": "sticky-recorded-unsupported-no-real-WS2",
+      "sdk_header": "WinSock2.h",
+      "signature": "int WSAAPI closesocket(SOCKET)"
+    },
+    {
+      "failure_contract": "SOCKET_ERROR; private thread error and sticky unsupported",
+      "implemented": false,
+      "name": "connect",
+      "ordinal": 4,
+      "proposed_implementation": "sticky-recorded-unsupported-no-real-WS2",
+      "sdk_header": "WinSock2.h",
+      "signature": "int WSAAPI connect(SOCKET, const sockaddr*, int)"
+    },
+    {
+      "failure_contract": "SOCKET_ERROR; private thread error and sticky unsupported",
+      "implemented": false,
+      "name": "getpeername",
+      "ordinal": 5,
+      "proposed_implementation": "sticky-recorded-unsupported-no-real-WS2",
+      "sdk_header": "WinSock2.h",
+      "signature": "int WSAAPI getpeername(SOCKET, sockaddr*, int*)"
+    },
+    {
+      "failure_contract": "SOCKET_ERROR; private thread error and sticky unsupported",
+      "implemented": false,
+      "name": "getsockname",
+      "ordinal": 6,
+      "proposed_implementation": "sticky-recorded-unsupported-no-real-WS2",
+      "sdk_header": "WinSock2.h",
+      "signature": "int WSAAPI getsockname(SOCKET, sockaddr*, int*)"
+    },
+    {
+      "failure_contract": "SOCKET_ERROR; private thread error and sticky unsupported",
+      "implemented": false,
+      "name": "getsockopt",
+      "ordinal": 7,
+      "proposed_implementation": "sticky-recorded-unsupported-no-real-WS2",
+      "sdk_header": "WinSock2.h",
+      "signature": "int WSAAPI getsockopt(SOCKET, int, int, char*, int*)"
+    },
+    {
+      "failure_contract": "zero is not an error sentinel; sticky unsupported separately forbids qualification",
+      "implemented": false,
+      "name": "htonl",
+      "ordinal": 8,
+      "proposed_implementation": "sticky-recorded-unsupported-no-real-WS2",
+      "sdk_header": "WinSock2.h",
+      "signature": "u_long WSAAPI htonl(u_long)"
+    },
+    {
+      "failure_contract": "zero is not an error sentinel; sticky unsupported separately forbids qualification",
+      "implemented": false,
+      "name": "htons",
+      "ordinal": 9,
+      "proposed_implementation": "sticky-recorded-unsupported-no-real-WS2",
+      "sdk_header": "WinSock2.h",
+      "signature": "u_short WSAAPI htons(u_short)"
+    },
+    {
+      "failure_contract": "SOCKET_ERROR; private thread error and sticky unsupported",
+      "implemented": false,
+      "name": "ioctlsocket",
+      "ordinal": 10,
+      "proposed_implementation": "sticky-recorded-unsupported-no-real-WS2",
+      "sdk_header": "WinSock2.h",
+      "signature": "int WSAAPI ioctlsocket(SOCKET, long, u_long*)"
+    },
+    {
+      "failure_contract": "SOCKET_ERROR; private thread error and sticky unsupported",
+      "implemented": false,
+      "name": "listen",
+      "ordinal": 13,
+      "proposed_implementation": "sticky-recorded-unsupported-no-real-WS2",
+      "sdk_header": "WinSock2.h",
+      "signature": "int WSAAPI listen(SOCKET, int)"
+    },
+    {
+      "failure_contract": "zero is not an error sentinel; sticky unsupported separately forbids qualification",
+      "implemented": false,
+      "name": "ntohs",
+      "ordinal": 15,
+      "proposed_implementation": "sticky-recorded-unsupported-no-real-WS2",
+      "sdk_header": "WinSock2.h",
+      "signature": "u_short WSAAPI ntohs(u_short)"
+    },
+    {
+      "failure_contract": "SOCKET_ERROR; private thread error and sticky unsupported",
+      "implemented": false,
+      "name": "recv",
+      "ordinal": 16,
+      "proposed_implementation": "sticky-recorded-unsupported-no-real-WS2",
+      "sdk_header": "WinSock2.h",
+      "signature": "int WSAAPI recv(SOCKET, char*, int, int)"
+    },
+    {
+      "failure_contract": "SOCKET_ERROR; private thread error and sticky unsupported",
+      "implemented": false,
+      "name": "recvfrom",
+      "ordinal": 17,
+      "proposed_implementation": "sticky-recorded-unsupported-no-real-WS2",
+      "sdk_header": "WinSock2.h",
+      "signature": "int WSAAPI recvfrom(SOCKET, char*, int, int, sockaddr*, int*)"
+    },
+    {
+      "failure_contract": "SOCKET_ERROR; private thread error and sticky unsupported",
+      "implemented": false,
+      "name": "select",
+      "ordinal": 18,
+      "proposed_implementation": "sticky-recorded-unsupported-no-real-WS2",
+      "sdk_header": "WinSock2.h",
+      "signature": "int WSAAPI select(int, fd_set*, fd_set*, fd_set*, const timeval*)"
+    },
+    {
+      "failure_contract": "SOCKET_ERROR; private thread error and sticky unsupported",
+      "implemented": false,
+      "name": "send",
+      "ordinal": 19,
+      "proposed_implementation": "sticky-recorded-unsupported-no-real-WS2",
+      "sdk_header": "WinSock2.h",
+      "signature": "int WSAAPI send(SOCKET, const char*, int, int)"
+    },
+    {
+      "failure_contract": "SOCKET_ERROR; private thread error and sticky unsupported",
+      "implemented": false,
+      "name": "sendto",
+      "ordinal": 20,
+      "proposed_implementation": "sticky-recorded-unsupported-no-real-WS2",
+      "sdk_header": "WinSock2.h",
+      "signature": "int WSAAPI sendto(SOCKET, const char*, int, int, const sockaddr*, int)"
+    },
+    {
+      "failure_contract": "SOCKET_ERROR; private thread error and sticky unsupported",
+      "implemented": false,
+      "name": "setsockopt",
+      "ordinal": 21,
+      "proposed_implementation": "sticky-recorded-unsupported-no-real-WS2",
+      "sdk_header": "WinSock2.h",
+      "signature": "int WSAAPI setsockopt(SOCKET, int, int, const char*, int)"
+    },
+    {
+      "failure_contract": "SOCKET_ERROR; private thread error and sticky unsupported",
+      "implemented": false,
+      "name": "shutdown",
+      "ordinal": 22,
+      "proposed_implementation": "sticky-recorded-unsupported-no-real-WS2",
+      "sdk_header": "WinSock2.h",
+      "signature": "int WSAAPI shutdown(SOCKET, int)"
+    },
+    {
+      "failure_contract": "INVALID_SOCKET; private thread error and sticky unsupported",
+      "implemented": false,
+      "name": "socket",
+      "ordinal": 23,
+      "proposed_implementation": "sticky-recorded-unsupported-no-real-WS2",
+      "sdk_header": "WinSock2.h",
+      "signature": "SOCKET WSAAPI socket(int, int, int)"
+    },
+    {
+      "failure_contract": "FALSE; private thread error and sticky unsupported",
+      "implemented": false,
+      "name": "WSACloseEvent",
+      "ordinal": 45,
+      "proposed_implementation": "sticky-recorded-unsupported-no-real-WS2",
+      "sdk_header": "WinSock2.h",
+      "signature": "BOOL WSAAPI WSACloseEvent(WSAEVENT)"
+    },
+    {
+      "failure_contract": "WSA_INVALID_EVENT; private thread error and sticky unsupported",
+      "implemented": false,
+      "name": "WSACreateEvent",
+      "ordinal": 50,
+      "proposed_implementation": "sticky-recorded-unsupported-no-real-WS2",
+      "sdk_header": "WinSock2.h",
+      "signature": "WSAEVENT WSAAPI WSACreateEvent(void)"
+    },
+    {
+      "failure_contract": "SOCKET_ERROR; private thread error and sticky unsupported",
+      "implemented": false,
+      "name": "gethostname",
+      "ordinal": 57,
+      "proposed_implementation": "sticky-recorded-unsupported-no-real-WS2",
+      "sdk_header": "WinSock2.h",
+      "signature": "int WSAAPI gethostname(char*, int)"
+    },
+    {
+      "failure_contract": "SOCKET_ERROR; private thread error and sticky unsupported",
+      "implemented": false,
+      "name": "WSAEnumNetworkEvents",
+      "ordinal": 64,
+      "proposed_implementation": "sticky-recorded-unsupported-no-real-WS2",
+      "sdk_header": "WinSock2.h",
+      "signature": "int WSAAPI WSAEnumNetworkEvents(SOCKET, WSAEVENT, LPWSANETWORKEVENTS)"
+    },
+    {
+      "failure_contract": "SOCKET_ERROR; private thread error and sticky unsupported",
+      "implemented": false,
+      "name": "WSAEventSelect",
+      "ordinal": 67,
+      "proposed_implementation": "sticky-recorded-unsupported-no-real-WS2",
+      "sdk_header": "WinSock2.h",
+      "signature": "int WSAAPI WSAEventSelect(SOCKET, WSAEVENT, long)"
+    },
+    {
+      "failure_contract": "SOCKET_ERROR; private thread error and sticky unsupported",
+      "implemented": false,
+      "name": "WSAIoctl",
+      "ordinal": 78,
+      "proposed_implementation": "sticky-recorded-unsupported-no-real-WS2",
+      "sdk_header": "WinSock2.h",
+      "signature": "int WSAAPI WSAIoctl(SOCKET, DWORD, LPVOID, DWORD, LPVOID, DWORD, LPDWORD, LPWSAOVERLAPPED, LPWSAOVERLAPPED_COMPLETION_ROUTINE)"
+    },
+    {
+      "failure_contract": "FALSE; private thread error and sticky unsupported",
+      "implemented": false,
+      "name": "WSAResetEvent",
+      "ordinal": 95,
+      "proposed_implementation": "sticky-recorded-unsupported-no-real-WS2",
+      "sdk_header": "WinSock2.h",
+      "signature": "BOOL WSAAPI WSAResetEvent(WSAEVENT)"
+    },
+    {
+      "failure_contract": "function-specific startup/refcount/thread-error policy",
+      "implemented": false,
+      "name": "WSAGetLastError",
+      "ordinal": 111,
+      "proposed_implementation": "startup-diagnostic-semantics",
+      "sdk_header": "WinSock2.h",
+      "signature": "int WSAAPI WSAGetLastError(void)"
+    },
+    {
+      "failure_contract": "function-specific startup/refcount/thread-error policy",
+      "implemented": false,
+      "name": "WSASetLastError",
+      "ordinal": 112,
+      "proposed_implementation": "startup-diagnostic-semantics",
+      "sdk_header": "WinSock2.h",
+      "signature": "void WSAAPI WSASetLastError(int)"
+    },
+    {
+      "failure_contract": "function-specific startup/refcount/thread-error policy",
+      "implemented": false,
+      "name": "WSAStartup",
+      "ordinal": 115,
+      "proposed_implementation": "startup-diagnostic-semantics",
+      "sdk_header": "WinSock2.h",
+      "signature": "int WSAAPI WSAStartup(WORD, LPWSADATA)"
+    },
+    {
+      "failure_contract": "function-specific startup/refcount/thread-error policy",
+      "implemented": false,
+      "name": "WSACleanup",
+      "ordinal": 116,
+      "proposed_implementation": "startup-diagnostic-semantics",
+      "sdk_header": "WinSock2.h",
+      "signature": "int WSAAPI WSACleanup(void)"
+    },
+    {
+      "failure_contract": "WSA_WAIT_FAILED; private thread error and sticky unsupported",
+      "implemented": false,
+      "name": "WSAWaitForMultipleEvents",
+      "ordinal": 124,
+      "proposed_implementation": "sticky-recorded-unsupported-no-real-WS2",
+      "sdk_header": "WinSock2.h",
+      "signature": "DWORD WSAAPI WSAWaitForMultipleEvents(DWORD, const WSAEVENT*, BOOL, DWORD, BOOL)"
+    },
+    {
+      "failure_contract": "zero is not an error sentinel; sticky unsupported separately forbids qualification",
+      "implemented": false,
+      "name": "__WSAFDIsSet",
+      "ordinal": 151,
+      "proposed_implementation": "sticky-recorded-unsupported-no-real-WS2",
+      "sdk_header": "WinSock2.h",
+      "signature": "int WSAAPI __WSAFDIsSet(SOCKET, fd_set*)"
+    },
+    {
+      "failure_contract": "No action/free/underlying call; private thread error and sticky unsupported",
+      "implemented": false,
+      "name": "freeaddrinfo",
+      "ordinal": 191,
+      "proposed_implementation": "sticky-recorded-unsupported-no-real-WS2",
+      "sdk_header": "WS2tcpip.h",
+      "signature": "void WSAAPI freeaddrinfo(PADDRINFOA)"
+    },
+    {
+      "failure_contract": "EAI_FAIL/WSANO_RECOVERY; no resolver call or output allocation; sticky unsupported",
+      "implemented": false,
+      "name": "getaddrinfo",
+      "ordinal": 192,
+      "proposed_implementation": "sticky-recorded-unsupported-no-real-WS2",
+      "sdk_header": "WS2tcpip.h",
+      "signature": "INT WSAAPI getaddrinfo(PCSTR, PCSTR, const ADDRINFOA*, PADDRINFOA*)"
+    },
+    {
+      "failure_contract": "NULL/FALSE and exact GetLastError; unsupported sticky",
+      "implemented": false,
+      "name": "GetProcAddress",
+      "ordinal": 200,
+      "proposed_implementation": "closed-loader-gateway",
+      "sdk_header": "libloaderapi.h",
+      "signature": "FARPROC WINAPI GetProcAddress(HMODULE, LPCSTR)"
+    },
+    {
+      "failure_contract": "NULL/FALSE and exact GetLastError; unsupported sticky",
+      "implemented": false,
+      "name": "GetModuleHandleW",
+      "ordinal": 201,
+      "proposed_implementation": "closed-loader-gateway",
+      "sdk_header": "libloaderapi.h",
+      "signature": "HMODULE WINAPI GetModuleHandleW(LPCWSTR)"
+    },
+    {
+      "failure_contract": "NULL/FALSE and exact GetLastError; unsupported sticky",
+      "implemented": false,
+      "name": "LoadLibraryExW",
+      "ordinal": 202,
+      "proposed_implementation": "closed-loader-gateway",
+      "sdk_header": "libloaderapi.h",
+      "signature": "HMODULE WINAPI LoadLibraryExW(LPCWSTR, HANDLE, DWORD)"
+    },
+    {
+      "failure_contract": "NULL/FALSE and exact GetLastError; unsupported sticky",
+      "implemented": false,
+      "name": "FreeLibrary",
+      "ordinal": 203,
+      "proposed_implementation": "closed-loader-gateway",
+      "sdk_header": "libloaderapi.h",
+      "signature": "BOOL WINAPI FreeLibrary(HMODULE)"
+    },
+    {
+      "failure_contract": null,
+      "implemented": false,
+      "name": "GetModuleFileNameA",
+      "ordinal": 204,
+      "proposed_implementation": "system-forwarder",
+      "sdk_header": "libloaderapi.h",
+      "signature": "DWORD WINAPI GetModuleFileNameA(HMODULE, LPSTR, DWORD)"
+    }
+  ],
+  "forwarder_count": 1,
+  "gateway_count": 4,
+  "implemented_WS2_proposal_count": 4,
+  "schema_version": 1,
+  "sdk": {
+    "compiled_signature_assertions_executed": false,
+    "headers": {
+      "WS2tcpip.h": {
+        "bytes": 37845,
+        "name": "WS2tcpip.h",
+        "sha256": "76011c9095fcd50af68eb7d3ffb828d4d2b710cbda09ec4b2653371319886a21"
+      },
+      "WinSock2.h": {
+        "bytes": 125831,
+        "name": "WinSock2.h",
+        "sha256": "15098cbb8780bf917b155e2a7df9201f9768717a26544ec3912fd32addcea2c7"
+      },
+      "libloaderapi.h": {
+        "bytes": 15518,
+        "name": "libloaderapi.h",
+        "sha256": "8ad0ba5600d6c2e9aed318ca9d2f48f2bdf9f47ed3cd5d9f243e6f779c8e04c4"
+      }
+    },
+    "signatures_checked_as_source_only": true,
+    "version": "10.0.26100.0"
+  },
+  "stage": "A4-startup-only-SDK-signature-proposal",
+  "unsupported_WS2_count": 31
+}

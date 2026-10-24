@@ -1,0 +1,70 @@
+{
+  "actor_network_recovery_rerun": false,
+  "dependencies": [
+    "verification/windows-2026-10-22/model2-first-02-04-runners/c_local_baseline.ps1"
+  ],
+  "files": [
+    {
+      "bytes": 1345,
+      "path": "verification/windows-2026-10-22/lpac-dns-local-02-preflight.json",
+      "sha256": "1296ea1d284453a9371699ed2561f1ea47108460985091a9eb2b54977c6e1200"
+    },
+    {
+      "bytes": 1345,
+      "path": "verification/windows-2026-10-22/lpac-dns-local-02-public.json",
+      "sha256": "648a28df4868236ecc179b1a410b8c8539290577bc9677e0aa78f1cb7abe3b91"
+    },
+    {
+      "bytes": 1173,
+      "path": "verification/windows-2026-10-22/lpac-dns-local-02-recovery-public.json",
+      "sha256": "a42ef58a1c3b6b82b68e69d69e61a47d78077f2e7abd5f06b7f16a5524605342"
+    },
+    {
+      "bytes": 2756,
+      "path": "verification/windows-2026-10-22/lpac-dns-local-02-runner.py",
+      "sha256": "77f407a35cf1f405f1589cb038103f635d1493e04c052c5eee32a18f80713302"
+    },
+    {
+      "bytes": 22161,
+      "path": "verification/windows-2026-10-22/lpac-dns-local-02-recovery-review.py",
+      "sha256": "c8bfbbadb8126acce5da20d491b9b8f034cba2814f47708d120f08318a42ac14"
+    },
+    {
+      "bytes": 996,
+      "path": "verification/windows-2026-10-22/lpac-dns-local-02-after-global-capture.ps1",
+      "sha256": "dc5686347b3b49bee667d1ce3bf8d5eb1e600ca0672c0bd9e263102412dff380"
+    },
+    {
+      "bytes": 1994,
+      "path": "verification/windows-2026-10-22/lpac-dns-local-02-after-global-expanded.ps1",
+      "sha256": "366b8746cf3a6abc4b4bab497568a8ccada323c46411053cad706b523bee5d49"
+    },
+    {
+      "bytes": 868,
+      "path": "verification/windows-2026-10-22/lpac-dns-local-02-after-global-projection.json",
+      "sha256": "4cf75c3da891d96d88f77e1a4687817ea9c735c0b313388ada979b9aead0ed7f"
+    },
+    {
+      "bytes": 877,
+      "path": "verification/windows-2026-10-22/lpac-dns-local-02-auto-ci.json",
+      "sha256": "6cde3007a7ec96e965d92d223ede9f1098d551ace4107414f2848558f84b9ea8"
+    },
+    {
+      "bytes": 18052,
+      "path": "verification/windows-2026-10-22/lpac-dns-local-02-component-projection.json",
+      "sha256": "2bc403e5d9a701c534bb6fef1ff77a2daa1ae847c264004ba898d2ce488a5746"
+    },
+    {
+      "bytes": 2450,
+      "path": "verification/windows-2026-10-22/lpac-dns-local-02-summary.json",
+      "sha256": "054bab26a7e62b6d13c397f3ad6cf61a174036b0f627c1c57694148f18aef8e6"
+    }
+  ],
+  "index_self_not_hashed": true,
+  "original_evidence_preserved": true,
+  "private_raw_evidence_published": false,
+  "schema_version": 1,
+  "source_commit": "524638057f1b60a3292964162fe70305fbea8e3e",
+  "source_sha256": "96e1b3c439c7b33c7b01820f65c411558b1e5685b994cc09c2cf174b14e483d1",
+  "stage": "standalone-lpac02-public-evidence-index"
+}

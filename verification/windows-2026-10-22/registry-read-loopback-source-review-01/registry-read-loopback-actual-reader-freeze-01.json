@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "stage": "root-registry-read-loopback-actual01-reader-pre-execution-freeze",
+  "reader": {"path": "verify_registry_read_loopback_actual_01.py", "bytes": 23173, "sha256": "d1e69c3d4fb11be49f2998ec250f749528307e46210240e3f4cac533c14591e2"},
+  "source_commit": "d309ae322cca84360923d6bc51013057991a4218",
+  "source_sha256": "069d9f2702e235f03603d11b5962f320fe0f077cd81ccfabafefd48cbd11dfb6",
+  "public_bytes": 3038,
+  "public_sha256": "641ea1db8e80b19da7778ad2180c83a6d63c2c0fc421276922f36e390da5b65f",
+  "capture_sha256": "82b03eec39203056c46fa146734e2963dc126447ee994e4159ecdf1063ab2176",
+  "review": "Root read complete reader before execution: bounded/reparse-rejecting files, staged Git source37 before pure validators import, original public/plan/native/clock checks, capability asymmetry, physical native/GO/TCP readback and causal binding, absence/forensic not qualification fallback, fixed broad claims false. No backend/process/socket/ACL/cleanup execution.",
+  "reader_executed": false,
+  "actual_actor_attempts": 1,
+  "reported_actual_status": "inconclusive",
+  "reported_actual_failure": "loopback",
+  "actual_failure_cause_not_presupposed": true
+}

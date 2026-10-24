@@ -1,0 +1,7 @@
+test_atomic_publish_reads_closed_pending_and_never_reopens_hot_control (zero_cap_fix_independent_pure.CoreTests.test_atomic_publish_reads_closed_pending_and_never_reopens_hot_control) ... ok
+test_atomic_publish_wrong_pending_bytes_never_become_visible (zero_cap_fix_independent_pure.CoreTests.test_atomic_publish_wrong_pending_bytes_never_become_visible) ... ok
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.832s
+
+OK

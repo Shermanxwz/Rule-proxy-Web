@@ -1,0 +1,21 @@
+{
+  "attempt": 1,
+  "clock_limit_failure_is_an_inference": true,
+  "compiled_actor_and_source_manifest_verified": true,
+  "default_resolver_tested": false,
+  "dns_isolation_qualified": false,
+  "fixture_bound": false,
+  "inventory_executed": false,
+  "native_executed": false,
+  "private_identity_paths_ports_and_nonces_published": false,
+  "product_acceptance": false,
+  "root_cause_inference": "original clock contract used uint32 default limit; the host QPC exceeds that bound; corrected separately with signed64 regression",
+  "schema_version": 1,
+  "selected_application_tested": false,
+  "source_commit": "4bd68e85927bd9f4b1ed6f9bbf9d6a0e0bbb2d94",
+  "source_files_verified": 15,
+  "source_git_blobs_verified": true,
+  "source_sha256": "fe02e7a633ea6dd4daff649f8013256cb8caea68c799afb9ca8d5b59d3885fd8",
+  "stage": "dns-standard-safe-component-projection",
+  "stopped_before_config_and_launch": true
+}

@@ -1,0 +1,85 @@
+{
+  "archive_file_count": 15,
+  "archive_written": false,
+  "bridge_library_abi_version": 2,
+  "bridge_manifest_key_count": 15,
+  "bridge_payload_version": 1,
+  "earlier_unknown_not_cleared": true,
+  "files": {
+    "archive_psec_lpac_postassign_identity_01.py": {
+      "bytes": 68746,
+      "sha256": "a6e40e248990abb6c5283eaee51a82509dfb4e9aa70d37d6ece0514ec1ee9028"
+    },
+    "archive_psec_lpac_postassign_identity_01_command.ps1": {
+      "bytes": 1570,
+      "sha256": "e0254521158f8b0aeb8d40bd460d83eab2fd05b765b3a0974a8c91bc8caf137f"
+    },
+    "archive_psec_lpac_postassign_identity_01_pure_03.log": {
+      "bytes": 846,
+      "sha256": "5abd0cfbb186ce0c3453f79bed964557f6b31b3deae6e9e11938f40913edab49"
+    },
+    "check_archive_psec_lpac_postassign_identity_01.py": {
+      "bytes": 2735,
+      "sha256": "980995e95feb99a13253666ec17edea96f5fe5e60adb95a5aefe042d98ab110d"
+    },
+    "stage_psec_lpac_postassign_identity_local_01_paths.txt": {
+      "bytes": 1378,
+      "sha256": "95630199a37a2434f63e9489a6715364d8f1d921ebdaa8d9d90cc9c9e4717807"
+    },
+    "test_archive_psec_lpac_postassign_identity_01.py": {
+      "bytes": 4618,
+      "sha256": "d2b2e06f28f462c70e3a88780ec559e472e3d396ddb2b708404b6c8dd2be9f0f"
+    }
+  },
+  "independent_actual_review": {
+    "bytes": 54321,
+    "sha256": "8bb68ed9ba06f85e178939ca3e713c7b084d7d06dadeef440839b4f63f8f7d66"
+  },
+  "native_or_api_or_actor_or_network_or_cleanup_run": false,
+  "no_synthetic_calls_or_vectors": true,
+  "observed": {
+    "ac_observed_matrix": [
+      3,
+      0,
+      1,
+      2
+    ],
+    "ac_qualified": true,
+    "assignments": 2,
+    "atomic_inner_creation_proven": false,
+    "continuous_outer_supervision_proven": false,
+    "creation_transfer_crash_gap_resolved": false,
+    "lpac_complete_matrix": null,
+    "lpac_first_granted_access": 3,
+    "lpac_observed_call_count": 1,
+    "lpac_qualified": false,
+    "lpac_unattempted_labels": [
+      "world",
+      "aap",
+      "arap"
+    ],
+    "original_failure": "accesscheck",
+    "original_known_cleanup": true,
+    "original_status": "inconclusive",
+    "post_assignment_job_observations": 13,
+    "pretransfer_guards": 2
+  },
+  "original_public": {
+    "bytes": 2408,
+    "sha256": "3862644d9d75b0e44a52c4bf2e0be063314dd6418e9e2fff6d5acca1fdaf0bd0"
+  },
+  "preview_directory": "work/psec-lpac-postassign-identity-01-archive-preview-02",
+  "pure_projection_tests": {
+    "errors": 0,
+    "failures": 0,
+    "seconds": 1.452,
+    "skipped": 0,
+    "tests": 5
+  },
+  "repo_or_outputs_written": false,
+  "schema_version": 1,
+  "source_commit": "953de0a2374aff89959957da4b5641ce5aaff8a1",
+  "source_count": 36,
+  "source_sha256": "d625a45670dc4b544c73e7dfb0acb55f483064dca23495e5e12f9dcbf8705f9f",
+  "stage": "psec-lpac-postassign-identity01-archive-reader-ready"
+}

@@ -1,0 +1,49 @@
+{
+  "actor_executed_by_validation": false,
+  "actual01_public_unchanged": {
+    "verification/windows-2026-10-22/zero-cap-loopback-local-01-preflight.json": "34e3dec7c96b21a75aecddd95a9b2d663bc549a85222c19af73001c7e75b7eff",
+    "verification/windows-2026-10-22/zero-cap-loopback-local-01-public.json": "a4502dda11fbc39567e53c909ca2e4d8b9c5b5825e92e056fea46fd8cb396b18"
+  },
+  "baseline_commit": "07146b7118c345e4a1046fe9066ba2f26b37cf3a",
+  "changed_file_count": 2,
+  "errors": 0,
+  "failures": 0,
+  "files": {
+    ".github/windows_identity_lpac_loopback.py": {
+      "bytes": 101306,
+      "sha256": "3c65e68a9ab975126ece6042100a17897ac099d04efb6d7d8f52d8a1dc847a67"
+    },
+    "tests/test_windows_identity_lpac_loopback.py": {
+      "bytes": 27390,
+      "sha256": "012df8878d859b9f766630001d7321588a31ab33b332480af27ad040908f3e6d"
+    }
+  },
+  "freeze": {
+    "bytes": 8351,
+    "sha256": "086940edb854de4a54cc6ced7068972b7cc02e77e7eaebeb522f0eac93da242f"
+  },
+  "identity_tests": 988,
+  "linux_equivalence_proven": false,
+  "native_compile_reused": true,
+  "native_source_count": 2,
+  "network_tested_by_validation": false,
+  "new_test_methods": 2,
+  "other36_runtime_unchanged": true,
+  "product_acceptance": false,
+  "profile_or_acl_changed_by_validation": false,
+  "pure_log": {
+    "bytes": 186167,
+    "sha256": "98a37f2a193e3647c7dba1078c45d1c054acd7fbf6e5b5a16c08ff6432795ec6"
+  },
+  "schema_version": 1,
+  "seconds": "103.628",
+  "skip_log_lines": [
+    "test_symlink_and_outside_root_are_rejected (test_windows_identity_ordinary_launcher.InputTests.test_symlink_and_outside_root_are_rejected) ... skipped 'unprivileged symlink creation unavailable'\r",
+    "test_owned_tree_rejects_symlink_before_recursing (test_windows_identity_pipe_probe.PipeEvidenceTests.test_owned_tree_rejects_symlink_before_recursing) ... skipped 'symlink creation unavailable'\r"
+  ],
+  "skipped": 2,
+  "source_count": 37,
+  "source_sha256": "b726d48d6dddfed2533168ac0921add834488f333931f08b75dc6195cd9fc4ac",
+  "stage": "root-zero-cap-loopback02-integrated-pure-and-source-stage",
+  "staged_index_exact": true
+}

@@ -1,0 +1,134 @@
+{
+  "schema_version": 1,
+  "stage": "model2-first-02-04-byte-exact-runner-archive",
+  "archive_date": "2026-10-23",
+  "scripts": [
+    {
+      "path": "verification/windows-2026-10-22/model2-first-02-04-runners/run_model2_first_01.py",
+      "original_workspace_basename": "run_model2_first_01.py",
+      "bytes": 2382,
+      "sha256": "c25177c829834e0f00dec42b1d56739f512f4e09983576e3716adad07b1711a8",
+      "byte_identical": true
+    },
+    {
+      "path": "verification/windows-2026-10-22/model2-first-02-04-runners/run_model2_first_02.py",
+      "original_workspace_basename": "run_model2_first_02.py",
+      "bytes": 381,
+      "sha256": "a3aba0765a567df5f8d5432db918b5c718af317416001b0ea220bb152a7ccb79",
+      "byte_identical": true
+    },
+    {
+      "path": "verification/windows-2026-10-22/model2-first-02-04-runners/run_model2_first_03.py",
+      "original_workspace_basename": "run_model2_first_03.py",
+      "bytes": 508,
+      "sha256": "724162a8caed7c4e60df75ce2b4dd2ae2012d0df38033320077a89978f1d1c1a",
+      "byte_identical": true
+    },
+    {
+      "path": "verification/windows-2026-10-22/model2-first-02-04-runners/run_model2_first_04.py",
+      "original_workspace_basename": "run_model2_first_04.py",
+      "bytes": 381,
+      "sha256": "7f156098677fd143d8ad3f4c6ae23848d922d0dace7b3d0efde37da7f6215ea6",
+      "byte_identical": true
+    },
+    {
+      "path": "verification/windows-2026-10-22/model2-first-02-04-runners/recover_model2_04.py",
+      "original_workspace_basename": "recover_model2_04.py",
+      "bytes": 11114,
+      "sha256": "ea93afa2168fbb978674fd0a5b6e8d66bdbf56001190e273fe02a912148d942b",
+      "byte_identical": true
+    },
+    {
+      "path": "verification/windows-2026-10-22/model2-first-02-04-runners/verify_c04_rule_absent.ps1",
+      "original_workspace_basename": "verify_c04_rule_absent.ps1",
+      "bytes": 1182,
+      "sha256": "fcdfe87be6c6e5cb6011cb759ebefa7209e7b96f6343b41cfd148d0c2db71642",
+      "byte_identical": true
+    },
+    {
+      "path": "verification/windows-2026-10-22/model2-first-02-04-runners/c_local_baseline.ps1",
+      "original_workspace_basename": "c_local_baseline.ps1",
+      "bytes": 1993,
+      "sha256": "98610b0eeeba3457b1bd289e399acfa1744c2c2220c4b1ee53d474418e5df05b",
+      "byte_identical": true
+    },
+    {
+      "path": "verification/windows-2026-10-22/model2-first-02-04-runners/c_after04_baseline.ps1",
+      "original_workspace_basename": "c_after04_baseline.ps1",
+      "bytes": 955,
+      "sha256": "4523ee8ac97909403a9fdd67c92b2f73e639cad879d54d9fbf9f1160240c3d93",
+      "byte_identical": true
+    },
+    {
+      "path": "verification/windows-2026-10-22/model2-first-02-04-runners/c_after04_capture.ps1",
+      "original_workspace_basename": "c_after04_capture.ps1",
+      "bytes": 1992,
+      "sha256": "4423af2f53fd41da8ff3ed82dfc3b72798a8eb01df57397192269b7e8b217570",
+      "byte_identical": true
+    }
+  ],
+  "evidence": [
+    {
+      "path": "verification/windows-2026-10-22/model2-first-02-preflight.json",
+      "bytes": 2014,
+      "sha256": "9628a89808256fcd06c45740728f2152abb2f89310a195d12d32ce7a55356540"
+    },
+    {
+      "path": "verification/windows-2026-10-22/model2-first-02-public.json",
+      "bytes": 2090,
+      "sha256": "7ed8e2fd5bb29397eb132977d6e8a5b2e787ce2f4b4898cb5d8fa1f4ff7605ad"
+    },
+    {
+      "path": "verification/windows-2026-10-22/model2-first-02-summary.json",
+      "bytes": 959,
+      "sha256": "b06b27d3ca88965e0eb49b2e67a7f0792f84319ac9e1aa751e33cb8e559a970b"
+    },
+    {
+      "path": "verification/windows-2026-10-22/model2-first-03-preflight.json",
+      "bytes": 2014,
+      "sha256": "cb844c834902ec61bc9ff0275630f928de0fcdbd34ee9443fa892279a89c596b"
+    },
+    {
+      "path": "verification/windows-2026-10-22/model2-first-03-public.json",
+      "bytes": 2090,
+      "sha256": "23859d8d8557bfce72d32f28d9ae13a48dcd761fdd5848f2a75a9a4182f68fb4"
+    },
+    {
+      "path": "verification/windows-2026-10-22/model2-first-03-summary.json",
+      "bytes": 959,
+      "sha256": "ac7133c89a42b4aedca3323536d5d74b3d49e2b3275e98d2b67e338052489926"
+    },
+    {
+      "path": "verification/windows-2026-10-22/model2-first-04-preflight.json",
+      "bytes": 2014,
+      "sha256": "a627c42e06497c87619111935a56ecb935ceabf9db670881df5066a13de4ac7d"
+    },
+    {
+      "path": "verification/windows-2026-10-22/model2-first-04-public.json",
+      "bytes": 2091,
+      "sha256": "d4f2de53a93603c087c6566387207801096a882dc1020b33ae88426cd2104e14"
+    },
+    {
+      "path": "verification/windows-2026-10-22/model2-first-04-summary.json",
+      "bytes": 2925,
+      "sha256": "ad7ebf4f95e2ce42d0131386cd231da9f1281e0050b8eb60b5d5a248d3c2e806"
+    },
+    {
+      "path": "verification/windows-2026-10-22/model2-first-04-recovery-public.json",
+      "bytes": 828,
+      "sha256": "d347db3d77139dad31e71057a97547704554fa2764f595891148de11ff35de5d"
+    }
+  ],
+  "archive_only": true,
+  "executed_during_archive": false,
+  "wrapper_base_dependency": "run_model2_first_02.py, run_model2_first_03.py and run_model2_first_04.py read sibling run_model2_first_01.py; original layout expected workspace/Rule-proxy-Web, not this archive directory",
+  "recovery_sidecar_dependency": "recover_model2_04.py reads sibling verify_c04_rule_absent.ps1; original staged source and ownership journal remain private and hash-bound",
+  "preserved_source_labels": "The exact C04 recovery source retains its inherited C01 docstring/module label; it was not corrected or rewritten for publication",
+  "global_snapshot_privacy": "Only raw SHA256 equality and component equality are public; no raw DNS/route/proxy inventory is copied",
+  "qualification": {
+    "selected_ever_go": false,
+    "strict_full_passed": false,
+    "os_isolation_qualified": false,
+    "product_acceptance": false
+  }
+}
