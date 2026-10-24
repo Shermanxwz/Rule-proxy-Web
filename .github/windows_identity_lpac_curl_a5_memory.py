@@ -319,7 +319,7 @@ class Coordinator:
     def _persist(self, record, raw=b''):
         _need(type(raw) is bytes, 'journal_raw')
         payload = dict(record)
-        payload.update(schema_version=1, scope='A4-fixed-two-descriptor-memory-v1',
+        payload.update(schema_version=1, scope='A5-fixed-two-descriptor-memory-v1',
                        bindings=dict(self.bindings.__dict__),
                        epoch=dict(self.epoch.__dict__))
         reference = self.journal(payload, raw)

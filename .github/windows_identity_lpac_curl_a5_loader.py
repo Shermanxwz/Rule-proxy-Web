@@ -60,7 +60,7 @@ NONCES=('run','before_case','selected_case','after_case','trace_case','case')
 SHIM='windows_identity_lpac_curl_a5_http_shim.dll'
 CARRIER='windows_identity_lpac_curl_a5_payload_wrapper.dll'
 MANIFEST='lpac-curl-A5-native-artifact-manifest-01.json'
-NATIVE_SOURCES=('.github/native/windows_identity_lpac_curl_a5_startup_abi.hpp', '.github/native/windows_identity_lpac_curl_a5_startup_core.hpp', '.github/native/windows_identity_lpac_curl_a5_startup_find.hpp', '.github/native/windows_identity_lpac_curl_a5_startup_refs.hpp', '.github/native/windows_identity_lpac_curl_a5_startup_shim.cpp', '.github/native/windows_identity_lpac_curl_a5_startup_shim.def', '.github/native/windows_identity_lpac_curl_a5_startup_shim.hpp', '.github/native/windows_identity_lpac_curl_a5_startup_win32.hpp', '.github/native/windows_identity_lpac_curl_http_adapter.hpp', '.github/native/windows_identity_lpac_curl_http_glue_win32.hpp', '.github/native/windows_identity_lpac_curl_http_pipe_win32.hpp', '.github/native/windows_identity_lpac_curl_http_surface.hpp', '.github/native/windows_identity_lpac_stream_contract.hpp')
+NATIVE_SOURCES=(".github/native/windows_identity_lpac_curl_a5_startup_abi.hpp", ".github/native/windows_identity_lpac_curl_a5_startup_core.hpp", ".github/native/windows_identity_lpac_curl_a5_startup_events.hpp", ".github/native/windows_identity_lpac_curl_a5_startup_find.hpp", ".github/native/windows_identity_lpac_curl_a5_startup_refs.hpp", ".github/native/windows_identity_lpac_curl_a5_startup_shim.cpp", ".github/native/windows_identity_lpac_curl_a5_startup_shim.def", ".github/native/windows_identity_lpac_curl_a5_startup_shim.hpp", ".github/native/windows_identity_lpac_curl_a5_startup_win32.hpp", ".github/native/windows_identity_lpac_curl_http_adapter.hpp", ".github/native/windows_identity_lpac_curl_http_glue_win32.hpp", ".github/native/windows_identity_lpac_curl_http_pipe_win32.hpp", ".github/native/windows_identity_lpac_curl_http_surface.hpp", ".github/native/windows_identity_lpac_stream_contract.hpp",)
 CARRIER_SOURCES=tuple('.github/native/windows_identity_lpac_curl_a5_payload_wrapper.'+n for n in ('cpp','hpp'))
 VENDOR_SOURCES=tuple('.github/vendor/detours/'+n for n in mm.VENDOR_FILES)
 CONFIG_MODULE='.github/windows_identity_lpac_curl_a5_config.py'
@@ -70,9 +70,9 @@ HTTP_REPORT_MODULE='.github/windows_identity_lpac_curl_a5_http_report.py'
 STAGING_MODULE='.github/windows_identity_lpac_curl_a5_staging_inputs.py'
 SOURCES=tuple(dict.fromkeys((*mm.SOURCES,*proxy_protocol.SOURCES,PROXY_MODULE,PROXY_PHYSICAL_MODULE,HTTP_REPORT_MODULE,STAGING_MODULE,CONFIG_MODULE,MODULE,LOCAL_MODULE,MEMORY_MODULE,BUILDER_MODULE,READER_MODULE,PHYSICAL_MODULE,MEMORY_PHYSICAL_MODULE,
     TRACE_ABI_MODULE,CARRIER_ABI_MODULE,SIGNATURE_MODULE,*NATIVE_SOURCES,*CARRIER_SOURCES)))
-TRACE_ABI_SHA256='9f2cecb18efa077a92bd09ea13e2339eab5bae3fa9b5a390fa3f0c30bae58c5b'
-CARRIER_ABI_SHA256='26260783b79df4fa876e337cef7a5fd915dbe57125e506383cc7bd55bc169605'
-SIGNATURE_SHA256='b2d3caf7c7dab3598ebbe092a77854a2e837842368eafafcd7e26bb80f6bd4b0'
+TRACE_ABI_SHA256="34fc421a9cb581ead28d869f023aa58a29aed99cce53cb3901535de0e18d9336"
+CARRIER_ABI_SHA256="26260783b79df4fa876e337cef7a5fd915dbe57125e506383cc7bd55bc169605"
+SIGNATURE_SHA256="7c17c6e2ccf275419cfeeab01c2ce5914d073dcabecb6ed952438aee7de3bd84"
 GUID_BYTES=bytes.fromhex('723b19a5d35a4b4fae3a706564727073')
 CURL_BYTES,CURL_SHA256=mm.CURL_BYTES,mm.CURL_SHA256
 BASELINE_BYTES=366
@@ -97,7 +97,7 @@ A4_BASELINE_ARTIFACT_HISTORY={
     'manifest':dict(bytes=4329,sha256='815fded39baa946bae40ecd09c64f4ea12ec81eab88ce8e8d58d3d89c650c4f9')}
 # No A4 artifact pin may authorize a new A5 image. Root supplies the final
 # compiled A5 manifest and all exact pins after source/static review.
-FROZEN_ARTIFACTS={'carrier': {'bytes': 123392, 'sha256': 'c7d402d64688b4d2efcf63505fcc036a614bfc913c18f5a6f552808968ecf5c0'}, 'curl': {'bytes': 818512, 'sha256': '73d24149ff289afc49ec41f08918ef9faa727d39ad993e929757dc2ddafab805'}, 'manifest': {'bytes': 4995, 'sha256': '117b12b34938aadf31a8f84ba3697ad5bdf0d4d0196289e47bf59ad086d3a047'}, 'shim': {'bytes': 282112, 'sha256': '238f3dafc02a8aadb796168e461e8e71a090cf699330630b45f4bf5f103bba25'}}
+FROZEN_ARTIFACTS={"carrier":{"bytes":123392,"sha256":"1c5f556247dc4a09170b3c944bfeaac7e482ee827ed1ba10f74b347e4bd2823c"},"curl":{"bytes":818512,"sha256":"73d24149ff289afc49ec41f08918ef9faa727d39ad993e929757dc2ddafab805"},"manifest":{"bytes":5134,"sha256":"f452cc544ecd107410f702d42fc5c499fcb657a476d30809da32bd23567f59af"},"shim":{"bytes":315904,"sha256":"e4383c061bf87ef6a05b0539454261006e7ac081e90911173179d5f25c05d39b"}}
 FAILURES=('inputs','setup','ordinary_before','construct','admission','accesscheck','base_probe','mapping',
           'memory','payload','resume','trace','proxy','ordinary_after','cleanup','report','deadline')
 CLEAN_KEYS=('workload_cleanup','workload_job_empty','observer_resources_cleanup_verified',
@@ -635,9 +635,9 @@ API=NativeAPI
 
 def binary_record(root,name,raw):
     require(type(raw) is bytes and re.fullmatch('[a-z0-9-]+\\.bin',name),'a5_binary_name')
-    if name=='a5-trace.bin':
+    if name in ('a5-trace.bin','a5-failure-trace.bin'):
         # This fixed trace exceeds the shared 512KiB report/binary bound.
-        # Its sole exception is exact-sized and never changes that shared gate.
+        # The two fixed success/diagnostic filenames are exact-sized; the shared gate is unchanged.
         require(len(raw)==TRACE_BYTES,'a5_trace_binary_size')
         parent=launcher.checked_path(Path(root),is_file=False);path=parent/name
         with path.open('xb') as stream:
@@ -690,6 +690,7 @@ class Owner(cell.CellOwner):
         self.mapping_handle=None;self.child_mapping=None;self.child_mapping_number=None;self.view=None;self.view_consumed=False
         self.target_handle=self.shim_handle=None;self.target_fact=self.shim_fact=None
         self.selected_pipe_numbers=None;self.proxy_leg=None;self.pipe_allocation_unknown=False
+        self.failure_trace_capture_attempted=False;self.failure_trace_diagnostic=None
         self.pipe_owners=helpers.OneShotHandles(lambda h:api.a5_external_close(h,budget=budget,end=budget.cutoff(3),emit=self))
         self.window=None;self.config_bytes=None;self.remote_memory_unknown=False;self.query_ledgers=[];self.image_bytes=None;self.system_ws2=None
         self.mapping_owners=helpers.OneShotHandles(lambda h:api.a5_close(h,budget=budget,end=budget.cutoff(3),emit=self))
@@ -1088,6 +1089,82 @@ class Owner(cell.CellOwner):
         require(review['transport']['transport_candidate'] and row['exit_code']==0 and self.j['selected_output']['exact_HTTP_body'],'a5_finite_HTTP_inconclusive')
         self.phase='proxy';self.proxy_leg.stop_core()
 
+    def capture_failure_trace(self):
+        """One private diagnostic sample; never a successful observation.
+
+        The app window may already have expired. No deadline is replaced: both
+        samples use the existing cleanup reserve and retain the original app,
+        worker and root bounds. Any capture/persistence failure is subordinate
+        to the original run failure and cannot prevent normal owned cleanup.
+        """
+        if self.j['failure'] is None or self.failure_trace_capture_attempted:return None
+        self.failure_trace_capture_attempted=True
+        row=self.tasks.get('selected');window=self.window
+        record=dict(schema_version=1,scope=SCOPE,kind='A5-private-failure-trace-diagnostic',
+            run=self.c['run'],source_sha256=self.c.get('source_sha256'),config_sha256=sha(encode(self.c)),
+            original_failure=self.j['failure'],status='not_sampled',complete=False,diagnostic_only=True,
+            successful_observation=False,HTTP_qualified=False,window_qualification=False,
+            original_window_start=None if window is None else window['start'],
+            original_window_deadline=None if window is None else window['end'],
+            original_worker_deadline=self.c['deadline_qpc'],original_root_deadline=self.c['root_deadline_qpc'],
+            cleanup_cutoff=None,read_before_qpc=None,read_after_qpc=None,within_original_window=False,
+            within_original_cleanup=False,process_exit_known=False,target_generation=None,
+            view_owned=False,stable=False,binary=None,error_code=None)
+        self.failure_trace_diagnostic=record
+        try:
+            root=launcher.checked_path(self.root,is_file=False)
+            json_path=root/'a5-failure-trace-capture.json'
+            binary_path=root/'a5-failure-trace.bin'
+            if json_path.exists() or json_path.is_symlink() or binary_path.exists() or binary_path.is_symlink():
+                record['status']='existing_diagnostic_preserved';return record
+            if not (row is not None and row['exited'] is True and type(row['exit_code']) is int
+                    and 0<=row['exit_code']<=0xffffffff and type(row['exit_observed_qpc']) is int
+                    and type(row['pid']) is int and row['pid']>0 and type(row['created']) is int and row['created']>0):
+                record['status']='process_exit_unknown';return record
+            record['process_exit_known']=True
+            record['target_generation']=dict(pid=row['pid'],created=row['created'],exit_code=row['exit_code'],
+                exit_observed_qpc=row['exit_observed_qpc'],natural_exit=row['natural_exit'])
+            if not (type(self.view) is int and 0x10000<=self.view<(1<<47)-TRACE_BYTES and not self.view_consumed
+                    and self.mapping_handle in self.mapping_owners.pending and not self.mapping_owners.uncertain):
+                record['status']='mapping_view_not_owned';return record
+            record['view_owned']=True
+            if window is None:
+                record['status']='original_window_unavailable';return record
+            end=min(self.budget.cutoff(8),self.c['deadline_qpc'],self.c['root_deadline_qpc'])
+            record['cleanup_cutoff']=end
+            before=self.budget.read();record['read_before_qpc']=before
+            if not (row['exit_observed_qpc']<=before<end):
+                record['status']='original_cleanup_expired';return record
+            # No new epoch, wait, sleep, target query or target-memory API.
+            first=C.string_at(self.view,TRACE_BYTES)
+            second=C.string_at(self.view,TRACE_BYTES)
+            after=self.budget.read();record['read_after_qpc']=after
+            record['within_original_cleanup']=before<=after<end
+            record['within_original_window']=window['start']<=before<=after<window['end']
+            if type(first) is not bytes or type(second) is not bytes or len(first)!=TRACE_BYTES or len(second)!=TRACE_BYTES:
+                record['status']='exact_trace_size_mismatch';return record
+            if first!=second:
+                record['status']='trace_unstable';return record
+            record['stable']=True
+            if not record['within_original_cleanup']:
+                record['status']='original_cleanup_expired_after_read';return record
+            record['binary']=binary_record(root,'a5-failure-trace.bin',first)
+            record['status']='captured_diagnostic';record['complete']=True
+        except BaseException as exc:
+            # Fixed type labels only: paths, raw pointer values and exception
+            # messages never become diagnostics or console output.
+            record['status']='capture_failed';record['complete']=False
+            record['error_code']=type(exc).__name__ if re.fullmatch('[A-Za-z0-9_]{1,80}',type(exc).__name__) else 'Exception'
+        finally:
+            try:
+                root=launcher.checked_path(self.root,is_file=False);path=root/'a5-failure-trace-capture.json'
+                if not path.exists() and not path.is_symlink():base.durable_private(path,encode(record))
+            except BaseException:
+                # Even an unwritable private tree must not mask run failure or
+                # skip the mandatory exact-handle/Job/profile cleanup path.
+                pass
+        return record
+
     def stop_selected(self):
         row=self.tasks.get('selected')
         if row is None or not row['info'].hProcess:return
@@ -1146,6 +1223,8 @@ class Owner(cell.CellOwner):
                     self.phase='ordinary_after';self.control('after')
             except BaseException as exc:
                 self.j['failure']=self.j['failure'] or 'ordinary_after';self.j['failure_detail']=self.j['failure_detail'] or base.private_failure_detail(exc,'ordinary-after')
+            try:self.capture_failure_trace()
+            except BaseException:pass  # Diagnostic failure cannot prevent owned cleanup.
             self.cleanup()
         self.j['tasks']=[task_projection(x) for x in self.children if x.get('role') not in proxy_runtime.ROLES];self.j['controls_uncertain']=bool(self.api.controls_uncertain)
         if any(x['operation']=='a5_copy_config_v1' for x in self.api.a5_calls) and self.j['payload'] is None:

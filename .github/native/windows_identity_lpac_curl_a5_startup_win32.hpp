@@ -34,6 +34,11 @@ __declspec(noinline) inline void invoke_sdk(const SdkCall& in,SdkReceipt32& raw)
   case 312:case 314:case 316:case 321:raw.raw_return=static_cast<std::int64_t>(number(GetModuleHandleW(reinterpret_cast<LPCWSTR>(static_cast<std::uintptr_t>(in.a)))));break;
   case 318:case 319:raw.raw_return=static_cast<std::int64_t>(number(reinterpret_cast<const void*>(GetProcAddress(module(in.a),reinterpret_cast<LPCSTR>(static_cast<std::uintptr_t>(in.b))))));break;
   case 322:raw.raw_return=GetSystemDirectoryW(static_cast<LPWSTR>(in.out),in.bytes/2);break;
+   case 330:raw.raw_return=static_cast<std::int64_t>(number(CreateEventExW(nullptr,nullptr,CREATE_EVENT_MANUAL_RESET,SYNCHRONIZE|EVENT_MODIFY_STATE)));break;
+   case 331:raw.raw_return=SetEvent(handle(in.a));break;
+   case 332:raw.raw_return=ResetEvent(handle(in.a));break;
+   case 333:raw.raw_return=WaitForSingleObject(handle(in.a),0);break;
+   case 334:raw.raw_return=CloseHandle(handle(in.a));break;
   // Primary acquisition/release lives only in its export row.sdk. No second
   // internal row repeats these invocations or invents another reference.
   case 202:raw.raw_return=static_cast<std::int64_t>(number(LoadLibraryExW(reinterpret_cast<LPCWSTR>(static_cast<std::uintptr_t>(in.a)),nullptr,static_cast<DWORD>(in.c))));break;
@@ -91,9 +96,9 @@ class Runtime {
   if(!pre){c.row.raw.flags|=before?late:clock_unknown;
    // No SDK call means an entirely zero SdkReceipt32, including on admission
    // failure. Consumed known-close obligations may still enter once below.
-   if(request.op!=310&&request.op!=203)return false;}
+   if(request.op!=310&&request.op!=203&&request.op!=334)return false;}
   const bool recorded=save(c,false);
-  if(!recorded&&trace_&&request.op!=310&&request.op!=203){c.row.raw.flags|=diagnostic_failure;return false;}
+  if(!recorded&&trace_&&request.op!=310&&request.op!=203&&request.op!=334){c.row.raw.flags|=diagnostic_failure;return false;}
   c.row.sdk.entered_qpc=before;
   if(!pre)c.row.sdk.flags|=before?sdk_late:sdk_clock_unknown;
   invoke_sdk(request,c.row.sdk);
@@ -216,6 +221,12 @@ public:
  HMODULE borrowed(Module m)const {switch(m){case Module::private_shim:return self_;case Module::kernel32:return kernel32_;case Module::kernelbase:return kernelbase_;case Module::ntdll:return ntdll_;case Module::main_image:return main_;default:return nullptr;}}
  FARPROC filename()const{return filename_;}FARPROC version()const{return version_;}
  bool primary(Call& c,const SdkCall& request){return sdk(c,request);}
+ // Primary event acquisitions/releases occur only in their export's SDK32.
+ // Auxiliary rows are distinct actual calls, never a second acquisition view.
+ bool event_auxiliary(u32 op,u64 value,Call& row){
+  if(op!=331&&op!=332&&op!=334)return false;
+  return internal_sdk(op,value,0,0,nullptr,0,row);
+ }
  bool lock_references(){if(reference_lock_.test_and_set()){sticky_header(reference_uncertain);return false;}return true;}
  void unlock_references(){reference_lock_.clear();}
  bool can_load()const{return references_.can_load();}

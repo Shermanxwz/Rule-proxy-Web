@@ -130,6 +130,7 @@ public:
     const char* failure()const{return failure_;}
     std::uint32_t request_accepted()const{return accepted_;}
     std::uint32_t response_delivered()const{return delivered_;}
+    bool response_eof()const{return inbound_fin_;}
     std::uint64_t original_deadline()const{return c_.end;}
     bool transport_complete()const{return !failure_&&node_.complete();}
     bool close_ready()const{return closing_&&transport_complete();}

@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "stage": "A5 actual01 failed HTTP and independent file diagnosis",
+  "source_commit": "324a533ca8ca4811d27a87da9340c1e5091100e5",
+  "source_sha256": "d785fdb0b36887ce8e51f4246249d6b94adeb98323025bf955a4c1d2954306e8",
+  "files": {
+    "lpac-curl-A5-actual01-independent-file-diagnosis-01.json": {
+      "bytes": 4544,
+      "sha256": "376098d8b86e13581a092eb49b0bc3f72d46e79f605bfe4f4b89e41cff6da9a9"
+    },
+    "lpac-curl-A5-ci-source-proof-01.json": {
+      "bytes": 4492,
+      "sha256": "03dc3f10223e4b15ff99b74fa03acbb2e0171df819b39d5071716773c7a294c7"
+    }
+  },
+  "original_public": {
+    "bytes": 1740,
+    "sha256": "2f59e4ebd00d962cc8698432251733703d957329cacdf3dd09ecbc60b6c067f7"
+  },
+  "original_public_path": "../lpac-curl-a5-http-local-01-public.json",
+  "original_preflight_path": "../lpac-curl-a5-http-local-01-preflight.json",
+  "selected_exit_code": 27,
+  "selected_HTTP_success": false,
+  "RPS1_frames": 0,
+  "relay_connect_attempted": false,
+  "original_trace_available": false,
+  "report_rejection": "A5 memory producer emitted A4 scope",
+  "file_only_cleanup_conclusion": "Source-bound forensic and durable return records support all known owned lifetimes closed; original worker schema admission failed, so this is separate file evidence and cannot rewrite the original public recovery flag.",
+  "original_recovery_required": true,
+  "independent_profile_absence_query": false,
+  "unique_dynamic_cause_proven": false,
+  "local_pure": {
+    "test_count": 1505,
+    "skips": 2,
+    "fixed_PE_fixture_methods": 20,
+    "passed": true,
+    "receipt": {
+      "bytes": 4375,
+      "sha256": "7cc3bff1506ff9ae2ce39ba5ad5d8ac039e8a7cbc3bf4f06d05a72f1e5b46153"
+    }
+  },
+  "CI_test_count": 1505,
+  "CI_skips": 0,
+  "four_object_before_after_equal": true,
+  "original_baseline_restored": false,
+  "network_qualified": false,
+  "DNS_isolation_qualified": false,
+  "Linux_equivalence": false,
+  "private_originals_preserved": true
+}

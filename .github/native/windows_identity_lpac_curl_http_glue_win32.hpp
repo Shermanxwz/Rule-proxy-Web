@@ -4,6 +4,7 @@
 // No DllMain work, real Winsock/provider/DNS call, worker/thread or fallback.
 #include "windows_identity_lpac_curl_http_surface.hpp"
 #include "windows_identity_lpac_curl_http_pipe_win32.hpp"
+#include "windows_identity_lpac_curl_a5_startup_events.hpp"
 #include <new>
 #include <atomic>
 #include <type_traits>
@@ -32,6 +33,7 @@ struct State {
     sem::Surface* surface=nullptr;lpac_curl_http::PipeTransport* pipe=nullptr;
     std::uint64_t reader=0,writer=0,start=0,end=0,last=0;
     LifecycleFacts facts{};bool summary_attempted=false;
+    a5startup::events::OneLive events;
     void fail(std::uint32_t reason,DWORD error=0){facts.failed=true;if(!facts.failure){facts.failure=reason;facts.last_winerror=error;}}
     bool sample(std::uint64_t& now){
         LARGE_INTEGER raw{};const BOOL returned=QueryPerformanceCounter(&raw);const DWORD error=returned?0:GetLastError();
@@ -75,7 +77,7 @@ struct State {
         const DWORD error=returned?0:GetLastError();closed=returned!=FALSE;
         if(!closed){facts.close_unknown=true;fail(6,error);}
     }
-    bool cleanup(){
+    bool cleanup_pipes(){
         if(!facts.cleanup_called){
             facts.cleanup_called=true;
             if(pipe){pipe->cleanup();facts.pipe=pipe->facts();reader=writer=0;}
@@ -84,6 +86,19 @@ struct State {
         if(!facts.configure_attempted)return true;
         if(pipe)return facts.pipe.reader_closed&&facts.pipe.writer_closed&&!facts.pipe.close_unknown;
         return facts.fallback_read_closed&&facts.fallback_write_closed&&!facts.close_unknown;
+    }
+    bool cleanup(){
+        const bool pipes_closed=cleanup_pipes();
+        if(events.live()){
+            const auto h=events.handle();events.begin_close(h);
+            NativeCall close{};const bool timely=runtime.event_auxiliary(334,h,close);
+            const bool returned=(close.row.sdk.flags&a5startup::sdk_returned)!=0
+                &&(close.row.sdk.flags&a5startup::sdk_exception)==0;
+            const bool closed=events.closed(returned,close.row.sdk.raw_return!=0);
+            if(!closed){facts.close_unknown=true;fail(20,static_cast<DWORD>(close.row.sdk.error));}
+            if(!timely)fail(21);
+        }
+        return pipes_closed&&events.closed_all();
     }
 };
 #pragma warning(pop)
@@ -148,7 +163,7 @@ inline void emit_summary(){
         |(f.reader_close_attempted?16U:0U)|(f.reader_closed?32U:0U)|(f.writer_close_attempted?64U:0U)|(f.writer_closed?128U:0U)
         |((f.close_unknown||state.facts.close_unknown)?256U:0U)|((f.clock_unknown||state.facts.clock_unknown)?512U:0U)|(f.raw_count_invalid?1024U:0U);
     store32(raw.data()+72,flags);
-    const bool core_bad=!state.surface||state.surface->qualification_failed()||state.facts.failed||state.concurrent_seen.load();
+    const bool core_bad=!state.surface||state.surface->qualification_failed()||state.facts.failed||state.concurrent_seen.load()||!state.events.closed_all();
     store32(raw.data()+76,core_bad?1U:0U);
     if(state.surface){store32(raw.data()+80,state.surface->core().request_accepted());store32(raw.data()+84,state.surface->core().response_delivered());
         store32(raw.data()+88,state.surface->core().transport_complete()?1U:0U);store32(raw.data()+92,state.surface->core().close_ready()?1U:0U);}
@@ -163,7 +178,7 @@ inline void emit_summary(){
 inline bool transport_cleanup(){Lock lock;if(!lock.held)return false;const bool okay=state.cleanup();emit_summary();return okay;}
 inline bool copy_facts(LifecycleFacts& out){Lock lock;if(!lock.held)return false;if(state.pipe)state.facts.pipe=state.pipe->facts();state.facts.concurrent=state.concurrent_seen.load();out=state.facts;return true;}
 
-template<class F>std::int64_t invoke(a5startup::u32 op,a5startup::u64 a,a5startup::u64 b,a5startup::u64 c,F body,bool needs_transport=true,bool needs_startup=true){
+template<class F>std::int64_t invoke(a5startup::u32 op,a5startup::u64 a,a5startup::u64 b,a5startup::u64 c,F body,bool needs_transport=true,bool needs_startup=true,std::int64_t failure_value=-1){
     auto row=runtime.open(op,a,b,c);auto result=State::error(a5startup::operation_unsupported);
     {
         Lock lock;
@@ -176,6 +191,7 @@ template<class F>std::int64_t invoke(a5startup::u32 op,a5startup::u64 a,a5startu
             if(state.surface&&state.surface->qualification_failed())runtime.reject(row);
         }
         if(result.completion==sem::Completion::pending){state.fail(11);runtime.fault(row);result=State::error(sem::TimedOut);}
+        if(result.completion==sem::Completion::failed)result.value=failure_value;
         if(result.error_valid)thread_error=result.error;
         runtime.finish(row,result.value,result.error,result.error_valid);
     }
@@ -184,6 +200,37 @@ template<class F>std::int64_t invoke(a5startup::u32 op,a5startup::u64 a,a5startu
 inline bool input(void* destination,const void* source,std::size_t bytes){return source&&a5startup::win::guarded_copy(destination,source,bytes);}
 inline bool output(void* destination,const void* source,std::size_t bytes){return destination&&a5startup::win::guarded_copy(destination,source,bytes);}
 inline sem::Call unsupported(NativeCall& row,std::uint64_t now){runtime.reject(row);return state.surface->unsupported_api(row.row.raw.export_ordinal,now);}
+inline bool sdk_returned(const NativeCall& row){return (row.row.sdk.flags&a5startup::sdk_returned)!=0&&(row.row.sdk.flags&a5startup::sdk_exception)==0;}
+inline int event_error(const NativeCall& row,int fallback=10022){
+    return sdk_returned(row)&&row.row.sdk.error>0?row.row.sdk.error:fallback;
+}
+inline bool event_reset(NativeCall& row,std::uint64_t event){
+    const bool timely=runtime.primary(row,{332,event,0,0,nullptr,0});
+    const bool returned=sdk_returned(row),success=returned&&row.row.sdk.raw_return!=0;
+    state.events.reset_result(returned,success);
+    if(!success||!timely){runtime.fault(row,a5startup::reference_uncertain);state.fail(22,static_cast<DWORD>(row.row.sdk.error));return false;}
+    return true;
+}
+inline bool event_aux_reset(){
+    if(!state.events.signaled())return true;
+    NativeCall raw{};const bool timely=runtime.event_auxiliary(332,state.events.handle(),raw);
+    const bool returned=sdk_returned(raw),success=returned&&raw.row.sdk.raw_return!=0;
+    state.events.reset_result(returned,success);
+    if(!success||!timely){state.fail(23,static_cast<DWORD>(raw.row.sdk.error));return false;}return true;
+}
+inline bool event_refresh(NativeCall& row,std::uint64_t now){
+    if(!state.events.live())return true;
+    const auto ready=state.surface->core().readiness(now);
+    if(ready.exceptional||state.surface->core().failure()){state.fail(24);runtime.fault(row);return false;}
+    state.events.observe(ready.connected,ready.readable,ready.writable,state.surface->core().response_eof());
+    if(state.events.needs_signal()){
+        NativeCall raw{};const bool timely=runtime.event_auxiliary(331,state.events.handle(),raw);
+        const bool returned=sdk_returned(raw),success=returned&&raw.row.sdk.raw_return!=0;
+        state.events.signal_result(returned,success);
+        if(!success||!timely){state.fail(25,static_cast<DWORD>(raw.row.sdk.error));runtime.fault(row,a5startup::reference_uncertain);return false;}
+    }
+    return true;
+}
 inline sem::Call name(NativeCall& row,SOCKET socket,sockaddr* target,int* length,bool peer){
     int capacity=0;if(!input(&capacity,length,4))return state.pointer_fault(row);
     std::uint64_t now=0;if(!state.now(row,now))return State::error(sem::TimedOut);
@@ -194,8 +241,113 @@ inline sem::Call name(NativeCall& row,SOCKET socket,sockaddr* target,int* length
 }
 } // namespace a5_http_glue
 
+extern "C" WSAEVENT WSAAPI a5_WSACreateEvent(void){
+    const auto result=a5_http_glue::invoke(50,0,0,0,[&](auto& row){
+        auto& state=a5_http_glue::state;
+        if(!state.events.begin_create()){runtime.reject(row);return a5_http_glue::State::error(10022);}
+        const bool timely=runtime.primary(row,{330,0,0,0,nullptr,0});
+        const bool returned=a5_http_glue::sdk_returned(row);
+        const auto raw=static_cast<std::uint64_t>(row.row.sdk.raw_return);
+        const bool adopted=state.events.created(returned,raw);
+        if(!returned||state.events.unknown()){state.fail(26);runtime.fault(row,a5startup::reference_uncertain);}
+        if(!timely){state.fail(27);runtime.fault(row);}
+        if(!adopted||!timely)return a5_http_glue::State::error(a5_http_glue::event_error(row,10055));
+        return a5_http_glue::State::okay(static_cast<std::int64_t>(raw));
+    },true,true,0);
+    return reinterpret_cast<WSAEVENT>(static_cast<std::uintptr_t>(result));
+}
+extern "C" BOOL WSAAPI a5_WSACloseEvent(WSAEVENT event){
+    auto row=runtime.open(45,arg(event));a5_http_glue::Lock lock;BOOL delivered=FALSE;int error=10022;
+    if(!lock.held){runtime.fault(row,a5startup::reference_uncertain);runtime.reject(row);}
+    else if(!a5_http_glue::state.events.begin_close(arg(event))){runtime.reject(row);}
+    else{
+        // Known ownership is consumed before the actual once-close. A late
+        // returned TRUE stays physical TRUE while the trace remains partial.
+        const bool timely=runtime.primary(row,{334,arg(event),0,0,nullptr,0});
+        const bool returned=a5_http_glue::sdk_returned(row);
+        const bool success=a5_http_glue::state.events.closed(returned,row.row.sdk.raw_return!=0);
+        delivered=success?TRUE:FALSE;error=a5_http_glue::event_error(row);
+        if(!success){a5_http_glue::state.facts.close_unknown=true;a5_http_glue::state.fail(28);runtime.fault(row,a5startup::reference_uncertain);}
+        if(!timely){a5_http_glue::state.fail(29);runtime.fault(row);}
+    }
+    if(!delivered)thread_error=error;runtime.finish(row,delivered,delivered?0:error,delivered==FALSE);return delivered;
+}
+extern "C" BOOL WSAAPI a5_WSAResetEvent(WSAEVENT event){
+    return static_cast<BOOL>(a5_http_glue::invoke(95,arg(event),0,0,[&](auto& row){
+        if(!a5_http_glue::state.events.owns(arg(event))){runtime.reject(row);return a5_http_glue::State::error(10022);}
+        if(!a5_http_glue::event_reset(row,arg(event)))return a5_http_glue::State::error(a5_http_glue::event_error(row));
+        return a5_http_glue::State::okay(1);
+    },true,true,0));
+}
+extern "C" int WSAAPI a5_WSAEventSelect(SOCKET socket,WSAEVENT event,long mask){
+    return static_cast<int>(a5_http_glue::invoke(67,arg(socket),arg(event),arg(mask),[&](auto& row){
+        auto& state=a5_http_glue::state;std::uint64_t now=0;
+        if(!state.now(row,now))return a5_http_glue::State::error(lpac_curl_http_surface::TimedOut);
+        if(socket!=lpac_curl_http::VirtualSocket||mask<0
+            ||!state.events.select(arg(event),static_cast<std::uint32_t>(mask))){runtime.reject(row);return a5_http_glue::State::error(10022);}
+        // EventSelect always makes the socket nonblocking. Canceling interest
+        // with mask0 does not restore blocking mode.
+        auto nonblocking=state.surface->ioctl(socket,lpac_curl_http_surface::Fionbio,1,now);
+        if(nonblocking.completion!=lpac_curl_http_surface::Completion::returned)return nonblocking;
+        if(!a5_http_glue::event_aux_reset())return a5_http_glue::State::error(10022);
+        if(mask&&!a5_http_glue::event_refresh(row,now))return a5_http_glue::State::error(10054);
+        return a5_http_glue::State::okay();
+    }));
+}
+extern "C" int WSAAPI a5_WSAEnumNetworkEvents(SOCKET socket,WSAEVENT event,LPWSANETWORKEVENTS target){
+    return static_cast<int>(a5_http_glue::invoke(64,arg(socket),arg(event),arg(target),[&](auto& row){
+        auto& state=a5_http_glue::state;std::uint64_t now=0;
+        if(socket!=lpac_curl_http::VirtualSocket||!state.events.live()||(event&&!state.events.owns(arg(event)))){
+            runtime.reject(row);return a5_http_glue::State::error(10022);}
+        if(!state.now(row,now))return a5_http_glue::State::error(lpac_curl_http_surface::TimedOut);
+        if(!a5_http_glue::event_refresh(row,now))return a5_http_glue::State::error(10054);
+        const auto owned=state.events.peek();
+        if(!a5_http_glue::output(target,&owned,sizeof(owned)))return state.pointer_fault(row);
+        (void)state.events.enumerate();
+        row.row.input_kind=11;row.row.captured_bytes=44;std::memcpy(row.row.name_or_WSADATA,&owned,44);row.row.raw.flags|=a5startup::capture_complete;
+        runtime.sync(row);
+        // curl passes NULL here: clear only the network record. Its explicit
+        // subsequent WSAResetEvent owns the separate kernel reset operation.
+        if(event&&!a5_http_glue::event_reset(row,arg(event)))return a5_http_glue::State::error(a5_http_glue::event_error(row));
+        return a5_http_glue::State::okay();
+    }));
+}
+extern "C" DWORD WSAAPI a5_WSAWaitForMultipleEvents(DWORD count,const WSAEVENT* events,BOOL all,DWORD milliseconds,BOOL alertable){
+    return static_cast<DWORD>(a5_http_glue::invoke(124,arg(count),arg(events),arg(all),[&](auto& row){
+        auto& state=a5_http_glue::state;WSAEVENT owned=nullptr;
+        if(count!=1||all!=FALSE||alertable!=FALSE||milliseconds>8000){runtime.reject(row);return a5_http_glue::State::error(10022);}
+        if(!a5_http_glue::input(&owned,events,sizeof(owned)))return state.pointer_fault(row);
+        if(!state.events.owns(arg(owned))){runtime.reject(row);return a5_http_glue::State::error(10022);}
+        const a5startup::events::WaitInput24 input{arg(owned),milliseconds,0,0,0};
+        row.row.input_kind=12;row.row.captured_bytes=24;std::memcpy(row.row.name_or_WSADATA,&input,24);row.row.raw.flags|=a5startup::capture_complete;runtime.sync(row);
+        std::uint64_t now=0;if(!state.now(row,now))return a5_http_glue::State::error(lpac_curl_http_surface::TimedOut);
+        const auto frequency=runtime.config().frequency;
+        const auto whole=static_cast<std::uint64_t>(milliseconds/1000),part=static_cast<std::uint64_t>(milliseconds%1000);
+        const auto fraction=(frequency/1000)*part+((frequency%1000)*part+999)/1000;
+        const auto duration=whole*frequency+fraction;
+        const auto stop=now+(std::min)(duration,state.end-now);
+        for(;;){
+            // A timeout0 still makes one bounded progress attempt but cannot
+            // Sleep. All positive waits retain the original Config deadline.
+            if(!state.pump(row,false)||!state.now(row,now)||!a5_http_glue::event_refresh(row,now))return a5_http_glue::State::error(10054);
+            if(state.events.signaled()||now>=stop)break;
+            Sleep(1);
+        }
+        // Exactly one real kernel observation, not one SDK row per pump.
+        const bool timely=runtime.primary(row,{333,arg(owned),0,0,nullptr,0});
+        if(!timely||!a5_http_glue::sdk_returned(row))return a5_http_glue::State::error(a5_http_glue::event_error(row));
+        const auto result=static_cast<std::uint64_t>(row.row.sdk.raw_return);
+        if(result!=WAIT_OBJECT_0&&result!=WAIT_TIMEOUT)return a5_http_glue::State::error(a5_http_glue::event_error(row));
+        if((result==WAIT_OBJECT_0)!=state.events.signaled()){state.fail(30);runtime.fault(row);return a5_http_glue::State::error(10022);}
+        return a5_http_glue::State::okay(static_cast<std::int64_t>(result));
+    },true,true,0xffffffffLL));
+}
+
 extern "C" SOCKET WSAAPI a5_socket(int af,int type,int protocol){
     const auto result=a5_http_glue::invoke(23,arg(af),arg(type),arg(protocol),[&](auto& row){
+        // Official curl Curl_probeipv6 capability query. It creates nothing,
+        // consumes no IPv4 socket slot and is not a claimed OS denial.
+        if(a5startup::events::ipv6_capability_probe(af,type,protocol))return a5_http_glue::State::error(10047);
         std::uint64_t now=0;if(!a5_http_glue::state.now(row,now))return a5_http_glue::State::error(lpac_curl_http_surface::TimedOut);
         return a5_http_glue::state.surface->create(af,type,protocol,now);});
     return static_cast<SOCKET>(result);
@@ -250,18 +402,20 @@ extern "C" int WSAAPI a5_send(SOCKET socket,const char* buffer,int length,int fl
             if(!a5_http_glue::state.now(row,now))return a5_http_glue::State::error(lpac_curl_http_surface::TimedOut);
         }
         auto action=[&](auto tick){return a5_http_glue::state.surface->send(socket,owned.data(),owned.size(),flags,tick);};
-        return a5_http_glue::state.await(action(now),row,action);}));
+        auto result=a5_http_glue::state.await(action(now),row,action);
+        a5_http_glue::state.events.after_send();return result;}));
 }
 extern "C" int WSAAPI a5_recv(SOCKET socket,char* buffer,int length,int flags){
     return static_cast<int>(a5_http_glue::invoke(16,arg(socket),arg(buffer),arg(length),[&](auto& row){
         std::uint64_t now=0;if(!a5_http_glue::state.now(row,now))return a5_http_glue::State::error(lpac_curl_http_surface::TimedOut);
-        if(length<=0||length>65536||flags)return a5_http_glue::unsupported(row,now);
+        if(length<=0||length>1024*1024||flags)return a5_http_glue::unsupported(row,now);
         if(socket==lpac_curl_http::VirtualSocket&&a5_http_glue::state.surface->nonblocking()&&!a5_http_glue::state.facts.cleanup_called){
             if(!a5_http_glue::state.pump(row,false))return a5_http_glue::State::error(10054);
             if(!a5_http_glue::state.now(row,now))return a5_http_glue::State::error(lpac_curl_http_surface::TimedOut);
         }
         auto action=[&](auto tick){return a5_http_glue::state.surface->recv(socket,static_cast<std::size_t>(length),flags,tick);};
         auto result=a5_http_glue::state.await(action(now),row,action);
+        a5_http_glue::state.events.after_recv();
         // If delivery faults, consumed stream bytes remain consumed. No false
         // retry/rollback or successful byte count is manufactured.
         if(result.completion==lpac_curl_http_surface::Completion::returned&&!result.bytes.empty()
@@ -273,7 +427,9 @@ extern "C" int WSAAPI a5_closesocket(SOCKET socket){
         std::uint64_t now=0;if(!a5_http_glue::state.now(row,now))return a5_http_glue::State::error(lpac_curl_http_surface::TimedOut);
         const auto result=a5_http_glue::state.await(a5_http_glue::state.surface->close(socket,now),row,[&](auto tick){return a5_http_glue::state.surface->poll_close(socket,tick);});
         if(result.completion==lpac_curl_http_surface::Completion::returned){
-            const bool clean=a5_http_glue::state.cleanup();a5_http_glue::emit_summary();
+            // Pipe cleanup is immediate. The multi's real event remains owned
+            // until WSACloseEvent/WSACleanup; summary is emitted at WSACleanup.
+            const bool clean=a5_http_glue::state.cleanup_pipes();
             if(!clean){runtime.fault(row,a5startup::reference_uncertain);return a5_http_glue::State::error(10038);}}
         return result;}));
 }

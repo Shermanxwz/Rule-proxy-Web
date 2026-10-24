@@ -1,6 +1,10 @@
 # A5 finite real-curl HTTP adapter: source checkpoint
 
-This opt-in local experiment is ready for source validation. No selected LPAC HTTP execution or successful runtime result is asserted by this checkpoint. The ordinary HTTP calibration and A4 startup observations remain separate historical evidence.
+The first selected LPAC HTTP attempt ran from commit `324a533ca8ca4811d27a87da9340c1e5091100e5` and failed before any RPS1 OPEN or application bytes. Curl exited 27 with `Out of memory`; the ordinary relay observed pipe EOF and never attempted its endpoint connection. HTTP success, DNS isolation and Linux equivalence remain false. The ordinary HTTP calibration and A4 startup observations remain separate historical evidence.
+
+The [actual01 evidence index](../../verification/windows-2026-10-22/lpac-curl-a5-http-01/index.json) preserves the original public failure and a separate file-only diagnosis. The worker report was rejected because the A5 memory producer emitted an A4 scope string. Source-bound durable records support closure of all known owned lifetimes, but no independent profile-absence query was performed and the original `recovery_required=true` is unchanged. The four captured global configuration objects match before and after this attempt; older DNS/route baseline differences remain unattributed.
+
+No selected trace survived this attempt: the owner captured it only on the successful path. Curl's upstream source maps a failed `WSACreateEvent` to this exit code, and the current shim rejected that call. This is a concrete source-level explanation, not a dynamically proved unique cause. The corrective revision supplies the finite owned event operations used by curl, retains the exact IPv6 capability probe as an adapter-level unsupported result, and saves failed-run traces separately before unmapping. Such diagnostics never qualify the successful observation or extend its original deadline.
 
 The new local entry is `.github/windows_identity_lpac_curl_a5_loader_local.py --run-local-lpac-curl-a5-http`. It is not the fixed CI VM runtime entry. The root-reviewed driver requires an exact committed source closure, complete pure regression and source-only CI, pinned native artifacts and an explicit scoped local plan before execution.
 

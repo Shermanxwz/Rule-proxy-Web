@@ -152,14 +152,8 @@ extern "C" int WSAAPI a5_listen(SOCKET s,int backlog){deliver_unsupported(13,arg
 extern "C" int WSAAPI a5_recvfrom(SOCKET s,char* p,int n,int,sockaddr*,int*){deliver_unsupported(17,arg(s),arg(p),arg(n),-1);return SOCKET_ERROR;}
 extern "C" int WSAAPI a5_sendto(SOCKET s,const char* p,int n,int,const sockaddr*,int){deliver_unsupported(20,arg(s),arg(p),arg(n),-1);return SOCKET_ERROR;}
 extern "C" int WSAAPI a5_shutdown(SOCKET s,int how){deliver_unsupported(22,arg(s),arg(how),0,-1);return SOCKET_ERROR;}
-extern "C" BOOL WSAAPI a5_WSACloseEvent(WSAEVENT event){deliver_unsupported(45,arg(event),0,0,0);return FALSE;}
-extern "C" WSAEVENT WSAAPI a5_WSACreateEvent(void){deliver_unsupported(50,0,0,0,0);return WSA_INVALID_EVENT;}
 extern "C" int WSAAPI a5_gethostname(char* p,int n){deliver_unsupported(57,arg(p),arg(n),0,-1);return SOCKET_ERROR;}
-extern "C" int WSAAPI a5_WSAEnumNetworkEvents(SOCKET s,WSAEVENT e,LPWSANETWORKEVENTS n){deliver_unsupported(64,arg(s),arg(e),arg(n),-1);return SOCKET_ERROR;}
-extern "C" int WSAAPI a5_WSAEventSelect(SOCKET s,WSAEVENT e,long mask){deliver_unsupported(67,arg(s),arg(e),arg(mask),-1);return SOCKET_ERROR;}
 extern "C" int WSAAPI a5_WSAIoctl(SOCKET s,DWORD code,LPVOID p,DWORD,LPVOID,DWORD,LPDWORD,LPWSAOVERLAPPED,LPWSAOVERLAPPED_COMPLETION_ROUTINE){deliver_unsupported(78,arg(s),arg(code),arg(p),-1);return SOCKET_ERROR;}
-extern "C" BOOL WSAAPI a5_WSAResetEvent(WSAEVENT event){deliver_unsupported(95,arg(event),0,0,0);return FALSE;}
-extern "C" DWORD WSAAPI a5_WSAWaitForMultipleEvents(DWORD n,const WSAEVENT* p,BOOL all,DWORD,BOOL){deliver_unsupported(124,arg(n),arg(p),arg(all),0xffffffffull);return WSA_WAIT_FAILED;}
 extern "C" void WSAAPI a5_freeaddrinfo(PADDRINFOA p){deliver_unsupported(191,arg(p),0,0,0);}
 extern "C" INT WSAAPI a5_getaddrinfo(PCSTR node,PCSTR service,const ADDRINFOA* hints,PADDRINFOA*){auto row=runtime.open(192,arg(node),arg(service),arg(hints));runtime.reject(row);
  ErrorSlot slot{thread_error};runtime.startup().unsupported_call(slot);thread_error=slot.value;runtime.finish(row,EAI_FAIL,0,false);return EAI_FAIL;}

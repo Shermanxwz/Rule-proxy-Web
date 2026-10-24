@@ -1,0 +1,121 @@
+{
+  "DNS_isolation_qualified": false,
+  "Linux_equivalence": false,
+  "actions": {
+    "API_called": false,
+    "file_read_and_struct_JSON_hash_only": true,
+    "original_evidence_modified": false,
+    "project_imported": false,
+    "recovery_performed": false,
+    "tests_or_target_rerun": false
+  },
+  "after_global": {
+    "bytes": 8630,
+    "sha256": "b4953f85f02d4a4e309859707a26ec1a071a28a962791c46e85b3f7b36ce2e56"
+  },
+  "before_global": {
+    "bytes": 8630,
+    "sha256": "b4953f85f02d4a4e309859707a26ec1a071a28a962791c46e85b3f7b36ce2e56"
+  },
+  "cleanup_conclusion": "Source-bound forensic and durable return records support all known owned lifetimes closed; original worker schema admission failed, so this is separate file evidence and cannot rewrite the original public recovery flag.",
+  "deterministic_report_rejection": {
+    "actual_memory_records": 65,
+    "code": "a5_memory_context",
+    "physical_stderr": {
+      "bytes": 2713,
+      "sha256": "fad817f8fc2fcd076f6cc01c2203bd720990a095b8eac35940e7adbed34c8e18"
+    },
+    "producer_record_scope": "A4-fixed-two-descriptor-memory-v1",
+    "producer_source": {
+      "bytes": 25025,
+      "sha256": "cb196915aa2a7ed1dd53221b5688ca89029a2480b78338ab3af3a12dc59496f4"
+    },
+    "required_record_scope": "A5-fixed-two-descriptor-memory-v1",
+    "validator_source": {
+      "bytes": 37194,
+      "sha256": "4519088aed8cbc9fa8341794c911233ecc20390a128bced1ea2e796657cdf747"
+    }
+  },
+  "forensic_substituted_for_worker": false,
+  "four_global_objects_byte_equal_before_after": true,
+  "fresh_label_or_ACL_API_readback_performed": false,
+  "historical_failure": {
+    "HTTP_transport_qualified": false,
+    "barrier_released": false,
+    "detail": {
+      "message": "qpc_expired",
+      "operation": "proxy",
+      "type": "GateFailure"
+    },
+    "phase": "proxy",
+    "relay_exit_code": 5,
+    "selected_error_text": "curl: (27) Out of memory",
+    "selected_exit_code": 27,
+    "selected_natural_exit": false,
+    "selected_stderr": {
+      "bytes": 26,
+      "sha256": "484bd45e7d1c35c1786c8488b768583c5906a094af065e6275ec60ad03ac756f"
+    },
+    "selected_stdout": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "unique_dynamic_cause_proven": false
+  },
+  "network_qualified": false,
+  "old_route_DNS_attribution_unknown": true,
+  "original_forensic": {
+    "bytes": 684789,
+    "sha256": "88b453500389027a6163df726ec4ca67f67a96ee85b9fa48d5db3f3ec8ca0970"
+  },
+  "original_global_baseline_reestablished": false,
+  "original_public": {
+    "bytes": 1740,
+    "sha256": "2f59e4ebd00d962cc8698432251733703d957329cacdf3dd09ecbc60b6c067f7"
+  },
+  "original_public_recovery_required": true,
+  "profile_absence_independently_queried": false,
+  "schema_version": 1,
+  "source_bound_file_facts": {
+    "WSACleanup_raw_zero": true,
+    "all_recorded_children_exited": true,
+    "all_staged_sources_hash_match": true,
+    "artifacts_bound": true,
+    "cleanup_flags": {
+      "acl_removed": true,
+      "cleanup_tools": true,
+      "labels_restored": true,
+      "observer_resources_cleanup_verified": true,
+      "parent_stdio_mapping_duplicate_closed": true,
+      "profile_deleted": true,
+      "query_resources_closed": true,
+      "shim_file_closed": true,
+      "sid_released": true,
+      "target_file_closed": true,
+      "trace_mapping_closed": true,
+      "trace_view_unmapped": true,
+      "workload_cleanup": true,
+      "workload_job_empty": true
+    },
+    "configuration_and_plan_bound": true,
+    "known_core_stdio_raw_closes": 6,
+    "known_parent_pipe_raw_closes": 4,
+    "known_pipe_allocations": 2,
+    "lease_socket_raw_zero_closes": 2,
+    "no_recorded_ownership_unknown": true,
+    "outer_cleanup_known": true,
+    "physical_API_returns": 85,
+    "physical_intents": 57,
+    "physical_returns": 39,
+    "removal_tool_admitted_and_exited_zero": true,
+    "single_profile_delete_intent": true,
+    "source_recorded_label_batch_restored": true,
+    "source_sets_profile_deleted_only_after_normal_API_return": true,
+    "two_LPAC_proofs_record_qualified_and_resources_closed": true
+  },
+  "source_commit": "324a533ca8ca4811d27a87da9340c1e5091100e5",
+  "source_count": 114,
+  "source_sha256": "d785fdb0b36887ce8e51f4246249d6b94adeb98323025bf955a4c1d2954306e8",
+  "stage": "A5-actual01-file-only-report-rejection-and-known-cleanup-diagnosis",
+  "worker_report_present": false
+}

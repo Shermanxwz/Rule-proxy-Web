@@ -188,20 +188,20 @@
       "signature": "SOCKET WSAAPI socket(int, int, int)"
     },
     {
-      "failure_contract": "FALSE; private thread error and sticky unsupported",
-      "implemented": false,
+      "failure_contract": "Only the owned live event and fixed virtual socket are admitted. Real kernel SDK receipts remain separate from Winsock-compatible delivery; close consumes ownership once, and all waits retain the original window.",
+      "implemented": true,
       "name": "WSACloseEvent",
       "ordinal": 45,
-      "proposed_implementation": "sticky-recorded-unsupported-no-real-WS2",
+      "proposed_implementation": "bounded-owned-kernel-manual-reset-event-for-fixed-pipe-readiness",
       "sdk_header": "WinSock2.h",
       "signature": "BOOL WSAAPI WSACloseEvent(WSAEVENT)"
     },
     {
-      "failure_contract": "WSA_INVALID_EVENT; private thread error and sticky unsupported",
-      "implemented": false,
+      "failure_contract": "Only the owned live event and fixed virtual socket are admitted. Real kernel SDK receipts remain separate from Winsock-compatible delivery; close consumes ownership once, and all waits retain the original window.",
+      "implemented": true,
       "name": "WSACreateEvent",
       "ordinal": 50,
-      "proposed_implementation": "sticky-recorded-unsupported-no-real-WS2",
+      "proposed_implementation": "bounded-owned-kernel-manual-reset-event-for-fixed-pipe-readiness",
       "sdk_header": "WinSock2.h",
       "signature": "WSAEVENT WSAAPI WSACreateEvent(void)"
     },
@@ -215,20 +215,20 @@
       "signature": "int WSAAPI gethostname(char*, int)"
     },
     {
-      "failure_contract": "SOCKET_ERROR; private thread error and sticky unsupported",
-      "implemented": false,
+      "failure_contract": "Only the owned live event and fixed virtual socket are admitted. Real kernel SDK receipts remain separate from Winsock-compatible delivery; close consumes ownership once, and all waits retain the original window.",
+      "implemented": true,
       "name": "WSAEnumNetworkEvents",
       "ordinal": 64,
-      "proposed_implementation": "sticky-recorded-unsupported-no-real-WS2",
+      "proposed_implementation": "bounded-owned-kernel-manual-reset-event-for-fixed-pipe-readiness",
       "sdk_header": "WinSock2.h",
       "signature": "int WSAAPI WSAEnumNetworkEvents(SOCKET, WSAEVENT, LPWSANETWORKEVENTS)"
     },
     {
-      "failure_contract": "SOCKET_ERROR; private thread error and sticky unsupported",
-      "implemented": false,
+      "failure_contract": "Only the owned live event and fixed virtual socket are admitted. Real kernel SDK receipts remain separate from Winsock-compatible delivery; close consumes ownership once, and all waits retain the original window.",
+      "implemented": true,
       "name": "WSAEventSelect",
       "ordinal": 67,
-      "proposed_implementation": "sticky-recorded-unsupported-no-real-WS2",
+      "proposed_implementation": "bounded-owned-kernel-manual-reset-event-for-fixed-pipe-readiness",
       "sdk_header": "WinSock2.h",
       "signature": "int WSAAPI WSAEventSelect(SOCKET, WSAEVENT, long)"
     },
@@ -242,11 +242,11 @@
       "signature": "int WSAAPI WSAIoctl(SOCKET, DWORD, LPVOID, DWORD, LPVOID, DWORD, LPDWORD, LPWSAOVERLAPPED, LPWSAOVERLAPPED_COMPLETION_ROUTINE)"
     },
     {
-      "failure_contract": "FALSE; private thread error and sticky unsupported",
-      "implemented": false,
+      "failure_contract": "Only the owned live event and fixed virtual socket are admitted. Real kernel SDK receipts remain separate from Winsock-compatible delivery; close consumes ownership once, and all waits retain the original window.",
+      "implemented": true,
       "name": "WSAResetEvent",
       "ordinal": 95,
-      "proposed_implementation": "sticky-recorded-unsupported-no-real-WS2",
+      "proposed_implementation": "bounded-owned-kernel-manual-reset-event-for-fixed-pipe-readiness",
       "sdk_header": "WinSock2.h",
       "signature": "BOOL WSAAPI WSAResetEvent(WSAEVENT)"
     },
@@ -287,11 +287,11 @@
       "signature": "int WSAAPI WSACleanup(void)"
     },
     {
-      "failure_contract": "WSA_WAIT_FAILED; private thread error and sticky unsupported",
-      "implemented": false,
+      "failure_contract": "Only the owned live event and fixed virtual socket are admitted. Real kernel SDK receipts remain separate from Winsock-compatible delivery; close consumes ownership once, and all waits retain the original window.",
+      "implemented": true,
       "name": "WSAWaitForMultipleEvents",
       "ordinal": 124,
-      "proposed_implementation": "sticky-recorded-unsupported-no-real-WS2",
+      "proposed_implementation": "bounded-owned-kernel-manual-reset-event-for-fixed-pipe-readiness",
       "sdk_header": "WinSock2.h",
       "signature": "DWORD WSAAPI WSAWaitForMultipleEvents(DWORD, const WSAEVENT*, BOOL, DWORD, BOOL)"
     },
@@ -370,8 +370,8 @@
   ],
   "forwarder_count": 1,
   "gateway_count": 4,
-  "implementation_scope": "Single fixed IPv4 numeric HTTP exchange over inherited RPS1 pipes; no real Winsock or DNS forwarding.",
-  "implemented_WS2_proposal_count": 19,
+  "implementation_scope": "Single fixed IPv4 numeric HTTP exchange over inherited RPS1 pipes with one owned kernel event per live generation; no real Winsock or DNS forwarding. The exact IPv6 datagram capability probe returns adapter-level WSAEAFNOSUPPORT without an OS socket call.",
+  "implemented_WS2_proposal_count": 25,
   "schema_version": 1,
   "sdk": {
     "compiled_signature_assertions_executed": true,
@@ -396,5 +396,5 @@
     "version": "10.0.26100.0"
   },
   "stage": "A5-finite-fixed-curl-HTTP-over-inherited-pipes-SDK-signatures",
-  "unsupported_WS2_count": 16
+  "unsupported_WS2_count": 10
 }

@@ -138,6 +138,15 @@ void zero_timeout_polls_need_bounded_transport_progress(){
     }
     check(connected&&!p.surface.qualification_failed()&&p.surface.deadline()==p.c.end);
 }
+void zero_send_during_pending_connect_is_not_stream_failure(){
+    Pair p;
+    const auto pending=p.surface.send(h::VirtualSocket,nullptr,0,0,++p.now);
+    check(pending.completion==w::Completion::failed&&pending.error==w::NotConnected);
+    check(!p.surface.qualification_failed()&&p.surface.core().request_accepted()==0);
+    p.opened();const auto connected=p.surface.send(h::VirtualSocket,nullptr,0,0,++p.now);
+    check(connected.completion==w::Completion::returned&&connected.value==0);
+    check(!p.surface.qualification_failed()&&p.surface.core().request_accepted()==0);
+}
 void rejects_and_original_deadline(){
     Pair second;check(second.surface.create(2,1,6,++second.now).completion==w::Completion::failed&&second.surface.qualification_failed());
     Pair wrong;auto destination=w::address(wrong.c.target);destination.port=w::htons(51003);
@@ -160,7 +169,7 @@ void rejects_and_original_deadline(){
     Pair events;check(events.surface.unsupported_api(1,++events.now).completion==w::Completion::failed&&events.surface.qualification_failed());
 }
 int main(){
-    try{shapes_and_options();zero_timeout_polls_need_bounded_transport_progress();rejects_and_original_deadline();for(auto n:{1u,11u,257u}){Pair p;p.run(n,n==1?100U*1024U:(n==11?1024U*1024U:17U));}
+    try{shapes_and_options();zero_timeout_polls_need_bounded_transport_progress();zero_send_during_pending_connect_is_not_stream_failure();rejects_and_original_deadline();for(auto n:{1u,11u,257u}){Pair p;p.run(n,n==1?100U*1024U:(n==11?1024U*1024U:17U));}
         std::cout<<"curl-http-surface assertions: "<<checks<<"\n";return 0;
     }catch(const std::exception& e){std::cerr<<e.what()<<" at "<<checks<<"\n";return 1;}
 }

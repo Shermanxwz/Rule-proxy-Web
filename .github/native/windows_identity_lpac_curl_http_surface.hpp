@@ -206,8 +206,11 @@ public:
     Call send(std::uint64_t s,const std::uint8_t* bytes,std::size_t count,int flags,std::uint64_t now){
         if(!socket(s,now))return returned_error(terminal_error_?terminal_error_:socket_error_);
         refresh(now);if(failed_)return returned_error(terminal_error_?terminal_error_:socket_error_);
+        // curl's Windows poll path uses send(NULL,0) to reenable FD_WRITE
+        // even during a nonblocking connect. That probe is not stream data
+        // and a not-yet-connected result must not poison the one connection.
+        if(!count&&flags==0)return connected_?okay(0):returned_error(NotConnected);
         if(!connected_)return fail("send_not_connected",NotConnected,now);
-        if(!count&&flags==0)return okay(0);
         return io_result(core_.send(s,bytes,count,flags,now));
     }
     Call recv(std::uint64_t s,std::size_t capacity,int flags,std::uint64_t now){
@@ -264,7 +267,7 @@ public:
     Call unsupported_api(std::uint32_t operation,std::uint64_t now){
         (void)operation;return fail("surface_API_unsupported",Unsupported,now);
     }
-    // WSA event objects, WSAPoll, DNS/resolvers, bind/listen/accept, datagrams,
+    // WSAPoll, DNS/resolvers, bind/listen/accept, datagrams,
     // linger, shutdown and additional sockets are deliberately not provided.
     // The future wrapper must emit an unsupported receipt and call the method
     // above, not pass them through to WS2_32 or invent success.

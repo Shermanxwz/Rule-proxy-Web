@@ -11,6 +11,16 @@ from test_windows_identity_lpac_curl_a5_binary_reader import (
 
 
 SOCKET = 0xa500
+EVENT = 0x900
+
+
+def kernel_delivery(op, slot, tick, *, value=1, args=(0, 0, 0),
+                    sdk_value=None, payload=b'', kind=0):
+    row = bytearray(delivery(op, slot, tick, value=value, args=args,
+                            payload=payload, kind=kind))
+    struct.pack_into('<qiIQQ', row, 2144, value if sdk_value is None else sdk_value,
+                     0, 7, tick, tick + 1)
+    return bytes(row)
 
 
 def delivery(op, slot, tick, *, value=0, args=(0, 0, 0), error=0,
@@ -44,6 +54,7 @@ def transport_rows():
         args=(0x800000, 0x500000, 0), error=127,
         payload=b'wine_get_version\0', kind=2, module=5, unsupported=True))
     rows.append(bootstrap_fixture()[22])
+    rows.append(kernel_delivery(50, len(rows), 110130, value=EVENT))
     calls = [
         (23, SOCKET, (2, 1, 6), 0),
         (4, 0, (SOCKET, 0x600000, 16), 0),
@@ -57,6 +68,7 @@ def transport_rows():
     for op, value, args, error in calls:
         rows.append(delivery(op, len(rows), 110140 + len(rows), value=value,
                               args=args, error=error))
+    rows.append(kernel_delivery(45, len(rows), 110220, args=(EVENT, 0, 0)))
     rows.append(delivery(116, len(rows), 110250))
     rows.append(delivery(400, len(rows), 110400, value=1,
                           payload=pipe_payload(), kind=10))
@@ -224,7 +236,7 @@ class TransportTests(unittest.TestCase):
         for mutation in ('send_total', 'socket_alias', 'duplicate_close'):
             rows = transport_rows()
             if mutation == 'duplicate_close':
-                rows.insert(-1, rows[-3])
+                rows.insert(-1, next(raw for raw in rows if struct.unpack_from('<I', raw, 4)[0] == 3))
             else:
                 index = next(i for i, raw in enumerate(rows) if struct.unpack_from('<I', raw, 4)[0] == 19)
                 raw = bytearray(rows[index])
