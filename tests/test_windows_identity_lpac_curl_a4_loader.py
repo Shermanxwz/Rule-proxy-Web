@@ -112,4 +112,52 @@ class OwnerTests(unittest.TestCase):
         self.assertGreater(len(seen),256);self.assertEqual(set(seen),set(expected))
         self.assertEqual(len(seen),len(set(seen)))
 
+    def test_trace_after_exit_persists_exact_557312_bytes_before_decoder(self):
+        root,api,o=self.fixture();o.view=0x123000;o.window=dict(start=1100,end=100000);o.config_bytes=bytes(2048)
+        trace=bytes(range(256))*(m.TRACE_BYTES//256);self.assertEqual(len(trace),557312)
+        review={'inert_decoder_only':True};original=m.base.durable_private
+        def small_only(path,raw):
+            self.assertNotEqual(Path(path).name,'a4-trace.bin')
+            return original(path,raw)
+        def decode_after_physical(raw,**kwargs):
+            self.assertEqual((root/'a4-trace.bin').read_bytes(),trace)
+            self.assertEqual(raw,trace);self.assertEqual(kwargs,dict(expected_config2048=o.config_bytes,schema_metadata=m.trace_reader.SCHEMA_METADATA))
+            return review
+        with patch.object(C,'string_at',return_value=trace) as sample, \
+             patch.object(m.base,'durable_private',side_effect=small_only), \
+             patch.object(m.trace_reader,'review',side_effect=decode_after_physical) as decoder:
+            self.assertEqual(o.trace_after_exit(dict(exited=True,natural_exit=True)),review)
+        self.assertEqual(sample.call_args_list,[unittest.mock.call(0x123000,m.TRACE_BYTES)]*2)
+        decoder.assert_called_once();self.assertEqual((root/'a4-trace.bin').stat().st_size,m.TRACE_BYTES)
+        self.assertEqual(o.j['trace_binary'],dict(name='a4-trace.bin',bytes=m.TRACE_BYTES,sha256=m.sha(trace)))
+        physical=m.decode((root/'returns'/o.j['trace_review']['name']).read_bytes())
+        self.assertEqual(physical['data']['trace_sha256'],m.sha(trace))
+
+    def test_trace_binary_exact_size_exclusive_and_other_binary_bound(self):
+        root,api,o=self.fixture();path=root/'a4-trace.bin'
+        for size in (0,m.TRACE_BYTES-1,m.TRACE_BYTES+1):
+            with self.subTest(size=size),self.assertRaisesRegex(ValueError,'a4_trace_binary_size'):
+                m.binary_record(root,'a4-trace.bin',bytes(size))
+            self.assertFalse(path.exists())
+        with self.assertRaisesRegex(ValueError,'durable_bound'):
+            m.binary_record(root,'other.bin',bytes(m.TRACE_BYTES))
+        self.assertFalse((root/'other.bin').exists())
+        path.write_bytes(b'immutable-existing-file')
+        with self.assertRaises(FileExistsError):m.binary_record(root,'a4-trace.bin',bytes(m.TRACE_BYTES))
+        self.assertEqual(path.read_bytes(),b'immutable-existing-file')
+
+    def test_trace_readback_corruption_keeps_partial_file_and_no_decoder_qualification(self):
+        root,api,o=self.fixture();o.view=0x123000;o.window=dict(start=1100,end=100000);o.config_bytes=bytes(2048)
+        trace=bytes(m.TRACE_BYTES);bounded=m.local.bounded
+        def damaged_view(path,limit):
+            raw=bounded(path,limit)
+            return raw[:-1]+b'\x01' if Path(path).name=='a4-trace.bin' else raw
+        with patch.object(C,'string_at',return_value=trace), \
+             patch.object(m.local,'bounded',side_effect=damaged_view), \
+             patch.object(m.trace_reader,'review',side_effect=AssertionError('unverified trace cannot qualify')) as decoder:
+            with self.assertRaisesRegex(ValueError,'a4_trace_readback'):
+                o.trace_after_exit(dict(exited=True,natural_exit=True))
+        self.assertEqual((root/'a4-trace.bin').read_bytes(),trace)
+        self.assertIsNone(o.j['trace_binary']);self.assertIsNone(o.j['trace_review']);decoder.assert_not_called()
+
 if __name__=='__main__':unittest.main()

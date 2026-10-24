@@ -437,7 +437,17 @@ API=NativeAPI
 
 def binary_record(root,name,raw):
     require(type(raw) is bytes and re.fullmatch('[a-z0-9-]+\\.bin',name),'a4_binary_name')
-    base.durable_private(Path(root)/name,raw);return dict(name=name,bytes=len(raw),sha256=sha(raw))
+    if name=='a4-trace.bin':
+        # This fixed trace exceeds the shared 512KiB report/binary bound.
+        # Its sole exception is exact-sized and never changes that shared gate.
+        require(len(raw)==TRACE_BYTES,'a4_trace_binary_size')
+        parent=launcher.checked_path(Path(root),is_file=False);path=parent/name
+        with path.open('xb') as stream:
+            require(stream.write(raw)==TRACE_BYTES,'a4_trace_write');stream.flush();os.fsync(stream.fileno())
+        saved=local.bounded(launcher.checked_path(path,inside=parent),TRACE_BYTES)
+        require(len(saved)==TRACE_BYTES and sha(saved)==sha(raw),'a4_trace_readback')
+    else:base.durable_private(Path(root)/name,raw)
+    return dict(name=name,bytes=len(raw),sha256=sha(raw))
 
 def read_binary(root,d,limit):
     require(type(d) is dict and set(d)=={'name','bytes','sha256'} and type(d['name']) is str

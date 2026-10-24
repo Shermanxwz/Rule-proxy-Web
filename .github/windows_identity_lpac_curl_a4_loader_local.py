@@ -26,6 +26,17 @@ DIRS=('owner-inputs','package','selected-output','ordinary-before','ordinary-aft
 TEMPS=('ordinary-before','ordinary-after','guard','tools/grant-root','tools/grant-package','tools/grant-output','tools/remove')
 BOUNDARY='finite-no-URL-fixed-curl-private-startup-diagnostic-only'
 
+def durable_worker_report(root,name,raw):
+    # Final worker envelopes can contain two references to the full trace
+    # projection. Keep this exception closed to these two existing readers.
+    require(type(name) is str and name in ('worker-result-forensic.json','worker-report.json')
+        and type(raw) is bytes and len(raw)<=MAX_REPORT,'a4_worker_report_bound')
+    parent=launcher.checked_path(Path(root),is_file=False);path=parent/name
+    with path.open('xb') as stream:
+        require(stream.write(raw)==len(raw),'a4_worker_report_write');stream.flush();os.fsync(stream.fileno())
+    saved=local.bounded(launcher.checked_path(path,inside=parent),MAX_REPORT)
+    require(len(saved)==len(raw) and sha(saved)==sha(raw),'a4_worker_report_readback')
+
 def snapshot(root=ROOT):
     root=launcher.checked_path(root,is_file=False);files={}
     for name in SOURCES:
@@ -161,9 +172,9 @@ def worker(config_path,*,api=None,root=ROOT):
     local.LocalNativeAPI.verify_private_directory(api.native,root,descriptor);local.verify_guard_job(api.native,c['guard_job_name'])
     private=core.execute(root,c,parent,api,budget)
     report=dict(schema_version=1,stage='curl-a4-loader-worker',config=c,worker_pid=os.getpid(),worker_identity=parent,result=private)
-    base.durable_private(root/'worker-result-forensic.json',encode(report))
+    durable_worker_report(root,'worker-result-forensic.json',encode(report))
     core.validate_result(private,c,parent=parent,root=root);budget.require_ms(budget.cutoff(1))
-    base.durable_private(root/'worker-report.json',encode(report));return 0
+    durable_worker_report(root,'worker-report.json',encode(report));return 0
 
 def invalidate_complete(result):
     result['observation_complete']=False;result['checks']['mechanism']=False

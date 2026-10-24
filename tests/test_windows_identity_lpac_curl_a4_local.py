@@ -240,5 +240,52 @@ class GuardTests(unittest.TestCase):
                 m.bind_report(bad,config,parent,launch,result,root=f['root'])
         self.inner_factory.assert_not_called();self.outer_factory.assert_not_called();self.launch.assert_not_called()
 
+    def test_final_reports_over_512KiB_persist_real_256_row_review_as_inert_payload(self):
+        # Reuse the source-only byte fixture, then call the real pure decoder.
+        # This is a file-capacity test, never an actual worker qualification.
+        spec=importlib.util.spec_from_file_location('a4_full_trace_file_fixture',
+            Path(__file__).with_name('test_windows_identity_lpac_curl_a4_binary_reader.py'))
+        fixture=importlib.util.module_from_spec(spec);spec.loader.exec_module(fixture)
+        rows=fixture.bootstrap_fixture()
+        while len(rows)<256:
+            slot=len(rows);rows.append(fixture.row_fixture(111,slot,110200+slot*4,value=0,sdk=False))
+        trace=fixture.trace_fixture(rows)
+        review=m.core.trace_reader.review(trace,expected_config2048=fixture.config_fixture(),
+                                          schema_metadata=m.core.trace_reader.SCHEMA_METADATA)
+        self.assertEqual(review['row_count'],256)
+        raw=m.encode(dict(schema_version=1,stage='inert-final-report-capacity-fixture',
+            returns=[dict(data=dict(review=review))],trace_review=dict(data=dict(review=review)),
+            unrelated_inert_payload='x'*300000))
+        self.assertGreater(len(raw),512*1024);self.assertLessEqual(len(raw),m.MAX_REPORT)
+        td=tempfile.TemporaryDirectory();self.addCleanup(td.cleanup);root=Path(td.name).resolve()
+        with patch.object(m.base,'durable_private',side_effect=AssertionError('shared512K writer must not be used')):
+            for name in ('worker-result-forensic.json','worker-report.json'):
+                with self.subTest(name=name):
+                    m.durable_worker_report(root,name,raw)
+                    self.assertEqual((root/name).read_bytes(),raw)
+                    self.assertEqual(m.decode((root/name).read_bytes())['trace_review']['data']['review']['row_count'],256)
+        self.inner_factory.assert_not_called();self.outer_factory.assert_not_called();self.launch.assert_not_called()
+
+    def test_final_report_bound_exclusive_names_and_physical_readback(self):
+        td=tempfile.TemporaryDirectory();self.addCleanup(td.cleanup);root=Path(td.name).resolve()
+        for name in ('other.json','worker-report.json/other','../worker-report.json'):
+            with self.subTest(name=name),self.assertRaisesRegex(ValueError,'a4_worker_report_bound'):
+                m.durable_worker_report(root,name,b'{}')
+        with self.assertRaisesRegex(ValueError,'a4_worker_report_bound'):
+            m.durable_worker_report(root,'worker-report.json',bytes(m.MAX_REPORT+1))
+        self.assertFalse((root/'worker-report.json').exists())
+        raw=bytes(m.MAX_REPORT);m.durable_worker_report(root,'worker-report.json',raw)
+        self.assertEqual((root/'worker-report.json').read_bytes(),raw)
+        with self.assertRaises(FileExistsError):m.durable_worker_report(root,'worker-report.json',b'{}')
+        self.assertEqual((root/'worker-report.json').read_bytes(),raw)
+        bounded=m.local.bounded
+        def damaged(path,limit):
+            value=bounded(path,limit)
+            return value[:-1]+b'!' if Path(path).name=='worker-result-forensic.json' else value
+        with patch.object(m.local,'bounded',side_effect=damaged):
+            with self.assertRaisesRegex(ValueError,'a4_worker_report_readback'):
+                m.durable_worker_report(root,'worker-result-forensic.json',b'{}\n')
+        self.assertEqual((root/'worker-result-forensic.json').read_bytes(),b'{}\n')
+
 
 if __name__=='__main__':unittest.main()
