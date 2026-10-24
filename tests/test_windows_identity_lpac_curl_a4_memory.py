@@ -65,6 +65,9 @@ class Kernel:
         self.pe = m.builder.verify_fixed_pe(image)
         self.image = bytearray(m.builder.SIZE_IMAGE)
         self.image[:1024] = self.pe.header
+        # Independent fixture oracle: a mapped image stores the actual base.
+        # Do not use the production mapped-header helper to build this sample.
+        struct.pack_into('<Q', self.image, 304, self.base)
         self.image[m.builder.IMPORT_RVA:m.builder.IMPORT_RVA + 860] = (
             self.pe.original_tables.descriptors)
         for index in range(42):
@@ -214,6 +217,16 @@ class MemorySequenceTests(unittest.TestCase):
         self.assertEqual(k.arena_protect, 2)
         self.assertEqual(k.image[:1024], c.patch.expected_header)
         self.assertEqual(bytes(k.data), c.patch.arena)
+        self.assertEqual(struct.unpack_from('<Q', k.image, 304)[0], k.base)
+        writes = [(dict(call.arguments)['address'], dict(call.arguments)['bytes'])
+                  for call in out.calls if call.operation == 'write']
+        self.assertEqual(writes, [(k.arena, 4096), (k.base + 400, 4)])
+        mutation = next(row for row, _ in journal.rows
+                        if row['kind'] == 'remote-mutation-intent')
+        self.assertEqual(mutation['header_before_sha256'],
+                         hashlib.sha256(c.mapped_header).hexdigest())
+        self.assertEqual(mutation['header_after_sha256'],
+                         hashlib.sha256(c.patch.expected_header).hexdigest())
         self.assertEqual([g[0] for g in out.gates], ['before-memory', 'after-publication'])
         for i, event in enumerate(events):
             if event[0] == 'native':
@@ -221,6 +234,40 @@ class MemorySequenceTests(unittest.TestCase):
         for call in out.calls:
             self.assertLessEqual(call.entered_qpc, call.returned_qpc)
             self.assertTrue(call.return_receipt_sha256)
+        for corrupt in ('preferred', 'wrong-base', 0, 303, 312, 400, 1023):
+            with self.subTest(initial_header=corrupt):
+                bad_c, bad_k, bad_events, _ = self.fixture()
+                if corrupt in ('preferred', 'wrong-base'):
+                    wrong = (bad_k.pe.preferred_image_base if corrupt == 'preferred'
+                             else bad_k.base + 65536)
+                    struct.pack_into('<Q', bad_k.image, 304, wrong)
+                else:bad_k.image[corrupt] ^= 1
+                stopped = bad_c.run()
+                self.assert_stopped_once(bad_c, stopped, bad_events)
+                self.assertIn('original_readback_mismatch', stopped.failure)
+                self.assertFalse(stopped.mutation_attempted)
+                self.assertFalse(bad_k.allocated)
+                self.assertFalse(any(call.operation in ('allocate', 'write', 'protect')
+                                     for call in stopped.calls))
+        # Model a contradictory final sample after the only four-byte header
+        # write. The coordinator must preserve the mutation and stop, not
+        # accept a header whose ImageBase reverted to the disk preferred base.
+        bad_c, bad_k, bad_events, _ = self.fixture()
+        original_read = bad_k.ReadProcessMemory
+        def revert_preferred(process, address, output, size, count):
+            if (number(address) == bad_k.base and size == 1024
+                    and bad_k.image[400:404] == bad_c.patch.header_patch):
+                struct.pack_into('<Q', bad_k.image, 304, bad_k.pe.preferred_image_base)
+            return original_read(process, address, output, size, count)
+        bad_k.ReadProcessMemory = revert_preferred
+        stopped = bad_c.run()
+        self.assert_stopped_once(bad_c, stopped, bad_events)
+        self.assertIn('BuilderError', stopped.failure)
+        self.assertTrue(stopped.mutation_attempted)
+        self.assertEqual(stopped.allocation_state, 'known-exact-retained')
+        self.assertEqual([(dict(call.arguments)['address'], dict(call.arguments)['bytes'])
+                          for call in stopped.calls if call.operation == 'write'],
+                         [(bad_k.arena, 4096), (bad_k.base + 400, 4)])
 
     def test_partial_write_FALSE_error0_keeps_count_and_stops_without_readback_retry(self):
         c, k, events, _ = self.fixture('partial-write')

@@ -198,6 +198,11 @@ task_projection=mm.task_projection
 GRANTS=mm.GRANTS
 expected_acl=mm.expected_acl
 
+def owned_tree(root):
+    # A4 source, raw API and memory journals exceed the old DNS owner's256
+    # nodes. Retain explicit depth/byte/node bounds and every no-reparse check.
+    return base.contracts.owned_tree(root,max_nodes=512,max_depth=16,max_bytes=24*1024*1024)
+
 class NativeAPI(mm.NativeAPI):
     """New A4 parent bindings, constructed only by the explicit ready worker.
 
@@ -444,7 +449,10 @@ def read_binary(root,d,limit):
 class Owner(cell.CellOwner):
     # Reuse only scope-free utility methods. CMM run/operation/prepare_native/
     # resume_observe/result predicates and marker/event APIs are never invoked.
-    scope_acl=mm.Owner.scope_acl
+    def scope_acl(self,removed=False):
+        for path in owned_tree(self.root):
+            self.budget.require_ms(self.budget.cutoff(3 if removed else 25))
+            require(self.api.acl_read(path,self.profile['sid'])==([] if removed else expected_acl(self.root,path)),'a4_acl_scope')
     task=mm.Owner.task
     tool=mm.Owner.tool
     new_row=mm.Owner.new_row
@@ -652,12 +660,12 @@ class Owner(cell.CellOwner):
         require(memory.Coordinator._covers(region,actual,4096) and region['allocation_base']==actual
             and region['state']==0x1000 and region['type']==0x1000000 and region['protect']==2,'a4_base_image_region')
         raw,header_ref=self.remote_call(row,'read',actual,builder.SIZE_HEADERS)
-        image=self.image_bytes;require(type(image) is bytes,'a4_retained_source_bytes');pe=builder.verify_fixed_pe(image)
-        require(raw.data==pe.header,'a4_base_header');self.held(row,self.window['end'])
+        image=self.image_bytes;require(type(image) is bytes,'a4_retained_source_bytes');mapped_header=builder.expected_mapped_header(image,actual)
+        require(raw.data==mapped_header,'a4_base_header');self.held(row,self.window['end'])
         receipt=self.returned('base-probe',intent,dict(information_class=0,pbi_bytes=48,peb_probe_bytes=32,
             peb_layout='local-amd64-internal-offset16-not-public-stable',peb=peb,actual_base=actual,
             peb_return_sha256=peb_ref,query_return_sha256=query_ref,header_return_sha256=header_ref,
-            pid=row['pid'],created=row['created'],header_sha256=sha(pe.header)))
+            pid=row['pid'],created=row['created'],header_sha256=sha(mapped_header)))
         self.j['base_provenance']=receipt;return actual,image
 
     def memory_sequence(self,row,actual,image):
@@ -751,7 +759,7 @@ class Owner(cell.CellOwner):
 
     def run(self):
         try:
-            verify_artifacts(self.c,self.root);verify_system_curl(self.api,self.c['curl_path']);base.owned_tree(self.root)
+            verify_artifacts(self.c,self.root);verify_system_curl(self.api,self.c['curl_path']);owned_tree(self.root)
             self.job=self.api.owned_job(self.owners);self.phase='ordinary_before';self.control('before')
             self.phase='setup';self.setup_profile();end=work_cutoff(self.c)
             for role,path in (('target',Path(self.c['curl_path'])),('shim',artifact_paths(self.root)['shim'])):
@@ -843,9 +851,9 @@ class Owner(cell.CellOwner):
             try:
                 if self.j['labels']:
                     self.journal('label-restore')
-                    for p in sorted(base.owned_tree(self.root/'selected-output'),key=lambda p:len(p.parts),reverse=True):
+                    for p in sorted(owned_tree(self.root/'selected-output'),key=lambda p:len(p.parts),reverse=True):
                         self.budget.require_ms(self.budget.cutoff(5));self.api.label_set(p,None)
-                    for p in base.owned_tree(self.root/'selected-output'):
+                    for p in owned_tree(self.root/'selected-output'):
                         self.budget.require_ms(self.budget.cutoff(5));require(self.api.label_read(p) is None,'a4_batch_label_readback')
                     self.j['labels'][0]['restored']=True
                 self.j['labels_restored']=True

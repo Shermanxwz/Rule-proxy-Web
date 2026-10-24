@@ -22,8 +22,8 @@ import windows_identity_lpac_curl_import_builder as builder
 ACTUAL_READY = False
 INTERFACE_VERSION = 1
 MEMORY_IMPLEMENTATION_AUTHORIZED = True
-BUILDER_BYTES = 29552
-BUILDER_SHA256 = '886f947f9fe748042dc694364ec68e1ed97d3749782c4a9e96996ff5261a089c'
+BUILDER_BYTES = 30274
+BUILDER_SHA256 = '5fc9758bf7aa59ff36a6d745dc27672f381a96763c0219c615b51dd02d0ef816'
 MAX_U64 = (1 << 64) - 1
 PAGE_BYTES = 4096
 MBI_BYTES = 48
@@ -290,6 +290,7 @@ class Coordinator:
               and callable(getattr(memory, 'invoke', None)), 'callbacks')
         self.patch = builder.build_import_patch(image, actual_base, private_path)
         self.pe = builder.verify_fixed_pe(image)
+        self.mapped_header = builder.expected_mapped_header(image, actual_base)
         self.image, self.base, self.path = image, actual_base, private_path
         self.memory, self.process = memory, process_handle
         self.epoch, self.bindings = epoch, bindings
@@ -463,7 +464,7 @@ class Coordinator:
         lookup = self._tables(self.lookup_span)
         iat = self._tables(self.iat_span)
         original = self.pe.original_tables
-        _need(header == self.pe.header and descriptors == original.descriptors
+        _need(header == self.mapped_header and descriptors == original.descriptors
               and lookup == original.lookup_tables and iat == original.IAT_tables,
               'original_readback_mismatch')
 
@@ -507,7 +508,7 @@ class Coordinator:
                 'actual_base': self.base, 'arena_address': self.patch.metadata.arena_address,
                 'arena_bytes': builder.ARENA_BYTES,
                 'arena_sha256': _sha(self.patch.arena),
-                'header_before_sha256': _sha(self.pe.header),
+                'header_before_sha256': _sha(self.mapped_header),
                 'header_after_sha256': _sha(self.patch.expected_header),
                 'private_path_sha256': self.patch.metadata.private_path_sha256,
                 'base_provenance_sha256': self.bindings.base_provenance_sha256,

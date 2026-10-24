@@ -78,18 +78,31 @@ class OfflineImportBuilderTests(unittest.TestCase):
         self.assertEqual(p.original_tables,self.pe.original_tables)
 
     def test_only_four_byte_import_rva_header_range_can_change(self):
-        p=m.build_import_patch(self.image,BASE,PRIVATE);header=self.image[:1024]
+        p=m.build_import_patch(self.image,BASE,PRIVATE)
+        oracle=bytearray(self.image[:1024]);struct.pack_into('<Q',oracle,304,BASE)
+        header=m.expected_mapped_header(self.image,BASE)
+        self.assertIs(type(header),bytes);self.assertEqual(header,bytes(oracle))
+        self.assertEqual(header[:304]+header[312:],self.pe.header[:304]+self.pe.header[312:])
+        self.assertEqual(struct.unpack_from('<Q',header,304)[0],BASE)
+        self.assertEqual(self.pe.header,self.image[:1024])
         changed={i for i,(a,b) in enumerate(zip(header,p.expected_header)) if a!=b}
         self.assertTrue(changed);self.assertLessEqual(changed,set(range(400,404)))
         self.assertEqual(p.header_patch,struct.pack('<I',0xD0000));self.assertEqual(p.expected_header[404:408],struct.pack('<I',860))
         self.assertEqual(p.expected_header[:400]+p.expected_header[404:],header[:400]+header[404:])
         self.assertEqual(hashlib.sha256(self.image).hexdigest(),m.CURL_SHA256)
+        self.assertEqual(p.metadata.schema_version,2)
+        self.assertEqual(p.metadata.mapped_header_sha256,hashlib.sha256(header).hexdigest())
+        self.assertEqual(p.metadata.expected_header_sha256,hashlib.sha256(p.expected_header).hexdigest())
 
     def test_aslr_base_is_input_not_preferred_base_and_uint64_bounds_are_strict(self):
         for actual in (0x10000,0x140000000,0x7FF600000000):
-            with self.subTest(actual=actual):self.assertEqual(m.build_import_patch(self.image,actual,PRIVATE).metadata.arena_address,actual+0xD0000)
+            with self.subTest(actual=actual):
+                self.assertEqual(m.build_import_patch(self.image,actual,PRIVATE).metadata.arena_address,actual+0xD0000)
+                self.assertEqual(struct.unpack_from('<Q',m.expected_mapped_header(self.image,actual),304)[0],actual)
         for bad in (None,True,False,1.0,'65536',0,-65536,1,65535,65537,1<<64,m.MAX_U64&~65535):
             with self.subTest(bad=bad),self.assertRaises(m.BuilderError) as cm:m.build_import_patch(self.image,bad,PRIVATE)
+            self.assertIs(cm.exception.code,m.RejectCode.BASE)
+            with self.subTest(mapped_base=bad),self.assertRaises(m.BuilderError) as cm:m.expected_mapped_header(self.image,bad)
             self.assertIs(cm.exception.code,m.RejectCode.BASE)
         last=((m.MAX_U64-m.ARENA_RVA-m.ARENA_BYTES)//65536)*65536
         self.assertLessEqual(m.build_import_patch(self.image,last,PRIVATE).metadata.arena_address+4096,m.MAX_U64)
@@ -160,6 +173,17 @@ class OfflineImportBuilderTests(unittest.TestCase):
             self.assertIs(cm.exception.code,m.RejectCode.READBACK)
         arena=bytearray(p.arena);arena[12]^=1;changed=dict(s,arena=bytes(arena))
         with self.assertRaises(m.BuilderError):m.verify_readback_model(self.image,BASE,PRIVATE,**changed)
+        # Exact ImageBase, including a reversion to the disk preferred value,
+        # remains required in the final readback; this is not an ignored span.
+        for wrong in (self.pe.preferred_image_base,BASE+65536):
+            header=bytearray(p.expected_header);struct.pack_into('<Q',header,304,wrong)
+            with self.subTest(wrong_mapped_base=wrong),self.assertRaises(m.BuilderError):
+                m.verify_readback_model(self.image,BASE,PRIVATE,**dict(s,header=bytes(header)))
+        for offset in range(m.SIZE_HEADERS):
+            if 304<=offset<312:continue
+            header=bytearray(p.expected_header);header[offset]^=1
+            with self.subTest(other_header_byte=offset),self.assertRaises(m.BuilderError):
+                m.verify_readback_model(self.image,BASE,PRIVATE,**dict(s,header=bytes(header)))
 
     def test_output_is_deeply_immutable_and_closed_typed_metadata(self):
         p=m.build_import_patch(self.image,BASE,PRIVATE)
@@ -176,6 +200,7 @@ class OfflineImportBuilderTests(unittest.TestCase):
         with (patch.object(builtins,'open',side_effect=AssertionError('production file IO forbidden')) as a,
               patch.object(io,'open',side_effect=AssertionError('production file IO forbidden')) as b):
             p=m.build_import_patch(self.image,BASE,PRIVATE)
+            m.expected_mapped_header(self.image,BASE)
             m.verify_readback_model(self.image,BASE,PRIVATE,header=p.expected_header,arena=p.arena,
                 old_descriptors=p.original_tables.descriptors,old_lookup_tables=p.original_tables.lookup_tables,old_IAT_tables=p.original_tables.IAT_tables)
         a.assert_not_called();b.assert_not_called()

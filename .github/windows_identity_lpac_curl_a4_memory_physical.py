@@ -118,6 +118,12 @@ def validate_memory_records(m,j,c,root,selected):
     require(len(image)==c['artifacts']['curl']['bytes'] and m.sha(image)==c['artifacts']['curl']['sha256'],'a4_mem_fixed_image')
     pe=m.builder.verify_fixed_pe(image)
     private_path=str(m.artifact_paths(root)['shim'])
+    def mapped_before(base):
+        # Independent physical reader: fixed disk header plus the exact PEB-
+        # bound ImageBase value observed before any allowed import mutation.
+        header=bytearray(pe.header)
+        struct.pack_into('<Q',header,304,base)
+        return bytes(header)
     def in_window(value):return integer(value,start,end-1)
     def api_good(value):
         call,raw,intent=value
@@ -274,7 +280,7 @@ def validate_memory_records(m,j,c,root,selected):
             semantic=header_region(record['raw']['fields'],actual)
         else:
             require(record['operation']=='read' and args==dict(process=process,address=actual,bytes=m.builder.SIZE_HEADERS,argument=0),'a4_probe_base_header')
-            semantic=probe['data']==pe.header
+            semantic=probe['data']==mapped_before(actual)
         good=probe['good'] and semantic;base_good=base_good and good
         if not good:require(len(probes)<=number+1 and not calls and not memory_events,'a4_probe_stopped_prefix')
     base_receipt=None
@@ -285,7 +291,7 @@ def validate_memory_records(m,j,c,root,selected):
         expected=dict(information_class=0,pbi_bytes=48,peb_probe_bytes=32,
             peb_layout='local-amd64-internal-offset16-not-public-stable',peb=peb,actual_base=actual,
             peb_return_sha256=probes[0]['sha256'],query_return_sha256=probes[1]['sha256'],header_return_sha256=probes[2]['sha256'],
-            pid=selected['pid'],created=selected['created'],header_sha256=m.sha(pe.header))
+            pid=selected['pid'],created=selected['created'],header_sha256=m.sha(mapped_before(actual)))
         require(value['data']==expected,'a4_base_provenance')
         empty['base']=actual
     require(not memory_events or base_receipt is not None,'a4_memory_requires_base')
@@ -333,7 +339,7 @@ def validate_memory_records(m,j,c,root,selected):
             elif index==9:semantic=entry['data']==patch.arena
             elif index==14:semantic=entry['data']==patch.header_patch
             elif index==5:
-                semantic=[x['data'] for x in calls[2:6]]==[pe.header,original.descriptors,original_lookup,original_iat]
+                semantic=[x['data'] for x in calls[2:6]]==[mapped_before(actual),original.descriptors,original_lookup,original_iat]
             elif index==21:
                 semantic=[x['data'] for x in calls[17:22]]==[patch.expected_header,patch.arena,original.descriptors,original_lookup,original_iat]
                 bytes_good=semantic and all(x['good'] for x in calls[17:22])
@@ -350,7 +356,7 @@ def validate_memory_records(m,j,c,root,selected):
             record,data,reference=mutation
             require(data==patch.arena and record['actual_base']==actual and record['arena_address']==arena
                 and record['arena_bytes']==4096 and record['arena_sha256']==m.sha(patch.arena)
-                and record['header_before_sha256']==m.sha(pe.header) and record['header_after_sha256']==m.sha(patch.expected_header)
+                and record['header_before_sha256']==m.sha(mapped_before(actual)) and record['header_after_sha256']==m.sha(patch.expected_header)
                 and record['private_path_sha256']==patch.metadata.private_path_sha256
                 and record['base_provenance_sha256']==j['base_provenance']['sha256']
                 and gate_rows and record['gate_sha256']==gate_rows[0][0]['gate_sha256'],'a4_mutation_binding')

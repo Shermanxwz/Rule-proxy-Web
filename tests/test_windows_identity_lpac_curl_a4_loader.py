@@ -101,4 +101,15 @@ class OwnerTests(unittest.TestCase):
         self.assertEqual(struct.unpack_from('<4I',raw,368),(64,0x00727444,64,2136))
         self.assertEqual(struct.unpack_from('<II',raw,432),(2072,0));self.assertEqual(raw[440:456],m.GUID_BYTES)
 
+    def test_acl_readback_covers_actual_A4_tree_above_legacy_256_nodes(self):
+        root,api,o=self.fixture();o.profile['sid']='S-1-15-2-1'
+        for index in range(270):(root/('record-%03d'%index)).write_bytes(b'bounded journal fixture')
+        with self.assertRaisesRegex(ValueError,'owned_tree_nodes'):m.base.owned_tree(root)
+        expected=m.owned_tree(root);seen=[]
+        def read_acl(path,sid):
+            self.assertEqual(sid,o.profile['sid']);seen.append(Path(path));return []
+        api.acl_read=read_acl;o.scope_acl(True)
+        self.assertGreater(len(seen),256);self.assertEqual(set(seen),set(expected))
+        self.assertEqual(len(seen),len(set(seen)))
+
 if __name__=='__main__':unittest.main()

@@ -20,6 +20,7 @@ ARENA_RVA=0xD0000
 ARENA_BYTES=4096
 NAME_OFFSET=864
 IMPORT_HEADER_OFFSET=400
+IMAGE_BASE_HEADER_OFFSET=304
 IMPORT_RVA=777208
 IMPORT_BYTES=860
 IAT_RVA=593920
@@ -121,6 +122,8 @@ class PatchMetadata:
     source_transcript_sha256:str
     design_contract_sha256:str
     export_manifest_sha256:str
+    mapped_header_sha256:str
+    expected_header_sha256:str
 
 @dataclass(frozen=True)
 class ImportPatch:
@@ -206,6 +209,18 @@ def _path(private_path):
     _need(all(part.split('.',1)[0].upper() not in reserved for part in parts),RejectCode.PATH)
     return raw
 
+def expected_mapped_header(image,actual_base):
+    """Model an exact pre-mutation header; the caller proves actual_base.
+
+    Fixed on-disk bytes and geometry remain mandatory. Only ImageBase is
+    replaced in this immutable model. This does not write a target or allow
+    that eight-byte field to change during the later import mutation.
+    """
+    pe=verify_fixed_pe(image);_base(actual_base)
+    header=bytearray(pe.header)
+    struct.pack_into('<Q',header,IMAGE_BASE_HEADER_OFFSET,actual_base)
+    return bytes(header)
+
 def build_import_patch(image,actual_base,private_path):
     """Return immutable desired bytes. No allocation, process query or file IO."""
     pe=verify_fixed_pe(image);address=_base(actual_base);path=_path(private_path)
@@ -214,9 +229,11 @@ def build_import_patch(image,actual_base,private_path):
     arena=bytearray(ARENA_BYTES);arena[:IMPORT_BYTES]=pe.original_tables.descriptors
     for index in (0,10):struct.pack_into('<I',arena,index*20+12,ARENA_RVA+NAME_OFFSET)
     arena[NAME_OFFSET:NAME_OFFSET+len(path)]=path
-    patch=struct.pack('<I',ARENA_RVA);header=bytearray(pe.header);header[IMPORT_HEADER_OFFSET:IMPORT_HEADER_OFFSET+4]=patch
-    metadata=PatchMetadata(1,False,True,False,False,False,False,CURL_SHA256,actual_base,address,ARENA_RVA,ARENA_BYTES,used,len(path),_sha(path),42,
-        (0,10),tuple(i for i in range(42) if i not in (0,10)),IMPORT_HEADER_OFFSET,4,SOURCE_TRANSCRIPT_SHA256,DESIGN_CONTRACT_SHA256,EXPORT_MANIFEST_SHA256)
+    mapped_header=expected_mapped_header(image,actual_base)
+    patch=struct.pack('<I',ARENA_RVA);header=bytearray(mapped_header);header[IMPORT_HEADER_OFFSET:IMPORT_HEADER_OFFSET+4]=patch
+    metadata=PatchMetadata(2,False,True,False,False,False,False,CURL_SHA256,actual_base,address,ARENA_RVA,ARENA_BYTES,used,len(path),_sha(path),42,
+        (0,10),tuple(i for i in range(42) if i not in (0,10)),IMPORT_HEADER_OFFSET,4,SOURCE_TRANSCRIPT_SHA256,DESIGN_CONTRACT_SHA256,EXPORT_MANIFEST_SHA256,
+        _sha(mapped_header),_sha(header))
     return ImportPatch(bytes(arena),patch,bytes(header),pe.original_tables,metadata)
 
 def verify_readback_model(image,actual_base,private_path,*,header,arena,old_descriptors,old_lookup_tables,old_IAT_tables):
