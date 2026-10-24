@@ -1,0 +1,2292 @@
+{
+  "actions": {
+    "file_read_and_pure_struct_decoding_only": true,
+    "target_DLL_API_compiler_tests_or_mutation": false
+  },
+  "bytes": 818512,
+  "descriptor_array_bytes": 860,
+  "descriptor_array_sha256": "ea50c455b73357e9d700078f58d2d663dabab0d4500259d973966dbfb579732b",
+  "descriptor_count": 42,
+  "descriptors": [
+    {
+      "descriptor_rva": 777208,
+      "first_thunk": 594344,
+      "forwarder_chain": 0,
+      "imports": [
+        {
+          "hint": 44,
+          "iat_rva": 594344,
+          "lookup_rva": 778496,
+          "name": "WSAEnumNetworkEvents",
+          "original_thunk": 781068
+        },
+        {
+          "iat_rva": 594352,
+          "lookup_rva": 778504,
+          "ordinal": 7,
+          "original_thunk": 9223372036854775815
+        },
+        {
+          "hint": 94,
+          "iat_rva": 594360,
+          "lookup_rva": 778512,
+          "name": "WSAWaitForMultipleEvents",
+          "original_thunk": 781092
+        },
+        {
+          "hint": 77,
+          "iat_rva": 594368,
+          "lookup_rva": 778520,
+          "name": "WSAResetEvent",
+          "original_thunk": 781120
+        },
+        {
+          "hint": 47,
+          "iat_rva": 594376,
+          "lookup_rva": 778528,
+          "name": "WSAEventSelect",
+          "original_thunk": 781136
+        },
+        {
+          "hint": 37,
+          "iat_rva": 594384,
+          "lookup_rva": 778536,
+          "name": "WSACreateEvent",
+          "original_thunk": 781154
+        },
+        {
+          "hint": 32,
+          "iat_rva": 594392,
+          "lookup_rva": 778544,
+          "name": "WSACloseEvent",
+          "original_thunk": 781172
+        },
+        {
+          "iat_rva": 594400,
+          "lookup_rva": 778552,
+          "ordinal": 6,
+          "original_thunk": 9223372036854775814
+        },
+        {
+          "iat_rva": 594408,
+          "lookup_rva": 778560,
+          "ordinal": 111,
+          "original_thunk": 9223372036854775919
+        },
+        {
+          "iat_rva": 594416,
+          "lookup_rva": 778568,
+          "ordinal": 16,
+          "original_thunk": 9223372036854775824
+        },
+        {
+          "iat_rva": 594424,
+          "lookup_rva": 778576,
+          "ordinal": 23,
+          "original_thunk": 9223372036854775831
+        },
+        {
+          "iat_rva": 594432,
+          "lookup_rva": 778584,
+          "ordinal": 10,
+          "original_thunk": 9223372036854775818
+        },
+        {
+          "iat_rva": 594440,
+          "lookup_rva": 778592,
+          "ordinal": 3,
+          "original_thunk": 9223372036854775811
+        },
+        {
+          "iat_rva": 594448,
+          "lookup_rva": 778600,
+          "ordinal": 8,
+          "original_thunk": 9223372036854775816
+        },
+        {
+          "iat_rva": 594456,
+          "lookup_rva": 778608,
+          "ordinal": 4,
+          "original_thunk": 9223372036854775812
+        },
+        {
+          "iat_rva": 594464,
+          "lookup_rva": 778616,
+          "ordinal": 19,
+          "original_thunk": 9223372036854775827
+        },
+        {
+          "iat_rva": 594472,
+          "lookup_rva": 778624,
+          "ordinal": 57,
+          "original_thunk": 9223372036854775865
+        },
+        {
+          "hint": 166,
+          "iat_rva": 594480,
+          "lookup_rva": 778632,
+          "name": "getaddrinfo",
+          "original_thunk": 781814
+        },
+        {
+          "hint": 165,
+          "iat_rva": 594488,
+          "lookup_rva": 778640,
+          "name": "freeaddrinfo",
+          "original_thunk": 781798
+        },
+        {
+          "iat_rva": 594496,
+          "lookup_rva": 778648,
+          "ordinal": 112,
+          "original_thunk": 9223372036854775920
+        },
+        {
+          "iat_rva": 594504,
+          "lookup_rva": 778656,
+          "ordinal": 13,
+          "original_thunk": 9223372036854775821
+        },
+        {
+          "iat_rva": 594512,
+          "lookup_rva": 778664,
+          "ordinal": 22,
+          "original_thunk": 9223372036854775830
+        },
+        {
+          "iat_rva": 594520,
+          "lookup_rva": 778672,
+          "ordinal": 21,
+          "original_thunk": 9223372036854775829
+        },
+        {
+          "iat_rva": 594528,
+          "lookup_rva": 778680,
+          "ordinal": 2,
+          "original_thunk": 9223372036854775810
+        },
+        {
+          "iat_rva": 594536,
+          "lookup_rva": 778688,
+          "ordinal": 1,
+          "original_thunk": 9223372036854775809
+        },
+        {
+          "iat_rva": 594544,
+          "lookup_rva": 778696,
+          "ordinal": 17,
+          "original_thunk": 9223372036854775825
+        },
+        {
+          "iat_rva": 594552,
+          "lookup_rva": 778704,
+          "ordinal": 20,
+          "original_thunk": 9223372036854775828
+        },
+        {
+          "iat_rva": 594560,
+          "lookup_rva": 778712,
+          "ordinal": 151,
+          "original_thunk": 9223372036854775959
+        },
+        {
+          "iat_rva": 594568,
+          "lookup_rva": 778720,
+          "ordinal": 18,
+          "original_thunk": 9223372036854775826
+        },
+        {
+          "iat_rva": 594576,
+          "lookup_rva": 778728,
+          "ordinal": 116,
+          "original_thunk": 9223372036854775924
+        },
+        {
+          "iat_rva": 594584,
+          "lookup_rva": 778736,
+          "ordinal": 115,
+          "original_thunk": 9223372036854775923
+        },
+        {
+          "hint": 59,
+          "iat_rva": 594592,
+          "lookup_rva": 778744,
+          "name": "WSAIoctl",
+          "original_thunk": 781366
+        },
+        {
+          "iat_rva": 594600,
+          "lookup_rva": 778752,
+          "ordinal": 5,
+          "original_thunk": 9223372036854775813
+        },
+        {
+          "iat_rva": 594608,
+          "lookup_rva": 778760,
+          "ordinal": 15,
+          "original_thunk": 9223372036854775823
+        },
+        {
+          "iat_rva": 594616,
+          "lookup_rva": 778768,
+          "ordinal": 9,
+          "original_thunk": 9223372036854775817
+        }
+      ],
+      "index": 0,
+      "lookup_bytes": 288,
+      "lookup_sha256": "e6a63cd15324c3afa137f41c89cd86f9e933e57a7422bc907c0cc7596e9b12bf",
+      "name": "WS2_32.dll",
+      "name_rva": 782160,
+      "original_first_thunk": 778496,
+      "time_date_stamp": 0
+    },
+    {
+      "descriptor_rva": 777228,
+      "first_thunk": 594672,
+      "forwarder_chain": 0,
+      "imports": [
+        {
+          "hint": 9,
+          "iat_rva": 594672,
+          "lookup_rva": 778824,
+          "name": "GetConsoleScreenBufferInfo",
+          "original_thunk": 780304
+        }
+      ],
+      "index": 1,
+      "lookup_bytes": 16,
+      "lookup_sha256": "b44c8923e7a1f790b984e0facd71584b83de7777364e0c4d417b98303758449d",
+      "name": "api-ms-win-core-console-l2-1-0.dll",
+      "name_rva": 782172,
+      "original_first_thunk": 778824,
+      "time_date_stamp": 0
+    },
+    {
+      "descriptor_rva": 777248,
+      "first_thunk": 594944,
+      "forwarder_chain": 0,
+      "imports": [
+        {
+          "hint": 12,
+          "iat_rva": 594944,
+          "lookup_rva": 779096,
+          "name": "GetStdHandle",
+          "original_thunk": 780334
+        },
+        {
+          "hint": 22,
+          "iat_rva": 594952,
+          "lookup_rva": 779104,
+          "name": "SetStdHandle",
+          "original_thunk": 780622
+        },
+        {
+          "hint": 16,
+          "iat_rva": 594960,
+          "lookup_rva": 779112,
+          "name": "SearchPathW",
+          "original_thunk": 780424
+        },
+        {
+          "hint": 10,
+          "iat_rva": 594968,
+          "lookup_rva": 779120,
+          "name": "GetEnvironmentVariableA",
+          "original_thunk": 780798
+        }
+      ],
+      "index": 2,
+      "lookup_bytes": 40,
+      "lookup_sha256": "808250be343414ce369770ee4fa260891df607f247de7a2d1c0a6dd3c0cc89fc",
+      "name": "api-ms-win-core-processenvironment-l1-1-0.dll",
+      "name_rva": 782208,
+      "original_first_thunk": 779096,
+      "time_date_stamp": 0
+    },
+    {
+      "descriptor_rva": 777268,
+      "first_thunk": 595088,
+      "forwarder_chain": 0,
+      "imports": [
+        {
+          "hint": 7,
+          "iat_rva": 595088,
+          "lookup_rva": 779240,
+          "name": "WideCharToMultiByte",
+          "original_thunk": 780638
+        },
+        {
+          "hint": 6,
+          "iat_rva": 595096,
+          "lookup_rva": 779248,
+          "name": "MultiByteToWideChar",
+          "original_thunk": 780350
+        }
+      ],
+      "index": 3,
+      "lookup_bytes": 24,
+      "lookup_sha256": "44c4703cc34a801d7f282ce839c2cf33b913acd1ce40f159ec1e8c9762330316",
+      "name": "api-ms-win-core-string-l1-1-0.dll",
+      "name_rva": 782254,
+      "original_first_thunk": 779240,
+      "time_date_stamp": 0
+    },
+    {
+      "descriptor_rva": 777288,
+      "first_thunk": 594632,
+      "forwarder_chain": 0,
+      "imports": [
+        {
+          "hint": 16,
+          "iat_rva": 594632,
+          "lookup_rva": 778784,
+          "name": "SetConsoleCtrlHandler",
+          "original_thunk": 780400
+        },
+        {
+          "hint": 17,
+          "iat_rva": 594640,
+          "lookup_rva": 778792,
+          "name": "SetConsoleMode",
+          "original_thunk": 780458
+        },
+        {
+          "hint": 6,
+          "iat_rva": 594648,
+          "lookup_rva": 778800,
+          "name": "GetConsoleMode",
+          "original_thunk": 780522
+        },
+        {
+          "hint": 19,
+          "iat_rva": 594656,
+          "lookup_rva": 778808,
+          "name": "WriteConsoleW",
+          "original_thunk": 780372
+        }
+      ],
+      "index": 4,
+      "lookup_bytes": 40,
+      "lookup_sha256": "9f44f0932065d47c7726bb65199e81f49d8aa7dfa2bcc323bfc69545b8816cb0",
+      "name": "api-ms-win-core-console-l1-1-0.dll",
+      "name_rva": 782288,
+      "original_first_thunk": 778784,
+      "time_date_stamp": 0
+    },
+    {
+      "descriptor_rva": 777308,
+      "first_thunk": 594712,
+      "forwarder_chain": 0,
+      "imports": [
+        {
+          "hint": 49,
+          "iat_rva": 594712,
+          "lookup_rva": 778864,
+          "name": "GetFileTime",
+          "original_thunk": 780690
+        },
+        {
+          "hint": 54,
+          "iat_rva": 594720,
+          "lookup_rva": 778872,
+          "name": "GetFullPathNameW",
+          "original_thunk": 780876
+        },
+        {
+          "hint": 81,
+          "iat_rva": 594728,
+          "lookup_rva": 778880,
+          "name": "SetEndOfFile",
+          "original_thunk": 780726
+        },
+        {
+          "hint": 50,
+          "iat_rva": 594736,
+          "lookup_rva": 778888,
+          "name": "GetFileType",
+          "original_thunk": 781420
+        },
+        {
+          "hint": 76,
+          "iat_rva": 594744,
+          "lookup_rva": 778896,
+          "name": "ReadFile",
+          "original_thunk": 780388
+        },
+        {
+          "hint": 7,
+          "iat_rva": 594752,
+          "lookup_rva": 778904,
+          "name": "CreateFileW",
+          "original_thunk": 780896
+        },
+        {
+          "hint": 90,
+          "iat_rva": 594760,
+          "lookup_rva": 778912,
+          "name": "SetFileTime",
+          "original_thunk": 780676
+        }
+      ],
+      "index": 5,
+      "lookup_bytes": 64,
+      "lookup_sha256": "7cd4fdb347a291cadb3c72a55154e98eece412bfb5e09cf6178a5184405f80b7",
+      "name": "api-ms-win-core-file-l1-1-0.dll",
+      "name_rva": 782324,
+      "original_first_thunk": 778864,
+      "time_date_stamp": 0
+    },
+    {
+      "descriptor_rva": 777328,
+      "first_thunk": 594984,
+      "forwarder_chain": 0,
+      "imports": [
+        {
+          "hint": 88,
+          "iat_rva": 594984,
+          "lookup_rva": 779136,
+          "name": "TlsFree",
+          "original_thunk": 784476
+        },
+        {
+          "hint": 90,
+          "iat_rva": 594992,
+          "lookup_rva": 779144,
+          "name": "TlsSetValue",
+          "original_thunk": 784462
+        },
+        {
+          "hint": 12,
+          "iat_rva": 595000,
+          "lookup_rva": 779152,
+          "name": "GetCurrentProcess",
+          "original_thunk": 780438
+        },
+        {
+          "hint": 6,
+          "iat_rva": 595008,
+          "lookup_rva": 779160,
+          "name": "CreateThread",
+          "original_thunk": 780588
+        },
+        {
+          "hint": 87,
+          "iat_rva": 595016,
+          "lookup_rva": 779168,
+          "name": "TlsAlloc",
+          "original_thunk": 784436
+        },
+        {
+          "hint": 89,
+          "iat_rva": 595024,
+          "lookup_rva": 779176,
+          "name": "TlsGetValue",
+          "original_thunk": 784448
+        },
+        {
+          "hint": 86,
+          "iat_rva": 595032,
+          "lookup_rva": 779184,
+          "name": "TerminateThread",
+          "original_thunk": 780556
+        }
+      ],
+      "index": 6,
+      "lookup_bytes": 64,
+      "lookup_sha256": "eea000b6c8a458c9eba4f6dcb877f5a1fd839d129457b9fe28c1f7e678425abf",
+      "name": "api-ms-win-core-processthreads-l1-1-0.dll",
+      "name_rva": 782356,
+      "original_first_thunk": 779136,
+      "time_date_stamp": 0
+    },
+    {
+      "descriptor_rva": 777348,
+      "first_thunk": 594792,
+      "forwarder_chain": 0,
+      "imports": [
+        {
+          "hint": 0,
+          "iat_rva": 594792,
+          "lookup_rva": 778944,
+          "name": "CloseHandle",
+          "original_thunk": 780574
+        },
+        {
+          "hint": 2,
+          "iat_rva": 594800,
+          "lookup_rva": 778952,
+          "name": "DuplicateHandle",
+          "original_thunk": 780476
+        }
+      ],
+      "index": 7,
+      "lookup_bytes": 24,
+      "lookup_sha256": "d0195368c7f9ec25c67d05bf9e79f8c0f9d0f8b30859cd709a4f25d5bdad9daa",
+      "name": "api-ms-win-core-handle-l1-1-0.dll",
+      "name_rva": 782398,
+      "original_first_thunk": 778944,
+      "time_date_stamp": 0
+    },
+    {
+      "descriptor_rva": 777368,
+      "first_thunk": 595296,
+      "forwarder_chain": 0,
+      "imports": [
+        {
+          "hint": 5,
+          "iat_rva": 595296,
+          "lookup_rva": 779448,
+          "name": "Module32FirstW",
+          "original_thunk": 780604
+        },
+        {
+          "hint": 6,
+          "iat_rva": 595304,
+          "lookup_rva": 779456,
+          "name": "Module32NextW",
+          "original_thunk": 780660
+        },
+        {
+          "hint": 0,
+          "iat_rva": 595312,
+          "lookup_rva": 779464,
+          "name": "CreateToolhelp32Snapshot",
+          "original_thunk": 780494
+        }
+      ],
+      "index": 8,
+      "lookup_bytes": 32,
+      "lookup_sha256": "a29ce8cfaacec5928c6c9d9692b9907eb8d1679b61450b4b6a81490af0c6c094",
+      "name": "api-ms-win-core-toolhelp-l1-1-0.dll",
+      "name_rva": 782432,
+      "original_first_thunk": 779448,
+      "time_date_stamp": 0
+    },
+    {
+      "descriptor_rva": 777388,
+      "first_thunk": 594688,
+      "forwarder_chain": 0,
+      "imports": [
+        {
+          "hint": 13,
+          "iat_rva": 594688,
+          "lookup_rva": 778840,
+          "name": "SetLastError",
+          "original_thunk": 780782
+        },
+        {
+          "hint": 5,
+          "iat_rva": 594696,
+          "lookup_rva": 778848,
+          "name": "GetLastError",
+          "original_thunk": 780540
+        }
+      ],
+      "index": 9,
+      "lookup_bytes": 24,
+      "lookup_sha256": "4cc4c6667e019778b40cc66c17998007c44621b8df8835ef7184a769c79be56d",
+      "name": "api-ms-win-core-errorhandling-l1-1-0.dll",
+      "name_rva": 782468,
+      "original_first_thunk": 778840,
+      "time_date_stamp": 0
+    },
+    {
+      "descriptor_rva": 777408,
+      "first_thunk": 594848,
+      "forwarder_chain": 0,
+      "imports": [
+        {
+          "hint": 25,
+          "iat_rva": 594848,
+          "lookup_rva": 779000,
+          "name": "LoadLibraryExW",
+          "original_thunk": 784500
+        },
+        {
+          "hint": 21,
+          "iat_rva": 594856,
+          "lookup_rva": 779008,
+          "name": "GetModuleHandleW",
+          "original_thunk": 781026
+        },
+        {
+          "hint": 16,
+          "iat_rva": 594864,
+          "lookup_rva": 779016,
+          "name": "GetModuleFileNameA",
+          "original_thunk": 780704
+        },
+        {
+          "hint": 13,
+          "iat_rva": 594872,
+          "lookup_rva": 779024,
+          "name": "FreeLibrary",
+          "original_thunk": 784486
+        },
+        {
+          "hint": 22,
+          "iat_rva": 594880,
+          "lookup_rva": 779032,
+          "name": "GetProcAddress",
+          "original_thunk": 780986
+        }
+      ],
+      "index": 10,
+      "lookup_bytes": 48,
+      "lookup_sha256": "38eabb3c363b8aa4a4b7efb790e668e2f8473a3ebf424874d211f8795db626b6",
+      "name": "api-ms-win-core-libraryloader-l1-2-0.dll",
+      "name_rva": 782510,
+      "original_first_thunk": 779000,
+      "time_date_stamp": 0
+    },
+    {
+      "descriptor_rva": 777428,
+      "first_thunk": 595280,
+      "forwarder_chain": 0,
+      "imports": [
+        {
+          "hint": 10,
+          "iat_rva": 595280,
+          "lookup_rva": 779432,
+          "name": "SystemTimeToFileTime",
+          "original_thunk": 780742
+        }
+      ],
+      "index": 11,
+      "lookup_bytes": 16,
+      "lookup_sha256": "f267747cf36e119f7d17d6818d73866de7058de3266d984b55b8823ce7fe7332",
+      "name": "api-ms-win-core-timezone-l1-1-0.dll",
+      "name_rva": 782552,
+      "original_first_thunk": 779432,
+      "time_date_stamp": 0
+    },
+    {
+      "descriptor_rva": 777448,
+      "first_thunk": 595248,
+      "forwarder_chain": 0,
+      "imports": [
+        {
+          "hint": 20,
+          "iat_rva": 595248,
+          "lookup_rva": 779400,
+          "name": "GetSystemTime",
+          "original_thunk": 780766
+        }
+      ],
+      "index": 12,
+      "lookup_bytes": 16,
+      "lookup_sha256": "58bb62e7934616c2996538e5e823ff661c02cce01f56f6d78c2d23a9f4960dad",
+      "name": "api-ms-win-core-sysinfo-l1-1-0.dll",
+      "name_rva": 782588,
+      "original_first_thunk": 779400,
+      "time_date_stamp": 0
+    },
+    {
+      "descriptor_rva": 777468,
+      "first_thunk": 595112,
+      "forwarder_chain": 0,
+      "imports": [
+        {
+          "hint": 55,
+          "iat_rva": 595112,
+          "lookup_rva": 779264,
+          "name": "WaitForSingleObjectEx",
+          "original_thunk": 782136
+        },
+        {
+          "hint": 26,
+          "iat_rva": 595120,
+          "lookup_rva": 779272,
+          "name": "InitializeCriticalSectionEx",
+          "original_thunk": 781236
+        },
+        {
+          "hint": 17,
+          "iat_rva": 595128,
+          "lookup_rva": 779280,
+          "name": "EnterCriticalSection",
+          "original_thunk": 781188
+        },
+        {
+          "hint": 0,
+          "iat_rva": 595136,
+          "lookup_rva": 779288,
+          "name": "AcquireSRWLockExclusive",
+          "original_thunk": 780850
+        },
+        {
+          "hint": 36,
+          "iat_rva": 595144,
+          "lookup_rva": 779296,
+          "name": "ReleaseSRWLockExclusive",
+          "original_thunk": 780824
+        },
+        {
+          "hint": 29,
+          "iat_rva": 595152,
+          "lookup_rva": 779304,
+          "name": "LeaveCriticalSection",
+          "original_thunk": 781212
+        },
+        {
+          "hint": 48,
+          "iat_rva": 595160,
+          "lookup_rva": 779312,
+          "name": "SleepEx",
+          "original_thunk": 781356
+        },
+        {
+          "hint": 25,
+          "iat_rva": 595168,
+          "lookup_rva": 779320,
+          "name": "InitializeCriticalSectionAndSpinCount",
+          "original_thunk": 784396
+        },
+        {
+          "hint": 15,
+          "iat_rva": 595176,
+          "lookup_rva": 779328,
+          "name": "DeleteCriticalSection",
+          "original_thunk": 781266
+        }
+      ],
+      "index": 13,
+      "lookup_bytes": 80,
+      "lookup_sha256": "1760ee2eb7f3d77a6c5ab2ccd3f63dbdcd3871b0c5d6540ed73df05f899a5296",
+      "name": "api-ms-win-core-synch-l1-1-0.dll",
+      "name_rva": 782624,
+      "original_first_thunk": 779264,
+      "time_date_stamp": 0
+    },
+    {
+      "descriptor_rva": 777488,
+      "first_thunk": 595192,
+      "forwarder_chain": 0,
+      "imports": [
+        {
+          "hint": 23,
+          "iat_rva": 595192,
+          "lookup_rva": 779344,
+          "name": "InitializeConditionVariable",
+          "original_thunk": 781768
+        },
+        {
+          "hint": 45,
+          "iat_rva": 595200,
+          "lookup_rva": 779352,
+          "name": "Sleep",
+          "original_thunk": 780910
+        },
+        {
+          "hint": 46,
+          "iat_rva": 595208,
+          "lookup_rva": 779360,
+          "name": "SleepConditionVariableCS",
+          "original_thunk": 782084
+        },
+        {
+          "hint": 60,
+          "iat_rva": 595216,
+          "lookup_rva": 779368,
+          "name": "WakeConditionVariable",
+          "original_thunk": 782112
+        }
+      ],
+      "index": 14,
+      "lookup_bytes": 40,
+      "lookup_sha256": "3c33568e72e5dd83fe8a5118470cb66c8f8c8ff1f1d9d51da90f51a6c38202a0",
+      "name": "api-ms-win-core-synch-l1-2-0.dll",
+      "name_rva": 782658,
+      "original_first_thunk": 779344,
+      "time_date_stamp": 0
+    },
+    {
+      "descriptor_rva": 777508,
+      "first_thunk": 594776,
+      "forwarder_chain": 0,
+      "imports": [
+        {
+          "hint": 8,
+          "iat_rva": 594776,
+          "lookup_rva": 778928,
+          "name": "MoveFileExW",
+          "original_thunk": 780918
+        }
+      ],
+      "index": 15,
+      "lookup_bytes": 16,
+      "lookup_sha256": "b0700f960917a880a4f82f07aacabb043e68be30c70334579917afd605b9a8b4",
+      "name": "api-ms-win-core-file-l2-1-0.dll",
+      "name_rva": 782692,
+      "original_first_thunk": 778928,
+      "time_date_stamp": 0
+    },
+    {
+      "descriptor_rva": 777528,
+      "first_thunk": 595048,
+      "forwarder_chain": 0,
+      "imports": [
+        {
+          "hint": 1,
+          "iat_rva": 595048,
+          "lookup_rva": 779200,
+          "name": "QueryPerformanceFrequency",
+          "original_thunk": 780932
+        },
+        {
+          "hint": 0,
+          "iat_rva": 595056,
+          "lookup_rva": 779208,
+          "name": "QueryPerformanceCounter",
+          "original_thunk": 780960
+        }
+      ],
+      "index": 16,
+      "lookup_bytes": 24,
+      "lookup_sha256": "98bb035eb07f481b22ecbb6a5e9ee090d314b8dff4dbdc0e146a3cd3233591e4",
+      "name": "api-ms-win-core-profile-l1-1-0.dll",
+      "name_rva": 782724,
+      "original_first_thunk": 779200,
+      "time_date_stamp": 0
+    },
+    {
+      "descriptor_rva": 777548,
+      "first_thunk": 595264,
+      "forwarder_chain": 0,
+      "imports": [
+        {
+          "hint": 46,
+          "iat_rva": 595264,
+          "lookup_rva": 779416,
+          "name": "VerSetConditionMask",
+          "original_thunk": 781004
+        }
+      ],
+      "index": 17,
+      "lookup_bytes": 16,
+      "lookup_sha256": "490fbaa1021a78c4b4477855aab110fd3296df5972f1872a71e60d99f2551f85",
+      "name": "api-ms-win-core-sysinfo-l1-2-0.dll",
+      "name_rva": 782760,
+      "original_first_thunk": 779416,
+      "time_date_stamp": 0
+    },
+    {
+      "descriptor_rva": 777568,
+      "first_thunk": 594832,
+      "forwarder_chain": 0,
+      "imports": [
+        {
+          "hint": 99,
+          "iat_rva": 594832,
+          "lookup_rva": 778984,
+          "name": "VerifyVersionInfoW",
+          "original_thunk": 781046
+        }
+      ],
+      "index": 18,
+      "lookup_bytes": 16,
+      "lookup_sha256": "e10d21efc33a7ceb0b0a0edc1e979cff966a868fd3637c5c66c8fbcd9efa6319",
+      "name": "api-ms-win-core-kernel32-legacy-l1-1-1.dll",
+      "name_rva": 782796,
+      "original_first_thunk": 778984,
+      "time_date_stamp": 0
+    },
+    {
+      "descriptor_rva": 777588,
+      "first_thunk": 594896,
+      "forwarder_chain": 0,
+      "imports": [
+        {
+          "hint": 8,
+          "iat_rva": 594896,
+          "lookup_rva": 779048,
+          "name": "FormatMessageA",
+          "original_thunk": 781338
+        },
+        {
+          "hint": 40,
+          "iat_rva": 594904,
+          "lookup_rva": 779056,
+          "name": "IdnToAscii",
+          "original_thunk": 781290
+        },
+        {
+          "hint": 41,
+          "iat_rva": 594912,
+          "lookup_rva": 779064,
+          "name": "IdnToUnicode",
+          "original_thunk": 781304
+        }
+      ],
+      "index": 19,
+      "lookup_bytes": 32,
+      "lookup_sha256": "1f397c6beab82819e53e7fe9479d3eb42a12491d2e31d61c91eb79eb2d4fde8d",
+      "name": "api-ms-win-core-localization-l1-2-0.dll",
+      "name_rva": 782840,
+      "original_first_thunk": 779048,
+      "time_date_stamp": 0
+    },
+    {
+      "descriptor_rva": 777608,
+      "first_thunk": 596136,
+      "forwarder_chain": 0,
+      "imports": [
+        {
+          "hint": 29,
+          "iat_rva": 596136,
+          "lookup_rva": 780288,
+          "name": "BCryptGenRandom",
+          "original_thunk": 781320
+        }
+      ],
+      "index": 20,
+      "lookup_bytes": 16,
+      "lookup_sha256": "018525503ab333448d9ecb2c5fd3c8f4e10b01028da409b2376e2684f69a4d93",
+      "name": "bcrypt.dll",
+      "name_rva": 782880,
+      "original_first_thunk": 780288,
+      "time_date_stamp": 0
+    },
+    {
+      "descriptor_rva": 777628,
+      "first_thunk": 594192,
+      "forwarder_chain": 0,
+      "imports": [
+        {
+          "iat_rva": 594192,
+          "lookup_rva": 778344,
+          "ordinal": 145,
+          "original_thunk": 9223372036854775953
+        },
+        {
+          "iat_rva": 594200,
+          "lookup_rva": 778352,
+          "ordinal": 216,
+          "original_thunk": 9223372036854776024
+        },
+        {
+          "iat_rva": 594208,
+          "lookup_rva": 778360,
+          "ordinal": 142,
+          "original_thunk": 9223372036854775950
+        },
+        {
+          "iat_rva": 594216,
+          "lookup_rva": 778368,
+          "ordinal": 41,
+          "original_thunk": 9223372036854775849
+        },
+        {
+          "iat_rva": 594224,
+          "lookup_rva": 778376,
+          "ordinal": 14,
+          "original_thunk": 9223372036854775822
+        },
+        {
+          "iat_rva": 594232,
+          "lookup_rva": 778384,
+          "ordinal": 147,
+          "original_thunk": 9223372036854775955
+        },
+        {
+          "iat_rva": 594240,
+          "lookup_rva": 778392,
+          "ordinal": 79,
+          "original_thunk": 9223372036854775887
+        },
+        {
+          "iat_rva": 594248,
+          "lookup_rva": 778400,
+          "ordinal": 27,
+          "original_thunk": 9223372036854775835
+        },
+        {
+          "iat_rva": 594256,
+          "lookup_rva": 778408,
+          "ordinal": 26,
+          "original_thunk": 9223372036854775834
+        },
+        {
+          "iat_rva": 594264,
+          "lookup_rva": 778416,
+          "ordinal": 127,
+          "original_thunk": 9223372036854775935
+        },
+        {
+          "iat_rva": 594272,
+          "lookup_rva": 778424,
+          "ordinal": 46,
+          "original_thunk": 9223372036854775854
+        },
+        {
+          "iat_rva": 594280,
+          "lookup_rva": 778432,
+          "ordinal": 117,
+          "original_thunk": 9223372036854775925
+        },
+        {
+          "iat_rva": 594288,
+          "lookup_rva": 778440,
+          "ordinal": 301,
+          "original_thunk": 9223372036854776109
+        },
+        {
+          "iat_rva": 594296,
+          "lookup_rva": 778448,
+          "ordinal": 219,
+          "original_thunk": 9223372036854776027
+        },
+        {
+          "iat_rva": 594304,
+          "lookup_rva": 778456,
+          "ordinal": 133,
+          "original_thunk": 9223372036854775941
+        },
+        {
+          "iat_rva": 594312,
+          "lookup_rva": 778464,
+          "ordinal": 73,
+          "original_thunk": 9223372036854775881
+        },
+        {
+          "iat_rva": 594320,
+          "lookup_rva": 778472,
+          "ordinal": 208,
+          "original_thunk": 9223372036854776016
+        },
+        {
+          "iat_rva": 594328,
+          "lookup_rva": 778480,
+          "ordinal": 167,
+          "original_thunk": 9223372036854775975
+        }
+      ],
+      "index": 21,
+      "lookup_bytes": 152,
+      "lookup_sha256": "16c7244fe2f9962acf76c4d1c97b342655e7be665bcc3391837db7a256a4b6c8",
+      "name": "WLDAP32.dll",
+      "name_rva": 782892,
+      "original_first_thunk": 778344,
+      "time_date_stamp": 0
+    },
+    {
+      "descriptor_rva": 777648,
+      "first_thunk": 595232,
+      "forwarder_chain": 0,
+      "imports": [
+        {
+          "hint": 101,
+          "iat_rva": 595232,
+          "lookup_rva": 779384,
+          "name": "WaitForMultipleObjects",
+          "original_thunk": 781378
+        }
+      ],
+      "index": 22,
+      "lookup_bytes": 16,
+      "lookup_sha256": "900f8a4f867cac09ca79c451789219c0812278c912d7f7750a43f6143b05232e",
+      "name": "api-ms-win-core-synch-l1-2-1.dll",
+      "name_rva": 782904,
+      "original_first_thunk": 779384,
+      "time_date_stamp": 0
+    },
+    {
+      "descriptor_rva": 777668,
+      "first_thunk": 594928,
+      "forwarder_chain": 0,
+      "imports": [
+        {
+          "hint": 9,
+          "iat_rva": 594928,
+          "lookup_rva": 779080,
+          "name": "PeekNamedPipe",
+          "original_thunk": 781404
+        }
+      ],
+      "index": 23,
+      "lookup_bytes": 16,
+      "lookup_sha256": "1f19871df704bb19e0c397d40854bae5036dc39673b86d7b4ef7c878da533943",
+      "name": "api-ms-win-core-namedpipe-l1-1-0.dll",
+      "name_rva": 782938,
+      "original_first_thunk": 779080,
+      "time_date_stamp": 0
+    },
+    {
+      "descriptor_rva": 777688,
+      "first_thunk": 594056,
+      "forwarder_chain": 0,
+      "imports": [
+        {
+          "hint": 305,
+          "iat_rva": 594056,
+          "lookup_rva": 778208,
+          "name": "if_nametoindex",
+          "original_thunk": 781434
+        }
+      ],
+      "index": 24,
+      "lookup_bytes": 16,
+      "lookup_sha256": "d5fa725b68fcd3b1cfe598c71f5be24265359b233ee83d777a88758498349494",
+      "name": "IPHLPAPI.DLL",
+      "name_rva": 782976,
+      "original_first_thunk": 778208,
+      "time_date_stamp": 0
+    },
+    {
+      "descriptor_rva": 777708,
+      "first_thunk": 596080,
+      "forwarder_chain": 0,
+      "imports": [
+        {
+          "hint": 20,
+          "iat_rva": 596080,
+          "lookup_rva": 780232,
+          "name": "CryptGetHashParam",
+          "original_thunk": 781496
+        },
+        {
+          "hint": 24,
+          "iat_rva": 596088,
+          "lookup_rva": 780240,
+          "name": "CryptHashData",
+          "original_thunk": 781566
+        },
+        {
+          "hint": 1,
+          "iat_rva": 596096,
+          "lookup_rva": 780248,
+          "name": "CryptAcquireContextW",
+          "original_thunk": 781694
+        },
+        {
+          "hint": 3,
+          "iat_rva": 596104,
+          "lookup_rva": 780256,
+          "name": "CryptCreateHash",
+          "original_thunk": 781582
+        },
+        {
+          "hint": 6,
+          "iat_rva": 596112,
+          "lookup_rva": 780264,
+          "name": "CryptDestroyHash",
+          "original_thunk": 781546
+        },
+        {
+          "hint": 27,
+          "iat_rva": 596120,
+          "lookup_rva": 780272,
+          "name": "CryptReleaseContext",
+          "original_thunk": 781452
+        }
+      ],
+      "index": 25,
+      "lookup_bytes": 56,
+      "lookup_sha256": "9945afcb0e0808a4977a4f4c0e0175bd2a2bd2a191ca79b82f58a7b3e3216770",
+      "name": "api-ms-win-security-cryptoapi-l1-1-0.dll",
+      "name_rva": 782990,
+      "original_first_thunk": 780232,
+      "time_date_stamp": 0
+    },
+    {
+      "descriptor_rva": 777728,
+      "first_thunk": 593920,
+      "forwarder_chain": 0,
+      "imports": [
+        {
+          "hint": 27,
+          "iat_rva": 593920,
+          "lookup_rva": 778072,
+          "name": "CertCreateCertificateChainEngine",
+          "original_thunk": 782048
+        },
+        {
+          "hint": 292,
+          "iat_rva": 593928,
+          "lookup_rva": 778080,
+          "name": "PFXImportCertStore",
+          "original_thunk": 781474
+        },
+        {
+          "hint": 64,
+          "iat_rva": 593936,
+          "lookup_rva": 778088,
+          "name": "CertFreeCertificateContext",
+          "original_thunk": 781516
+        },
+        {
+          "hint": 44,
+          "iat_rva": 593944,
+          "lookup_rva": 778096,
+          "name": "CertEnumCertificatesInStore",
+          "original_thunk": 781600
+        },
+        {
+          "hint": 18,
+          "iat_rva": 593952,
+          "lookup_rva": 778104,
+          "name": "CertCloseStore",
+          "original_thunk": 781630
+        },
+        {
+          "hint": 53,
+          "iat_rva": 593960,
+          "lookup_rva": 778112,
+          "name": "CertFindCertificateInStore",
+          "original_thunk": 781648
+        },
+        {
+          "hint": 89,
+          "iat_rva": 593968,
+          "lookup_rva": 778120,
+          "name": "CertOpenStore",
+          "original_thunk": 781678
+        },
+        {
+          "hint": 223,
+          "iat_rva": 593976,
+          "lookup_rva": 778128,
+          "name": "CryptStringToBinaryW",
+          "original_thunk": 781718
+        },
+        {
+          "hint": 55,
+          "iat_rva": 593984,
+          "lookup_rva": 778136,
+          "name": "CertFindExtension",
+          "original_thunk": 782028
+        },
+        {
+          "hint": 131,
+          "iat_rva": 593992,
+          "lookup_rva": 778144,
+          "name": "CryptDecodeObjectEx",
+          "original_thunk": 781828
+        },
+        {
+          "hint": 69,
+          "iat_rva": 594000,
+          "lookup_rva": 778152,
+          "name": "CertGetCertificateChain",
+          "original_thunk": 781850
+        },
+        {
+          "hint": 62,
+          "iat_rva": 594008,
+          "lookup_rva": 778160,
+          "name": "CertFreeCertificateChainEngine",
+          "original_thunk": 781876
+        },
+        {
+          "hint": 4,
+          "iat_rva": 594016,
+          "lookup_rva": 778168,
+          "name": "CertAddCertificateContextToStore",
+          "original_thunk": 781910
+        },
+        {
+          "hint": 197,
+          "iat_rva": 594024,
+          "lookup_rva": 778176,
+          "name": "CryptQueryObject",
+          "original_thunk": 781946
+        },
+        {
+          "hint": 61,
+          "iat_rva": 594032,
+          "lookup_rva": 778184,
+          "name": "CertFreeCertificateChain",
+          "original_thunk": 781966
+        },
+        {
+          "hint": 75,
+          "iat_rva": 594040,
+          "lookup_rva": 778192,
+          "name": "CertGetNameStringW",
+          "original_thunk": 781994
+        }
+      ],
+      "index": 26,
+      "lookup_bytes": 136,
+      "lookup_sha256": "2beaaecb5b5a89803313d49d65e2b79670d8750315801302fc451325fc0e745a",
+      "name": "CRYPT32.dll",
+      "name_rva": 783032,
+      "original_first_thunk": 778072,
+      "time_date_stamp": 0
+    },
+    {
+      "descriptor_rva": 777748,
+      "first_thunk": 594176,
+      "forwarder_chain": 0,
+      "imports": [
+        {
+          "hint": 30,
+          "iat_rva": 594176,
+          "lookup_rva": 778328,
+          "name": "InitSecurityInterfaceW",
+          "original_thunk": 781742
+        }
+      ],
+      "index": 27,
+      "lookup_bytes": 16,
+      "lookup_sha256": "d9f2f3a0f9090ccc6c39f46589990395436297855253b94d6c662936358a8a5c",
+      "name": "SspiCli.dll",
+      "name_rva": 783044,
+      "original_first_thunk": 778328,
+      "time_date_stamp": 0
+    },
+    {
+      "descriptor_rva": 777768,
+      "first_thunk": 594816,
+      "forwarder_chain": 0,
+      "imports": [
+        {
+          "hint": 10,
+          "iat_rva": 594816,
+          "lookup_rva": 778968,
+          "name": "LocalFree",
+          "original_thunk": 782016
+        }
+      ],
+      "index": 28,
+      "lookup_bytes": 16,
+      "lookup_sha256": "71ac571bbe509fa6eb549020bbe7a7453a5aece754d7d7aaf2c31e2496ce8842",
+      "name": "api-ms-win-core-heap-l2-1-0.dll",
+      "name_rva": 783056,
+      "original_first_thunk": 778968,
+      "time_date_stamp": 0
+    },
+    {
+      "descriptor_rva": 777788,
+      "first_thunk": 595920,
+      "forwarder_chain": 0,
+      "imports": [
+        {
+          "hint": 147,
+          "iat_rva": 595920,
+          "lookup_rva": 780072,
+          "name": "strspn",
+          "original_thunk": 783310
+        },
+        {
+          "hint": 142,
+          "iat_rva": 595928,
+          "lookup_rva": 780080,
+          "name": "strncmp",
+          "original_thunk": 783330
+        },
+        {
+          "hint": 146,
+          "iat_rva": 595936,
+          "lookup_rva": 780088,
+          "name": "strpbrk",
+          "original_thunk": 783378
+        },
+        {
+          "hint": 134,
+          "iat_rva": 595944,
+          "lookup_rva": 780096,
+          "name": "strcmp",
+          "original_thunk": 784992
+        },
+        {
+          "hint": 42,
+          "iat_rva": 595952,
+          "lookup_rva": 780104,
+          "name": "_stricmp",
+          "original_thunk": 783498
+        },
+        {
+          "hint": 161,
+          "iat_rva": 595960,
+          "lookup_rva": 780112,
+          "name": "wcscpy_s",
+          "original_thunk": 783592
+        },
+        {
+          "hint": 41,
+          "iat_rva": 595968,
+          "lookup_rva": 780120,
+          "name": "_strdup",
+          "original_thunk": 783088
+        },
+        {
+          "hint": 138,
+          "iat_rva": 595976,
+          "lookup_rva": 780128,
+          "name": "strcspn",
+          "original_thunk": 783098
+        },
+        {
+          "hint": 166,
+          "iat_rva": 595984,
+          "lookup_rva": 780136,
+          "name": "wcsncmp",
+          "original_thunk": 783628
+        },
+        {
+          "hint": 158,
+          "iat_rva": 595992,
+          "lookup_rva": 780144,
+          "name": "wcscmp",
+          "original_thunk": 785002
+        },
+        {
+          "hint": 168,
+          "iat_rva": 596000,
+          "lookup_rva": 780152,
+          "name": "wcsncpy_s",
+          "original_thunk": 783638
+        }
+      ],
+      "index": 29,
+      "lookup_bytes": 96,
+      "lookup_sha256": "719bbe55673154c94f1691f8b0ae5694e5e8317f80017479d016a07ed858439f",
+      "name": "api-ms-win-crt-string-l1-1-0.dll",
+      "name_rva": 783712,
+      "original_first_thunk": 780072,
+      "time_date_stamp": 0
+    },
+    {
+      "descriptor_rva": 777808,
+      "first_thunk": 595504,
+      "forwarder_chain": 0,
+      "imports": [
+        {
+          "hint": 103,
+          "iat_rva": 595504,
+          "lookup_rva": 779656,
+          "name": "terminate",
+          "original_thunk": 784972
+        },
+        {
+          "hint": 30,
+          "iat_rva": 595512,
+          "lookup_rva": 779664,
+          "name": "_crt_atexit",
+          "original_thunk": 784612
+        },
+        {
+          "hint": 84,
+          "iat_rva": 595520,
+          "lookup_rva": 779672,
+          "name": "abort",
+          "original_thunk": 784984
+        },
+        {
+          "hint": 21,
+          "iat_rva": 595528,
+          "lookup_rva": 779680,
+          "name": "_c_exit",
+          "original_thunk": 784862
+        },
+        {
+          "hint": 61,
+          "iat_rva": 595536,
+          "lookup_rva": 779688,
+          "name": "_register_thread_local_exe_atexit_callback",
+          "original_thunk": 784872
+        },
+        {
+          "hint": 6,
+          "iat_rva": 595544,
+          "lookup_rva": 779696,
+          "name": "__p___wargv",
+          "original_thunk": 784848
+        },
+        {
+          "hint": 4,
+          "iat_rva": 595552,
+          "lookup_rva": 779704,
+          "name": "__p___argc",
+          "original_thunk": 784834
+        },
+        {
+          "hint": 60,
+          "iat_rva": 595560,
+          "lookup_rva": 779712,
+          "name": "_register_onexit_function",
+          "original_thunk": 784584
+        },
+        {
+          "hint": 52,
+          "iat_rva": 595568,
+          "lookup_rva": 779720,
+          "name": "_initialize_onexit_table",
+          "original_thunk": 784556
+        },
+        {
+          "hint": 25,
+          "iat_rva": 595576,
+          "lookup_rva": 779728,
+          "name": "_configure_wide_argv",
+          "original_thunk": 784690
+        },
+        {
+          "hint": 35,
+          "iat_rva": 595584,
+          "lookup_rva": 779736,
+          "name": "_exit",
+          "original_thunk": 784812
+        },
+        {
+          "hint": 53,
+          "iat_rva": 595592,
+          "lookup_rva": 779744,
+          "name": "_initialize_wide_environment",
+          "original_thunk": 784714
+        },
+        {
+          "hint": 22,
+          "iat_rva": 595600,
+          "lookup_rva": 779752,
+          "name": "_cexit",
+          "original_thunk": 784626
+        },
+        {
+          "hint": 85,
+          "iat_rva": 595608,
+          "lookup_rva": 779760,
+          "name": "exit",
+          "original_thunk": 784804
+        },
+        {
+          "hint": 101,
+          "iat_rva": 595616,
+          "lookup_rva": 779768,
+          "name": "strerror_s",
+          "original_thunk": 783540
+        },
+        {
+          "hint": 55,
+          "iat_rva": 595624,
+          "lookup_rva": 779776,
+          "name": "_initterm_e",
+          "original_thunk": 784790
+        },
+        {
+          "hint": 64,
+          "iat_rva": 595632,
+          "lookup_rva": 779784,
+          "name": "_seh_filter_exe",
+          "original_thunk": 784636
+        },
+        {
+          "hint": 54,
+          "iat_rva": 595640,
+          "lookup_rva": 779792,
+          "name": "_initterm",
+          "original_thunk": 784778
+        },
+        {
+          "hint": 41,
+          "iat_rva": 595648,
+          "lookup_rva": 779800,
+          "name": "_get_initial_wide_environment",
+          "original_thunk": 784746
+        },
+        {
+          "hint": 33,
+          "iat_rva": 595656,
+          "lookup_rva": 779808,
+          "name": "_errno",
+          "original_thunk": 783108
+        },
+        {
+          "hint": 66,
+          "iat_rva": 595664,
+          "lookup_rva": 779816,
+          "name": "_set_app_type",
+          "original_thunk": 784654
+        }
+      ],
+      "index": 30,
+      "lookup_bytes": 176,
+      "lookup_sha256": "f5b74e9265a6691271a668f10f7b11505e2b8b094e135185aead801c4923db46",
+      "name": "api-ms-win-crt-runtime-l1-1-0.dll",
+      "name_rva": 783746,
+      "original_first_thunk": 779656,
+      "time_date_stamp": 0
+    },
+    {
+      "descriptor_rva": 777828,
+      "first_thunk": 595408,
+      "forwarder_chain": 0,
+      "imports": [
+        {
+          "hint": 26,
+          "iat_rva": 595408,
+          "lookup_rva": 779560,
+          "name": "realloc",
+          "original_thunk": 783260
+        },
+        {
+          "hint": 22,
+          "iat_rva": 595416,
+          "lookup_rva": 779568,
+          "name": "_set_new_mode",
+          "original_thunk": 784940
+        },
+        {
+          "hint": 24,
+          "iat_rva": 595424,
+          "lookup_rva": 779576,
+          "name": "free",
+          "original_thunk": 783118
+        },
+        {
+          "hint": 25,
+          "iat_rva": 595432,
+          "lookup_rva": 779584,
+          "name": "malloc",
+          "original_thunk": 783126
+        },
+        {
+          "hint": 23,
+          "iat_rva": 595440,
+          "lookup_rva": 779592,
+          "name": "calloc",
+          "original_thunk": 783290
+        }
+      ],
+      "index": 31,
+      "lookup_bytes": 48,
+      "lookup_sha256": "f11318178b93326b65659d48e2ec5702cd8fa92314939dd55005d476b62860fe",
+      "name": "api-ms-win-crt-heap-l1-1-0.dll",
+      "name_rva": 783780,
+      "original_first_thunk": 779560,
+      "time_date_stamp": 0
+    },
+    {
+      "descriptor_rva": 777848,
+      "first_thunk": 595680,
+      "forwarder_chain": 0,
+      "imports": [
+        {
+          "hint": 0,
+          "iat_rva": 595680,
+          "lookup_rva": 779832,
+          "name": "__acrt_iob_func",
+          "original_thunk": 783144
+        },
+        {
+          "hint": 127,
+          "iat_rva": 595688,
+          "lookup_rva": 779840,
+          "name": "fputc",
+          "original_thunk": 783136
+        },
+        {
+          "hint": 119,
+          "iat_rva": 595696,
+          "lookup_rva": 779848,
+          "name": "fflush",
+          "original_thunk": 783162
+        },
+        {
+          "hint": 107,
+          "iat_rva": 595704,
+          "lookup_rva": 779856,
+          "name": "_write",
+          "original_thunk": 783702
+        },
+        {
+          "hint": 84,
+          "iat_rva": 595712,
+          "lookup_rva": 779864,
+          "name": "_set_fmode",
+          "original_thunk": 784820
+        },
+        {
+          "hint": 47,
+          "iat_rva": 595720,
+          "lookup_rva": 779872,
+          "name": "_fseeki64",
+          "original_thunk": 783616
+        },
+        {
+          "hint": 110,
+          "iat_rva": 595728,
+          "lookup_rva": 779880,
+          "name": "_wsopen_s",
+          "original_thunk": 783604
+        },
+        {
+          "hint": 101,
+          "iat_rva": 595736,
+          "lookup_rva": 779888,
+          "name": "_wfreopen_s",
+          "original_thunk": 783578
+        },
+        {
+          "hint": 102,
+          "iat_rva": 595744,
+          "lookup_rva": 779896,
+          "name": "_wfsopen",
+          "original_thunk": 783566
+        },
+        {
+          "hint": 122,
+          "iat_rva": 595752,
+          "lookup_rva": 779904,
+          "name": "fgets",
+          "original_thunk": 783490
+        },
+        {
+          "hint": 117,
+          "iat_rva": 595760,
+          "lookup_rva": 779912,
+          "name": "feof",
+          "original_thunk": 783482
+        },
+        {
+          "hint": 1,
+          "iat_rva": 595768,
+          "lookup_rva": 779920,
+          "name": "__p__commode",
+          "original_thunk": 784956
+        },
+        {
+          "hint": 135,
+          "iat_rva": 595776,
+          "lookup_rva": 779928,
+          "name": "fseek",
+          "original_thunk": 783454
+        },
+        {
+          "hint": 139,
+          "iat_rva": 595784,
+          "lookup_rva": 779936,
+          "name": "getc",
+          "original_thunk": 783424
+        },
+        {
+          "hint": 147,
+          "iat_rva": 595792,
+          "lookup_rva": 779944,
+          "name": "puts",
+          "original_thunk": 783408
+        },
+        {
+          "hint": 131,
+          "iat_rva": 595800,
+          "lookup_rva": 779952,
+          "name": "fread",
+          "original_thunk": 783370
+        },
+        {
+          "hint": 87,
+          "iat_rva": 595808,
+          "lookup_rva": 779960,
+          "name": "_setmode",
+          "original_thunk": 783358
+        },
+        {
+          "hint": 118,
+          "iat_rva": 595816,
+          "lookup_rva": 779968,
+          "name": "ferror",
+          "original_thunk": 783348
+        },
+        {
+          "hint": 137,
+          "iat_rva": 595824,
+          "lookup_rva": 779976,
+          "name": "ftell",
+          "original_thunk": 783340
+        },
+        {
+          "hint": 116,
+          "iat_rva": 595832,
+          "lookup_rva": 779984,
+          "name": "fclose",
+          "original_thunk": 783300
+        },
+        {
+          "hint": 23,
+          "iat_rva": 595840,
+          "lookup_rva": 779992,
+          "name": "_close",
+          "original_thunk": 783280
+        },
+        {
+          "hint": 66,
+          "iat_rva": 595848,
+          "lookup_rva": 780000,
+          "name": "_isatty",
+          "original_thunk": 783270
+        },
+        {
+          "hint": 55,
+          "iat_rva": 595856,
+          "lookup_rva": 780008,
+          "name": "_get_osfhandle",
+          "original_thunk": 783232
+        },
+        {
+          "hint": 70,
+          "iat_rva": 595864,
+          "lookup_rva": 780016,
+          "name": "_lseeki64",
+          "original_thunk": 783220
+        },
+        {
+          "hint": 82,
+          "iat_rva": 595872,
+          "lookup_rva": 780024,
+          "name": "_read",
+          "original_thunk": 783212
+        },
+        {
+          "hint": 38,
+          "iat_rva": 595880,
+          "lookup_rva": 780032,
+          "name": "_fileno",
+          "original_thunk": 783190
+        },
+        {
+          "hint": 128,
+          "iat_rva": 595888,
+          "lookup_rva": 780040,
+          "name": "fputs",
+          "original_thunk": 783182
+        },
+        {
+          "hint": 138,
+          "iat_rva": 595896,
+          "lookup_rva": 780048,
+          "name": "fwrite",
+          "original_thunk": 783172
+        },
+        {
+          "hint": 13,
+          "iat_rva": 595904,
+          "lookup_rva": 780056,
+          "name": "__stdio_common_vsprintf",
+          "original_thunk": 783664
+        }
+      ],
+      "index": 32,
+      "lookup_bytes": 240,
+      "lookup_sha256": "268b1b9a3c3c4f0b878627a9f7312c49a932ede9be6637efae1684977e4c3950",
+      "name": "api-ms-win-crt-stdio-l1-1-0.dll",
+      "name_rva": 783812,
+      "original_first_thunk": 779832,
+      "time_date_stamp": 0
+    },
+    {
+      "descriptor_rva": 777868,
+      "first_thunk": 595360,
+      "forwarder_chain": 0,
+      "imports": [
+        {
+          "hint": 16,
+          "iat_rva": 595360,
+          "lookup_rva": 779512,
+          "name": "_fstat64",
+          "original_thunk": 783200
+        },
+        {
+          "hint": 18,
+          "iat_rva": 595368,
+          "lookup_rva": 779520,
+          "name": "_fullpath",
+          "original_thunk": 783690
+        },
+        {
+          "hint": 35,
+          "iat_rva": 595376,
+          "lookup_rva": 779528,
+          "name": "_unlink",
+          "original_thunk": 783462
+        },
+        {
+          "hint": 60,
+          "iat_rva": 595384,
+          "lookup_rva": 779536,
+          "name": "_wstat64",
+          "original_thunk": 783554
+        },
+        {
+          "hint": 25,
+          "iat_rva": 595392,
+          "lookup_rva": 779544,
+          "name": "_mkdir",
+          "original_thunk": 783320
+        }
+      ],
+      "index": 33,
+      "lookup_bytes": 48,
+      "lookup_sha256": "a38e1a47a5b696b4ce1f4500ef04246c288d0a54108ebdde917a919a50ff92b7",
+      "name": "api-ms-win-crt-filesystem-l1-1-0.dll",
+      "name_rva": 783844,
+      "original_first_thunk": 779512,
+      "time_date_stamp": 0
+    },
+    {
+      "descriptor_rva": 777888,
+      "first_thunk": 595480,
+      "forwarder_chain": 0,
+      "imports": [
+        {
+          "hint": 33,
+          "iat_rva": 595480,
+          "lookup_rva": 779632,
+          "name": "_fdopen",
+          "original_thunk": 783250
+        },
+        {
+          "hint": 9,
+          "iat_rva": 595488,
+          "lookup_rva": 779640,
+          "name": "__setusermatherr",
+          "original_thunk": 784670
+        }
+      ],
+      "index": 34,
+      "lookup_bytes": 24,
+      "lookup_sha256": "61292de47beaa4591f31a59e9d37e9c8754c17ad73caf2da2c92d1a577acd588",
+      "name": "api-ms-win-crt-math-l1-1-0.dll",
+      "name_rva": 783882,
+      "original_first_thunk": 779632,
+      "time_date_stamp": 0
+    },
+    {
+      "descriptor_rva": 777908,
+      "first_thunk": 596056,
+      "forwarder_chain": 0,
+      "imports": [
+        {
+          "hint": 25,
+          "iat_rva": 596056,
+          "lookup_rva": 780208,
+          "name": "qsort",
+          "original_thunk": 783416
+        },
+        {
+          "hint": 16,
+          "iat_rva": 596064,
+          "lookup_rva": 780216,
+          "name": "bsearch",
+          "original_thunk": 783388
+        }
+      ],
+      "index": 35,
+      "lookup_bytes": 24,
+      "lookup_sha256": "a92868b8873d4ee9365465701d13be2c46a1b1576303fee3abd345be29f5c346",
+      "name": "api-ms-win-crt-utility-l1-1-0.dll",
+      "name_rva": 783914,
+      "original_first_thunk": 780208,
+      "time_date_stamp": 0
+    },
+    {
+      "descriptor_rva": 777928,
+      "first_thunk": 595328,
+      "forwarder_chain": 0,
+      "imports": [
+        {
+          "hint": 14,
+          "iat_rva": 595328,
+          "lookup_rva": 779480,
+          "name": "_getch",
+          "original_thunk": 783398
+        }
+      ],
+      "index": 36,
+      "lookup_bytes": 16,
+      "lookup_sha256": "87ecb520a5523e4013c78c8b94b1ef9a349bce02662e35ab3aa6fc50bd656f6c",
+      "name": "api-ms-win-crt-conio-l1-1-0.dll",
+      "name_rva": 783948,
+      "original_first_thunk": 779480,
+      "time_date_stamp": 0
+    },
+    {
+      "descriptor_rva": 777948,
+      "first_thunk": 595344,
+      "forwarder_chain": 0,
+      "imports": [
+        {
+          "hint": 16,
+          "iat_rva": 595344,
+          "lookup_rva": 779496,
+          "name": "getenv",
+          "original_thunk": 783432
+        }
+      ],
+      "index": 37,
+      "lookup_bytes": 16,
+      "lookup_sha256": "54e0f11ec501093506e7744b2bd53adb78a0e3d62fb26172d76e5f46df430d2b",
+      "name": "api-ms-win-crt-environment-l1-1-0.dll",
+      "name_rva": 783980,
+      "original_first_thunk": 779496,
+      "time_date_stamp": 0
+    },
+    {
+      "descriptor_rva": 777968,
+      "first_thunk": 595456,
+      "forwarder_chain": 0,
+      "imports": [
+        {
+          "hint": 19,
+          "iat_rva": 595456,
+          "lookup_rva": 779608,
+          "name": "setlocale",
+          "original_thunk": 783442
+        },
+        {
+          "hint": 8,
+          "iat_rva": 595464,
+          "lookup_rva": 779616,
+          "name": "_configthreadlocale",
+          "original_thunk": 784918
+        }
+      ],
+      "index": 38,
+      "lookup_bytes": 24,
+      "lookup_sha256": "654864989e5522a72597fb1296762f9269c0e234616644cef8bce45b7ffe403c",
+      "name": "api-ms-win-crt-locale-l1-1-0.dll",
+      "name_rva": 784018,
+      "original_first_thunk": 779608,
+      "time_date_stamp": 0
+    },
+    {
+      "descriptor_rva": 777988,
+      "first_thunk": 596016,
+      "forwarder_chain": 0,
+      "imports": [
+        {
+          "hint": 48,
+          "iat_rva": 596016,
+          "lookup_rva": 780168,
+          "name": "_time64",
+          "original_thunk": 783472
+        },
+        {
+          "hint": 36,
+          "iat_rva": 596024,
+          "lookup_rva": 780176,
+          "name": "_localtime64_s",
+          "original_thunk": 783522
+        },
+        {
+          "hint": 70,
+          "iat_rva": 596032,
+          "lookup_rva": 780184,
+          "name": "strftime",
+          "original_thunk": 783510
+        },
+        {
+          "hint": 32,
+          "iat_rva": 596040,
+          "lookup_rva": 780192,
+          "name": "_gmtime64_s",
+          "original_thunk": 783650
+        }
+      ],
+      "index": 39,
+      "lookup_bytes": 40,
+      "lookup_sha256": "327c9968cbd1aec2b4984548468e081d1d96d7c4eec637244eacd9ac751ad87d",
+      "name": "api-ms-win-crt-time-l1-1-0.dll",
+      "name_rva": 784052,
+      "original_first_thunk": 780168,
+      "time_date_stamp": 0
+    },
+    {
+      "descriptor_rva": 778008,
+      "first_thunk": 594072,
+      "forwarder_chain": 0,
+      "imports": [
+        {
+          "hint": 778,
+          "iat_rva": 594072,
+          "lookup_rva": 778224,
+          "name": "GetSystemTimeAsFileTime",
+          "original_thunk": 784320
+        },
+        {
+          "hint": 567,
+          "iat_rva": 594080,
+          "lookup_rva": 778232,
+          "name": "GetCurrentThreadId",
+          "original_thunk": 784298
+        },
+        {
+          "hint": 563,
+          "iat_rva": 594088,
+          "lookup_rva": 778240,
+          "name": "GetCurrentProcessId",
+          "original_thunk": 784276
+        },
+        {
+          "hint": 906,
+          "iat_rva": 594096,
+          "lookup_rva": 778248,
+          "name": "InitializeSListHead",
+          "original_thunk": 784346
+        },
+        {
+          "hint": 1269,
+          "iat_rva": 594104,
+          "lookup_rva": 778256,
+          "name": "RtlCaptureContext",
+          "original_thunk": 784084
+        },
+        {
+          "hint": 928,
+          "iat_rva": 594112,
+          "lookup_rva": 778264,
+          "name": "IsDebuggerPresent",
+          "original_thunk": 784256
+        },
+        {
+          "hint": 1510,
+          "iat_rva": 594120,
+          "lookup_rva": 778272,
+          "name": "UnhandledExceptionFilter",
+          "original_thunk": 784150
+        },
+        {
+          "hint": 1277,
+          "iat_rva": 594128,
+          "lookup_rva": 778280,
+          "name": "RtlLookupFunctionEntry",
+          "original_thunk": 784104
+        },
+        {
+          "hint": 936,
+          "iat_rva": 594136,
+          "lookup_rva": 778288,
+          "name": "IsProcessorFeaturePresent",
+          "original_thunk": 784228
+        },
+        {
+          "hint": 1476,
+          "iat_rva": 594144,
+          "lookup_rva": 778296,
+          "name": "TerminateProcess",
+          "original_thunk": 784208
+        },
+        {
+          "hint": 1444,
+          "iat_rva": 594152,
+          "lookup_rva": 778304,
+          "name": "SetUnhandledExceptionFilter",
+          "original_thunk": 784178
+        },
+        {
+          "hint": 1284,
+          "iat_rva": 594160,
+          "lookup_rva": 778312,
+          "name": "RtlVirtualUnwind",
+          "original_thunk": 784130
+        }
+      ],
+      "index": 40,
+      "lookup_bytes": 104,
+      "lookup_sha256": "56580637fc9c13d0d7d35b739ae95be3acb56133f6939d1d890baebac1683661",
+      "name": "KERNEL32.dll",
+      "name_rva": 784368,
+      "original_first_thunk": 778224,
+      "time_date_stamp": 0
+    },
+    {
+      "descriptor_rva": 778028,
+      "first_thunk": 595072,
+      "forwarder_chain": 0,
+      "imports": [
+        {
+          "hint": 16,
+          "iat_rva": 595072,
+          "lookup_rva": 779224,
+          "name": "RtlUnwindEx",
+          "original_thunk": 784382
+        }
+      ],
+      "index": 41,
+      "lookup_bytes": 16,
+      "lookup_sha256": "a519aa70fe0d50191a742ce5beb5491d3a012aeb2688e8553f35d9693dbfceea",
+      "name": "api-ms-win-core-rtlsupport-l1-1-0.dll",
+      "name_rva": 784518,
+      "original_first_thunk": 779224,
+      "time_date_stamp": 0
+    }
+  ],
+  "directories": {
+    "1": {
+      "rva": 777208,
+      "size": 860
+    },
+    "11": {
+      "rva": 0,
+      "size": 0
+    },
+    "12": {
+      "rva": 593920,
+      "size": 2232
+    },
+    "13": {
+      "rva": 0,
+      "size": 0
+    }
+  },
+  "image_base": 5368709120,
+  "machine": 34404,
+  "optional_header_bytes": 240,
+  "pe_offset": 256,
+  "schema_version": 1,
+  "sections": [
+    {
+      "characteristics": 1610612768,
+      "name": ".text",
+      "raw_offset": 1024,
+      "raw_size": 586240,
+      "rva": 4096,
+      "virtual_size": 585968
+    },
+    {
+      "characteristics": 1073741888,
+      "name": ".rdata",
+      "raw_offset": 587264,
+      "raw_size": 191488,
+      "rva": 593920,
+      "virtual_size": 191092
+    },
+    {
+      "characteristics": 3221225536,
+      "name": ".data",
+      "raw_offset": 778752,
+      "raw_size": 3072,
+      "rva": 786432,
+      "virtual_size": 8096
+    },
+    {
+      "characteristics": 1073741888,
+      "name": ".pdata",
+      "raw_offset": 781824,
+      "raw_size": 19456,
+      "rva": 794624,
+      "virtual_size": 19044
+    },
+    {
+      "characteristics": 1073741888,
+      "name": ".rsrc",
+      "raw_offset": 801280,
+      "raw_size": 1536,
+      "rva": 815104,
+      "virtual_size": 1432
+    },
+    {
+      "characteristics": 1107296320,
+      "name": ".reloc",
+      "raw_offset": 802816,
+      "raw_size": 5632,
+      "rva": 819200,
+      "virtual_size": 5176
+    }
+  ],
+  "sha256": "73d24149ff289afc49ec41f08918ef9faa727d39ad993e929757dc2ddafab805",
+  "size_of_headers": 1024,
+  "size_of_image": 827392,
+  "stage": "A4-fixed-curl-offline-PE-geometry"
+}

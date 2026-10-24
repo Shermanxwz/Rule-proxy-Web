@@ -1,0 +1,392 @@
+{
+  "Config2048": {
+    "input": "Parent exact2048 source/run/config/artifact/generation/original-epoch bound POD. Reserved0; trace_bytes557312/capacity256. Child inherited trace HANDLE table value, no comparison with worker HANDLE table. ASCII private path<=1023 +NUL; canonical System32WS2 UTF16<=259 +NUL.",
+    "magic": "A4P1",
+    "offsets": {
+      "capacity": 228,
+      "config_sha256": 56,
+      "frequency": 152,
+      "private_path": 256,
+      "private_path_bytes": 232,
+      "reserved": 1800,
+      "root_deadline": 168,
+      "root_start": 160,
+      "run": 8,
+      "shim_sha256": 120,
+      "source_sha256": 24,
+      "system_ws2_chars": 236,
+      "system_ws2_path": 1280,
+      "target_creation": 208,
+      "target_pid": 200,
+      "target_sha256": 88,
+      "trace_bytes": 224,
+      "trace_handle": 216,
+      "trace_nonce": 240,
+      "window_end": 192,
+      "window_start": 184,
+      "work_deadline": 176
+    },
+    "size": 2048,
+    "validation_required_before_use": "Bounded first fixedGUID framing; exact2048/magic/version/reserved/ranges; scan first+last in original epoch; actual currentPID+FILETIME; exact source-owned canonical system-directory path and actual shim module-name. Hash/source/config fields are parent commitments, not child independent rehash. Parent must physically bind original complete framing/Config/trace header and retained artifacts before acceptance.",
+    "version": 1
+  },
+  "SdkReceipt32": {
+    "flags": {
+      "clock_unknown": 16,
+      "entered": 1,
+      "error_captured": 4,
+      "exception": 8,
+      "late": 32,
+      "returned": 2
+    },
+    "offsets": {
+      "entered_qpc": 16,
+      "error": 8,
+      "flags": 12,
+      "raw_return": 0,
+      "returned_qpc": 24
+    },
+    "semantics": "Exactly one primary SDK invocation in each acquisition/release export row. Other SDK operations get their own internal rows. Raw return/error(output too) committed before postQPC. Error captured from GetLastError immediately after returned call (SetLastError0 before); success error is not a failure predicate. FALSE/error0 and nonnull+late remain raw facts. No SDK call => all32zero. QPC/GetLastError/SetLastError endpoint machinery has no separate row.",
+    "size": 32
+  },
+  "Trace557312": {
+    "capacity": 256,
+    "header_bytes": 256,
+    "row_bytes": 2176,
+    "size": 557312
+  },
+  "TraceCall2176": {
+    "capture": "Caller names captured includingNUL before decision; UTF16<=1023chars/ASCIIproc<=64. All actual SDK string inputs are immutable owned literals/Config-derived paths, never reread caller pointers. ExplicitNULL/ordinal no dereference. SDK_output holds full fixed initialized owned buffer; actual SDK return/count separately authoritative. Unused payload bytes zero.",
+    "classifications": "Module/resolution are source-derived catalog codes, with full captured string bytes now available for independent reclassification after fast exit. arg2 preserves third raw scalar API argument. More-than-three-argument unsupported stubs do not claim all argument buffers retained.",
+    "commit": "64raw +32metadata +2048owned bytes +32SdkReceipt. Slot i odd2*i+1 while pending; allbytes release barrier then even2*i+2. SDK original return/error/output saved before postQPC; only unknown returned endpoint filled once. Delivery can NULL/FALSE despite known SDK acquisition/release; never infer ownership solely from delivery.",
+    "flags": {
+      "capture_complete": 256,
+      "clock_unknown": 512,
+      "diagnostic_failure": 32,
+      "entered": 1,
+      "error_valid": 4,
+      "input_fault": 16,
+      "internal": 2048,
+      "late": 1024,
+      "null_input": 128,
+      "ordinal_input": 64,
+      "returned": 2,
+      "unsupported": 8
+    },
+    "input_kind": {
+      "configuration2048": 6,
+      "module_utf16": 1,
+      "none": 0,
+      "null_value": 4,
+      "ordinal": 3,
+      "payload_framing456": 7,
+      "procedure_ascii": 2,
+      "scan_summary": 8,
+      "sdk_output": 9,
+      "wsadata408": 5
+    },
+    "metadata_bytes": 32,
+    "offsets": {
+      "arg2": 88,
+      "captured_bytes": 68,
+      "input_kind": 64,
+      "module_kind": 72,
+      "name_or_WSADATA": 96,
+      "raw": 0,
+      "resolution_kind": 76,
+      "resolved_ordinal": 80,
+      "sdk": 2144,
+      "thread_id": 84
+    },
+    "raw64_offsets": {
+      "arg0": 48,
+      "arg1": 56,
+      "entered_qpc": 16,
+      "error": 40,
+      "export_ordinal": 4,
+      "flags": 44,
+      "raw_return": 32,
+      "returned_qpc": 24,
+      "sequence": 8,
+      "size": 0
+    },
+    "raw_header_bytes": 64,
+    "size": 2176
+  },
+  "TraceHeader256": {
+    "magic": "A4T1",
+    "offsets": {
+      "capacity": 12,
+      "claimed": 20,
+      "config_sha256": 48,
+      "frequency": 160,
+      "input_fault": 28,
+      "overflow": 24,
+      "reserved": 248,
+      "root_deadline": 176,
+      "root_start": 168,
+      "row_bytes": 16,
+      "run": 32,
+      "sequence": 208,
+      "shim_sha256": 112,
+      "source_sha256": 80,
+      "startup_refs": 224,
+      "state_flags": 228,
+      "target_creation": 152,
+      "target_pid": 144,
+      "total_bytes": 8,
+      "trace_nonce": 232,
+      "unsupported_mask": 216,
+      "window_end": 200,
+      "window_start": 192,
+      "work_deadline": 184
+    },
+    "publication": {
+      "claimed": "CAS bounded0..256; overflow sticky1 without count advancing",
+      "read_boundary": "Parent after exact confirmed target exit. Torn/incomplete/nonzero unused rows => unknown, never empty-complete. Not hostile child authenticity.",
+      "row_sequence": "slot i pending2*i+1; complete2*i+2",
+      "sequence": "2 times number of fully committed rows, completion order may differ from claim order",
+      "state_flags": {
+        "bootstrap_failure": 1,
+        "capture_failure": 8,
+        "clock_failure": 2,
+        "concurrent_bootstrap": 64,
+        "reference_uncertain": 16,
+        "trace_failure": 32,
+        "unsupported_seen": 4
+      }
+    },
+    "size": 256,
+    "version": 1
+  },
+  "actual_ready": false,
+  "alignment": 8,
+  "completion": "No diagnostic success inferred from structural decode alone. Any bootstrap/clock/capture/reference/overflow/unsupported/torn/unknown flag or unbalanced net Startup/reference blocks completion. Parent exact original inputs/header, identity/Jobs/lease/source/ordinarycontrols/exit/cleanup remain separate future obligations. No transport/network/DNS/proxy/Linux/product/hostile guarantee.",
+  "fixed_exports": {
+    "WS2": 35,
+    "count": 40,
+    "forwarders": 1,
+    "gateways": 4,
+    "manifest": {
+      "bytes": 15299,
+      "name": "lpac-curl-A4-startup-shim-signatures-01.json",
+      "sha256": "02b5f4a24433f7725e1f2d1f423da75c431d5427ce51b1ce170f9d531de600d2"
+    }
+  },
+  "internal_operations": [
+    {
+      "id": 300,
+      "name": "QueryPerformanceFrequency",
+      "ownership_and_binding": "borrowed/nonallocation",
+      "payload": "sdk_output8",
+      "success": "BOOL nonzero"
+    },
+    {
+      "id": 301,
+      "name": "bounded_scan_summary",
+      "ownership_and_binding": "no SDK receipt; not per-VQ raw or whole-space duplicate proof",
+      "payload": "scan_summary72",
+      "success": "source summary only"
+    },
+    {
+      "id": 302,
+      "name": "selected_payload_framing",
+      "ownership_and_binding": "no SDK receipt; parent must compare complete original framing",
+      "payload": "payload_framing456",
+      "success": "source readonlycopy"
+    },
+    {
+      "id": 303,
+      "name": "selected_configuration",
+      "ownership_and_binding": "no SDK receipt; exact original parent physical bytes",
+      "payload": "configuration2048",
+      "success": "source readonlycopy"
+    },
+    {
+      "id": 304,
+      "name": "GetCurrentProcessId",
+      "ownership_and_binding": "current own generation",
+      "payload": "none",
+      "success": "DWORD nonzero"
+    },
+    {
+      "id": 305,
+      "name": "GetProcessTimes",
+      "ownership_and_binding": "actual fourFILETIMEs; creation matchesConfig",
+      "payload": "sdk_output32",
+      "success": "BOOL nonzero"
+    },
+    {
+      "id": 306,
+      "name": "GetHandleInformation_before",
+      "ownership_and_binding": "arg0 original inherited child trace handle; flags exactINHERIT1",
+      "payload": "sdk_output4",
+      "success": "BOOL nonzero"
+    },
+    {
+      "id": 307,
+      "name": "SetHandleInformation_clear",
+      "ownership_and_binding": "arg0 samehandle; maskINHERIT1,value0; no allocation",
+      "payload": "none",
+      "success": "BOOL nonzero"
+    },
+    {
+      "id": 308,
+      "name": "GetHandleInformation_after",
+      "ownership_and_binding": "samehandle; flags0",
+      "payload": "sdk_output4",
+      "success": "BOOL nonzero"
+    },
+    {
+      "id": 309,
+      "name": "MapViewOfFile",
+      "ownership_and_binding": "arg0 samehandle; FILE_MAP_WRITE2/offset0/bytes557312; returned pointer is known view even late; retain until target exit",
+      "payload": "none",
+      "success": "nonnull"
+    },
+    {
+      "id": 310,
+      "name": "CloseHandle_trace",
+      "ownership_and_binding": "arg0 samehandle; consume before once call, never retry false/exception; known close attempted despite late clock",
+      "payload": "none",
+      "success": "BOOL nonzero"
+    },
+    {
+      "id": 311,
+      "name": "GetModuleFileNameW_self",
+      "ownership_and_binding": "arg0 DllMain self; immutable Config path exact casefold comparison",
+      "payload": "sdk_output2048",
+      "success": "0<count<1024"
+    },
+    {
+      "id": 312,
+      "name": "GetModuleHandleW_kernel32",
+      "ownership_and_binding": "fixed literal kernel32.dll; borrowed no net acquisition",
+      "payload": "none",
+      "success": "nonnull"
+    },
+    {
+      "id": 313,
+      "name": "GetModuleFileNameW_kernel32",
+      "ownership_and_binding": "actual bound system-directory kernel32.dll",
+      "payload": "sdk_output2048",
+      "success": "0<count<1024"
+    },
+    {
+      "id": 314,
+      "name": "GetModuleHandleW_kernelbase",
+      "ownership_and_binding": "fixed literal kernelbase.dll; borrowed",
+      "payload": "none",
+      "success": "nonnull"
+    },
+    {
+      "id": 315,
+      "name": "GetModuleFileNameW_kernelbase",
+      "ownership_and_binding": "bound system-directory kernelbase.dll",
+      "payload": "sdk_output2048",
+      "success": "0<count<1024"
+    },
+    {
+      "id": 316,
+      "name": "GetModuleHandleW_ntdll",
+      "ownership_and_binding": "fixed literal ntdll.dll; borrowed",
+      "payload": "none",
+      "success": "nonnull"
+    },
+    {
+      "id": 317,
+      "name": "GetModuleFileNameW_ntdll",
+      "ownership_and_binding": "bound system-directory ntdll.dll",
+      "payload": "sdk_output2048",
+      "success": "0<count<1024"
+    },
+    {
+      "id": 318,
+      "name": "GetProcAddress_filename",
+      "ownership_and_binding": "fixed bound kernel32+GetModuleFileNameA only",
+      "payload": "none",
+      "success": "nonnull"
+    },
+    {
+      "id": 319,
+      "name": "GetProcAddress_version",
+      "ownership_and_binding": "fixed bound ntdll+RtlVerifyVersionInfo only",
+      "payload": "none",
+      "success": "nonnull"
+    },
+    {
+      "id": 320,
+      "name": "GetModuleFileNameW_after_acquire",
+      "ownership_and_binding": "arg0 raw acquired same privateHMODULE; failure cannot erase SDK nonnull/net obligation",
+      "payload": "sdk_output2048",
+      "success": "0<count<1024"
+    },
+    {
+      "id": 321,
+      "name": "GetModuleHandleW_main",
+      "ownership_and_binding": "fixedNULL name; borrowed actual own main module",
+      "payload": "none",
+      "success": "nonnull"
+    },
+    {
+      "id": 322,
+      "name": "GetSystemDirectoryW",
+      "ownership_and_binding": "actual canonical directory plus literal WS2_32.dll must equal Config path",
+      "payload": "sdk_output520",
+      "success": "0<count<260"
+    }
+  ],
+  "old_CMM_or_CLM_GUID_reused": false,
+  "payload_guid": "8b743b1e-2850-4c82-a350-fda8439e3ab1",
+  "payload_guid_windows_bytes_le": "1e3b748b5028824ca350fda8439e3ab1",
+  "previous_ABI": {
+    "bytes": 5380,
+    "name": "lpac-curl-A4-startup-config-trace-abi-02.json",
+    "sha256": "5e3da12e2b1d226b04c3d04adadceb3412a26b4378b94d4b029836b0fc5f1dfd"
+  },
+  "primary_export_SDK": {
+    "202": {
+      "api": "LoadLibraryExW",
+      "input": "Only fixed owned Config private path; hFileNULL; actual captured flags0or0x800",
+      "raw_success": "SDKnonnull, reference recorded before identity/postclock qualification; late/unknown deliveryNULL cannot erase acquisition",
+      "record": "export202.sdk only; no duplicate internal acquire row"
+    },
+    "203": {
+      "api": "FreeLibrary",
+      "input": "arg0 exact private module with one net known acquired reference consumed before API",
+      "raw_success": "SDKBOOLnonzero closes consumed ref even if postclock late; FALSE/error0/exception unknown and no retry",
+      "record": "export203.sdk only; no duplicate internal release row"
+    }
+  },
+  "scanner": {
+    "ScanSummary72_offsets": {
+      "allocation": 16,
+      "candidate_cap": 60,
+      "candidates": 44,
+      "first": 0,
+      "found": 52,
+      "framing_bytes": 32,
+      "last": 8,
+      "payload": 24,
+      "record_cap": 64,
+      "records": 48,
+      "region_cap": 56,
+      "regions": 40,
+      "reserved": 68
+    },
+    "framing": "fixed copier DOS64/NT264/section40/DSH64/record24=456 prefix; Config2048; total2504; full original parent readback+RO/query future obligation",
+    "limits": {
+      "MZ_candidates": 256,
+      "local_ticks": "<=one actualQPF second; never extends Config originalwindow",
+      "records": 64,
+      "regions": 4096
+    },
+    "raw_limit": "VirtualQuery/read/QPC loop source-reviewed and bounded; only summary+selected actual framing/config retained, no per-VQ independent raw claim",
+    "selection": "First encountered fixedGUID only; malformed/lengthunknown/zerostep/limits/timeunknown stops, never second repair; unscanned address space unconcluded"
+  },
+  "schema_version": 1,
+  "source_vs_implementation": "Candidate05 source-only Windows glue/finder/reference ledger/trace writer. Not compiled, tested or executed; future parent/owner payload/trace source bindings and actual qualification remain unimplemented.",
+  "stage": "A4-startup-config-and-shared-trace-ABI-draft-03",
+  "storage_permissions": "Anonymous pagefile-backed PAGE_READWRITE data, no execute. Parent retained noninherit read view/backing; child explicit HANDLE_LIST duplicate only needed FILE_MAP_WRITE rights/view (actually read/write). Config payload separately protected/read back read-only before Resume.",
+  "unsupported_mask": "Bit index is exact40-manifest order, not sparse export ordinal. Any bit, overflow/input fault, unknown row or unbalanced known reference forbids diagnostic completion."
+}

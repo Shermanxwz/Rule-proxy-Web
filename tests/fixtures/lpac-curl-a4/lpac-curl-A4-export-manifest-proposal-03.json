@@ -1,0 +1,394 @@
+{
+  "actual_ready": false,
+  "dll_basename": "windows_identity_lpac_curl_ws2_shim.dll",
+  "export_count": 40,
+  "exports": [
+    {
+      "dynamic_ordinal_accepted": true,
+      "forward_to": null,
+      "implemented": false,
+      "kind": "private-WS2-implementation-or-recorded-unsupported-stub",
+      "name": "accept",
+      "ordinal": 1,
+      "source": "original-ordinal-import"
+    },
+    {
+      "dynamic_ordinal_accepted": true,
+      "forward_to": null,
+      "implemented": false,
+      "kind": "private-WS2-implementation-or-recorded-unsupported-stub",
+      "name": "bind",
+      "ordinal": 2,
+      "source": "original-ordinal-import"
+    },
+    {
+      "dynamic_ordinal_accepted": true,
+      "forward_to": null,
+      "implemented": false,
+      "kind": "private-WS2-implementation-or-recorded-unsupported-stub",
+      "name": "closesocket",
+      "ordinal": 3,
+      "source": "original-ordinal-import"
+    },
+    {
+      "dynamic_ordinal_accepted": true,
+      "forward_to": null,
+      "implemented": false,
+      "kind": "private-WS2-implementation-or-recorded-unsupported-stub",
+      "name": "connect",
+      "ordinal": 4,
+      "source": "original-ordinal-import"
+    },
+    {
+      "dynamic_ordinal_accepted": true,
+      "forward_to": null,
+      "implemented": false,
+      "kind": "private-WS2-implementation-or-recorded-unsupported-stub",
+      "name": "getpeername",
+      "ordinal": 5,
+      "source": "original-ordinal-import"
+    },
+    {
+      "dynamic_ordinal_accepted": true,
+      "forward_to": null,
+      "implemented": false,
+      "kind": "private-WS2-implementation-or-recorded-unsupported-stub",
+      "name": "getsockname",
+      "ordinal": 6,
+      "source": "original-ordinal-import"
+    },
+    {
+      "dynamic_ordinal_accepted": true,
+      "forward_to": null,
+      "implemented": false,
+      "kind": "private-WS2-implementation-or-recorded-unsupported-stub",
+      "name": "getsockopt",
+      "ordinal": 7,
+      "source": "original-ordinal-import"
+    },
+    {
+      "dynamic_ordinal_accepted": true,
+      "forward_to": null,
+      "implemented": false,
+      "kind": "private-WS2-implementation-or-recorded-unsupported-stub",
+      "name": "htonl",
+      "ordinal": 8,
+      "source": "original-ordinal-import"
+    },
+    {
+      "dynamic_ordinal_accepted": true,
+      "forward_to": null,
+      "implemented": false,
+      "kind": "private-WS2-implementation-or-recorded-unsupported-stub",
+      "name": "htons",
+      "ordinal": 9,
+      "source": "original-ordinal-import"
+    },
+    {
+      "dynamic_ordinal_accepted": true,
+      "forward_to": null,
+      "implemented": false,
+      "kind": "private-WS2-implementation-or-recorded-unsupported-stub",
+      "name": "ioctlsocket",
+      "ordinal": 10,
+      "source": "original-ordinal-import"
+    },
+    {
+      "dynamic_ordinal_accepted": true,
+      "forward_to": null,
+      "implemented": false,
+      "kind": "private-WS2-implementation-or-recorded-unsupported-stub",
+      "name": "listen",
+      "ordinal": 13,
+      "source": "original-ordinal-import"
+    },
+    {
+      "dynamic_ordinal_accepted": true,
+      "forward_to": null,
+      "implemented": false,
+      "kind": "private-WS2-implementation-or-recorded-unsupported-stub",
+      "name": "ntohs",
+      "ordinal": 15,
+      "source": "original-ordinal-import"
+    },
+    {
+      "dynamic_ordinal_accepted": true,
+      "forward_to": null,
+      "implemented": false,
+      "kind": "private-WS2-implementation-or-recorded-unsupported-stub",
+      "name": "recv",
+      "ordinal": 16,
+      "source": "original-ordinal-import"
+    },
+    {
+      "dynamic_ordinal_accepted": true,
+      "forward_to": null,
+      "implemented": false,
+      "kind": "private-WS2-implementation-or-recorded-unsupported-stub",
+      "name": "recvfrom",
+      "ordinal": 17,
+      "source": "original-ordinal-import"
+    },
+    {
+      "dynamic_ordinal_accepted": true,
+      "forward_to": null,
+      "implemented": false,
+      "kind": "private-WS2-implementation-or-recorded-unsupported-stub",
+      "name": "select",
+      "ordinal": 18,
+      "source": "original-ordinal-import"
+    },
+    {
+      "dynamic_ordinal_accepted": true,
+      "forward_to": null,
+      "implemented": false,
+      "kind": "private-WS2-implementation-or-recorded-unsupported-stub",
+      "name": "send",
+      "ordinal": 19,
+      "source": "original-ordinal-import"
+    },
+    {
+      "dynamic_ordinal_accepted": true,
+      "forward_to": null,
+      "implemented": false,
+      "kind": "private-WS2-implementation-or-recorded-unsupported-stub",
+      "name": "sendto",
+      "ordinal": 20,
+      "source": "original-ordinal-import"
+    },
+    {
+      "dynamic_ordinal_accepted": true,
+      "forward_to": null,
+      "implemented": false,
+      "kind": "private-WS2-implementation-or-recorded-unsupported-stub",
+      "name": "setsockopt",
+      "ordinal": 21,
+      "source": "original-ordinal-import"
+    },
+    {
+      "dynamic_ordinal_accepted": true,
+      "forward_to": null,
+      "implemented": false,
+      "kind": "private-WS2-implementation-or-recorded-unsupported-stub",
+      "name": "shutdown",
+      "ordinal": 22,
+      "source": "original-ordinal-import"
+    },
+    {
+      "dynamic_ordinal_accepted": true,
+      "forward_to": null,
+      "implemented": false,
+      "kind": "private-WS2-implementation-or-recorded-unsupported-stub",
+      "name": "socket",
+      "ordinal": 23,
+      "source": "original-ordinal-import"
+    },
+    {
+      "dynamic_ordinal_accepted": true,
+      "forward_to": null,
+      "implemented": false,
+      "kind": "private-WS2-implementation-or-recorded-unsupported-stub",
+      "name": "WSACloseEvent",
+      "ordinal": 45,
+      "source": "original-named-import"
+    },
+    {
+      "dynamic_ordinal_accepted": true,
+      "forward_to": null,
+      "implemented": false,
+      "kind": "private-WS2-implementation-or-recorded-unsupported-stub",
+      "name": "WSACreateEvent",
+      "ordinal": 50,
+      "source": "original-named-import"
+    },
+    {
+      "dynamic_ordinal_accepted": true,
+      "forward_to": null,
+      "implemented": false,
+      "kind": "private-WS2-implementation-or-recorded-unsupported-stub",
+      "name": "gethostname",
+      "ordinal": 57,
+      "source": "original-ordinal-import"
+    },
+    {
+      "dynamic_ordinal_accepted": true,
+      "forward_to": null,
+      "implemented": false,
+      "kind": "private-WS2-implementation-or-recorded-unsupported-stub",
+      "name": "WSAEnumNetworkEvents",
+      "ordinal": 64,
+      "source": "original-named-import"
+    },
+    {
+      "dynamic_ordinal_accepted": true,
+      "forward_to": null,
+      "implemented": false,
+      "kind": "private-WS2-implementation-or-recorded-unsupported-stub",
+      "name": "WSAEventSelect",
+      "ordinal": 67,
+      "source": "original-named-import"
+    },
+    {
+      "dynamic_ordinal_accepted": true,
+      "forward_to": null,
+      "implemented": false,
+      "kind": "private-WS2-implementation-or-recorded-unsupported-stub",
+      "name": "WSAIoctl",
+      "ordinal": 78,
+      "source": "original-named-import"
+    },
+    {
+      "dynamic_ordinal_accepted": true,
+      "forward_to": null,
+      "implemented": false,
+      "kind": "private-WS2-implementation-or-recorded-unsupported-stub",
+      "name": "WSAResetEvent",
+      "ordinal": 95,
+      "source": "original-named-import"
+    },
+    {
+      "dynamic_ordinal_accepted": true,
+      "forward_to": null,
+      "implemented": false,
+      "kind": "private-WS2-implementation-or-recorded-unsupported-stub",
+      "name": "WSAGetLastError",
+      "ordinal": 111,
+      "source": "original-ordinal-import"
+    },
+    {
+      "dynamic_ordinal_accepted": true,
+      "forward_to": null,
+      "implemented": false,
+      "kind": "private-WS2-implementation-or-recorded-unsupported-stub",
+      "name": "WSASetLastError",
+      "ordinal": 112,
+      "source": "original-ordinal-import"
+    },
+    {
+      "dynamic_ordinal_accepted": true,
+      "forward_to": null,
+      "implemented": false,
+      "kind": "private-WS2-implementation-or-recorded-unsupported-stub",
+      "name": "WSAStartup",
+      "ordinal": 115,
+      "source": "original-ordinal-import"
+    },
+    {
+      "dynamic_ordinal_accepted": true,
+      "forward_to": null,
+      "implemented": false,
+      "kind": "private-WS2-implementation-or-recorded-unsupported-stub",
+      "name": "WSACleanup",
+      "ordinal": 116,
+      "source": "original-ordinal-import"
+    },
+    {
+      "dynamic_ordinal_accepted": true,
+      "forward_to": null,
+      "implemented": false,
+      "kind": "private-WS2-implementation-or-recorded-unsupported-stub",
+      "name": "WSAWaitForMultipleEvents",
+      "ordinal": 124,
+      "source": "original-named-import"
+    },
+    {
+      "dynamic_ordinal_accepted": true,
+      "forward_to": null,
+      "implemented": false,
+      "kind": "private-WS2-implementation-or-recorded-unsupported-stub",
+      "name": "__WSAFDIsSet",
+      "ordinal": 151,
+      "source": "original-ordinal-import"
+    },
+    {
+      "dynamic_ordinal_accepted": true,
+      "forward_to": null,
+      "implemented": false,
+      "kind": "private-WS2-implementation-or-recorded-unsupported-stub",
+      "name": "freeaddrinfo",
+      "ordinal": 191,
+      "source": "original-named-import"
+    },
+    {
+      "dynamic_ordinal_accepted": true,
+      "forward_to": null,
+      "implemented": false,
+      "kind": "private-WS2-implementation-or-recorded-unsupported-stub",
+      "name": "getaddrinfo",
+      "ordinal": 192,
+      "source": "original-named-import"
+    },
+    {
+      "dynamic_ordinal_accepted": false,
+      "forward_to": null,
+      "implemented": false,
+      "kind": "private-gateway",
+      "name": "GetProcAddress",
+      "ordinal": 200,
+      "source": "original-named-libraryloader-import"
+    },
+    {
+      "dynamic_ordinal_accepted": false,
+      "forward_to": null,
+      "implemented": false,
+      "kind": "private-gateway",
+      "name": "GetModuleHandleW",
+      "ordinal": 201,
+      "source": "original-named-libraryloader-import"
+    },
+    {
+      "dynamic_ordinal_accepted": false,
+      "forward_to": null,
+      "implemented": false,
+      "kind": "private-gateway",
+      "name": "LoadLibraryExW",
+      "ordinal": 202,
+      "source": "original-named-libraryloader-import"
+    },
+    {
+      "dynamic_ordinal_accepted": false,
+      "forward_to": null,
+      "implemented": false,
+      "kind": "private-gateway",
+      "name": "FreeLibrary",
+      "ordinal": 203,
+      "source": "original-named-libraryloader-import"
+    },
+    {
+      "dynamic_ordinal_accepted": false,
+      "forward_to": "KERNEL32.GetModuleFileNameA",
+      "implemented": false,
+      "kind": "system-forwarder",
+      "name": "GetModuleFileNameA",
+      "ordinal": 204,
+      "source": "original-named-libraryloader-import"
+    }
+  ],
+  "forwarder_count": 1,
+  "gateway_count": 4,
+  "gateways": [
+    "GetProcAddress",
+    "GetModuleHandleW",
+    "LoadLibraryExW",
+    "FreeLibrary"
+  ],
+  "interface_version": 1,
+  "named_lookup_acceptance": "exact40-name union only; per-function support still separate",
+  "no_build_or_implementation": true,
+  "ordinal_lookup_acceptance": "exact35 WS2 ordinal catalog only; new200..204 loader ordinals are loader-assigned export metadata, never admitted dynamic WS2 ordinal requests",
+  "ordinal_source": {
+    "bytes": 9425,
+    "name": "winsock-system-static-exports-01.txt",
+    "sha256": "386e3aecea5e70b7e1484cdef6a46aa87072a2890bb77b928973ff0026c8e46f"
+  },
+  "resolve_all_static_imports_required": true,
+  "schema_version": 1,
+  "scope_proposal": "one-local-fixed-curl-two-import-descriptor-private-shim-loader-v1",
+  "source_transcript": {
+    "bytes": 59544,
+    "name": "lpac-curl-A4-fixed-PE-import-transcript-03.json",
+    "sha256": "9650b53c06387f060e332ab0feb201b644d5963fbac037d039318d403827723e"
+  },
+  "stage": "A4-proposed-40-export-manifest-not-built",
+  "unsupported_call_makes_qualification_false": true
+}
