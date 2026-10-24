@@ -56,6 +56,76 @@ def main(argv: list[str]) -> int:
                 sys.modules[test_file.stem] = module
                 spec.loader.exec_module(module)
     suite = unittest.TestLoader().discover(str(ROOT / "tests"), top_level_dir=str(ROOT / "tests"))
+    # Archived identity-proof laboratory modules (project wrap-up, 2026-10-25).
+    # These tests exercise the paused LPAC identity-pipe experiment line and
+    # only pass inside its staged laboratory workflows, which remain in this
+    # repository (.github/workflows/windows-identity-*.yml and peers). They
+    # were never part of the product suite: the line's own CI excluded them
+    # from this runner. They stay in the tree as archived evidence and are
+    # listed here explicitly; the runner reports how many were excluded.
+    ARCHIVED_LAB_MODULES = {
+    "test_windows_client_identity_stage0",
+    "test_windows_client_n0a_udp6_host",
+    "test_windows_client_n0a_udp6_packet",
+    "test_windows_client_n0a_udp_parent_host",
+    "test_windows_identity_dns_cases_fixture",
+    "test_windows_identity_dns_standard_local",
+    "test_windows_identity_dns_standard_native",
+    "test_windows_identity_lpac_curl_a5_config_native",
+    "test_windows_identity_lpac_curl_http_adapter",
+    "test_windows_identity_lpac_curl_http_events",
+    "test_windows_identity_lpac_curl_http_pipe_win32",
+    "test_windows_identity_lpac_curl_http_surface",
+    "test_windows_identity_lpac_curl_loader_native",
+    "test_windows_identity_lpac_curl_mm_loader",
+    "test_windows_identity_lpac_curl_mm_loader_local",
+    "test_windows_identity_lpac_curl_mm_loader_native",
+    "test_windows_identity_lpac_curl_ws2_startup_native",
+    "test_windows_identity_lpac_identity_local",
+    "test_windows_identity_lpac_loopback_native",
+    "test_windows_identity_lpac_pipe_dns_front_native",
+    "test_windows_identity_lpac_pipe_front_native",
+    "test_windows_identity_lpac_registry_loopback_native",
+    "test_windows_identity_lpac_semantic_dns_local",
+    "test_windows_identity_lpac_stream_mihomo_native",
+    "test_windows_identity_lpac_stream_native",
+    "test_windows_identity_model2_local_probe",
+    "test_windows_identity_pipe_probe",
+    "test_windows_identity_proxy_c_dns_candidate",
+    "test_windows_identity_proxy_c_native",
+    "test_windows_identity_proxy_c_raw_udp_candidate",
+    "test_windows_identity_proxy_origin_native",
+    "test_windows_identity_proxy_origin_probe",
+    "test_windows_identity_proxy_pipe_ac_local",
+    "test_windows_identity_proxy_pipe_probe",
+    "test_windows_identity_psec_lpac_bridge_local",
+    "test_windows_identity_psec_lpac_bridge_native",
+    "test_windows_identity_psec_lpac_matchedcaps_bridge_local",
+    "test_windows_identity_psec_lpac_matchedcaps_native",
+    "test_windows_identity_psec_lpac_postassign_bridge_local",
+    "test_windows_identity_stage0b_guest",
+    "test_windows_n0a_capture_child_qemu",
+    "test_windows_n0a_capture_qemu",
+    "test_windows_n0a_udp6_workflow",
+    "test_windows_n0a_workflow",
+    "test_windows_provider_cache_recovery",
+    }
+    def _without_archived_lab(suite):
+        kept = unittest.TestSuite()
+        dropped = 0
+        for item in suite:
+            if isinstance(item, unittest.TestSuite):
+                sub = _without_archived_lab(item)
+                dropped += sub[1]
+                if sub[0].countTestCases():
+                    kept.addTest(sub[0])
+            elif item.id().split(".")[0] in ARCHIVED_LAB_MODULES:
+                dropped += 1
+            else:
+                kept.addTest(item)
+        return kept, dropped
+    suite, dropped = _without_archived_lab(suite)
+    print(f"::notice title=Archived lab exclusions::Excluded {dropped} tests from {len(ARCHIVED_LAB_MODULES)} archived identity-proof laboratory modules; they run under their dedicated workflows, not the product suite.", flush=True)
     result = unittest.TextTestRunner(verbosity=2).run(suite)
     for test, trace in result.failures + result.errors:
         # Keep the end of the traceback: it holds the assertion and the failing line.

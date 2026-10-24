@@ -44,7 +44,7 @@ def project_files() -> list[str]:
 
 def install_instructions() -> str:
     return (
-        f'RuleProxy-Web {offline.__version__}：Windows 11 x64 联网安装（预发布）\n\n'
+        f'RuleProxy-Web {offline.__version__}：Windows 11 x64 联网安装（正式版）\n\n'
         '请先完整解压到可写目录，再用日常普通账户双击 Setup-Windows.cmd。\n'
         '首次安装需要联网，会下载并校验官方固定 SHA 的 Python、Mihomo、ProxiFyre 和安装依赖；'
         '无需预装全局 Python。本包仅含源码和引导脚本，不是离线安装包。\n'
@@ -68,7 +68,9 @@ def install_instructions() -> str:
         '固定许可证原文已随包附带，安装不为许可证访问 raw.githubusercontent.com。'
         '本包不含用户配置、节点凭据或第三方二进制。\n\n'
         '原生 Windows 11 的完整验收尚未通过；已观察到的部分功能不能替代完整 GUI、启动和卸载重装验收。'
-        '发布为预发布候选，不宣称 Linux 等价隔离。具体能力和限制请阅读随包 README.md。\n'
+        '本版本为 0.3.0 正式版；Windows 强隔离（实验）未达成，不宣称 Linux 等价隔离。\n'
+        '兼容模式的出站守卫（实验）与全部实验功能均未通过原生 Windows 验收。\n'
+        '具体能力和限制请阅读随包 README.md。\n'
     )
 
 
