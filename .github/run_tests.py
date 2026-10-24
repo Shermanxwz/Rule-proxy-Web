@@ -38,6 +38,23 @@ def main(argv: list[str]) -> int:
         print(f"::error title=Test setup::ruleproxy was imported from {ruleproxy.__file__}, not {code}", flush=True)
         return 1
     print(f"Testing ruleproxy {ruleproxy.__version__} in {code} with Python {sys.version.split()[0]} ({sys.executable})", flush=True)
+    # Archived experiment harnesses under .github/ share module names with
+    # tests/ modules (e.g. test_windows_n0a_actor.py exists in both). When a
+    # harness copy is imported first, unittest discovery refuses the tests/
+    # copy as "incorrectly imported". Seed the tests/ copies under their
+    # plain names first so discovery sees the expected files.
+    tests_dir = ROOT / "tests"
+    harness_dir = ROOT / ".github"
+    if harness_dir.is_dir():
+        import importlib.util
+
+        harness_names = {p.stem for p in harness_dir.glob("*.py")}
+        for test_file in sorted(tests_dir.glob("*.py")):
+            if test_file.stem in harness_names and test_file.stem not in sys.modules:
+                spec = importlib.util.spec_from_file_location(test_file.stem, test_file)
+                module = importlib.util.module_from_spec(spec)
+                sys.modules[test_file.stem] = module
+                spec.loader.exec_module(module)
     suite = unittest.TestLoader().discover(str(ROOT / "tests"), top_level_dir=str(ROOT / "tests"))
     result = unittest.TextTestRunner(verbosity=2).run(suite)
     for test, trace in result.failures + result.errors:
