@@ -3,6 +3,7 @@
 #error portable fake only
 #endif
 #include "../.github/native/windows_identity_lpac_curl_http_surface.hpp"
+#include "../.github/native/windows_identity_lpac_curl_a5_startup_events.hpp"
 #include <iostream>
 #include <stdexcept>
 #include <vector>
@@ -70,8 +71,8 @@ struct Pair {
         w::SockaddrIn16 la{},pa{};check(local.bytes.size()==16&&peer.bytes.size()==16);std::memcpy(&la,local.bytes.data(),16);std::memcpy(&pa,peer.bytes.data(),16);
         check(w::equal_address(la,{{127,0,0,1},51002})&&w::equal_address(pa,c.target));
     }
-    void run(std::size_t fragment,std::size_t capacity){
-        opened();bool close_started=false;unsigned would_block=0;
+    void run(std::size_t fragment,std::size_t capacity,bool already_opened=false){
+        if(!already_opened)opened();bool close_started=false;unsigned would_block=0;
         for(unsigned turn=0;turn<100000&&!surface.complete();++turn){
             if(sent<request.size()){
                 const auto out=surface.send(h::VirtualSocket,request.data()+sent,request.size()-sent,0,++now);
@@ -147,6 +148,38 @@ void zero_send_during_pending_connect_is_not_stream_failure(){
     check(connected.completion==w::Completion::returned&&connected.value==0);
     check(!p.surface.qualification_failed()&&p.surface.core().request_accepted()==0);
 }
+void curl_pending_name_options_events_then_HTTP(){
+    Pair p; // actual observed socket/ioctl/connect -> WSAEWOULDBLOCK order
+    auto local=p.surface.name(h::VirtualSocket,false,128,++p.now);
+    check(local.completion==w::Completion::returned&&local.bytes.size()==16);
+    w::SockaddrIn16 value{};std::memcpy(&value,local.bytes.data(),16);
+    check(w::equal_address(value,{{127,0,0,1},51002}));
+    check(p.surface.name(h::VirtualSocket,true,128,++p.now).error==w::NotConnected);
+    check(p.surface.name(h::VirtualSocket,false,15,++p.now).error==w::Fault);
+    check(p.surface.name(h::VirtualSocket,true,15,++p.now).error==w::Fault);
+    check(p.surface.get_option(h::VirtualSocket,w::SolSocket,w::SoType,3,++p.now).error==w::Fault);
+    const auto type=p.surface.get_option(h::VirtualSocket,w::SolSocket,w::SoType,4,++p.now);
+    std::int32_t kind=0;check(type.bytes.size()==4);std::memcpy(&kind,type.bytes.data(),4);check(kind==w::SockStream);
+    std::uint8_t unused=1;check(p.surface.send(h::VirtualSocket,&unused,1,0,++p.now).error==w::NotConnected);
+    check(p.surface.recv(h::VirtualSocket,4096,0,++p.now).error==w::NotConnected);
+    check(p.surface.query_send_backlog(h::VirtualSocket,++p.now).error==w::NotConnected);
+    check(!p.surface.qualification_failed()&&p.surface.core().request_accepted()==0);
+    a5startup::events::OneLive event;check(event.begin_create());check(event.created(true,64));
+    check(event.select(64,0x32)); // production EventSelect's client write mask
+    check(p.surface.ioctl(h::VirtualSocket,w::Fionbio,1,++p.now).value==0);
+    check(p.surface.send(h::VirtualSocket,nullptr,0,0,++p.now).error==w::NotConnected);
+    for(unsigned i=0;i<200&&!(event.latched()&a5startup::events::Connect);++i){
+        p.transfer(7);const auto ready=p.surface.core().readiness(++p.now);
+        event.observe(ready.connected,ready.readable,ready.writable,p.surface.core().response_eof());
+    }
+    check((event.latched()&0x12)==0x12); // OPEN_OK survives all earlier query errors
+    const auto error=p.surface.get_option(h::VirtualSocket,w::SolSocket,w::SoError,4,++p.now);
+    std::int32_t status=-1;check(error.bytes.size()==4);std::memcpy(&status,error.bytes.data(),4);check(status==0);
+    check(p.surface.name(h::VirtualSocket,true,128,++p.now).completion==w::Completion::returned);
+    check(p.surface.query_send_backlog(h::VirtualSocket,++p.now).error==w::Unsupported);
+    check(!p.surface.qualification_failed());
+    p.run(257,100U*1024U,true); // complete actual production Node byte/FIN exchange
+}
 void rejects_and_original_deadline(){
     Pair second;check(second.surface.create(2,1,6,++second.now).completion==w::Completion::failed&&second.surface.qualification_failed());
     Pair wrong;auto destination=w::address(wrong.c.target);destination.port=w::htons(51003);
@@ -169,7 +202,7 @@ void rejects_and_original_deadline(){
     Pair events;check(events.surface.unsupported_api(1,++events.now).completion==w::Completion::failed&&events.surface.qualification_failed());
 }
 int main(){
-    try{shapes_and_options();zero_timeout_polls_need_bounded_transport_progress();zero_send_during_pending_connect_is_not_stream_failure();rejects_and_original_deadline();for(auto n:{1u,11u,257u}){Pair p;p.run(n,n==1?100U*1024U:(n==11?1024U*1024U:17U));}
+    try{shapes_and_options();zero_timeout_polls_need_bounded_transport_progress();zero_send_during_pending_connect_is_not_stream_failure();curl_pending_name_options_events_then_HTTP();rejects_and_original_deadline();for(auto n:{1u,11u,257u}){Pair p;p.run(n,n==1?100U*1024U:(n==11?1024U*1024U:17U));}
         std::cout<<"curl-http-surface assertions: "<<checks<<"\n";return 0;
     }catch(const std::exception& e){std::cerr<<e.what()<<" at "<<checks<<"\n";return 1;}
 }

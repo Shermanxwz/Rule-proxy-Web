@@ -59,7 +59,7 @@ def validate_memory_records(m,j,c,root,selected):
     rows=j['memory_records']
     require(type(rows) is list and len(rows)<=128,'a5_mem_bound')
     api_rows=j['api_calls'];api_intents=j['api_intents']
-    require(type(api_rows) is list and len(api_rows)<=128 and type(api_intents) is list and len(api_intents)<=128,'a5_mem_api_bound')
+    require(type(api_rows) is list and len(api_rows)<=384 and type(api_intents) is list and len(api_intents)<=384,'a5_mem_api_bound')
     # Only the two API operations this validator consumes are interpreted here.
     # The task/resource validator owns the other parent API records.
     apis={}
@@ -408,7 +408,7 @@ def validate_memory_records(m,j,c,root,selected):
     if j['config_binary'] is not None:
         require(empty['memory_complete'] and type(j['mapping']) is dict,'a5_config_requires_memory')
         config=m.read_binary(root,j['config_binary'],2048)
-        require(j['config_binary']['name']=='a4-config.bin' and len(config)==2048,'a5_config_extent')
+        require(j['config_binary']['name']=='a5-config.bin' and len(config)==2048,'a5_config_extent')
         m.trace_reader.validate_config(config,schema_metadata=m.trace_reader.SCHEMA_METADATA)
         require(j['mapping']['child_handle']==selected['inherited_handles'][0]
             and config==m.pack_config(c,selected,window,j['mapping']['child_handle'],m.artifact_paths(root)['shim'],Path(c['curl_path']).parent/'WS2_32.dll'),'a5_config_exact')

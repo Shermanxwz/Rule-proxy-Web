@@ -342,6 +342,21 @@ extern "C" DWORD WSAAPI a5_WSAWaitForMultipleEvents(DWORD count,const WSAEVENT* 
         return a5_http_glue::State::okay(static_cast<std::int64_t>(result));
     },true,true,0xffffffffLL));
 }
+extern "C" int WSAAPI a5_WSAIoctl(SOCKET socket,DWORD code,LPVOID input,DWORD input_bytes,LPVOID output,DWORD output_bytes,
+    LPDWORD returned_bytes,LPWSAOVERLAPPED overlapped,LPWSAOVERLAPPED_COMPLETION_ROUTINE completion){
+    return static_cast<int>(a5_http_glue::invoke(78,arg(socket),arg(code),arg(input),[&](auto& row){
+        const a5startup::events::BacklogInput48 owned{arg(input),input_bytes,output_bytes,arg(output),arg(returned_bytes),arg(overlapped),
+            static_cast<std::uint64_t>(reinterpret_cast<std::uintptr_t>(completion))};
+        row.row.input_kind=13;row.row.captured_bytes=48;std::memcpy(row.row.name_or_WSADATA,&owned,48);
+        row.row.raw.flags|=a5startup::capture_complete;runtime.sync(row);
+        std::uint64_t now=0;if(!a5_http_glue::state.now(row,now))return a5_http_glue::State::error(lpac_curl_http_surface::TimedOut);
+        if(!a5startup::events::backlog_probe(socket,lpac_curl_http::VirtualSocket,code,owned))return a5_http_glue::unsupported(row,now);
+        // curl ignores failure of this optional send-buffer optimization. This
+        // adapter has no TCP-provider backlog value: leave both output buffers
+        // untouched and return the accurate supported-operation failure.
+        return a5_http_glue::state.surface->query_send_backlog(socket,now);
+    }));
+}
 
 extern "C" SOCKET WSAAPI a5_socket(int af,int type,int protocol){
     const auto result=a5_http_glue::invoke(23,arg(af),arg(type),arg(protocol),[&](auto& row){

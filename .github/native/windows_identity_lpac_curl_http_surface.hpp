@@ -16,7 +16,7 @@ constexpr int AfInet=2, SockStream=1, IpProtoTcp=6, SolSocket=0xffff;
 constexpr int SoError=0x1007, SoType=0x1008, SoKeepAlive=8;
 constexpr int TcpNoDelay=1, TcpKeepIdle=3, TcpKeepCount=16, TcpKeepInterval=17;
 constexpr std::uint32_t Fionbio=0x8004667eU;
-constexpr int Invalid=10022, WouldBlock=10035, Unsupported=10045, NotConnected=10057, TimedOut=10060;
+constexpr int Invalid=10022, Fault=10014, WouldBlock=10035, Unsupported=10045, NotConnected=10057, TimedOut=10060;
 
 // These are boundary DTOs, not aliases to platform C structs. The shim must
 // guarded-copy target memory into owned DTOs and commit outputs independently.
@@ -181,7 +181,7 @@ public:
     }
     Call get_option(std::uint64_t s,int level,int name,int capacity,std::uint64_t now){
         if(!socket(s,now))return returned_error(terminal_error_?terminal_error_:socket_error_);
-        if(capacity<4)return fail("option_capacity",Invalid,now);
+        if(capacity<4)return returned_error(Fault);
         refresh(now);if(failed_)return returned_error(terminal_error_?terminal_error_:socket_error_);
         std::int32_t value=0;
         // Any transport failure already stopped this scope. SO_ERROR is only
@@ -200,8 +200,18 @@ public:
     Call name(std::uint64_t s,bool peer,int capacity,std::uint64_t now){
         if(!socket(s,now))return returned_error(terminal_error_?terminal_error_:socket_error_);
         refresh(now);if(failed_)return returned_error(terminal_error_?terminal_error_:socket_error_);
-        if(!connected_||capacity<16)return fail("name_before_connect_or_short",NotConnected,now);
+        // An asynchronous connect has already selected this adapter's fixed
+        // local name. It is a declared virtual endpoint, never a kernel tuple.
+        // Ordinary query errors do not corrupt the live RPS1 connection.
+        if(capacity<16)return returned_error(Fault);
+        if(peer&&!connected_)return returned_error(NotConnected);
+        if(!peer&&!connecting_&&!connected_)return returned_error(Invalid);
         const auto a=address(peer?config_.target:local_);auto out=okay();out.bytes.resize(16);std::memcpy(out.bytes.data(),&a,16);return out;
+    }
+    Call query_send_backlog(std::uint64_t s,std::uint64_t now){
+        if(!socket(s,now))return returned_error(terminal_error_?terminal_error_:socket_error_);
+        refresh(now);if(failed_)return returned_error(terminal_error_?terminal_error_:socket_error_);
+        return returned_error(connected_?Unsupported:NotConnected);
     }
     Call send(std::uint64_t s,const std::uint8_t* bytes,std::size_t count,int flags,std::uint64_t now){
         if(!socket(s,now))return returned_error(terminal_error_?terminal_error_:socket_error_);
@@ -210,13 +220,14 @@ public:
         // even during a nonblocking connect. That probe is not stream data
         // and a not-yet-connected result must not poison the one connection.
         if(!count&&flags==0)return connected_?okay(0):returned_error(NotConnected);
-        if(!connected_)return fail("send_not_connected",NotConnected,now);
+        if(!connected_)return returned_error(NotConnected);
         return io_result(core_.send(s,bytes,count,flags,now));
     }
     Call recv(std::uint64_t s,std::size_t capacity,int flags,std::uint64_t now){
         if(!socket(s,now))return returned_error(terminal_error_?terminal_error_:socket_error_);
         refresh(now);if(failed_)return returned_error(terminal_error_?terminal_error_:socket_error_);
-        if(!connected_||!capacity||capacity>1024U*1024U)return fail("recv_signature",Invalid,now);
+        if(!connected_)return returned_error(NotConnected);
+        if(!capacity||capacity>1024U*1024U)return fail("recv_signature",Invalid,now);
         const auto bounded=std::min(capacity,static_cast<std::size_t>(lpac_stream::Window));
         std::vector<std::uint8_t> bytes(bounded);const auto r=core_.recv(s,bytes.data(),bounded,flags,now);
         auto out=io_result(r);if(r.state==State::okay){bytes.resize(r.bytes);out.bytes=std::move(bytes);}return out;

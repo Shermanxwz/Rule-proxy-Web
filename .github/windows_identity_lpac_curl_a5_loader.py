@@ -70,9 +70,9 @@ HTTP_REPORT_MODULE='.github/windows_identity_lpac_curl_a5_http_report.py'
 STAGING_MODULE='.github/windows_identity_lpac_curl_a5_staging_inputs.py'
 SOURCES=tuple(dict.fromkeys((*mm.SOURCES,*proxy_protocol.SOURCES,PROXY_MODULE,PROXY_PHYSICAL_MODULE,HTTP_REPORT_MODULE,STAGING_MODULE,CONFIG_MODULE,MODULE,LOCAL_MODULE,MEMORY_MODULE,BUILDER_MODULE,READER_MODULE,PHYSICAL_MODULE,MEMORY_PHYSICAL_MODULE,
     TRACE_ABI_MODULE,CARRIER_ABI_MODULE,SIGNATURE_MODULE,*NATIVE_SOURCES,*CARRIER_SOURCES)))
-TRACE_ABI_SHA256="34fc421a9cb581ead28d869f023aa58a29aed99cce53cb3901535de0e18d9336"
+TRACE_ABI_SHA256="523fcc0e62ceeac22d293574e3ef21982d4e474fded23d68b528fb00b1bc7346"
 CARRIER_ABI_SHA256="26260783b79df4fa876e337cef7a5fd915dbe57125e506383cc7bd55bc169605"
-SIGNATURE_SHA256="7c17c6e2ccf275419cfeeab01c2ce5914d073dcabecb6ed952438aee7de3bd84"
+SIGNATURE_SHA256="cc294236c2c1a9613cf34b7f588041d861adac78a858f685126b547b001ddb59"
 GUID_BYTES=bytes.fromhex('723b19a5d35a4b4fae3a706564727073')
 CURL_BYTES,CURL_SHA256=mm.CURL_BYTES,mm.CURL_SHA256
 BASELINE_BYTES=366
@@ -97,7 +97,7 @@ A4_BASELINE_ARTIFACT_HISTORY={
     'manifest':dict(bytes=4329,sha256='815fded39baa946bae40ecd09c64f4ea12ec81eab88ce8e8d58d3d89c650c4f9')}
 # No A4 artifact pin may authorize a new A5 image. Root supplies the final
 # compiled A5 manifest and all exact pins after source/static review.
-FROZEN_ARTIFACTS={"carrier":{"bytes":123392,"sha256":"1c5f556247dc4a09170b3c944bfeaac7e482ee827ed1ba10f74b347e4bd2823c"},"curl":{"bytes":818512,"sha256":"73d24149ff289afc49ec41f08918ef9faa727d39ad993e929757dc2ddafab805"},"manifest":{"bytes":5134,"sha256":"f452cc544ecd107410f702d42fc5c499fcb657a476d30809da32bd23567f59af"},"shim":{"bytes":315904,"sha256":"e4383c061bf87ef6a05b0539454261006e7ac081e90911173179d5f25c05d39b"}}
+FROZEN_ARTIFACTS={"carrier":{"bytes":123392,"sha256":"5e4ad3947b2f4e8b3b65f81325895ddf5712113e870460286f60fae17f6d7ecd"},"curl":{"bytes":818512,"sha256":"73d24149ff289afc49ec41f08918ef9faa727d39ad993e929757dc2ddafab805"},"manifest":{"bytes":5134,"sha256":"e20eb25a912b73a00956a4d69178e31fa36e1375d6e40288317dfb8cafeb3e0c"},"shim":{"bytes":318464,"sha256":"4e535e0c27665f3ce1a6d88c06060b17c1fab0cca9931211f270325d5f0c84ac"}}
 FAILURES=('inputs','setup','ordinary_before','construct','admission','accesscheck','base_probe','mapping',
           'memory','payload','resume','trace','proxy','ordinary_after','cleanup','report','deadline')
 CLEAN_KEYS=('workload_cleanup','workload_job_empty','observer_resources_cleanup_verified',

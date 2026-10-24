@@ -290,6 +290,9 @@
     "primary_and_internal_SDK_not_duplicated": true,
     "one_live_generation": true,
     "same_handle_reuse_only_after_confirmed_close": true,
+    "maximum_generations": 16,
+    "trace_handle_reuse_requires_exact_prior_CloseHandle_310": true,
+    "other_five_inherited_handles_remain_live": true,
     "create_flags": 1,
     "create_access": 1048578,
     "network_events_kind": 11,
@@ -299,11 +302,10 @@
     "wait_count": 1,
     "wait_all": 0,
     "alertable": 0,
+    "maximum_wait_ms": 8000,
     "subscription_mask": 63,
     "generated_network_mask": 51,
-    "candidate_epoch": "original_window_end_exclusive",
-    "maximum_generations": 16,
-    "maximum_wait_ms": 8000
+    "candidate_epoch": "original_window_end_exclusive"
   },
   "IPv6_capability_probe": {
     "arguments": [
@@ -317,5 +319,25 @@
     "maximum_count": 1,
     "OS_denial_observed": false,
     "IPv6_isolation_qualified": false
+  },
+  "ideal_send_backlog_query": {
+    "operation": 78,
+    "code": 1074033787,
+    "input_kind": 13,
+    "bytes": 48,
+    "format": "<QIIQQQQ",
+    "input_pointer": 0,
+    "input_bytes": 0,
+    "output_bytes": 4,
+    "output_pointer_required": true,
+    "bytes_returned_pointer_required": true,
+    "overlapped": 0,
+    "completion": 0,
+    "return": -1,
+    "error": 10045,
+    "SDK_absent": true,
+    "after_successful_send_before_close": true,
+    "output_value_captured": false,
+    "OS_denial_observed": false
   }
 }

@@ -8,6 +8,13 @@ unsigned checks=0;
 void check(bool value){++checks;if(!value)throw std::runtime_error("event predicate");}
 int main(){try{
     check(e::ipv6_capability_probe(23,2,0));check(!e::ipv6_capability_probe(2,2,0));check(!e::ipv6_capability_probe(23,1,0));check(!e::ipv6_capability_probe(23,2,6));
+    e::BacklogInput48 backlog{0,0,4,0x1000,0x2000,0,0};
+    check(e::backlog_probe(64,64,0x4004747b,backlog));
+    check(!e::backlog_probe(65,64,0x4004747b,backlog));check(!e::backlog_probe(64,64,0x4004747a,backlog));
+    for(unsigned i=0;i<7;++i){auto bad=backlog;
+        if(i==0)bad.input=1;if(i==1)bad.input_bytes=1;if(i==2)bad.output_bytes=8;
+        if(i==3)bad.output=0;if(i==4)bad.returned_bytes=0;if(i==5)bad.overlapped=1;if(i==6)bad.completion=1;
+        check(!e::backlog_probe(64,64,0x4004747b,bad));}
     e::OneLive slot;check(slot.closed_all());check(slot.begin_create());check(!slot.begin_create());
     check(slot.created(true,64));check(slot.generation()==1&&slot.created_count()==1&&slot.owns(64));
     check(!slot.begin_create()&&!slot.owns(65));check(!slot.select(65,e::Read));

@@ -153,7 +153,6 @@ extern "C" int WSAAPI a5_recvfrom(SOCKET s,char* p,int n,int,sockaddr*,int*){del
 extern "C" int WSAAPI a5_sendto(SOCKET s,const char* p,int n,int,const sockaddr*,int){deliver_unsupported(20,arg(s),arg(p),arg(n),-1);return SOCKET_ERROR;}
 extern "C" int WSAAPI a5_shutdown(SOCKET s,int how){deliver_unsupported(22,arg(s),arg(how),0,-1);return SOCKET_ERROR;}
 extern "C" int WSAAPI a5_gethostname(char* p,int n){deliver_unsupported(57,arg(p),arg(n),0,-1);return SOCKET_ERROR;}
-extern "C" int WSAAPI a5_WSAIoctl(SOCKET s,DWORD code,LPVOID p,DWORD,LPVOID,DWORD,LPDWORD,LPWSAOVERLAPPED,LPWSAOVERLAPPED_COMPLETION_ROUTINE){deliver_unsupported(78,arg(s),arg(code),arg(p),-1);return SOCKET_ERROR;}
 extern "C" void WSAAPI a5_freeaddrinfo(PADDRINFOA p){deliver_unsupported(191,arg(p),0,0,0);}
 extern "C" INT WSAAPI a5_getaddrinfo(PCSTR node,PCSTR service,const ADDRINFOA* hints,PADDRINFOA*){auto row=runtime.open(192,arg(node),arg(service),arg(hints));runtime.reject(row);
  ErrorSlot slot{thread_error};runtime.startup().unsupported_call(slot);thread_error=slot.value;runtime.finish(row,EAI_FAIL,0,false);return EAI_FAIL;}

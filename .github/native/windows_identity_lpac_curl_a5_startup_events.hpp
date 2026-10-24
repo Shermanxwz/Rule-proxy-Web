@@ -8,6 +8,15 @@ namespace a5startup { namespace events {
 constexpr std::uint32_t Read=1,Write=2,Oob=4,Accept=8,Connect=16,Close=32;
 constexpr std::uint32_t SupportedMask=Read|Write|Oob|Accept|Connect|Close;
 inline bool ipv6_capability_probe(int family,int type,int protocol){return family==23&&type==2&&protocol==0;}
+struct BacklogInput48 {
+    std::uint64_t input=0;std::uint32_t input_bytes=0,output_bytes=0;
+    std::uint64_t output=0,returned_bytes=0,overlapped=0,completion=0;
+};
+static_assert(sizeof(BacklogInput48)==48,"owned synchronous optimization query input");
+inline bool backlog_probe(std::uint64_t socket,std::uint64_t expected,std::uint32_t code,const BacklogInput48& value){
+    return socket==expected&&code==0x4004747bU&&!value.input&&!value.input_bytes
+        &&value.output&&value.output_bytes==4&&value.returned_bytes&&!value.overlapped&&!value.completion;
+}
 struct NetworkEvents44 {std::int32_t bits=0;std::int32_t errors[10]{};};
 static_assert(sizeof(NetworkEvents44)==44,"Windows WSANETWORKEVENTS LONG32/int32");
 struct WaitInput24 {std::uint64_t event=0;std::uint32_t milliseconds=0,wait_all=0,alertable=0,reserved=0;};

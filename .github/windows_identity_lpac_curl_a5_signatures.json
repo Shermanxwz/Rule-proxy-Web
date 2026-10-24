@@ -233,11 +233,11 @@
       "signature": "int WSAAPI WSAEventSelect(SOCKET, WSAEVENT, long)"
     },
     {
-      "failure_contract": "SOCKET_ERROR; private thread error and sticky unsupported",
-      "implemented": false,
+      "failure_contract": "Only VirtualSocket with SIO_IDEAL_SEND_BACKLOG_QUERY, no input, a four-byte output and bytes-returned pointer, no overlapped or completion routine: return WSAEOPNOTSUPP without output writes or a real SDK call. Other forms remain closed.",
+      "implemented": true,
       "name": "WSAIoctl",
       "ordinal": 78,
-      "proposed_implementation": "sticky-recorded-unsupported-no-real-WS2",
+      "proposed_implementation": "exact-synchronous-ideal-send-backlog-query-unsupported-result",
       "sdk_header": "WinSock2.h",
       "signature": "int WSAAPI WSAIoctl(SOCKET, DWORD, LPVOID, DWORD, LPVOID, DWORD, LPDWORD, LPWSAOVERLAPPED, LPWSAOVERLAPPED_COMPLETION_ROUTINE)"
     },
@@ -370,8 +370,8 @@
   ],
   "forwarder_count": 1,
   "gateway_count": 4,
-  "implementation_scope": "Single fixed IPv4 numeric HTTP exchange over inherited RPS1 pipes with one owned kernel event per live generation; no real Winsock or DNS forwarding. The exact IPv6 datagram capability probe returns adapter-level WSAEAFNOSUPPORT without an OS socket call.",
-  "implemented_WS2_proposal_count": 25,
+  "implementation_scope": "Single fixed IPv4 numeric HTTP exchange over inherited RPS1 pipes with one owned kernel event per live generation; no real Winsock or DNS forwarding. The exact IPv6 datagram capability probe returns adapter-level WSAEAFNOSUPPORT without an OS socket call. The exact synchronous ideal-send-backlog optimization query returns adapter WSAEOPNOTSUPP without poisoning the stream; no provider value is fabricated.",
+  "implemented_WS2_proposal_count": 26,
   "schema_version": 1,
   "sdk": {
     "compiled_signature_assertions_executed": true,
@@ -396,5 +396,5 @@
     "version": "10.0.26100.0"
   },
   "stage": "A5-finite-fixed-curl-HTTP-over-inherited-pipes-SDK-signatures",
-  "unsupported_WS2_count": 10
+  "unsupported_WS2_count": 9
 }

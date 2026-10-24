@@ -1,9 +1,11 @@
 """Pure synthetic native05 receipts. Source author does not execute tests."""
+import json
 import struct
 import unittest
 
 from test_windows_identity_lpac_curl_a5_transport_reader import (
-    reader, SOCKET, EVENT, delivery, kernel_delivery, transport_rows, decode)
+    reader, SOCKET, EVENT, delivery, kernel_delivery, transport_rows, decode,
+    make_trace, binding, config_fixture)
 
 
 def op(raw):
@@ -44,7 +46,157 @@ def event_cycle(*, enum_event=0, wait=True, select_event=EVENT, cancel_event=0):
     return rows
 
 
+def reuse_event_number(rows, handle):
+    replace(rows, 50, 32, '<q', handle)
+    replace(rows, 50, 2144, '<q', handle)
+    replace(rows, 45, 48, '<Q', handle)
+    return rows
+
+
+def safe_review(rows):
+    trace = make_trace(rows)
+    return reader.review(trace, expected_config2048=config_fixture(),
+        schema_metadata=reader.SCHEMA_METADATA, transport_binding=binding(trace))
+
+
+def backlog_query(*, args=(SOCKET, 0x4004747B, 0),
+                  inputs=(0, 0, 4, 0x700200, 0x700300, 0, 0), error=10045):
+    return delivery(78, 0, 110200, value=-1, args=args, error=error,
+                    payload=struct.pack('<QIIQQQQ', *inputs), kind=13)
+
+
 class EventReaderTests(unittest.TestCase):
+    def test_closed_inherited_trace_number_is_reusable_with_actual_nonzero_BOOL(self):
+        for raw_return in (1, 7):
+            rows = reuse_event_number(transport_rows(), 0x100)
+            replace(rows, 310, 32, '<q', raw_return)
+            replace(rows, 310, 2144, '<q', raw_return)
+            d = decode(rows)
+            with self.subTest(raw_return=raw_return):
+                self.assertTrue(d['transport']['transport_candidate'])
+                self.assertEqual(d['transport']['events']['generations'][0]['handle'], 0x100)
+                self.assertEqual(next(r for r in d['rows'] if r['operation'] == 310)['SDK']['raw_return'], raw_return)
+
+    def test_trace_handle_reuse_needs_unique_prior_successful_physical_close(self):
+        base = reuse_event_number(transport_rows(), 0x100)
+        close = next(raw for raw in base if op(raw) == 310)
+        for mode in ('missing', 'FALSE', 'duplicate', 'after_create', 'unreturned'):
+            rows = list(base)
+            if mode == 'missing':
+                rows = [raw for raw in rows if op(raw) != 310]
+            elif mode == 'FALSE':
+                replace(rows, 310, 32, '<q', 0); replace(rows, 310, 2144, '<q', 0)
+            elif mode == 'duplicate':
+                rows.insert(11, close)
+            elif mode == 'after_create':
+                replace(rows, 310, 16, '<Q', 110132); replace(rows, 310, 24, '<Q', 110133)
+                replace(rows, 310, 2160, '<Q', 110132); replace(rows, 310, 2168, '<Q', 110133)
+            else:
+                replace(rows, 310, 24, '<Q', 0); replace(rows, 310, 32, '<q', 0)
+                replace(rows, 310, 44, '<I', 2048 | 1)
+                replace(rows, 310, 2144, '<32s', struct.pack('<qiIQQ', 0, 0, 1, 110041, 0))
+            with self.subTest(mode=mode):
+                self.assertFalse(decode(rows)['transport']['transport_candidate'])
+
+    def test_other_five_inherited_handle_numbers_remain_forbidden(self):
+        for handle in (0x104, 0x108, 0x110, 0x114, 0x118):
+            rows = reuse_event_number(transport_rows(), handle)
+            with self.subTest(handle=handle):
+                facts = decode(rows)['transport']
+                self.assertFalse(facts['transport_candidate'])
+                self.assertIn('event_live_alias_or_inherited_handle', facts['events']['reasons'])
+
+    def test_trace_number_reuse_still_obeys_event_generation_once_close(self):
+        rows = reuse_event_number(transport_rows(), 0x100)
+        rows[-2:-2] = [kernel_delivery(50, 0, 110230, value=0x100),
+                       kernel_delivery(45, 0, 110235, args=(0x100, 0, 0))]
+        facts = decode(rows)['transport']
+        self.assertTrue(facts['transport_candidate'])
+        self.assertEqual(facts['events']['confirmed_close_count'], 2)
+        rows[-2:-2] = [kernel_delivery(45, 0, 110240, args=(0x100, 0, 0))]
+        self.assertFalse(decode(rows)['transport']['transport_candidate'])
+
+    def test_safe_event_projection_contains_only_closed_booleans_and_counts(self):
+        handle = 0x6ABCDE7012377
+        rows = reuse_event_number(transport_rows(), handle)
+        raw = decode(rows)
+        self.assertEqual(raw['transport']['events']['generations'][0]['handle'], handle)
+        result = safe_review(rows); safe = result['transport']['events']
+        self.assertEqual(safe, dict(candidate=True, all_generations_closed=True,
+            acquisition_count=1, confirmed_close_count=1,
+            actual_Winsock_OS_calls_verified=False,
+            event_readiness_independently_wire_verified=False))
+        self.assertTrue(all(type(value) in (bool, int) for value in safe.values()))
+        self.assertNotIn(str(handle), json.dumps(result, sort_keys=True))
+        self.assertNotIn('"generations":', json.dumps(result, sort_keys=True))
+        replace(rows, 45, 32, '<q', 0); replace(rows, 45, 2144, '<q', 0)
+        failed = safe_review(rows)['transport']['events']
+        self.assertFalse(failed['candidate']); self.assertFalse(failed['all_generations_closed'])
+        self.assertEqual((failed['acquisition_count'], failed['confirmed_close_count']), (1, 0))
+
+    def test_known_capability_and_pending_state_errors_are_projected_without_OS_denial(self):
+        rows = transport_rows()
+        rows[-2:-2] = [delivery(111, 0, 110230, value=10047),
+                       delivery(111, 0, 110235, value=10057)]
+        result = safe_review(rows)
+        getters = [call for call in result['calls'] if call['operation'] == 111]
+        self.assertEqual([call['private_error_getter_result'] for call in getters], [10047, 10057])
+        self.assertTrue(all(not call['unclassified_private_error_value_present'] for call in getters))
+
+    def test_trace_handle_fix_does_not_clear_actual_failed_socket_state(self):
+        rows = reuse_event_number(transport_rows(), 0x100)
+        rows = insert_before_close(rows, [delivery(6, 0, 110200, value=-1,
+            args=(SOCKET, 0x700000, 0x700010), error=10057, unsupported=True)])
+        self.assertFalse(decode(rows)['transport']['transport_candidate'])
+
+    def test_exact_optional_backlog_query_is_nonfatal_after_delivered_bytes(self):
+        rows = insert_before_close(transport_rows(), [backlog_query(),
+            delivery(111, 0, 110202, value=10045)])
+        d = decode(rows); t = d['transport']
+        self.assertTrue(t['transport_candidate'])
+        self.assertEqual(t['ideal_send_backlog_query_count'], 1)
+        self.assertFalse(t['ideal_send_backlog_query_OS_denial_observed'])
+        row = next(r for r in d['rows'] if r['operation'] == 78)
+        self.assertEqual((row['raw_return'], row['error'], row['capture']['captured_bytes']), (-1, 10045, 48))
+        self.assertTrue(row['SDK']['absent']); self.assertFalse(row['unsupported'])
+        result = safe_review(rows)
+        self.assertEqual(next(c for c in result['calls'] if c['operation'] == 111)['private_error_getter_result'], 10045)
+
+    def test_backlog_query_rejects_every_other_captured_argument_shape(self):
+        good = (0, 0, 4, 0x700200, 0x700300, 0, 0)
+        for index, value in ((0, 1), (1, 1), (2, 3), (2, 5), (3, 0), (4, 0), (5, 1), (6, 1)):
+            fields = list(good); fields[index] = value
+            rows = insert_before_close(transport_rows(), [backlog_query(inputs=fields)])
+            with self.subTest(index=index, value=value):
+                self.assertFalse(decode(rows)['transport']['transport_candidate'])
+        for args in ((SOCKET + 1, 0x4004747B, 0), (SOCKET, 0x4004747A, 0), (SOCKET, 0x4004747B, 1)):
+            with self.subTest(args=args):
+                self.assertFalse(decode(insert_before_close(transport_rows(), [backlog_query(args=args)]))['transport']['transport_candidate'])
+
+    def test_backlog_query_needs_exact_raw_decline_and_full_owned_input(self):
+        for offset, fmt, value in ((32, '<q', 0), (40, '<i', 10057), (44, '<I', 1 | 2 | 256),
+                                   (44, '<I', 1 | 2 | 4 | 8 | 256), (68, '<I', 47), (64, '<I', 0)):
+            rows = insert_before_close(transport_rows(), [backlog_query()])
+            replace(rows, 78, offset, fmt, value)
+            with self.subTest(offset=offset, value=value):
+                try:
+                    self.assertFalse(decode(rows)['transport']['transport_candidate'])
+                except reader.ReaderError:
+                    pass  # Malformed capture extents fail before qualification.
+        rows = insert_before_close(transport_rows(), [backlog_query()])
+        replace(rows, 78, 2144, '<32s', struct.pack('<qiIQQ', -1, 10045, 7, 110200, 110201))
+        with self.assertRaises(reader.ReaderError):
+            decode(rows)
+
+    def test_backlog_query_before_payload_or_after_once_close_cannot_qualify(self):
+        for where in ('before_payload', 'after_close'):
+            rows = transport_rows()
+            operation = 19 if where == 'before_payload' else 45
+            index = next(i for i, raw in enumerate(rows) if op(raw) == operation)
+            rows.insert(index, backlog_query())
+            with self.subTest(where=where):
+                self.assertFalse(decode(rows)['transport']['transport_candidate'])
+
     def test_kernel_events_are_separate_from_absent_Winsock_provider(self):
         d = decode(); facts = d['transport']['events']
         self.assertTrue(d['transport']['transport_candidate'])

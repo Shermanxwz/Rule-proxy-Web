@@ -223,7 +223,7 @@ def _capture_payload(row, flags):
     """Decode committed owned copies; never dereference a recorded pointer."""
     kind, count = _u32(row, 64), _u32(row, 68)
     payload = row[96:2144]
-    _need(0 <= kind <= 12 and count <= 2048 and _zero(payload[count:]), 'capture_extent')
+    _need(0 <= kind <= 13 and count <= 2048 and _zero(payload[count:]), 'capture_extent')
     complete_claimed, fault = bool(flags & 256), bool(flags & 16)
     complete = complete_claimed and not fault
     captured = payload[:count]
@@ -261,7 +261,7 @@ def _capture_payload(row, flags):
             _need(fault, 'capture_WSADATA_incomplete')
     else:
         _need(not (flags & (64 | 128)), 'capture_internal_flags')
-        exact = {6: 2048, 7: 456, 8: 72, 10: 128, 11: 44, 12: 24}.get(kind)
+        exact = {6: 2048, 7: 456, 8: 72, 10: 128, 11: 44, 12: 24, 13: 48}.get(kind)
         if complete:
             _need(exact is None or count == exact, 'capture_internal_size')
         else:
@@ -327,6 +327,8 @@ SCHEMA_METADATA = {
     'event_contract': {'SDK_domain': 'kernel32_event_not_Winsock_provider',
         'primary_and_internal_SDK_not_duplicated': True, 'one_live_generation': True,
         'same_handle_reuse_only_after_confirmed_close': True, 'maximum_generations': 16,
+        'trace_handle_reuse_requires_exact_prior_CloseHandle_310': True,
+        'other_five_inherited_handles_remain_live': True,
         'create_flags': 1, 'create_access': 1048578,
         'network_events_kind': 11, 'network_events_bytes': 44,
         'wait_input_kind': 12, 'wait_input_bytes': 24,
@@ -336,6 +338,13 @@ SCHEMA_METADATA = {
     'IPv6_capability_probe': {'arguments': [23, 2, 0], 'return': -1,
         'error': 10047, 'SDK_absent': True, 'maximum_count': 1,
         'OS_denial_observed': False, 'IPv6_isolation_qualified': False},
+    'ideal_send_backlog_query': {'operation': 78, 'code': 1074033787,
+        'input_kind': 13, 'bytes': 48, 'format': '<QIIQQQQ',
+        'input_pointer': 0, 'input_bytes': 0, 'output_bytes': 4,
+        'output_pointer_required': True, 'bytes_returned_pointer_required': True,
+        'overlapped': 0, 'completion': 0, 'return': -1, 'error': 10045,
+        'SDK_absent': True, 'after_successful_send_before_close': True,
+        'output_value_captured': False, 'OS_denial_observed': False},
     'pipe_summary_operation': PIPE_SUMMARY_OPERATION,
     'pipe_summary': {'input_kind': 10, 'bytes': 128, 'magic': 'A5PF', 'version': 1,
         'u64_offsets': [8, 16, 24, 32, 40, 48, 56],
@@ -425,6 +434,7 @@ def _row(raw2176, slot, config):
     captured = _capture_payload(raw2176, flags)
     _need(captured['input_kind'] != 11 or op == 64, 'event_output_operation')
     _need(captured['input_kind'] != 12 or op == 124, 'event_wait_input_operation')
+    _need(captured['input_kind'] != 13 or op == 78, 'backlog_query_input_operation')
     sdk = _sdk(row, config)
     primary_interval = None
     if op in ({202, 203} | set(EVENT_PRIMARY_SDK)) and sdk['entered']:
@@ -631,7 +641,7 @@ def _classifications(rows, c, bootstrap):
         if row['internal']:
             continue
         item = dict(operation=op, owned_input_reclassified=False)
-        if op in unsupported_WS2:
+        if op in unsupported_WS2 and not _ideal_send_backlog_query(row):
             derived_unsupported |= 1 << ordinal_bits[op]
             reasons.append('unsupported_export_observed')
         if row['unsupported']:
@@ -1030,6 +1040,25 @@ def _IPv6_probe(row):
         row['capture']['input_kind'] == 0)
 
 
+def _ideal_send_backlog_query(row):
+    """Exact optional curl query declined by the shim, never an OS refusal.
+
+    The owned bytes are call inputs only. No value from the two output
+    pointers is inferred or read. Socket identity and lifecycle bind below.
+    """
+    capture = row['capture']
+    if not (row['operation'] == 78 and row['arg1'] == 0x4004747B and
+            row['arg2'] == 0 and row['returned'] and row['raw_return'] == -1 and
+            row['error_valid'] and row['error'] == 10045 and row['SDK']['absent'] and
+            not row['unsupported'] and not row['diagnostic_failure'] and
+            capture['complete'] and capture['input_kind'] == 13 and capture['captured_bytes'] == 48):
+        return False
+    inp, in_bytes, out_bytes, out, returned, overlapped, completion = struct.unpack(
+        '<QIIQQQQ', capture['owned_bytes'])
+    return bool(inp == row['arg2'] == in_bytes == 0 and out_bytes == 4 and
+                out and returned and overlapped == completion == 0)
+
+
 def _event_facts(rows, c, binding, socket_value, connects, closes):
     """Kernel event receipts are separate from absent Winsock-provider SDKs.
 
@@ -1043,8 +1072,15 @@ def _event_facts(rows, c, binding, socket_value, connects, closes):
     selected_mask = 0
     used_receipts = set()
     inherited = set((c['trace_handle'], c['pipe_read'], c['pipe_write']))
+    other_inherited = set((c['pipe_read'], c['pipe_write']))
     if type(binding) is dict and type(binding.get('observed_inherited_handles')) is list:
         inherited.update(v for v in binding['observed_inherited_handles'] if type(v) is int)
+        other_inherited.update(v for v in binding['observed_inherited_handles'][1:] if type(v) is int)
+    # The bootstrap closes inherited[0] after mapping the trace. Its numeric
+    # value may then be allocated to a real event. Only that exact, unique SDK
+    # close authorizes reuse; the other five inherited handles remain live.
+    trace_closes = [r for r in rows if r['operation'] == 310]
+    trace_close = trace_closes[0] if len(trace_closes) == 1 else None
     summary = [r for r in rows if r['operation'] == 400]
     startups = [r for r in rows if r['operation'] == 115 and r['returned'] and r['raw_return'] == 0]
     cleanups = [r for r in rows if r['operation'] == 116 and r['returned'] and r['raw_return'] == 0]
@@ -1091,7 +1127,19 @@ def _event_facts(rows, c, binding, socket_value, connects, closes):
                 close_attempted=False, close_confirmed=False, close_sequence=None,
                 close_row_sha256=None, state_unknown=False)
             generations.append(generation)
-            if active is not None or handle in inherited:
+            released_trace = bool(handle == c['trace_handle'] and handle not in other_inherited and
+                trace_close is not None and trace_close['internal'] and
+                (trace_close['arg0'], trace_close['arg1'], trace_close['arg2']) == (handle, 0, 0) and
+                trace_close['capture']['input_kind'] == 0 and not trace_close['capture']['input_fault'] and
+                trace_close['returned'] and trace_close['timely'] and
+                not trace_close['unsupported'] and not trace_close['diagnostic_failure'] and
+                not trace_close['SDK']['absent'] and trace_close['SDK']['returned'] and
+                trace_close['SDK']['timely'] and not trace_close['SDK']['exception'] and
+                trace_close['SDK']['raw_return'] != 0 and
+                trace_close['raw_return'] == trace_close['SDK']['raw_return'] and
+                trace_close['sequence'] < row['sequence'] and
+                trace_close['returned_qpc'] <= row['entered_qpc'])
+            if active is not None or handle in inherited and not released_trace:
                 generation['state_unknown'] = True
                 reasons.append('event_live_alias_or_inherited_handle')
             active = generation
@@ -1213,7 +1261,7 @@ def _transport(decoded, binding):
     probes = [row for row in rows if _IPv6_probe(row)]
     if len(probes) > 1:
         reasons.append('duplicate_IPv6_capability_probe')
-    calls = [row for row in rows if row['operation'] in TRANSPORT_EXPORTS and not _IPv6_probe(row)]
+    calls = [row for row in rows if row['operation'] in TRANSPORT_EXPORTS | {78} and not _IPv6_probe(row)]
     sockets = [row for row in calls if row['operation'] == 23]
     connects = [row for row in calls if row['operation'] == 4]
     closes = [row for row in calls if row['operation'] == 3]
@@ -1236,8 +1284,8 @@ def _transport(decoded, binding):
         reasons.append('one_successful_once_close_required')
     events = _event_facts(rows, c, binding, socket_value, connects, closes)
     reasons.extend(events['reasons'])
-    sends = recvs = pending = zero_send_not_connected = 0
-    socket_operations = {3, 4, 5, 6, 7, 10, 16, 19, 21, 151}
+    sends = recvs = pending = zero_send_not_connected = backlog_queries = 0
+    socket_operations = {3, 4, 5, 6, 7, 10, 16, 19, 21, 78, 151}
     for row in calls:
         if not row['SDK']['absent']:
             reasons.append('unexpected_real_Winsock_SDK_receipt')
@@ -1252,9 +1300,13 @@ def _transport(decoded, binding):
             row['raw_return'] == -1 and row['error_valid'] and row['error'] == 10057 and
             row['SDK']['absent'] and connect_pending and connects and
             connects[0]['returned_qpc'] <= row['entered_qpc'] and sends == recvs == 0)
+        backlog_declined = bool(_ideal_send_backlog_query(row) and sends > 0)
+        backlog_queries += int(backlog_declined)
+        if row['operation'] == 78 and not backlog_declined:
+            reasons.append('unqualified_optional_backlog_query')
         zero_send_not_connected += int(control_not_connected)
         pending += int(kind['nonblocking_pending'])
-        if row['raw_return'] < 0 and not kind['nonblocking_pending'] and not control_not_connected:
+        if row['raw_return'] < 0 and not kind['nonblocking_pending'] and not control_not_connected and not backlog_declined:
             reasons.append('nonpending_transport_delivery_failure')
         if row['operation'] not in (16, 19):
             continue
@@ -1280,6 +1332,8 @@ def _transport(decoded, binding):
                 events=events, IPv6_capability_probe_count=len(probes),
                 IPv6_capability_probe_OS_denial_observed=False, IPv6_isolation_qualified=False,
                 zero_send_not_connected_count=zero_send_not_connected,
+                ideal_send_backlog_query_count=backlog_queries,
+                ideal_send_backlog_query_OS_denial_observed=False,
                 connect_delivery_returned_zero=connect_zero,
                 connect_delivery_WSAEWOULDBLOCK=connect_pending,
                 closesocket_calls=len(closes), successful_send_total=sends,
@@ -1362,6 +1416,7 @@ def review(raw557312, *, expected_config2048, schema_metadata,
         'successful_recv_total', 'nonblocking_pending_count',
         'IPv6_capability_probe_count', 'IPv6_capability_probe_OS_denial_observed',
         'IPv6_isolation_qualified', 'zero_send_not_connected_count',
+        'ideal_send_backlog_query_count', 'ideal_send_backlog_query_OS_denial_observed',
         'raw_connect_sockaddr_independently_captured', 'virtual_socket_over_inherited_pipe',
         'actual_Winsock_OS_calls_verified', 'outer_HTTP_byte_controls_considered', 'actual_ready')}
     closed = transport['closed_loader_probes']
@@ -1371,7 +1426,16 @@ def review(raw557312, *, expected_config2048, schema_metadata,
     pipe = transport['pipe_facts']
     result['transport']['pipe_facts'] = {key: value for key, value in pipe.items()
         if key not in ('raw', 'prepared_qpc', 'last_qpc')}
-    result['transport']['events'] = transport['events']
+    events = transport['events']
+    # decode_trace retains physical generations/handles. The safe projection
+    # deliberately allows only booleans and aggregate counts from that ledger.
+    result['transport']['events'] = dict(candidate=events['candidate'],
+        all_generations_closed=bool(events['acquisition_count'] and all(
+            g['close_confirmed'] and not g['state_unknown'] for g in events['generations'])),
+        acquisition_count=events['acquisition_count'],
+        confirmed_close_count=events['confirmed_close_count'],
+        actual_Winsock_OS_calls_verified=False,
+        event_readiness_independently_wire_verified=False)
     result['ordinary_HTTP_byte_controls'] = review_HTTP_byte_controls(HTTP_byte_controls)
     result['transport_with_HTTP_byte_controls_candidate'] = bool(
         transport['transport_candidate'] and result['ordinary_HTTP_byte_controls']['byte_controls_candidate'])
@@ -1410,7 +1474,7 @@ def review(raw557312, *, expected_config2048, schema_metadata,
                              error=sdk['error'] if sdk['error_captured'] else None,
                              raw_return_storage_nonzero=bool(sdk['raw_return']),
                              return_nonzero=bool(sdk['raw_return']) if sdk['returned'] else None))
-        if row['operation'] in TRANSPORT_EXPORTS:
+        if row['operation'] in TRANSPORT_EXPORTS | {78}:
             item['delivery_kind'] = delivery_kind(row)
             if row['operation'] in (3, 4, 16, 19):
                 item['direct_transport_delivery_result'] = row['raw_return'] if row['returned'] else None
@@ -1422,7 +1486,7 @@ def review(raw557312, *, expected_config2048, schema_metadata,
         if row['operation'] == 192 and row['returned']:
             item['direct_resolver_stub_result'] = row['raw_return']
         if row['operation'] == 111 and row['returned']:
-            known_error = row['raw_return'] in (0, 10014, 10035, 10045, 10067, 10092, 10093)
+            known_error = row['raw_return'] in (0, 10014, 10035, 10045, 10047, 10057, 10067, 10092, 10093)
             item['private_error_getter_result'] = row['raw_return'] if known_error else None
             item['unclassified_private_error_value_present'] = not known_error
         result['calls'].append(item)
