@@ -1,4 +1,86 @@
 {
+  "local_2026_10_24_a4_checkpoint": {
+    "source_commit": "0d024290b4f86a3aae042b8b2c5499687fc93928",
+    "source_sha256": "c10559be677975f49baf7f2ddd21e9c370fc17eade2f7b05976f4356b6e7da7f",
+    "actual03_real_version_natural_exit": 0,
+    "actual03_stable_trace_rows": 34,
+    "actual03_complete": false,
+    "actual03_closed_shim_denials": 4,
+    "actual03_cleanup": true,
+    "actual03_recovery_required": false,
+    "HTTP_qualified": false,
+    "DNS_qualified": false,
+    "proxy_qualified": false,
+    "Linux_equivalence": false,
+    "old_activation_and_overall_status_are_original_handoff_history": true,
+    "files": [
+      {
+        "path": "docs/validation/2026-10-24-lpac-curl-a4-loader-01.md",
+        "bytes": 2489,
+        "sha256": "748f4f07b9a40c2a12d82919a976a6c2a01cfba926dc499d6f4865df7914114f"
+      },
+      {
+        "path": "docs/validation/2026-10-24-lpac-curl-a4-loader-02.md",
+        "bytes": 1933,
+        "sha256": "306fa372f9fe512c45a5da79114a911fcaa2b81fc88477be5e1638c3ce6efdf9"
+      },
+      {
+        "path": "docs/validation/2026-10-24-lpac-curl-a4-loader-03.md",
+        "bytes": 4057,
+        "sha256": "29566c98db648e93b6db15b256f83f0e235d6f672b8e6c0d0af9848a9748de62"
+      },
+      {
+        "path": "verification/windows-2026-10-22/lpac-curl-a4-loader-local-01-preflight.json",
+        "bytes": 1723,
+        "sha256": "df0d5e365675687a2a3a3c18427de072d470bef0d5f416b009fa471fe228b278"
+      },
+      {
+        "path": "verification/windows-2026-10-22/lpac-curl-a4-loader-local-01-public.json",
+        "bytes": 3160,
+        "sha256": "409308b39b90f23a4f05e512e9b8660e0deb2b538f9e6a700b0b4ad8e88ead62"
+      },
+      {
+        "path": "verification/windows-2026-10-22/lpac-curl-a4-loader-local-02-preflight.json",
+        "bytes": 1723,
+        "sha256": "e17ab35eaa103446cab746a887f3183209809d70c6715521a18057c882cdcf3a"
+      },
+      {
+        "path": "verification/windows-2026-10-22/lpac-curl-a4-loader-local-02-public.json",
+        "bytes": 3142,
+        "sha256": "66eaf0bf74ba9c9f053ff99ac2b3029652b66fb2167ffabdd11d68097dad9e95"
+      },
+      {
+        "path": "verification/windows-2026-10-22/lpac-curl-a4-loader-local-03-preflight.json",
+        "bytes": 1723,
+        "sha256": "2646ba5bd55106381adc512229e6275bfb9568f16cca9763d66a1821502c60ec"
+      },
+      {
+        "path": "verification/windows-2026-10-22/lpac-curl-a4-loader-local-03-public.json",
+        "bytes": 3138,
+        "sha256": "a3c2cea5359613e97ad2b13cd2d4dc5aed068cc7883b7b2f187ad548c2f49726"
+      },
+      {
+        "path": "verification/windows-2026-10-22/lpac-curl-a4-loader-local-01-recovery01-public.json",
+        "bytes": 1272,
+        "sha256": "f8308fc3bb2f4b7b5c9abcc793823c9a59813e7c56741c9c7ae2d2b179dba846"
+      },
+      {
+        "path": "verification/windows-2026-10-22/lpac-curl-a4-recovery01-safe-review.json",
+        "bytes": 4495,
+        "sha256": "346a094569c284d5088d84a680966167bbd2d3d5479193a1f8d5b34ee2d0df0c"
+      },
+      {
+        "path": "verification/windows-2026-10-22/lpac-curl-a4-loader-actual-02/summary.json",
+        "bytes": 3748,
+        "sha256": "77eb48b41631d875dcfbfdf28647d8af8bc77b8c1f964f4b72461f461009fec6"
+      },
+      {
+        "path": "verification/windows-2026-10-22/lpac-curl-a4-loader-actual-03/summary.json",
+        "bytes": 7749,
+        "sha256": "b14055627de86cc1b8c1c0331319e8bd683f2fba81fe3ead846e6e18551013c7"
+      }
+    ]
+  },
   "schema_version": 1,
   "purpose": "Sanitized Windows isolation handoff evidence index; observations are scoped, not overall product acceptance.",
   "repository_url": "https://github.com/Shermanxwz/Rule-proxy-Web",

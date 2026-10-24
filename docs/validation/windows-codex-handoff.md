@@ -1,3 +1,6 @@
+**最新 A4 actual03（2026-10-24）**：[完整 trace 记录](2026-10-24-lpac-curl-a4-loader-03.md)与[脱敏摘要](../../verification/windows-2026-10-22/lpac-curl-a4-loader-actual-03/summary.json)。固定 curl 第二次在两份零能力 LPAC 证明后自然退出 0；trace 557312 字节、34 行、bootstrap/稳定性/绑定均通过。三次 LoadLibraryExW 与一次 wine_get_version 仍被 closed shim 拒绝，对应 SDK 未调用，原 `inconclusive/trace`、A4 完整资格 false 不变。14 项限定清理与 outer 均通过，无待恢复；本次四对象前后逐字节相同。
+下一窄 HTTP 适配尚未实际执行；不能由版本启动推 HTTP、DNS、TLS、代理、同 SID 边界或 Linux 等效。旧 actual01 失败及独立恢复、actual02 容量失败、此前 DNS/路由未归因变化和 atomic unknown 全部保留；以下原交接字节不改。
+
 最新 LPAC pipe+DNS01：inconclusive，库存发现两项有效 NRPT；fixture、selected pair、GO 和 DNS 调用均未进入。见[安全摘要](../../verification/windows-2026-10-22/lpac-pipe-dns-origin-actual-01/summary.json)。
 本轮十项作用域清理均已确认；origin 由自有 Job 停止（exit1），前后四对象相同。既有 DNS 泄漏、route 未知差异及 atomic01 unknown 保留；新 FQDN 修订尚未实测。
 

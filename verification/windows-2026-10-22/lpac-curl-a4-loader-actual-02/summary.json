@@ -1,0 +1,124 @@
+{
+  "API_records": 43,
+  "CI": {
+    "run_id": 40062122898,
+    "skips": 0,
+    "tests": 1418
+  },
+  "checks": {
+    "artifacts": true,
+    "guard": true,
+    "mechanism": false,
+    "ordinary": true,
+    "outer_cleanup": true,
+    "plan": true,
+    "sources": true,
+    "worker_bound": true,
+    "worker_exit": true
+  },
+  "failure_detail": {
+    "message": "durable_bound",
+    "operation": "trace",
+    "type": "ValueError"
+  },
+  "global_after": {
+    "bytes": 8364,
+    "name": "lpac-curl-a4-loader-after-a4a02-global-snapshot.json",
+    "sha256": "8668bdf4b3802e415b53f95b88e322b804ef0f035463fdd5c5cad7e8f08ea4c3"
+  },
+  "global_before": {
+    "bytes": 8364,
+    "name": "lpac-curl-a4-loader-before-a4a02-global-snapshot.json",
+    "sha256": "8668bdf4b3802e415b53f95b88e322b804ef0f035463fdd5c5cad7e8f08ea4c3"
+  },
+  "global_before_after_byte_equal": true,
+  "global_difference_between_attempts_unattributed": true,
+  "known_cleanup_predicates": 14,
+  "local_pure": {
+    "skips": 2,
+    "tests": 1418
+  },
+  "memory_records": 65,
+  "not_qualified": [
+    "full_startup_trace",
+    "network",
+    "DNS",
+    "proxy",
+    "hostile_same_SID",
+    "root_crash_continuity",
+    "Linux_equivalence",
+    "product_acceptance"
+  ],
+  "observations": {
+    "Linux_equivalence": false,
+    "PSEC_qualified": false,
+    "acl_removed": true,
+    "all_dynamic_calls_mediated": false,
+    "application_compatibility": false,
+    "cleanup_tools": true,
+    "dns_isolation_qualified": false,
+    "failure": "trace",
+    "hostile_child_trace_authenticity": false,
+    "hostile_same_sid_boundary_verified": false,
+    "labels_restored": true,
+    "lpac_identity_verified": true,
+    "network_qualified": false,
+    "observation_complete": false,
+    "observer_resources_cleanup_verified": true,
+    "ordinary_after_positive": true,
+    "ordinary_before_positive": true,
+    "parent_stdio_mapping_duplicate_closed": true,
+    "payload_carrier_returned_nonnull": true,
+    "payload_readback_readonly_verified": true,
+    "private_memory_sequence_complete": true,
+    "product_acceptance": false,
+    "profile_deleted": true,
+    "proxy_qualified": false,
+    "query_resources_closed": true,
+    "restoration_fully_verified": false,
+    "restore_payload_absence_verified": false,
+    "root_crash_safe": false,
+    "selected_exit_code": 0,
+    "selected_natural_exit": true,
+    "selected_resumed": true,
+    "selected_version_positive": true,
+    "shim_file_closed": true,
+    "sid_released": true,
+    "startup_diagnostic_observed": false,
+    "target_file_closed": true,
+    "trace_call_count": null,
+    "trace_diagnostic_candidate_complete": false,
+    "trace_header_bound": false,
+    "trace_mapping_closed": true,
+    "trace_stable": false,
+    "trace_view_unmapped": true,
+    "whole_mapped_image_integrity_verified": false,
+    "workload_cleanup": true,
+    "workload_job_empty": true
+  },
+  "old_writer_limit": 524288,
+  "ordinary_controls": {
+    "after": true,
+    "before": true
+  },
+  "original_actual01_and_separate_recovery_unchanged": true,
+  "proof_count": 2,
+  "public": {
+    "bytes": 3142,
+    "name": "lpac-curl-a4-loader-local-02-public.json",
+    "sha256": "66eaf0bf74ba9c9f053ff99ac2b3029652b66fb2167ffabdd11d68097dad9e95"
+  },
+  "recovery_required": false,
+  "schema_version": 1,
+  "source_commit": "ebc2c6dac85975bf692abd08e76bd83d1d37947a",
+  "source_sha256": "a22a830ce3705bf1ab0f35e04e786718cd0f6ff79db0e8701e73435f1d94ba8e",
+  "stage": "A4-actual02-safe-observation",
+  "trace_decoder_executed": false,
+  "trace_expected_bytes": 557312,
+  "trace_file_saved": false,
+  "worker_commitment": {
+    "bytes": 280534,
+    "name": "worker-report.json",
+    "sha256": "913e156a0222d26ed6263a0b6765669fe45b5239e8c1cacc37bf106c46d10f83"
+  }
+}
