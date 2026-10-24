@@ -1,0 +1,270 @@
+{
+  "schema_version": 1,
+  "scope": "ordinary-fixed-curl-owned-loopback-HTTP-calibration-v1",
+  "date": "2026-10-24",
+  "result": "ordinary_http_byte_calibration_passed",
+  "ordinary_HTTP_calibration_passed": true,
+  "actual_invocations": 1,
+  "ordinary_curl_cases": 2,
+  "root_elapsed_seconds": 4.39100000000326,
+  "selected_LPAC_tested": false,
+  "selected_LPAC_qualified": false,
+  "LPAC_tested": false,
+  "DNS_tested": false,
+  "DNS_qualified": false,
+  "proxy_tested": false,
+  "proxy_qualified": false,
+  "Linux_equivalence": false,
+  "product_acceptance": false,
+  "source_commit": "0d024290b4f86a3aae042b8b2c5499687fc93928",
+  "source_sha256": "c10559be677975f49baf7f2ddd21e9c370fc17eade2f7b05976f4356b6e7da7f",
+  "source_count": 90,
+  "source_manifest": "source-manifest.json",
+  "calibration_script": {
+    "bytes": 18778,
+    "sha256": "30a6393f5bccb66118490b7befe51959f3a3227e7b6fca1ba01675057919b4ed"
+  },
+  "curl": {
+    "shim_loaded": false,
+    "image": "C:\\Windows\\System32\\curl.exe",
+    "sha256": "73d24149ff289afc49ec41f08918ef9faa727d39ad993e929757dc2ddafab805",
+    "bytes": 818512
+  },
+  "transport": {
+    "DNS_name_used": false,
+    "port": "owned ephemeral",
+    "destination": "127.0.0.1",
+    "family": "IPv4",
+    "proxy_disabled": true,
+    "protocol": "HTTP/1.1 over TCP"
+  },
+  "budget": {
+    "work_deadline_not_renewed": true,
+    "root_seconds": 45,
+    "cleanup_uses_original_root_reserve": true,
+    "curl_max_time_seconds": 6,
+    "receiver_work_seconds": 8
+  },
+  "worker_identity": {
+    "integrity_rid": 8192,
+    "token_type": 1,
+    "same_parent_user_and_session": true,
+    "capability_count": 0,
+    "appcontainer": false,
+    "elevated": false
+  },
+  "cases": [
+    {
+      "case_index": 0,
+      "natural_exit_code": 0,
+      "timed_out": false,
+      "ordinary_identity_verified_before_resume": true,
+      "outer_job_membership_verified_before_resume": true,
+      "request_input_mode": "data-binary-file",
+      "request_header_bytes": 128,
+      "request_body_bytes": 8065,
+      "request_total_bytes": 8193,
+      "request_raw_exact": true,
+      "response_header_bytes": 113,
+      "response_body_bytes": 12176,
+      "response_sendall_total_bytes": 12289,
+      "stdout_body_exact": true,
+      "stderr_empty": true,
+      "stdin_empty": true,
+      "request_eof_extra_bytes": 0,
+      "receiver_work_completed_before_original_deadline": true,
+      "socket_closes_and_thread_join_within_original_cleanup_deadline": true,
+      "listener_close_owner": "thread",
+      "socket_close_receipts": {
+        "peer": {
+          "attempted": true,
+          "closed": true,
+          "error": null
+        },
+        "listener": {
+          "attempted": true,
+          "closed": true,
+          "error": null
+        }
+      },
+      "launch_cleanup": {
+        "close_uncertain": false,
+        "errors": [],
+        "handles_closed": true,
+        "job_closed": true,
+        "job_empty": true,
+        "process_exit_confirmed": true
+      },
+      "nested_resource_cleanup_incomplete": true,
+      "private_raw_pins": {
+        "request-body.bin": {
+          "bytes": 8065,
+          "sha256": "d511928edbedc8149c1e3704484febd739ee6d8d8623ea2235d7c7b56ad8f2fd"
+        },
+        "received-request.bin": {
+          "bytes": 8193,
+          "sha256": "f96cd0640765ab153835dd844481c8086ca5c39e0051062165abb56fd1d29cf2"
+        },
+        "controller.stdout": {
+          "bytes": 12176,
+          "sha256": "da097ce657433f08faa92d7530a2fd52ec51b71a6254d57581fd62654b4903ad"
+        },
+        "controller.stderr": {
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "controller.stdin": {
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      }
+    },
+    {
+      "case_index": 1,
+      "natural_exit_code": 0,
+      "timed_out": false,
+      "ordinary_identity_verified_before_resume": true,
+      "outer_job_membership_verified_before_resume": true,
+      "request_input_mode": "data-binary-file",
+      "request_header_bytes": 128,
+      "request_body_bytes": 8065,
+      "request_total_bytes": 8193,
+      "request_raw_exact": true,
+      "response_header_bytes": 113,
+      "response_body_bytes": 12176,
+      "response_sendall_total_bytes": 12289,
+      "stdout_body_exact": true,
+      "stderr_empty": true,
+      "stdin_empty": true,
+      "request_eof_extra_bytes": 0,
+      "receiver_work_completed_before_original_deadline": true,
+      "socket_closes_and_thread_join_within_original_cleanup_deadline": true,
+      "listener_close_owner": "thread",
+      "socket_close_receipts": {
+        "peer": {
+          "attempted": true,
+          "closed": true,
+          "error": null
+        },
+        "listener": {
+          "attempted": true,
+          "closed": true,
+          "error": null
+        }
+      },
+      "launch_cleanup": {
+        "close_uncertain": false,
+        "errors": [],
+        "handles_closed": true,
+        "job_closed": true,
+        "job_empty": true,
+        "process_exit_confirmed": true
+      },
+      "nested_resource_cleanup_incomplete": true,
+      "private_raw_pins": {
+        "request-body.bin": {
+          "bytes": 8065,
+          "sha256": "d511928edbedc8149c1e3704484febd739ee6d8d8623ea2235d7c7b56ad8f2fd"
+        },
+        "received-request.bin": {
+          "bytes": 8193,
+          "sha256": "2b13f8070a1e10b59a7ea67c5fe78ae042f44e122d7c5d676edb7e75de22b814"
+        },
+        "controller.stdout": {
+          "bytes": 12176,
+          "sha256": "da097ce657433f08faa92d7530a2fd52ec51b71a6254d57581fd62654b4903ad"
+        },
+        "controller.stderr": {
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "controller.stdin": {
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      }
+    }
+  ],
+  "outer_launch": {
+    "cleanup": {
+      "close_uncertain": false,
+      "errors": [],
+      "handles_closed": true,
+      "job_closed": true,
+      "job_empty": true,
+      "process_exit_confirmed": true
+    },
+    "nested_resource_cleanup_incomplete": true,
+    "natural_exit_code": 0,
+    "native_identity_verified_before_resume": true,
+    "timed_out": false
+  },
+  "cleanup_interpretation": "The generic nested_resource_cleanup_incomplete marker remains true in all three original launch receipts. This summary preserves it and reports the explicit owned socket, process, Job and handle receipts only; it does not assert universal resource cleanup.",
+  "global_snapshot": {
+    "nrpt_included": false,
+    "objects_compared": 4,
+    "older_baseline": {
+      "routes_equal": false,
+      "firewall_profiles_equal": true,
+      "dns_equal": false,
+      "byte_equal": false,
+      "user_proxy_equal": true
+    },
+    "scope": "Only these four recorded objects were compared across this calibration.",
+    "object_equal": {
+      "firewall_profiles": true,
+      "dns": true,
+      "routes": true,
+      "user_proxy": true
+    },
+    "before": {
+      "bytes": 8364,
+      "sha256": "8668bdf4b3802e415b53f95b88e322b804ef0f035463fdd5c5cad7e8f08ea4c3"
+    },
+    "after": {
+      "bytes": 8364,
+      "sha256": "8668bdf4b3802e415b53f95b88e322b804ef0f035463fdd5c5cad7e8f08ea4c3"
+    },
+    "byte_equal": true
+  },
+  "private_evidence": {
+    "outer_launch": {
+      "bytes": 803,
+      "sha256": "0eb3471a0c1193c46e2988f3228631d6ebac264ed13f4fbc532d9782e43cb7e5"
+    },
+    "root_receipt": {
+      "bytes": 1229,
+      "sha256": "3a4edae74a9a4fad1bb272f7a5a56ce2246f12633d4259448b852d17fa2a9591"
+    },
+    "public_result": {
+      "bytes": 602,
+      "sha256": "89140a219860fefcb22d0c6a1b6e25e13df20abbd67312b83303730bc8c9e0a4"
+    },
+    "worker_report": {
+      "bytes": 8812,
+      "sha256": "4511ad479dfef705eba47a772ef2406d5a253704e749cfada680d80ebcfa24b9"
+    },
+    "config": {
+      "bytes": 904,
+      "sha256": "fbf0dd82217c3e394cbba31956faa2a6aafe74038e21d2a84991842f1ef53a08"
+    }
+  },
+  "response_evidence_limit": "Full response wire bytes were not separately persisted. Evidence is the receiver completed sendall path, the recorded response header, and the exact 12176-byte curl stdout body.",
+  "archive": {
+    "source_closure_is_hash_list_only": true,
+    "root_launcher_source_included": false,
+    "exact_calibration_source": true,
+    "private_identifiers_ports_pids_nonces_paths_omitted": true,
+    "raw_worker_config_requests_outputs_or_global_snapshots_included": false,
+    "Ready03_manifest_is_projection": true
+  },
+  "file_only_review": {
+    "report_and_source_pins_checked": true,
+    "tests_or_native_execution_repeated": false,
+    "global_snapshot_bytes_checked": true,
+    "request_body_formula_checked": true,
+    "raw_request_reconstructed_from_recorded_header_and_body": true,
+    "project_code_executed": false,
+    "stdout_response_body_formula_checked": true
+  }
+}
