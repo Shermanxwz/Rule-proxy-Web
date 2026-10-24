@@ -499,6 +499,21 @@ class UnavailableGlobalGuard:
     crash_keep = status
 
 
+class UnavailableAppGuard:
+    """The egress guard ships as an installable component; absence is explicit."""
+    def status(self):
+        return {"supported": False, "active": False, "persistent": False, "strict_isolation": False,
+                "native_qualified": False, "state": "setup_required",
+                "detail": "出站守卫组件尚未安装，请运行 Setup-Windows.cmd 修复安装。"}
+
+    def apply(self, _paths, _proxy_port):
+        raise ProxyError("setup_required", self.status()["detail"])
+
+    normal_stop = status
+    purge = status
+    crash_keep = status
+
+
 class UnavailableGlobalDNS:
     def status(self, *, refresh=False):
         return {"supported": False, "active": None, "effective": False, "persistent": None,
@@ -885,7 +900,7 @@ class GlobalCore:
 
 class Broker:
     def __init__(self, metadata, control=None, lease_factory=None, global_factory=None, container_factory=None,
-                 namespace_factory=None):
+                 namespace_factory=None, app_guard_factory=None):
         self.metadata = metadata
         self.control = control or ServiceControl()
         self.lease_factory = lease_factory or ProcessLease
@@ -907,6 +922,9 @@ class Broker:
         self.namespace_factory = namespace_factory
         self.namespace_gate = None
         self.namespaces = set()
+        self.app_guard_factory = app_guard_factory
+        self.app_guard_gate = None
+        self.app_guard_intent = False
 
     def _containers(self):
         if self.container_gate is None:
@@ -954,6 +972,44 @@ class Broker:
                 raise ProxyError('cleanup_incomplete', '网络隔间清理未能确认。')
         self.namespaces.clear()
 
+    def _app_guard(self):
+        if self.app_guard_gate is None:
+            if self.app_guard_factory is not None:
+                self.app_guard_gate = self.app_guard_factory(self.metadata)
+            elif "ruleproxy/windows_app_guard.py" in self.metadata.get("files", {}):
+                from ruleproxy.windows_app_guard import AppGuard
+                self.app_guard_gate = AppGuard(self.metadata)
+            else:
+                self.app_guard_gate = UnavailableAppGuard()
+        return self.app_guard_gate
+
+    def _app_guard_available(self):
+        return (self.app_guard_factory is not None
+                or "ruleproxy/windows_app_guard.py" in self.metadata.get("files", {}))
+
+    def _purge_app_guard(self):
+        # Removal goes through AppGuard itself, which deletes only filters it
+        # has read back under this installation's marker; a broker whose
+        # deployment lacks the component has nothing of its own to remove.
+        gate = self.app_guard_gate
+        if gate is None and self._app_guard_available():
+            gate = self._app_guard()
+        if gate is not None:
+            result = gate.purge()
+            if not isinstance(result, dict) or result.get('active') is not False:
+                raise ProxyError('cleanup_incomplete', '出站守卫清理未能确认。')
+        self.app_guard_intent = False
+
+    def _app_guard_status(self):
+        if self.app_guard_gate is None and not self._app_guard_available():
+            return {"supported": False, "active": False, "state": "idle",
+                    "detail": "出站守卫组件未安装。"}
+        try:
+            return self._app_guard().status()
+        except Exception as exc:
+            return {"supported": False, "active": False, "state": "unavailable",
+                    "code": getattr(exc, "code", "app_guard_failed"), "detail": str(exc)}
+
     def _cleanup_failed(self, failures):
         message = "; ".join(f"{name}: {exc}" for name, exc in failures)[:500]
         self.error = {"code": "cleanup_incomplete", "message": message}
@@ -962,7 +1018,8 @@ class Broker:
     def _purge_gates(self):
         failures = []
         for name, cleanup in (("AppContainer", self._purge_containers),
-                              ("网络隔间", self._purge_namespaces)):
+                              ("网络隔间", self._purge_namespaces),
+                              ("出站守卫", self._purge_app_guard)):
             try:
                 cleanup()
             except Exception as exc:
@@ -1025,6 +1082,7 @@ class Broker:
             "global_active": global_active, "container_count": len(self.containers),
             "namespace_count": len(self.namespaces),
             "namespace_ready": namespace_ready,
+            "app_guard": self._app_guard_status(), "app_guard_intent": self.app_guard_intent,
             "cleanup_pending": error is not None and error.get('code') == 'cleanup_incomplete'}
 
     def _clear(self):
@@ -1034,12 +1092,18 @@ class Broker:
         self.panel = self.core = None
         self.paths, self.port = [], None
 
-    def stop(self):
+    def stop(self, *, retain_app_guard=False):
         owned = self.panel is not None or self.engine_owned
         failures = []
-        for name, cleanup in (("AppContainer", self._purge_containers),
-                              ("网络隔间", self._purge_namespaces),
-                              ("ProxiFyre", self._stop_owned_engine)):
+        cleanups = [("AppContainer", self._purge_containers),
+                    ("网络隔间", self._purge_namespaces),
+                    ("ProxiFyre", self._stop_owned_engine)]
+        if not retain_app_guard:
+            # An explicit stop restores connectivity. Lease cleanup and broker
+            # shutdown pass retain_app_guard: losing the panel or the service
+            # process must not silently drop the failure-retention layer.
+            cleanups.insert(0, ("出站守卫", self._purge_app_guard))
+        for name, cleanup in cleanups:
             try:
                 cleanup()
             except Exception as exc:
@@ -1060,7 +1124,7 @@ class Broker:
                     or (self.engine_owned and self.panel is None)):
                 had_error = self.error is not None
                 try:
-                    self.stop()
+                    self.stop(retain_app_guard=True)
                 except Exception as exc:
                     if not had_error:
                         _log_service_error("lease_cleanup", exc)
@@ -1082,7 +1146,7 @@ class Broker:
         with self.lock:
             failures = []
             try:
-                self.stop()
+                self.stop(retain_app_guard=True)
             except Exception as exc:
                 failures.append(("应用代理", exc))
             global_stopped = True
@@ -1130,7 +1194,8 @@ class Broker:
                 raise ProxyError("access_denied", "控制请求身份不匹配。")
             self.check_lease()
             if (self.error is not None and self.error.get("code") == "cleanup_incomplete"
-                    and request["op"] in {"container_allow", "namespace_allow", "apply", "namespace_prepare"}):
+                    and request["op"] in {"container_allow", "namespace_allow", "apply", "namespace_prepare",
+                                          "app_guard_apply"}):
                 raise ProxyError("cleanup_incomplete", "旧授权尚未清理完成，请先停止代理后重试。")
             # A container gate belongs to the same held panel/core lease as the
             # path policy. An arbitrary same-user pipe client cannot choose a
@@ -1180,6 +1245,29 @@ class Broker:
                 if not isinstance(result, dict) or result.get('active') is not False:
                     raise ProxyError('cleanup_incomplete', '网络隔间撤销未能确认。')
                 self.namespaces.discard(request['container'])
+                return result
+            # The egress guard binds to the same held panel/core lease and the
+            # broker's own routed path set; a caller cannot guard other paths
+            # or a different port than the one the panel currently holds.
+            if request["op"] == "app_guard_apply":
+                if (self.panel is None or self.core is None or self.panel.pid != caller_pid
+                        or not self.panel.alive() or not self.core.alive()
+                        or not self.paths or request['proxy_port'] != self.port):
+                    raise ProxyError('instance_conflict', '出站守卫必须绑定当前面板持有的路径代理。')
+                # Retain intent even if apply fails midway; explicit stop and
+                # transition purges must still be able to remove the filters.
+                self.app_guard_intent = True
+                result = self._app_guard().apply(list(self.paths), request["proxy_port"])
+                if not isinstance(result, dict) or result.get('active') is not True:
+                    raise ProxyError('app_guard_failed', '出站守卫启用未能确认。')
+                return result
+            if request["op"] == "app_guard_revoke":
+                if self.panel is not None and self.panel.pid != caller_pid:
+                    raise ProxyError('instance_conflict', '另一面板正在管理 Windows 代理。')
+                result = self._app_guard().purge()
+                if not isinstance(result, dict) or result.get('active') is not False:
+                    raise ProxyError('cleanup_incomplete', '出站守卫撤销未能确认。')
+                self.app_guard_intent = False
                 return result
             if request["op"] in {"global_status", "global_start", "global_stop", "global_select_node"}:
                 return self._global_handle(request, caller_pid, caller_sid)

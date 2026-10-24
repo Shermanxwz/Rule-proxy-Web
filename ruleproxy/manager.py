@@ -163,7 +163,7 @@ class Manager:
         # request threads are short lived; all launches must have a stable owner.
         self.launch_owner = ThreadPoolExecutor(max_workers=1, thread_name_prefix="RuleProxyLaunchOwner")
         self.settings = {"core_path": "", "runtime_path": "", "selected_node": None,
-                         "capture_mode": "applications", "apps": []}
+                         "capture_mode": "applications", "windows_app_guard": False, "apps": []}
         self.storage_warnings = []
         self._settings_need_backup = False
         self._restore_settings()
@@ -287,6 +287,11 @@ class Manager:
             self.settings["capture_mode"] = mode
         else:
             invalid = True
+        if "windows_app_guard" in data:
+            if isinstance(data["windows_app_guard"], bool):
+                self.settings["windows_app_guard"] = data["windows_app_guard"]
+            else:
+                invalid = True
         records = data.get("apps", [])
         if not isinstance(records, list):
             records = []
@@ -470,6 +475,8 @@ class Manager:
         backend = self.windows_backend()
         if paths:
             backend.apply(paths, self.mixed_port, self.core.pid)
+            if self.settings.get("windows_app_guard"):
+                backend.app_guard_apply(self.mixed_port)
         elif any(app["enabled"] and app.get("windows_container") for app in self.settings["apps"]):
             backend.namespace_prepare(self.mixed_port, self.core.pid)
         else:
@@ -543,6 +550,29 @@ class Manager:
         except OSError as exc:
             raise ValueError(f"无法更改登录后自动启动：{exc}") from exc
 
+    def set_app_guard(self, enabled) -> None:
+        """Toggle the Windows per-application egress guard preference.
+
+        The guard binds to the broker's currently routed path set, so while
+        the core is running an enable applies immediately when paths are
+        routed and a disable revokes immediately; otherwise the preference
+        takes effect at the next policy sync.
+        """
+        if not isinstance(enabled, bool):
+            raise ValueError("请求无效。")
+        with self.lock:
+            self.settings["windows_app_guard"] = enabled
+            self._save()
+            self._probe_cache = None
+            if (sys.platform == "win32" and self.capture_mode == "applications"
+                    and self.core and self.core.poll() is None):
+                backend = self.windows_backend()
+                if enabled:
+                    if self._windows_paths:
+                        backend.app_guard_apply(self.mixed_port)
+                else:
+                    backend.app_guard_revoke()
+
     def runtime_path(self):
         return self.settings.get("runtime_path") or str(ROOT / "bin/windows-amd64/wxc-exec.exe")
 
@@ -608,6 +638,7 @@ class Manager:
                 "imported": bool(compiled),
                 "running": running,
                 "capture_mode": self.capture_mode,
+                "windows_app_guard": bool(self.settings.get("windows_app_guard", False)),
                 "effective_capture_mode": self.capture_mode if running else None,
                 "global_fault": self._global_fault,
                 "error": self.error,

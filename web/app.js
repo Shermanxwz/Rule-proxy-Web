@@ -20,6 +20,7 @@
     coreSettings: $('core-path-settings'), relatedField: $('related-paths-field'), relatedPaths: $('app-related-paths'),
     hostedNote: $('hosted-note'), filesNote: $('files-note'), configNotes: $('config-notes'), configWarnings: $('config-warnings'),
     autostartRow: $('autostart-row'), autostart: $('autostart-toggle'), autostartDetail: $('autostart-detail'), quit: $('quit-button'),
+    appGuardRow: $('app-guard-row'), appGuard: $('app-guard-toggle'),
   };
   const AUTOSTART_TEXT = '登录系统后自动启动面板，不打开窗口，也不启动核心；从快捷方式或面板启动应用时再启动核心。';
   const AUTOSTART_STALE_TEXT = '已有的自动启动设置指向别的位置或端口（例如移动过文件夹）。打开开关即可改为当前面板。';
@@ -75,6 +76,7 @@
     ui.launchAll.disabled = busy || !running || !protectedBackend || (state.apps || []).some((app) => app.profile_preparing)
       || !(state.apps || []).some((app) => app.enabled && !app.active && !app.cleanup_pending);
     ui.autostart.disabled = busy || !ready;
+    ui.appGuard.disabled = busy || !ready;
     ui.quit.disabled = busy || !ready;
     ui.apps.querySelectorAll('.app-toggle input, .remove-app, .app-shortcut').forEach((control) => {
       const app = (state.apps || []).find((item) => String(item.id) === control.dataset.appId);
@@ -441,6 +443,8 @@
     ui.autostartRow.classList.toggle('is-stale', autostart === 'stale');
     ui.autostart.checked = autostart === 'on';
     ui.autostartDetail.textContent = autostart === 'stale' ? AUTOSTART_STALE_TEXT : AUTOSTART_TEXT;
+    ui.appGuardRow.hidden = !isWindows() || isGlobal();
+    ui.appGuard.checked = state.windows_app_guard === true;
     ui.coreSettings.hidden = isWindows();
     ui.relatedField.hidden = !isWindows();
     const ordinaryOption = ui.appAdapter.querySelector('option[value="environment"]');
@@ -647,6 +651,14 @@
     const enabled = ui.autostart.checked;
     const result = await mutate('/api/autostart', { body: { enabled } }, {
       notice: enabled ? '已开启：登录后会在后台自动启动面板。' : '已关闭登录后自动启动。',
+    });
+    if (!result && state) render(state);  // put the switch back when the change failed
+  });
+
+  ui.appGuard.addEventListener('change', async () => {
+    const enabled = ui.appGuard.checked;
+    const result = await mutate('/api/app-guard', { body: { enabled } }, {
+      notice: enabled ? '出站守卫已开启：所选程序只能连接本机代理端口。' : '出站守卫已关闭。',
     });
     if (!result && state) render(state);  // put the switch back when the change failed
   });

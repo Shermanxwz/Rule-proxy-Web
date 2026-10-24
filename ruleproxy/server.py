@@ -195,6 +195,10 @@ class Handler(BaseHTTPRequestHandler):
                 manager.start()
             elif path == "/api/autostart":
                 manager.set_autostart(data.get("enabled"))
+            elif path == "/api/app-guard":
+                if set(data) != {"enabled"}:
+                    raise ValueError("出站守卫请求只能包含 enabled。")
+                manager.set_app_guard(data.get("enabled"))
             elif path == "/api/quit":
                 # A failed safe stop must leave the panel available for retry,
                 # with the guard and core still owned by this manager.

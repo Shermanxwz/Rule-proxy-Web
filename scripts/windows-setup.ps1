@@ -514,7 +514,7 @@ try {
     # deployment.json hashes it; the package manifest cannot hash itself.
     [IO.File]::WriteAllBytes((Join-Path $stage 'package-manifest.json'), $manifestBytes)
     $activePackageFile = $null
-    foreach ($required in @('python\python.exe','python\pythonw.exe','python\python314._pth','ruleproxy\windows_proxy_service.py','ruleproxy\windows_proxy_policy.py','ruleproxy\windows_global_runtime.py','ruleproxy\windows_global_guard.py','ruleproxy\windows_global_dns.py','ruleproxy\windows_app_process.py','ruleproxy\windows_compartment.py','ruleproxy\config.py','bin\windows-amd64\mihomo.exe','Run-RuleProxy.py','scripts\windows-uninstall.ps1')) {
+    foreach ($required in @('python\python.exe','python\pythonw.exe','python\python314._pth','ruleproxy\windows_proxy_service.py','ruleproxy\windows_proxy_policy.py','ruleproxy\windows_global_runtime.py','ruleproxy\windows_global_guard.py','ruleproxy\windows_global_dns.py','ruleproxy\windows_app_guard.py','ruleproxy\windows_app_process.py','ruleproxy\windows_compartment.py','ruleproxy\config.py','bin\windows-amd64\mihomo.exe','Run-RuleProxy.py','scripts\windows-uninstall.ps1')) {
         if (-not (Test-Path -LiteralPath (Join-Path $stage $required) -PathType Leaf)) { throw ('Required product file missing: ' + $required) }
     }
     $setupPhase = 'stage_protect'

@@ -98,6 +98,14 @@ try:
         raise RuntimeError('Owned application container protection cleanup was not confirmed')
 except Exception as error:
     errors.append('AppContainer: '+str(error))
+if 'ruleproxy/windows_app_guard.py' in metadata.get('files', {}):
+    try:
+        from ruleproxy.windows_app_guard import AppGuard
+        app_guard=AppGuard(metadata).normal_stop()
+        if app_guard.get('supported') is not True or app_guard.get('active') is not False:
+            raise RuntimeError('Owned application egress guard cleanup was not confirmed')
+    except Exception as error:
+        errors.append('AppGuard: '+str(error))
 if errors:
     raise RuntimeError('Owned network restoration incomplete; retry with recovery tools retained: '+'; '.join(errors))
 print(json.dumps({'restored':True}))

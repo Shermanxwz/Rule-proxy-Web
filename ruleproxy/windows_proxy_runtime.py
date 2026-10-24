@@ -6,7 +6,7 @@ from pathlib import Path
 import threading
 
 from .windows_proxy_client import Client, current_user_sid
-from .windows_proxy_policy import LIMITATIONS, NAMESPACE_LIMITATIONS, ProxyError, build_policy
+from .windows_proxy_policy import APP_GUARD_LIMITATIONS, LIMITATIONS, NAMESPACE_LIMITATIONS, ProxyError, build_policy
 from .windows_proxy_service import load_deployment
 
 
@@ -36,14 +36,17 @@ class Runtime:
                 self._generation = status["generation"]
                 available = status.get("state") in {"idle", "running"}
                 namespaced = status.get("namespace_ready") is True
+                guarded = isinstance(status.get("app_guard"), dict) and status["app_guard"].get("active") is True
                 return {"supported": available, "backend": "Windows 网络隔间 + Mihomo" if namespaced else "ProxiFyre + Mihomo",
                         "mode": "isolated_application" if namespaced else "application_proxy",
                         "strict_isolation": False, "state": status.get("state", "failed"),
                         "detail": ("Windows 独立网络实验已启动；系统 DNS 和服务代办仍可绕过。" if namespaced else
+                                   "Windows 应用路径代理可用，出站守卫已启用。" if guarded else
                                    "Windows 应用路径代理可用。") if available else (
                             "另一程序正在管理 ProxiFyre，请先停止该程序的代理。" if
                             status.get("state") == "external_conflict" else "Windows 代理后端异常，请停止后重试。"),
-                        "limitations": list(NAMESPACE_LIMITATIONS if namespaced else LIMITATIONS), "status": status}
+                        "limitations": list(NAMESPACE_LIMITATIONS if namespaced else
+                                            APP_GUARD_LIMITATIONS if guarded else LIMITATIONS), "status": status}
             except (OSError, ValueError, ProxyError) as exc:
                 return {"supported": False, "backend": "ProxiFyre + Mihomo", "mode": "application_proxy",
                         "strict_isolation": False, "code": getattr(exc, "code", "backend_unavailable"),
@@ -61,6 +64,14 @@ class Runtime:
                                     mihomo_pid=mihomo_pid, generation=state["generation"] + 1)
             self._generation = result["generation"]
             return result
+
+    def app_guard_apply(self, proxy_port: int) -> dict:
+        with self._lock:
+            return self._connect().request("app_guard_apply", proxy_port=proxy_port)
+
+    def app_guard_revoke(self) -> dict:
+        with self._lock:
+            return self._connect().request("app_guard_revoke")
 
     def container_allow(self, container: str, proxy_port: int) -> dict:
         with self._lock:

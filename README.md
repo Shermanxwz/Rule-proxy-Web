@@ -14,6 +14,8 @@ Windows 的目标是让自定义应用走所选代理节点。它不能提供 Li
 
 Linux 按应用模式继续使用网络命名空间隔离。Windows 的“独立网络（实验）”由 SYSTEM 服务建立只有回环的网络隔间，把启动前的空 Job 绑定进去，再提供通向所持有 Mihomo 进程的 TCP 中继。实验模式不启动 ProxiFyre 路径转发，安装程序仍会准备兼容模式所需组件。商店应用与共用原应用资料模式不支持。
 
+兼容模式可选开启“出站守卫（实验）”：SYSTEM 控制服务为路径清单中的程序写入自有 WFP 持久规则，仅放行其到本机代理端口的回环连接，其余出站（直连、局域网、其他本机端口、直连 DNS、UDP、IPv6）全部阻断，后端或面板故障时不恢复直连。系统服务代办的 DNS 解析仍可能外发；该功能尚未通过 Windows 原生不泄漏验收，不提供 Linux 等效隔离。
+
 **独立网络（实验）已知存在系统 DNS 和系统服务代办绕过，不能提供 Linux 等效隔离，也未通过产品验收。** [Windows Server 2025 普通用户实验](verification/windows-2026-10-19/compartment/primary-abi-fixed/assessment.json)确认 Edge 在保留低完整性受限子进程的情况下可以渲染代理页面，但同一普通账户仍可通过 WMI 启动隔间外进程并直连。六类系统 DNS 查询均有网卡外发记录，甚至 `getaddrinfo` 返回失败时也会外发。两种受限主令牌配置使 Python、PowerShell 或 Edge 启动失败，不能把这些失败算作防泄漏成功。此前的 [AppContainer 浏览器实验](verification/windows-2026-10-19/appcontainer-browser-experiment.json)同样未通过浏览器兼容验收。2026-10-20 在 Windows Server 2025 上的[诊断实验](verification/windows-2026-10-20/findings.json)用网卡抓包确认：零权限 AppContainer 内六类系统 DNS 查询没有在网卡上出现，带 `internetClient` 的对照容器则有；但 Chrome、Edge、Firefox 整体放进该容器后仍全部无法渲染，崩溃点各不相同。该实验只覆盖 DNS，未测直连 TCP/UDP、其它应用和交互式 Windows 11，不构成 Linux 等效隔离或产品验收。
 
 [Windows 11 补测记录](verification/windows-2026-10-19/compartment/preflight-native/assessment.json)在修复便携 Python 漏文件后，确认六类普通用户系统 DNS 查询外发，以及普通用户 WMI 在默认隔间创建子进程并直连。普通用户 Edge 的隔间内外页面对照仍成功。整轮实验另有状态文件写入失败和 PowerShell 退出超时，仍按失败归档；它不代表安装版产品或可见界面验收通过。[此前含无效 Python 探针的记录](verification/windows-2026-10-19/compartment/native-abi-fixed/assessment.json)保留供对照。

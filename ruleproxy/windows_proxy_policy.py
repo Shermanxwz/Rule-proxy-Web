@@ -27,6 +27,12 @@ LIMITATIONS = [
     "IPv6 运行尚需本机验证，IPv6 分片可能直连。",
     "代理引擎停止或故障后可能恢复直连；Windows 模式不提供严格隔离。",
 ]
+APP_GUARD_LIMITATIONS = [
+    "出站守卫已启用：所选程序仅可连接本机代理端口，直连、局域网、其他本机端口、直连 DNS 与 IPv6 出站均被 WFP 持久规则阻断。",
+    "系统服务代办的 DNS 解析不是应用自身连接，仍可能从网卡外发；应用自身的直连 DNS 已被阻断。",
+    "规则按程序路径身份匹配；异名子进程需要显式添加其程序路径才会纳入守卫。",
+    "启用前已建立的连接需要重启应用后才受守卫约束；守卫尚未通过 Windows 原生不泄漏验收，不提供 Linux 等效隔离。",
+]
 NAMESPACE_LIMITATIONS = [
     "独立网络约束本工具新建 Job 内进程的直接网络访问；应用需要支持本机 HTTP/SOCKS 代理。",
     "已知系统 DNS 可外发，WMI 等系统服务可在隔间外联网；实验模式不提供 Linux 等效防泄漏。",
@@ -138,11 +144,13 @@ def decode_request(raw: bytes) -> dict:
     extra = {"apply": {"paths", "proxy_port", "mihomo_pid", "generation"},
              "global_start": {"source", "secret", "mixed_port", "controller_port", "selected_node", "require_strict"},
              "global_select_node": {"selected_node"},
+             "app_guard_apply": {"proxy_port"}, "app_guard_revoke": set(),
              "container_allow": {"container", "proxy_port"}, "container_revoke": {"container"},
              "namespace_allow": {"container", "proxy_port", "job_handle"}, "namespace_revoke": {"container"}}
     extra["namespace_prepare"] = {"proxy_port", "mihomo_pid", "generation"}
     expected = common | extra.get(operation, set())
     if (operation not in {"status", "apply", "stop", "global_status", "global_start", "global_stop", "global_select_node",
+                          "app_guard_apply", "app_guard_revoke",
                           "container_allow", "container_revoke", "namespace_allow", "namespace_revoke", "namespace_prepare"}
             or set(request) != expected
             or type(request.get("schema_version")) is not int or request.get("schema_version") != 1
@@ -154,6 +162,9 @@ def decode_request(raw: bytes) -> dict:
         for name in ("generation", "mihomo_pid"):
             if type(request[name]) is not int or not 1 <= request[name] <= 0xFFFFFFFF:
                 raise ProxyError("invalid_request", "配置代次或核心进程无效。")
+    if operation == "app_guard_apply":
+        if type(request["proxy_port"]) is not int or not 1025 <= request["proxy_port"] <= 65535:
+            raise ProxyError("invalid_request", "出站守卫代理端口无效。")
     if operation == "global_start":
         validate_global_request(request)
     if operation == "global_select_node":

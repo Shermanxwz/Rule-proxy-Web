@@ -48,15 +48,17 @@ class UninstallRecoveryTests(unittest.TestCase):
         with self.assertRaisesRegex(OSError, 'retry required'):
             self.run_code('Restore-OwnerSystemProxy', modules)
 
-    def network_modules(self, events, *, dns_active=False, container_active=False, guard_error=None):
+    def network_modules(self, events, *, dns_active=False, container_active=False, guard_error=None,
+                        app_guard=False, app_guard_active=False):
         def remove_guard():
             events.append('guard')
             if guard_error:
                 raise guard_error
             return {'supported': True, 'active': False}
-        return {
+        deployment = {'owner_sid': SID, 'global_backend_version': 1}
+        modules = {
             'ruleproxy.windows_proxy_service': SimpleNamespace(
-                load_deployment=lambda root: {'owner_sid': SID, 'global_backend_version': 1},
+                load_deployment=lambda root: deployment,
                 ServiceControl=lambda: SimpleNamespace(status=lambda name: {'state': 1})),
             'ruleproxy.windows_global_dns': SimpleNamespace(DnsLease=lambda metadata: SimpleNamespace(
                 normal_stop=lambda: events.append('dns') or {'supported': True, 'active': dns_active})),
@@ -65,6 +67,12 @@ class UninstallRecoveryTests(unittest.TestCase):
             'ruleproxy.windows_appcontainer': SimpleNamespace(ContainerGate=lambda metadata: SimpleNamespace(
                 purge=lambda: events.append('containers') or {'active': container_active, 'purged_sids': []})),
         }
+        if app_guard:
+            deployment['files'] = {'ruleproxy/windows_app_guard.py': 'a' * 64}
+            modules['ruleproxy.windows_app_guard'] = SimpleNamespace(AppGuard=lambda metadata: SimpleNamespace(
+                normal_stop=lambda: events.append('app_guard') or
+                    {'supported': True, 'active': app_guard_active}))
+        return modules
 
     def test_owned_dns_guard_and_container_purge_must_all_confirm_cleanup(self):
         events = []
@@ -78,6 +86,17 @@ class UninstallRecoveryTests(unittest.TestCase):
         events.clear()
         with self.assertRaisesRegex(RuntimeError, 'container protection cleanup'):
             self.run_code('Restore-OwnedGlobalNetwork', self.network_modules(events, container_active=True))
+
+    def test_app_guard_cleanup_runs_only_when_the_component_is_installed(self):
+        events = []
+        receipt = self.run_code('Restore-OwnedGlobalNetwork', self.network_modules(events, app_guard=True))
+        self.assertEqual(events, ['guard', 'dns', 'containers', 'app_guard'])
+        self.assertEqual(receipt, {'restored': True})
+        events.clear()
+        with self.assertRaisesRegex(RuntimeError, 'egress guard cleanup'):
+            self.run_code('Restore-OwnedGlobalNetwork',
+                          self.network_modules(events, app_guard=True, app_guard_active=True))
+        self.assertEqual(events, ['guard', 'dns', 'containers', 'app_guard'])
 
     def test_guard_failure_does_not_skip_dns_or_containers_and_aggregates_errors(self):
         events = []

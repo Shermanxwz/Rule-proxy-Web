@@ -183,6 +183,13 @@
         </div>
         <label class="switch-field"><input id="autostart-toggle" type="checkbox"><span>自动启动</span></label>
       </div>
+      <div id="app-guard-row" class="background-row" hidden>
+        <div>
+          <strong>出站守卫（实验）</strong>
+          <p>仅 Windows 按应用模式：所选程序只能连接本机代理端口，直连、局域网与 IPv6 出站会被系统防火墙层阻断，代理或面板故障时也不会恢复直连。系统服务代办的 DNS 解析仍可能外发，不提供 Linux 等效隔离。</p>
+        </div>
+        <label class="switch-field"><input id="app-guard-toggle" type="checkbox"><span>出站守卫</span></label>
+      </div>
       <div class="background-row">
         <div>
           <strong>退出面板</strong>
