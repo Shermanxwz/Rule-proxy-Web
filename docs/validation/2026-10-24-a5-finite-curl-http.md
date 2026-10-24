@@ -1,0 +1,15 @@
+# A5 finite real-curl HTTP adapter: source checkpoint
+
+This opt-in local experiment is ready for source validation. No selected LPAC HTTP execution or successful runtime result is asserted by this checkpoint. The ordinary HTTP calibration and A4 startup observations remain separate historical evidence.
+
+The new local entry is `.github/windows_identity_lpac_curl_a5_loader_local.py --run-local-lpac-curl-a5-http`. It is not the fixed CI VM runtime entry. The root-reviewed driver requires an exact committed source closure, complete pure regression and source-only CI, pinned native artifacts and an explicit scoped local plan before execution.
+
+One pinned System32 curl issues an 8,193-byte POST to a fixed numeric owned loopback endpoint and receives a 12,289-byte response, including a 12,176-byte body. Its fresh zero-capability LPAC process receives six explicit handles: trace section, response reader, request writer and three stdio files. A private finite socket adapter transports actual application bytes over RPS1 pipes to an ordinary owned relay, pinned Mihomo and owned origin. The A2 native relay and origin reports retain their original schemas. Mihomo DNS is disabled in this finite configuration.
+
+The same owner retains process generations, private process/thread descriptors, current primary-token proofs, inner and outer Jobs, both LPAC AccessCheck observations and original deadlines. The root budget remains 120 seconds, worker 115 and work cutoff 85. The selected window is 8 seconds; the relay uses 10 seconds from the same pair start. Neither restarts. The two anonymous pipes request 65,536-byte buffers. Parent copies close once before either transport participant resumes. Cleanup consumes exact handles before close and preserves uncertain results; failure cannot authorize PID/name-based recovery.
+
+New child roles require a bounded A5-only API ledger of 320 normal calls with a total capacity of 384 and an owned tree of at most 1,024 nodes, 16 levels and 24 MiB. The 61,276,672-byte Mihomo image is staged in a separately private sibling bundle, which is never granted LPAC access. A4 limits are unchanged.
+
+The transport result requires the actual constructor handle list, trace Config and process generation, byte-count cross-checks against the native pipe relay, four physical HTTP byte sinks, exact selected stdout, held-generation kernel TCP observations, natural finite exits and complete known cleanup. Private shim errors are not SDK or OS network-denial evidence. The preserved A4 loader denials do not become successful calls. Ordinary before/after version controls and historical ordinary HTTP calibration are not selected HTTP evidence.
+
+This implementation supports one finite numeric HTTP stream. It does not qualify arbitrary application compatibility, TLS, default DNS or broker paths, direct bypass, wrong peers, UDP, IPv6, proxy-death behavior, descendants, browser sandbox compatibility, hostile same-SID peers, root-crash safety, product acceptance or Linux equivalence. Those public claims remain false. No global firewall, system proxy, DNS or route changes are part of this experiment.
