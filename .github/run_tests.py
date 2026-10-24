@@ -109,6 +109,11 @@ def main(argv: list[str]) -> int:
     "test_windows_n0a_udp6_workflow",
     "test_windows_n0a_workflow",
     "test_windows_provider_cache_recovery",
+    "test_windows_dns_request3",
+    "test_windows_identity_lpac_curl_loader_backend",
+    "test_windows_identity_psec_lpac_bridge",
+    "test_windows_identity_psec_lpac_matchedcaps_bridge",
+    "test_windows_identity_psec_lpac_postassign_bridge",
     }
     def _without_archived_lab(suite):
         kept = unittest.TestSuite()
