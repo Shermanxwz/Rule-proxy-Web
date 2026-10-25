@@ -91,7 +91,7 @@ class SerialBeaconTests(unittest.TestCase):
     def test_global_suite_keeps_the_nic_unplugged_until_the_guest_waits_for_it(self):
         source = (ROOT / ".github/windows_proxifyre_vm.py").read_text()
         self.assertIn('"-netdev", "user,id=vmnet"', source)
-        self.assertIn('network_pending = suite in {"global-capture", "compartment-lab", "psec-compartment-smoke"}', source)
+        self.assertIn('network_pending = suite in {"product", "global-capture", "compartment-lab", "psec-compartment-smoke"}', source)
         self.assertLess(source.index('qmp.execute("set_link", {"name": "vmnet", "up": False})'),
                         source.index('stage("guest_installation_or_qualification_wait")'))
         script = (ROOT / ".github/windows-global-vm-run.ps1").read_text()
@@ -100,6 +100,18 @@ class SerialBeaconTests(unittest.TestCase):
         self.assertLess(script.index("while (-not (Test-HostReachable $hostUri))"), script.index("/payload.zip"))
         setup = (ROOT / ".github/windows-proxifyre-vm-setup.ps1").read_text()
         self.assertLess(setup.index("/v BypassNRO /t REG_DWORD /d 1"), setup.index("Register-ScheduledTask"))
+
+    def test_product_waits_for_network_only_after_the_real_desktop_claim(self):
+        script = (ROOT / '.github/windows-proxifyre-vm-run.ps1').read_text()
+        claim = script.index('$claim.Dispose()')
+        first_beacon = script.index("Write-BootstrapStep 'configuration_read_before'")
+        wait = script.index('while (-not (Test-HostReachable $hostUri))')
+        download = script.index("$client.DownloadFile(($configuration.host_url + '/payload.zip')")
+        self.assertLess(claim, first_beacon)
+        self.assertLess(first_beacon, wait)
+        self.assertLess(wait, download)
+        self.assertIn("Send-SerialBeacon ('phase ' + $Phase)", script)
+        self.assertIn('AddSeconds(240)', script)
 
     def test_guest_waits_for_a_quick_harness_query_before_the_timed_experiment(self):
         script = (ROOT / ".github/windows-global-vm-run.ps1").read_text()

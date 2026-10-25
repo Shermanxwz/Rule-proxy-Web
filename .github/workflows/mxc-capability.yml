@@ -92,10 +92,12 @@ jobs:
         run: |
           python -X utf8 -B .github\build_windows_package.py dist
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          $zip = Get-Item dist\RuleProxy-Web-*-windows-x64.zip
-          $expected = ((Get-Content dist\SHA256SUMS.txt) -split '\s+')[0]
-          if ((Get-FileHash $zip -Algorithm SHA256).Hash.ToLower() -ne $expected) { throw 'Package checksum mismatch' }
-          Expand-Archive $zip -DestinationPath "$env:RUNNER_TEMP\ruleproxy-capability"
+          $checksums = @(Get-Content -LiteralPath dist\SHA256SUMS.txt | Where-Object { $_.Trim() })
+          if ($checksums.Count -ne 1 -or $checksums[0] -notmatch '^([a-f0-9]{64})  (RuleProxy-Web-[A-Za-z0-9._-]+-windows-x64-personal\.zip)$') { throw 'Invalid package checksum inventory' }
+          $expected, $filename = $Matches[1], $Matches[2]
+          $zip = Get-Item -LiteralPath (Join-Path dist $filename) -ErrorAction Stop
+          if ((Get-FileHash -LiteralPath $zip.FullName -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected) { throw 'Package checksum mismatch' }
+          Expand-Archive -LiteralPath $zip.FullName -DestinationPath "$env:RUNNER_TEMP\ruleproxy-capability"
       - name: Collect actual contained sockets and native DNS APIs
         run: |
           $root = "$env:RUNNER_TEMP\ruleproxy-capability\RuleProxy-Web"

@@ -27,6 +27,28 @@ function Protect-DiagnosticText([string]$Value) {
     return [regex]::Replace($Value, '(?i)https?://[^\\\s"''<>]+', '[URL REDACTED]')
 }
 
+function Send-SerialBeacon([string]$Text) {
+    # Only the claimed ordinary-user qualification reaches this call. OOBE cannot
+    # request a NIC; the host reads this bounded, redacted COM1 progress marker.
+    $port = $null
+    try {
+        $clean = [regex]::Replace((Protect-DiagnosticText $Text), '[^\x20-\x7E]', '?')
+        if ($clean.Length -gt 2000) { $clean = $clean.Substring(0, 2000) }
+        $port = New-Object IO.Ports.SerialPort('COM1', 115200)
+        $port.WriteTimeout = 2000
+        $port.Open()
+        $port.Write('RPBEACON ' + $clean + "`r`n")
+    } catch { } finally {
+        if ($null -ne $port) { try { $port.Dispose() } catch { } }
+    }
+}
+
+function Test-HostReachable([Uri]$Uri) {
+    $client = New-Object Net.Sockets.TcpClient
+    try { return ($client.ConnectAsync($Uri.Host, $Uri.Port).Wait(3000) -and $client.Connected) }
+    catch { return $false } finally { $client.Dispose() }
+}
+
 function Write-BootstrapStep([string]$Phase) {
     $script:result.phase = $Phase
     $step = @{phase=$Phase; utc=[DateTime]::UtcNow.ToString('o')}
@@ -37,6 +59,7 @@ function Write-BootstrapStep([string]$Phase) {
         [IO.File]::WriteAllText((Join-Path $script:root 'bootstrap-progress.json'),
             (Protect-DiagnosticText ($script:result | ConvertTo-Json -Depth 12 -Compress)), $script:utf8)
     } catch { } # Diagnostic I/O must not replace the original failure.
+    Send-SerialBeacon ('phase ' + $Phase)
 }
 
 function Add-BootstrapError([string]$Phase, $Failure) {
@@ -120,6 +143,13 @@ try {
     Write-BootstrapStep 'configuration_read_before'
     $configuration = [IO.File]::ReadAllText((Join-Path $root 'ruleproxy-vm-config.json')) | ConvertFrom-Json
     Write-BootstrapStep 'configuration_read_after'
+    Write-BootstrapStep 'network_wait'
+    $hostUri = [Uri]$configuration.host_url
+    $networkDeadline = [DateTime]::UtcNow.AddSeconds(240)
+    while (-not (Test-HostReachable $hostUri)) {
+        if ([DateTime]::UtcNow -gt $networkDeadline) { throw 'Host endpoint unreachable after the NIC was plugged in' }
+        Start-Sleep -Seconds 3
+    }
     $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
     $result.bootstrap = @{sid=$identity.User.Value; name=$identity.Name;
         session_id=[Diagnostics.Process]::GetCurrentProcess().SessionId; pid=$PID;

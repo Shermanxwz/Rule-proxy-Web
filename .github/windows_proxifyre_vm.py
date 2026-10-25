@@ -933,9 +933,9 @@ def run(args):
                     time.sleep(2)
             # Online Windows 11 OOBE fetches a zero-day patch, and an update-service failure
             # parks setup on "Something went wrong (OOBEZDP)" with no unattended skip (run
-            # 39030476856). The global suite keeps the NIC unplugged until its claimed guest
+            # 39030476856). Every suite keeps the NIC unplugged until its claimed guest
             # script beacons over COM1; that script waits, bounded, for the host endpoint.
-            network_pending = suite in {"global-capture", "compartment-lab", "psec-compartment-smoke"}
+            network_pending = suite in {"product", "global-capture", "compartment-lab", "psec-compartment-smoke"}
             if network_pending:
                 qmp.execute("set_link", {"name": "vmnet", "up": False})
             started = time.monotonic()
