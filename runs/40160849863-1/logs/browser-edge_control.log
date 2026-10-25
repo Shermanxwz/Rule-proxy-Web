@@ -1,0 +1,14 @@
+[1436:4644:1025/041316.735:WARNING:chrome\browser\chrome_browser_main_win.cc:1721] Edge is running elevated: 3
+[1436:4644:1025/041316.768:ERROR:components\optimization_guide\core\model_execution\performance_class.cc:111] Edge LLM: Not supported on non Desktop SKU
+[1436:4644:1025/041317.965:ERROR:chrome\browser\component_updater\edge_language_detection_model_installer.cc:97] Edge Language Detection Model: On-demand update failed with error: 5
+[1436:4644:1025/041318.597:ERROR:chrome\browser\task_manager\providers\fallback_task_provider.cc:126] Every renderer should have at least one task provided by a primary task provider. If a "Renderer" fallback task is shown, it is a bug. If you have repro steps, please file a new bug and tag it as a dependency of crbug.com/40528867.
+[1436:4644:1025/041318.638:ERROR:chrome\browser\task_manager\providers\fallback_task_provider.cc:126] Every renderer should have at least one task provided by a primary task provider. If a "Renderer" fallback task is shown, it is a bug. If you have repro steps, please file a new bug and tag it as a dependency of crbug.com/40528867.
+[1436:4644:1025/041318.638:ERROR:chrome\browser\task_manager\providers\fallback_task_provider.cc:126] Every renderer should have at least one task provided by a primary task provider. If a "Renderer" fallback task is shown, it is a bug. If you have repro steps, please file a new bug and tag it as a dependency of crbug.com/40528867.
+[1436:4644:1025/041318.638:ERROR:chrome\browser\task_manager\providers\fallback_task_provider.cc:126] Every renderer should have at least one task provided by a primary task provider. If a "Renderer" fallback task is shown, it is a bug. If you have repro steps, please file a new bug and tag it as a dependency of crbug.com/40528867.
+[1436:4644:1025/041318.638:ERROR:chrome\browser\task_manager\providers\fallback_task_provider.cc:126] Every renderer should have at least one task provided by a primary task provider. If a "Renderer" fallback task is shown, it is a bug. If you have repro steps, please file a new bug and tag it as a dependency of crbug.com/40528867.
+[1436:4644:1025/041318.638:ERROR:chrome\browser\task_manager\providers\fallback_task_provider.cc:126] Every renderer should have at least one task provided by a primary task provider. If a "Renderer" fallback task is shown, it is a bug. If you have repro steps, please file a new bug and tag it as a dependency of crbug.com/40528867.
+[1436:4644:1025/041319.690:WARNING:chrome\browser\edge_pinned_sites\pinned_sites_cache.cc:304] Cache isn't initialized
+[1436:4644:1025/041319.712:WARNING:chrome\browser\edge_pinned_sites\pinned_sites_cache.cc:304] Cache isn't initialized
+<!DOCTYPE html>
+<html><head><title>RuleProxy fixture</title></head><body>RuleProxyFixture:3edcbbb1cb7c8e80443046b7:edge_control</body></html>
+[1436:4644:1025/041319.761:WARNING:chrome\browser\edge_pinned_sites\pinned_sites_cache.cc:304] Cache isn't initialized

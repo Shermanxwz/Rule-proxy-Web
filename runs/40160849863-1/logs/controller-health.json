@@ -1,0 +1,17 @@
+{
+ "pid": 3604,
+ "time": 1792901794.5306458,
+ "stage": "request_entered",
+ "request": {
+  "op": "exit"
+ },
+ "relay": {
+  "accepted": 37,
+  "forward_errors": [],
+  "listener_errors": [],
+  "listener_set": 0,
+  "listener_get": 2,
+  "bound_127.0.0.1": true,
+  "bound_::1": true
+ }
+}

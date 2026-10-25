@@ -1,0 +1,9 @@
+[8704:7320:1025/041331.758:WARNING:chrome\browser\chrome_browser_main_win.cc:1721] Edge is running elevated: 3
+[8704:7320:1025/041331.786:ERROR:components\optimization_guide\core\model_execution\performance_class.cc:111] Edge LLM: Not supported on non Desktop SKU
+[8704:7320:1025/041332.825:ERROR:chrome\browser\task_manager\providers\fallback_task_provider.cc:126] Every renderer should have at least one task provided by a primary task provider. If a "Renderer" fallback task is shown, it is a bug. If you have repro steps, please file a new bug and tag it as a dependency of crbug.com/40528867.
+[8704:7320:1025/041333.784:INFO:CONSOLE:6150] "[ProtocolLaunch] handler constructed; wiring port events.", source: chrome-extension://ndcpkimcihhghdcddljkfmmjccdmcmof/background.rollup.js (6150)
+[8704:7320:1025/041334.166:WARNING:chrome\browser\edge_pinned_sites\pinned_sites_cache.cc:304] Cache isn't initialized
+[8704:7320:1025/041334.180:WARNING:chrome\browser\edge_pinned_sites\pinned_sites_cache.cc:304] Cache isn't initialized
+[8704:7320:1025/041334.187:WARNING:chrome\browser\edge_pinned_sites\pinned_sites_cache.cc:304] Cache isn't initialized
+<!DOCTYPE html>
+<html><head><title>RuleProxy fixture</title></head><body>RuleProxyFixture:3edcbbb1cb7c8e80443046b7:edge_directcontrol</body></html>

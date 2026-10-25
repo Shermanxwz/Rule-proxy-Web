@@ -1,0 +1,3 @@
+[6256:5648:1025/041348.297:WARNING:net\dns\dns_config_service_win.cc:607] Failed to read DnsConfig.
+[6256:4108:1025/041348.358:INFO:components\enterprise\browser\controller\chrome_browser_cloud_management_controller.cc:241] No machine level policy manager exists.
+[6256:4108:1025/041349.685:ERROR:components\headless\command_handler\headless_command_handler.cc:403] Page load failed: net::ERR_INTERNET_DISCONNECTED

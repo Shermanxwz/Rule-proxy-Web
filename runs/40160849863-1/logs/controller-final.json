@@ -1,0 +1,193 @@
+{
+ "role": "controller",
+ "pid": 3604,
+ "started": 1792901387.084051,
+ "missing_exports": [],
+ "identity": "S-1-5-18",
+ "requests": [
+  {
+   "request": {
+    "op": "bind",
+    "pid": 5308,
+    "handle": 824,
+    "compartment": "A"
+   },
+   "response": {
+    "code": 0,
+    "job_compartment": 2,
+    "compartment_id": 2
+   }
+  },
+  {
+   "request": {
+    "op": "bind",
+    "pid": 3212,
+    "handle": 460,
+    "compartment": "A"
+   },
+   "response": {
+    "code": 0,
+    "job_compartment": 2,
+    "compartment_id": 2
+   }
+  },
+  {
+   "request": {
+    "op": "create",
+    "name": "B"
+   },
+   "response": {
+    "code": 0,
+    "id": 3,
+    "guid": "26255f93-5e7a-47df-975d-bd3a591722c2"
+   }
+  },
+  {
+   "request": {
+    "op": "bind",
+    "pid": 5308,
+    "handle": 1028,
+    "compartment": "B"
+   },
+   "response": {
+    "code": 0,
+    "job_compartment": 3,
+    "compartment_id": 3
+   }
+  },
+  {
+   "request": {
+    "op": "delete",
+    "name": "B"
+   },
+   "response": {
+    "code": 1359,
+    "id": 3
+   }
+  },
+  {
+   "request": {
+    "op": "delete",
+    "name": "B"
+   },
+   "response": {
+    "code": 1359,
+    "id": 3
+   }
+  },
+  {
+   "request": {
+    "op": "create",
+    "name": "C"
+   },
+   "response": {
+    "code": 0,
+    "id": 4,
+    "guid": "f3f0b62e-fe55-40b5-8f4f-4bbb0acdfcad"
+   }
+  },
+  {
+   "request": {
+    "op": "keep",
+    "name": "C"
+   },
+   "response": {
+    "kept": "C",
+    "id": 4
+   }
+  },
+  {
+   "request": {
+    "op": "stop_relay"
+   },
+   "response": {
+    "closed": 76
+   }
+  },
+  {
+   "request": {
+    "op": "exit"
+   },
+   "response": {
+    "exiting": true
+   }
+  }
+ ],
+ "python": {
+  "version": "3.14.9 (tags/v3.14.9:ead82c0, Oct 21 2026, 06:26:14) [MSC v.1944 64 bit (AMD64)]",
+  "executable": "C:\\hostedtoolcache\\windows\\Python\\3.14.9\\x64\\python.exe"
+ },
+ "create_A": {
+  "code": 0,
+  "id": 2,
+  "guid": "531afbfc-a869-4b5a-991c-3b973610fc86"
+ },
+ "default_compartment": 1,
+ "thread_probe": {
+  "set": 0,
+  "get": 2,
+  "public_1111_443": {
+   "ok": false,
+   "winerror": 10051
+  },
+  "host_fixture_loopback": {
+   "ok": false,
+   "winerror": 10061
+  },
+  "dns": {
+   "name": "9dce51c37faf376a5b9ddb4a3d634f8f.1.2.3.4.sslip.io",
+   "ok": false,
+   "errno": 11004,
+   "text": "[Errno 11004] getaddrinfo failed"
+  }
+ },
+ "default_thread_dns": {
+  "name": "1f02ab5344b5e21d76e743573961733b.1.2.3.4.sslip.io",
+  "ok": false,
+  "errno": 11001,
+  "text": "[Errno 11001] getaddrinfo failed"
+ },
+ "relay": {
+  "accepted": 37,
+  "forward_errors": [],
+  "listener_errors": [],
+  "listener_set": 0,
+  "listener_get": 2,
+  "bound_127.0.0.1": true,
+  "bound_::1": true
+ },
+ "final_stop_relay": {
+  "closed": 0
+ },
+ "terminated_jobs": [
+  true,
+  true,
+  true
+ ],
+ "final_deletes": {
+  "A": [
+   1359,
+   1359,
+   1359,
+   1359,
+   1359,
+   1359,
+   1359,
+   1359
+  ],
+  "B": [
+   1359,
+   1359,
+   1359,
+   1359,
+   1359,
+   1359,
+   1359,
+   1359
+  ]
+ },
+ "kept": {
+  "C": 4
+ },
+ "finished": 1792901812.3393917
+}
