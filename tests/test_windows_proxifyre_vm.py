@@ -368,6 +368,9 @@ $ErrorActionPreference = 'Stop'
 $tokens = $null; $errors = $null
 $ast = [Management.Automation.Language.Parser]::ParseFile($env:RULEPROXY_NATIVE_SCRIPT, [ref]$tokens, [ref]$errors)
 if ($errors.Count -ne 0) { throw 'Bootstrap PowerShell syntax error' }
+# Stub only the COM1 transport: unit diagnostics must not touch a host serial port.
+$script:beacons = @()
+function Send-SerialBeacon([string]$Text) { $script:beacons += $Text }
 foreach ($name in @('Protect-DiagnosticText', 'Read-DiagnosticTail', 'Add-BootstrapError', 'Write-BootstrapStep')) {
     $definition = $ast.Find({ param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name }, $true)
     if ($null -eq $definition) { throw 'Missing diagnostic function' }
@@ -386,7 +389,7 @@ $script:result.failure_phase = $script:result.phase
 try { throw 'SyntheticSecretQ7! http://10.0.2.2:12345/private-capability/result' }
 catch { [void](Add-BootstrapError $script:result.phase $_) }
 Write-BootstrapStep 'cleanup_before'
-$value = @{tail=$tail; detail='https://example.invalid/path/"quoted"'; result=$script:result} | ConvertTo-Json -Depth 12 -Compress
+$value = @{tail=$tail; detail='https://example.invalid/path/"quoted"'; result=$script:result; beacons=$script:beacons} | ConvertTo-Json -Depth 12 -Compress
 Protect-DiagnosticText $value
 '''
         with tempfile.TemporaryDirectory() as directory:
@@ -406,6 +409,7 @@ Protect-DiagnosticText $value
             self.assertNotIn("\x00", data["tail"])
             self.assertLessEqual(len(data["tail"]), 65536)
             self.assertEqual(data["result"]["failure_phase"], "product_controller_before")
+            self.assertEqual(data["beacons"], ["phase product_controller_before", "phase cleanup_before"])
             self.assertEqual(data["result"]["phase"], "cleanup_before")
             self.assertEqual(data["result"]["errors"][0]["phase"], "product_controller_before")
 
