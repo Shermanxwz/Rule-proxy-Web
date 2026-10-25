@@ -208,7 +208,7 @@ jobs:
           # The product ZIP uses ProxiFyre; this MXC experiment needs its own
           # fixed legacy runtime. Change only this disposable extracted copy.
           $env:RULEPROXY_DIAGNOSTIC_ROOT = "$env:RUNNER_TEMP\ruleproxy-capability\RuleProxy-Web"
-          python -X utf8 -B -c "import os, install_runtime; from pathlib import Path; install_runtime.install('windows-amd64', root=Path(os.environ['RULEPROXY_DIAGNOSTIC_ROOT']), mxc_variant='g-patched', g_bundle_path=Path('fixed-mxc-g-bundle/mxc-g-bundle.zip'), variant_explicit=True, allow_env_bundle_cache=False)"
+          python -X utf8 -B -c "import os, install_runtime; from pathlib import Path; install_runtime.install('windows-amd64', root=Path(os.environ['RULEPROXY_DIAGNOSTIC_ROOT']), mxc_variant='g-patched', g_bundle_path=Path('fixed-mxc-g-bundle/mxc-g-bundle.zip').resolve(strict=True), variant_explicit=True, allow_env_bundle_cache=False)"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Collect actual contained sockets and native DNS APIs
         run: |
