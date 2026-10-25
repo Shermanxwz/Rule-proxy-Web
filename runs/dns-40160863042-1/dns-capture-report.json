@@ -1,0 +1,1206 @@
+{
+  "capture": {
+    "etl_bytes": 35411,
+    "notes": [],
+    "pcap": {
+      "file": "cap.pcapng",
+      "format": "pcapng",
+      "frames": 254,
+      "linktype": 1
+    },
+    "pcap_conversions": [
+      {
+        "argv": [
+          "pcapng",
+          "C:\\RuleProxyDiagDns\\cap.etl",
+          "-o",
+          "C:\\RuleProxyDiagDns\\cap.pcapng"
+        ],
+        "label": "pcapng -o",
+        "ok": true,
+        "output": "Processing...\n\nPackets total:       254\nPacket drop count:   0\nPackets formatted:   254\nFormatted file:      C:\\RuleProxyDiagDns\\cap.pcapng\n",
+        "output_bytes": 42620,
+        "rc": 0
+      }
+    ],
+    "steps": [
+      {
+        "argv": [
+          "stop"
+        ],
+        "output": "Packet Monitor is not running.\n",
+        "rc": 0
+      },
+      {
+        "argv": [
+          "filter",
+          "remove"
+        ],
+        "output": "Removed all filters.\n",
+        "rc": 0
+      },
+      {
+        "argv": [
+          "reset"
+        ],
+        "output": "All counters reset to 0.\n",
+        "rc": 0
+      },
+      {
+        "argv": [
+          "filter",
+          "add",
+          "dns",
+          "-p",
+          "53"
+        ],
+        "output": "Filter added.\n",
+        "rc": 0
+      },
+      {
+        "argv": [
+          "start",
+          "--capture",
+          "--type",
+          "all",
+          "--comp",
+          "nics",
+          "--pkt-size",
+          "0",
+          "--file-name",
+          "C:\\RuleProxyDiagDns\\cap.etl"
+        ],
+        "output": "           C:\\RuleProxyDiagDns\\cap.etl\n    Max file size:      512 MB\n    Memory used:        128 MB\n\nCollected Data:\n    Packet counters, packet capture\n\nCapture Type:\n    All packets\n\nMonitored Components:\n    Network adapters\n\nPacket Filters:\n     # Name Port \n     - ---- ---- \n     1 dns    53 \n",
+        "rc": 0
+      },
+      {
+        "argv": [
+          "stop"
+        ],
+        "output": "Flushing logs...\nMerging metadata...\nLog file: C:\\RuleProxyDiagDns\\cap.etl (No events lost)\n",
+        "rc": 0
+      },
+      {
+        "cleanup": {
+          "argv": [
+            "stop"
+          ],
+          "output": "Packet Monitor is not running.\n",
+          "rc": 0
+        }
+      },
+      {
+        "cleanup": {
+          "argv": [
+            "reset"
+          ],
+          "output": "All counters reset to 0.\n",
+          "rc": 0
+        }
+      }
+    ],
+    "txt": {
+      "chars": 120642,
+      "file": "cap.txt",
+      "payload_hex_seen": false,
+      "records": 662,
+      "segmentation": "line"
+    },
+    "txt_conversions": [
+      {
+        "argv": [
+          "etl2txt",
+          "C:\\RuleProxyDiagDns\\cap.etl",
+          "-o",
+          "C:\\RuleProxyDiagDns\\cap.txt"
+        ],
+        "label": "etl2txt -o",
+        "ok": true,
+        "output": "Processing...\n\nEvents formatted:    408\nFormatted file:      C:\\RuleProxyDiagDns\\cap.txt\n",
+        "output_bytes": 241286,
+        "rc": 0
+      },
+      {
+        "argv": [
+          "etl2txt",
+          "C:\\RuleProxyDiagDns\\cap.etl",
+          "-o",
+          "C:\\RuleProxyDiagDns\\cap-verbose.txt",
+          "-v",
+          "3"
+        ],
+        "label": "etl2txt -o -v 3",
+        "ok": true,
+        "output": "Processing...\n\nEvents formatted:    408\nFormatted file:      C:\\RuleProxyDiagDns\\cap-verbose.txt\n",
+        "output_bytes": 323466,
+        "rc": 0
+      }
+    ]
+  },
+  "finished_utc": "2026-10-25T04:11:57+00:00",
+  "harness_error": null,
+  "harness_sha256": "85081bc1996d7c007faa7f35e2d730759f70c6175d78387f0fea2defc393c501",
+  "limitations": [
+    "A zero NIC count is not proof that a packet was never built: ALE connect-layer WFP blocks happen before any packet exists.",
+    "NIC frames are not attributed to a process; a nonce on the wire may have been sent by the Dnscache broker on the probe's behalf.",
+    "nic_frames_sent counts UDP/53 query frames in the converted capture; if etl2pcap also emits drop events, sent is overcounted.",
+    "nic_frames_dropped counts txt records that contain the word drop and the nonce (ASCII or hex); drop reason and component are not parsed.",
+    "The word Filter is not a drop marker; such records are counted in filter_word_without_drop.",
+    "pktmon syntax beyond the repo-verified calls is unverified; every attempt is listed in pcap_conversions and txt_conversions.",
+    "DNS over TCP/53 is not parsed; nonce-bearing frames that do not parse are counted in pcap_unparsed.",
+    "capture_valid also requires every mode to have produced probe results; a mode that did not run makes the experiment invalid."
+  ],
+  "notes": [
+    "icacls C:\\hostedtoolcache\\windows\\Python\\3.14.9\\x64: exit 0",
+    "icacls C:\\RuleProxyDiagDns: exit 0",
+    "DeleteAppContainerProfile returned 0x00000000"
+  ],
+  "package_sid": "S-1-15-2-2346129105-2057727528-3384966300-2624438831-3238027797-1406634230-3703464686",
+  "plan": [
+    {
+      "api": "getaddrinfo",
+      "mode": "m1_outside_before",
+      "name": "rp1180e3470cd5.example.com",
+      "nonce": "rp1180e3470cd5"
+    },
+    {
+      "api": "gethostbyname",
+      "mode": "m1_outside_before",
+      "name": "rp12e984c5dc53.example.com",
+      "nonce": "rp12e984c5dc53"
+    },
+    {
+      "api": "dnsquery_a",
+      "mode": "m1_outside_before",
+      "name": "rp13a2924b7221.example.com",
+      "nonce": "rp13a2924b7221"
+    },
+    {
+      "api": "dnsquery_aaaa",
+      "mode": "m1_outside_before",
+      "name": "rp14d24a6b2edd.example.com",
+      "nonce": "rp14d24a6b2edd"
+    },
+    {
+      "api": "resolve_dnsname",
+      "mode": "m1_outside_before",
+      "name": "rp154b5d17f276.example.com",
+      "nonce": "rp154b5d17f276"
+    },
+    {
+      "api": "net_dns",
+      "mode": "m1_outside_before",
+      "name": "rp1656bb4b47b8.example.com",
+      "nonce": "rp1656bb4b47b8"
+    },
+    {
+      "api": "nslookup",
+      "mode": "m1_outside_before",
+      "name": "rp17f8372797be.example.com",
+      "nonce": "rp17f8372797be"
+    },
+    {
+      "api": "getaddrinfo",
+      "mode": "m2_ac_zero",
+      "name": "rp218975455b78.example.com",
+      "nonce": "rp218975455b78"
+    },
+    {
+      "api": "gethostbyname",
+      "mode": "m2_ac_zero",
+      "name": "rp22d6d9c01ca6.example.com",
+      "nonce": "rp22d6d9c01ca6"
+    },
+    {
+      "api": "dnsquery_a",
+      "mode": "m2_ac_zero",
+      "name": "rp2342ceb170ad.example.com",
+      "nonce": "rp2342ceb170ad"
+    },
+    {
+      "api": "dnsquery_aaaa",
+      "mode": "m2_ac_zero",
+      "name": "rp24830af6df4c.example.com",
+      "nonce": "rp24830af6df4c"
+    },
+    {
+      "api": "resolve_dnsname",
+      "mode": "m2_ac_zero",
+      "name": "rp259e044766be.example.com",
+      "nonce": "rp259e044766be"
+    },
+    {
+      "api": "net_dns",
+      "mode": "m2_ac_zero",
+      "name": "rp26539516dc1f.example.com",
+      "nonce": "rp26539516dc1f"
+    },
+    {
+      "api": "nslookup",
+      "mode": "m2_ac_zero",
+      "name": "rp2766ec7bc3ae.example.com",
+      "nonce": "rp2766ec7bc3ae"
+    },
+    {
+      "api": "getaddrinfo",
+      "mode": "m3_ac_zero_wfp",
+      "name": "rp3168ae864f65.example.com",
+      "nonce": "rp3168ae864f65"
+    },
+    {
+      "api": "gethostbyname",
+      "mode": "m3_ac_zero_wfp",
+      "name": "rp324368b58814.example.com",
+      "nonce": "rp324368b58814"
+    },
+    {
+      "api": "dnsquery_a",
+      "mode": "m3_ac_zero_wfp",
+      "name": "rp334b86e26269.example.com",
+      "nonce": "rp334b86e26269"
+    },
+    {
+      "api": "dnsquery_aaaa",
+      "mode": "m3_ac_zero_wfp",
+      "name": "rp343be45d8f90.example.com",
+      "nonce": "rp343be45d8f90"
+    },
+    {
+      "api": "resolve_dnsname",
+      "mode": "m3_ac_zero_wfp",
+      "name": "rp35740eb2e7b2.example.com",
+      "nonce": "rp35740eb2e7b2"
+    },
+    {
+      "api": "net_dns",
+      "mode": "m3_ac_zero_wfp",
+      "name": "rp36920269905e.example.com",
+      "nonce": "rp36920269905e"
+    },
+    {
+      "api": "nslookup",
+      "mode": "m3_ac_zero_wfp",
+      "name": "rp37f9279f61b1.example.com",
+      "nonce": "rp37f9279f61b1"
+    },
+    {
+      "api": "getaddrinfo",
+      "mode": "m4_ac_internet",
+      "name": "rp414ba34d4686.example.com",
+      "nonce": "rp414ba34d4686"
+    },
+    {
+      "api": "gethostbyname",
+      "mode": "m4_ac_internet",
+      "name": "rp42d5f149e58a.example.com",
+      "nonce": "rp42d5f149e58a"
+    },
+    {
+      "api": "dnsquery_a",
+      "mode": "m4_ac_internet",
+      "name": "rp43a49b28c99f.example.com",
+      "nonce": "rp43a49b28c99f"
+    },
+    {
+      "api": "dnsquery_aaaa",
+      "mode": "m4_ac_internet",
+      "name": "rp4484110e911e.example.com",
+      "nonce": "rp4484110e911e"
+    },
+    {
+      "api": "resolve_dnsname",
+      "mode": "m4_ac_internet",
+      "name": "rp45b01be2374f.example.com",
+      "nonce": "rp45b01be2374f"
+    },
+    {
+      "api": "net_dns",
+      "mode": "m4_ac_internet",
+      "name": "rp463c0b13e21f.example.com",
+      "nonce": "rp463c0b13e21f"
+    },
+    {
+      "api": "nslookup",
+      "mode": "m4_ac_internet",
+      "name": "rp4764a7ffaeac.example.com",
+      "nonce": "rp4764a7ffaeac"
+    },
+    {
+      "api": "getaddrinfo",
+      "mode": "m5_outside_after",
+      "name": "rp51bab426dafd.example.com",
+      "nonce": "rp51bab426dafd"
+    },
+    {
+      "api": "gethostbyname",
+      "mode": "m5_outside_after",
+      "name": "rp52d1e249cc37.example.com",
+      "nonce": "rp52d1e249cc37"
+    },
+    {
+      "api": "dnsquery_a",
+      "mode": "m5_outside_after",
+      "name": "rp53a21e6b30d6.example.com",
+      "nonce": "rp53a21e6b30d6"
+    },
+    {
+      "api": "dnsquery_aaaa",
+      "mode": "m5_outside_after",
+      "name": "rp54f15e260812.example.com",
+      "nonce": "rp54f15e260812"
+    },
+    {
+      "api": "resolve_dnsname",
+      "mode": "m5_outside_after",
+      "name": "rp5540bb024096.example.com",
+      "nonce": "rp5540bb024096"
+    },
+    {
+      "api": "net_dns",
+      "mode": "m5_outside_after",
+      "name": "rp5608147796e8.example.com",
+      "nonce": "rp5608147796e8"
+    },
+    {
+      "api": "nslookup",
+      "mode": "m5_outside_after",
+      "name": "rp5746d4e8712e.example.com",
+      "nonce": "rp5746d4e8712e"
+    }
+  ],
+  "runs": [
+    {
+      "capabilities": [],
+      "contained": false,
+      "elapsed": 15.03,
+      "env_attempts": [
+        {
+          "error_code": null,
+          "keys": [
+            "APPDATA",
+            "COMMONPROGRAMFILES",
+            "COMMONPROGRAMFILES(X86)",
+            "COMMONPROGRAMW6432",
+            "COMSPEC",
+            "HOME",
+            "LOCALAPPDATA",
+            "NUMBER_OF_PROCESSORS",
+            "OS",
+            "PATH",
+            "PATHEXT",
+            "PROCESSOR_ARCHITECTURE",
+            "PROCESSOR_LEVEL",
+            "PROCESSOR_REVISION",
+            "PROGRAMFILES",
+            "PROGRAMFILES(X86)",
+            "PROGRAMW6432",
+            "SYSTEMROOT",
+            "TEMP",
+            "TMP",
+            "USERPROFILE",
+            "WINDIR"
+          ],
+          "rung": "compat_base"
+        }
+      ],
+      "env_rung": "compat_base",
+      "error": null,
+      "finished_utc": "2026-10-25T04:10:30+00:00",
+      "loopback_exemption": false,
+      "mode": "m1_outside_before",
+      "package_filters": false,
+      "probe": {
+        "exit_code": 0,
+        "seconds": 15.09,
+        "started": true,
+        "timed_out": false
+      },
+      "probe_outcomes": {
+        "dnsquery_a": "exception: OSError: DnsQuery_W status 9501",
+        "dnsquery_aaaa": "exception: OSError: DnsQuery_W status 9501",
+        "getaddrinfo": "exception: gaierror: [Errno 11001] getaddrinfo failed",
+        "gethostbyname": "exception: gaierror: [Errno 11001] getaddrinfo failed",
+        "net_dns": "child_exit_code: 1",
+        "nslookup": "ok",
+        "resolve_dnsname": "timeout"
+      },
+      "ran": true,
+      "started_utc": "2026-10-25T04:10:09+00:00"
+    },
+    {
+      "capabilities": [],
+      "contained": true,
+      "elapsed": 15.04,
+      "env_attempts": [
+        {
+          "error_code": null,
+          "keys": [
+            "APPDATA",
+            "COMMONPROGRAMFILES",
+            "COMMONPROGRAMFILES(X86)",
+            "COMMONPROGRAMW6432",
+            "COMSPEC",
+            "HOME",
+            "LOCALAPPDATA",
+            "NUMBER_OF_PROCESSORS",
+            "OS",
+            "PATH",
+            "PATHEXT",
+            "PROCESSOR_ARCHITECTURE",
+            "PROCESSOR_LEVEL",
+            "PROCESSOR_REVISION",
+            "PROGRAMFILES",
+            "PROGRAMFILES(X86)",
+            "PROGRAMW6432",
+            "SYSTEMROOT",
+            "TEMP",
+            "TMP",
+            "USERPROFILE",
+            "WINDIR"
+          ],
+          "rung": "compat_base"
+        }
+      ],
+      "env_rung": "compat_base",
+      "error": null,
+      "finished_utc": "2026-10-25T04:10:51+00:00",
+      "loopback_exemption": false,
+      "mode": "m2_ac_zero",
+      "package_filters": false,
+      "probe": {
+        "exit_code": 0,
+        "seconds": 15.1,
+        "started": true,
+        "timed_out": false
+      },
+      "probe_outcomes": {
+        "dnsquery_a": "exception: OSError: DnsQuery_W status 87",
+        "dnsquery_aaaa": "exception: OSError: DnsQuery_W status 87",
+        "getaddrinfo": "exception: gaierror: [Errno 11001] getaddrinfo failed",
+        "gethostbyname": "exception: gaierror: [Errno 11001] getaddrinfo failed",
+        "net_dns": "child_exit_code: 1",
+        "nslookup": "ok",
+        "resolve_dnsname": "timeout"
+      },
+      "ran": true,
+      "started_utc": "2026-10-25T04:10:30+00:00"
+    },
+    {
+      "capabilities": [],
+      "contained": true,
+      "elapsed": 15.02,
+      "env_attempts": [
+        {
+          "error_code": null,
+          "keys": [
+            "APPDATA",
+            "COMMONPROGRAMFILES",
+            "COMMONPROGRAMFILES(X86)",
+            "COMMONPROGRAMW6432",
+            "COMSPEC",
+            "HOME",
+            "LOCALAPPDATA",
+            "NUMBER_OF_PROCESSORS",
+            "OS",
+            "PATH",
+            "PATHEXT",
+            "PROCESSOR_ARCHITECTURE",
+            "PROCESSOR_LEVEL",
+            "PROCESSOR_REVISION",
+            "PROGRAMFILES",
+            "PROGRAMFILES(X86)",
+            "PROGRAMW6432",
+            "SYSTEMROOT",
+            "TEMP",
+            "TMP",
+            "USERPROFILE",
+            "WINDIR"
+          ],
+          "rung": "compat_base"
+        }
+      ],
+      "env_rung": "compat_base",
+      "error": null,
+      "finished_utc": "2026-10-25T04:11:12+00:00",
+      "loopback_exemption": true,
+      "mode": "m3_ac_zero_wfp",
+      "package_filters": true,
+      "probe": {
+        "exit_code": 0,
+        "seconds": 15.09,
+        "started": true,
+        "timed_out": false
+      },
+      "probe_outcomes": {
+        "dnsquery_a": "exception: OSError: DnsQuery_W status 87",
+        "dnsquery_aaaa": "exception: OSError: DnsQuery_W status 87",
+        "getaddrinfo": "exception: gaierror: [Errno 11001] getaddrinfo failed",
+        "gethostbyname": "exception: gaierror: [Errno 11001] getaddrinfo failed",
+        "net_dns": "child_exit_code: 1",
+        "nslookup": "ok",
+        "resolve_dnsname": "timeout"
+      },
+      "ran": true,
+      "started_utc": "2026-10-25T04:10:51+00:00"
+    },
+    {
+      "capabilities": [
+        "S-1-15-3-1"
+      ],
+      "contained": true,
+      "elapsed": 15.02,
+      "env_attempts": [
+        {
+          "error_code": null,
+          "keys": [
+            "APPDATA",
+            "COMMONPROGRAMFILES",
+            "COMMONPROGRAMFILES(X86)",
+            "COMMONPROGRAMW6432",
+            "COMSPEC",
+            "HOME",
+            "LOCALAPPDATA",
+            "NUMBER_OF_PROCESSORS",
+            "OS",
+            "PATH",
+            "PATHEXT",
+            "PROCESSOR_ARCHITECTURE",
+            "PROCESSOR_LEVEL",
+            "PROCESSOR_REVISION",
+            "PROGRAMFILES",
+            "PROGRAMFILES(X86)",
+            "PROGRAMW6432",
+            "SYSTEMROOT",
+            "TEMP",
+            "TMP",
+            "USERPROFILE",
+            "WINDIR"
+          ],
+          "rung": "compat_base"
+        }
+      ],
+      "env_rung": "compat_base",
+      "error": null,
+      "finished_utc": "2026-10-25T04:11:33+00:00",
+      "loopback_exemption": false,
+      "mode": "m4_ac_internet",
+      "package_filters": false,
+      "probe": {
+        "exit_code": 0,
+        "seconds": 15.09,
+        "started": true,
+        "timed_out": false
+      },
+      "probe_outcomes": {
+        "dnsquery_a": "exception: OSError: DnsQuery_W status 9501",
+        "dnsquery_aaaa": "exception: OSError: DnsQuery_W status 9501",
+        "getaddrinfo": "exception: gaierror: [Errno 11001] getaddrinfo failed",
+        "gethostbyname": "exception: gaierror: [Errno 11001] getaddrinfo failed",
+        "net_dns": "child_exit_code: 1",
+        "nslookup": "ok",
+        "resolve_dnsname": "timeout"
+      },
+      "ran": true,
+      "started_utc": "2026-10-25T04:11:12+00:00"
+    },
+    {
+      "capabilities": [],
+      "contained": false,
+      "elapsed": 15.03,
+      "env_attempts": [
+        {
+          "error_code": null,
+          "keys": [
+            "APPDATA",
+            "COMMONPROGRAMFILES",
+            "COMMONPROGRAMFILES(X86)",
+            "COMMONPROGRAMW6432",
+            "COMSPEC",
+            "HOME",
+            "LOCALAPPDATA",
+            "NUMBER_OF_PROCESSORS",
+            "OS",
+            "PATH",
+            "PATHEXT",
+            "PROCESSOR_ARCHITECTURE",
+            "PROCESSOR_LEVEL",
+            "PROCESSOR_REVISION",
+            "PROGRAMFILES",
+            "PROGRAMFILES(X86)",
+            "PROGRAMW6432",
+            "SYSTEMROOT",
+            "TEMP",
+            "TMP",
+            "USERPROFILE",
+            "WINDIR"
+          ],
+          "rung": "compat_base"
+        }
+      ],
+      "env_rung": "compat_base",
+      "error": null,
+      "finished_utc": "2026-10-25T04:11:54+00:00",
+      "loopback_exemption": false,
+      "mode": "m5_outside_after",
+      "package_filters": false,
+      "probe": {
+        "exit_code": 0,
+        "seconds": 15.12,
+        "started": true,
+        "timed_out": false
+      },
+      "probe_outcomes": {
+        "dnsquery_a": "exception: OSError: DnsQuery_W status 9501",
+        "dnsquery_aaaa": "exception: OSError: DnsQuery_W status 9501",
+        "getaddrinfo": "exception: gaierror: [Errno 11001] getaddrinfo failed",
+        "gethostbyname": "exception: gaierror: [Errno 11001] getaddrinfo failed",
+        "net_dns": "child_exit_code: 1",
+        "nslookup": "ok",
+        "resolve_dnsname": "timeout"
+      },
+      "ran": true,
+      "started_utc": "2026-10-25T04:11:33+00:00"
+    }
+  ],
+  "schema": "windows-diag-dns/1",
+  "source_commit": "98ac1f3428716bd057d7cd58c332d2841e12b881",
+  "started_utc": "2026-10-25T04:10:04+00:00",
+  "verdict": {
+    "capture_valid": true,
+    "conclusion": "hypothesis_partially_supported",
+    "container_positive_control_seen": true,
+    "modes": {
+      "m1_outside_before": [
+        {
+          "api": "getaddrinfo",
+          "excerpts": [
+            "pcap t=1792901409484645888.000000 DNS query qtype=1 qname=rp1180e3470cd5.example.com sport=55497 bytes=86",
+            "pcap t=1792901409484657920.000000 DNS query qtype=1 qname=rp1180e3470cd5.example.com sport=55497 bytes=86"
+          ],
+          "filter_word_without_drop": 0,
+          "name": "rp1180e3470cd5.example.com",
+          "nic_frames_dropped": 0,
+          "nic_frames_sent": 2,
+          "nonce": "rp1180e3470cd5",
+          "pcap_responses": 2,
+          "pcap_unparsed": 0,
+          "probe_outcome": "exception: gaierror: [Errno 11001] getaddrinfo failed",
+          "txt_records": 2
+        },
+        {
+          "api": "gethostbyname",
+          "excerpts": [
+            "pcap t=1792901409484715008.000000 DNS query qtype=1 qname=rp12e984c5dc53.example.com sport=56936 bytes=86",
+            "pcap t=1792901409484719104.000000 DNS query qtype=1 qname=rp12e984c5dc53.example.com sport=56936 bytes=86"
+          ],
+          "filter_word_without_drop": 0,
+          "name": "rp12e984c5dc53.example.com",
+          "nic_frames_dropped": 0,
+          "nic_frames_sent": 2,
+          "nonce": "rp12e984c5dc53",
+          "pcap_responses": 2,
+          "pcap_unparsed": 0,
+          "probe_outcome": "exception: gaierror: [Errno 11001] getaddrinfo failed",
+          "txt_records": 2
+        },
+        {
+          "api": "dnsquery_a",
+          "excerpts": [
+            "pcap t=1792901409484333056.000000 DNS query qtype=1 qname=rp13a2924b7221.example.com sport=54245 bytes=86",
+            "pcap t=1792901409484336128.000000 DNS query qtype=1 qname=rp13a2924b7221.example.com sport=54245 bytes=86"
+          ],
+          "filter_word_without_drop": 0,
+          "name": "rp13a2924b7221.example.com",
+          "nic_frames_dropped": 0,
+          "nic_frames_sent": 2,
+          "nonce": "rp13a2924b7221",
+          "pcap_responses": 2,
+          "pcap_unparsed": 0,
+          "probe_outcome": "exception: OSError: DnsQuery_W status 9501",
+          "txt_records": 2
+        },
+        {
+          "api": "dnsquery_aaaa",
+          "excerpts": [
+            "pcap t=1792901409484296960.000000 DNS query qtype=28 qname=rp14d24a6b2edd.example.com sport=49169 bytes=86",
+            "pcap t=1792901409484311040.000000 DNS query qtype=28 qname=rp14d24a6b2edd.example.com sport=49169 bytes=86"
+          ],
+          "filter_word_without_drop": 0,
+          "name": "rp14d24a6b2edd.example.com",
+          "nic_frames_dropped": 0,
+          "nic_frames_sent": 2,
+          "nonce": "rp14d24a6b2edd",
+          "pcap_responses": 2,
+          "pcap_unparsed": 0,
+          "probe_outcome": "exception: OSError: DnsQuery_W status 9501",
+          "txt_records": 2
+        },
+        {
+          "api": "resolve_dnsname",
+          "excerpts": [],
+          "filter_word_without_drop": 0,
+          "name": "rp154b5d17f276.example.com",
+          "nic_frames_dropped": 0,
+          "nic_frames_sent": 0,
+          "nonce": "rp154b5d17f276",
+          "pcap_responses": 0,
+          "pcap_unparsed": 0,
+          "probe_outcome": "timeout",
+          "txt_records": 0
+        },
+        {
+          "api": "net_dns",
+          "excerpts": [
+            "pcap t=1792901411729702912.000000 DNS query qtype=1 qname=rp1656bb4b47b8.example.com sport=49169 bytes=86",
+            "pcap t=1792901411729707008.000000 DNS query qtype=1 qname=rp1656bb4b47b8.example.com sport=49169 bytes=86"
+          ],
+          "filter_word_without_drop": 0,
+          "name": "rp1656bb4b47b8.example.com",
+          "nic_frames_dropped": 0,
+          "nic_frames_sent": 2,
+          "nonce": "rp1656bb4b47b8",
+          "pcap_responses": 2,
+          "pcap_unparsed": 0,
+          "probe_outcome": "child_exit_code: 1",
+          "txt_records": 2
+        },
+        {
+          "api": "nslookup",
+          "excerpts": [
+            "pcap t=1792901409527983104.000000 DNS query qtype=1 qname=rp17f8372797be.example.com.b3ahmjqv2zaurjd2fja4jkzx4b.gx.internal.cloudapp.net sport=55499 bytes=138",
+            "pcap t=1792901409527985920.000000 DNS query qtype=1 qname=rp17f8372797be.example.com.b3ahmjqv2zaurjd2fja4jkzx4b.gx.internal.cloudapp.net sport=55499 bytes=138",
+            "pcap t=1792901409534970880.000000 DNS query qtype=28 qname=rp17f8372797be.example.com.b3ahmjqv2zaurjd2fja4jkzx4b.gx.internal.cloudapp.net sport=55500 bytes=138"
+          ],
+          "filter_word_without_drop": 0,
+          "name": "rp17f8372797be.example.com",
+          "nic_frames_dropped": 0,
+          "nic_frames_sent": 16,
+          "nonce": "rp17f8372797be",
+          "pcap_responses": 16,
+          "pcap_unparsed": 0,
+          "probe_outcome": "ok",
+          "txt_records": 16
+        }
+      ],
+      "m2_ac_zero": [
+        {
+          "api": "getaddrinfo",
+          "excerpts": [],
+          "filter_word_without_drop": 0,
+          "name": "rp218975455b78.example.com",
+          "nic_frames_dropped": 0,
+          "nic_frames_sent": 0,
+          "nonce": "rp218975455b78",
+          "pcap_responses": 0,
+          "pcap_unparsed": 0,
+          "probe_outcome": "exception: gaierror: [Errno 11001] getaddrinfo failed",
+          "txt_records": 0
+        },
+        {
+          "api": "gethostbyname",
+          "excerpts": [],
+          "filter_word_without_drop": 0,
+          "name": "rp22d6d9c01ca6.example.com",
+          "nic_frames_dropped": 0,
+          "nic_frames_sent": 0,
+          "nonce": "rp22d6d9c01ca6",
+          "pcap_responses": 0,
+          "pcap_unparsed": 0,
+          "probe_outcome": "exception: gaierror: [Errno 11001] getaddrinfo failed",
+          "txt_records": 0
+        },
+        {
+          "api": "dnsquery_a",
+          "excerpts": [],
+          "filter_word_without_drop": 0,
+          "name": "rp2342ceb170ad.example.com",
+          "nic_frames_dropped": 0,
+          "nic_frames_sent": 0,
+          "nonce": "rp2342ceb170ad",
+          "pcap_responses": 0,
+          "pcap_unparsed": 0,
+          "probe_outcome": "exception: OSError: DnsQuery_W status 87",
+          "txt_records": 0
+        },
+        {
+          "api": "dnsquery_aaaa",
+          "excerpts": [],
+          "filter_word_without_drop": 0,
+          "name": "rp24830af6df4c.example.com",
+          "nic_frames_dropped": 0,
+          "nic_frames_sent": 0,
+          "nonce": "rp24830af6df4c",
+          "pcap_responses": 0,
+          "pcap_unparsed": 0,
+          "probe_outcome": "exception: OSError: DnsQuery_W status 87",
+          "txt_records": 0
+        },
+        {
+          "api": "resolve_dnsname",
+          "excerpts": [],
+          "filter_word_without_drop": 0,
+          "name": "rp259e044766be.example.com",
+          "nic_frames_dropped": 0,
+          "nic_frames_sent": 0,
+          "nonce": "rp259e044766be",
+          "pcap_responses": 0,
+          "pcap_unparsed": 0,
+          "probe_outcome": "timeout",
+          "txt_records": 0
+        },
+        {
+          "api": "net_dns",
+          "excerpts": [],
+          "filter_word_without_drop": 0,
+          "name": "rp26539516dc1f.example.com",
+          "nic_frames_dropped": 0,
+          "nic_frames_sent": 0,
+          "nonce": "rp26539516dc1f",
+          "pcap_responses": 0,
+          "pcap_unparsed": 0,
+          "probe_outcome": "child_exit_code: 1",
+          "txt_records": 0
+        },
+        {
+          "api": "nslookup",
+          "excerpts": [],
+          "filter_word_without_drop": 0,
+          "name": "rp2766ec7bc3ae.example.com",
+          "nic_frames_dropped": 0,
+          "nic_frames_sent": 0,
+          "nonce": "rp2766ec7bc3ae",
+          "pcap_responses": 0,
+          "pcap_unparsed": 0,
+          "probe_outcome": "ok",
+          "txt_records": 0
+        }
+      ],
+      "m3_ac_zero_wfp": [
+        {
+          "api": "getaddrinfo",
+          "excerpts": [],
+          "filter_word_without_drop": 0,
+          "name": "rp3168ae864f65.example.com",
+          "nic_frames_dropped": 0,
+          "nic_frames_sent": 0,
+          "nonce": "rp3168ae864f65",
+          "pcap_responses": 0,
+          "pcap_unparsed": 0,
+          "probe_outcome": "exception: gaierror: [Errno 11001] getaddrinfo failed",
+          "txt_records": 0
+        },
+        {
+          "api": "gethostbyname",
+          "excerpts": [],
+          "filter_word_without_drop": 0,
+          "name": "rp324368b58814.example.com",
+          "nic_frames_dropped": 0,
+          "nic_frames_sent": 0,
+          "nonce": "rp324368b58814",
+          "pcap_responses": 0,
+          "pcap_unparsed": 0,
+          "probe_outcome": "exception: gaierror: [Errno 11001] getaddrinfo failed",
+          "txt_records": 0
+        },
+        {
+          "api": "dnsquery_a",
+          "excerpts": [],
+          "filter_word_without_drop": 0,
+          "name": "rp334b86e26269.example.com",
+          "nic_frames_dropped": 0,
+          "nic_frames_sent": 0,
+          "nonce": "rp334b86e26269",
+          "pcap_responses": 0,
+          "pcap_unparsed": 0,
+          "probe_outcome": "exception: OSError: DnsQuery_W status 87",
+          "txt_records": 0
+        },
+        {
+          "api": "dnsquery_aaaa",
+          "excerpts": [],
+          "filter_word_without_drop": 0,
+          "name": "rp343be45d8f90.example.com",
+          "nic_frames_dropped": 0,
+          "nic_frames_sent": 0,
+          "nonce": "rp343be45d8f90",
+          "pcap_responses": 0,
+          "pcap_unparsed": 0,
+          "probe_outcome": "exception: OSError: DnsQuery_W status 87",
+          "txt_records": 0
+        },
+        {
+          "api": "resolve_dnsname",
+          "excerpts": [],
+          "filter_word_without_drop": 0,
+          "name": "rp35740eb2e7b2.example.com",
+          "nic_frames_dropped": 0,
+          "nic_frames_sent": 0,
+          "nonce": "rp35740eb2e7b2",
+          "pcap_responses": 0,
+          "pcap_unparsed": 0,
+          "probe_outcome": "timeout",
+          "txt_records": 0
+        },
+        {
+          "api": "net_dns",
+          "excerpts": [],
+          "filter_word_without_drop": 0,
+          "name": "rp36920269905e.example.com",
+          "nic_frames_dropped": 0,
+          "nic_frames_sent": 0,
+          "nonce": "rp36920269905e",
+          "pcap_responses": 0,
+          "pcap_unparsed": 0,
+          "probe_outcome": "child_exit_code: 1",
+          "txt_records": 0
+        },
+        {
+          "api": "nslookup",
+          "excerpts": [],
+          "filter_word_without_drop": 0,
+          "name": "rp37f9279f61b1.example.com",
+          "nic_frames_dropped": 0,
+          "nic_frames_sent": 0,
+          "nonce": "rp37f9279f61b1",
+          "pcap_responses": 0,
+          "pcap_unparsed": 0,
+          "probe_outcome": "ok",
+          "txt_records": 0
+        }
+      ],
+      "m4_ac_internet": [
+        {
+          "api": "getaddrinfo",
+          "excerpts": [
+            "pcap t=1792901472784470016.000000 DNS query qtype=1 qname=rp414ba34d4686.example.com sport=49169 bytes=86",
+            "pcap t=1792901472784475904.000000 DNS query qtype=1 qname=rp414ba34d4686.example.com sport=49169 bytes=86"
+          ],
+          "filter_word_without_drop": 0,
+          "name": "rp414ba34d4686.example.com",
+          "nic_frames_dropped": 0,
+          "nic_frames_sent": 2,
+          "nonce": "rp414ba34d4686",
+          "pcap_responses": 2,
+          "pcap_unparsed": 0,
+          "probe_outcome": "exception: gaierror: [Errno 11001] getaddrinfo failed",
+          "txt_records": 2
+        },
+        {
+          "api": "gethostbyname",
+          "excerpts": [
+            "pcap t=1792901472784470016.000000 DNS query qtype=1 qname=rp42d5f149e58a.example.com sport=54245 bytes=86",
+            "pcap t=1792901472784474880.000000 DNS query qtype=1 qname=rp42d5f149e58a.example.com sport=54245 bytes=86"
+          ],
+          "filter_word_without_drop": 0,
+          "name": "rp42d5f149e58a.example.com",
+          "nic_frames_dropped": 0,
+          "nic_frames_sent": 2,
+          "nonce": "rp42d5f149e58a",
+          "pcap_responses": 2,
+          "pcap_unparsed": 0,
+          "probe_outcome": "exception: gaierror: [Errno 11001] getaddrinfo failed",
+          "txt_records": 2
+        },
+        {
+          "api": "dnsquery_a",
+          "excerpts": [
+            "pcap t=1792901472784475904.000000 DNS query qtype=1 qname=rp43a49b28c99f.example.com sport=56936 bytes=86",
+            "pcap t=1792901472784480000.000000 DNS query qtype=1 qname=rp43a49b28c99f.example.com sport=56936 bytes=86"
+          ],
+          "filter_word_without_drop": 0,
+          "name": "rp43a49b28c99f.example.com",
+          "nic_frames_dropped": 0,
+          "nic_frames_sent": 2,
+          "nonce": "rp43a49b28c99f",
+          "pcap_responses": 2,
+          "pcap_unparsed": 0,
+          "probe_outcome": "exception: OSError: DnsQuery_W status 9501",
+          "txt_records": 2
+        },
+        {
+          "api": "dnsquery_aaaa",
+          "excerpts": [
+            "pcap t=1792901472784475904.000000 DNS query qtype=28 qname=rp4484110e911e.example.com sport=55497 bytes=86",
+            "pcap t=1792901472784480000.000000 DNS query qtype=28 qname=rp4484110e911e.example.com sport=55497 bytes=86"
+          ],
+          "filter_word_without_drop": 0,
+          "name": "rp4484110e911e.example.com",
+          "nic_frames_dropped": 0,
+          "nic_frames_sent": 2,
+          "nonce": "rp4484110e911e",
+          "pcap_responses": 2,
+          "pcap_unparsed": 0,
+          "probe_outcome": "exception: OSError: DnsQuery_W status 9501",
+          "txt_records": 2
+        },
+        {
+          "api": "resolve_dnsname",
+          "excerpts": [],
+          "filter_word_without_drop": 0,
+          "name": "rp45b01be2374f.example.com",
+          "nic_frames_dropped": 0,
+          "nic_frames_sent": 0,
+          "nonce": "rp45b01be2374f",
+          "pcap_responses": 0,
+          "pcap_unparsed": 0,
+          "probe_outcome": "timeout",
+          "txt_records": 0
+        },
+        {
+          "api": "net_dns",
+          "excerpts": [
+            "pcap t=1792901472976785920.000000 DNS query qtype=1 qname=rp463c0b13e21f.example.com sport=56936 bytes=86",
+            "pcap t=1792901472976791040.000000 DNS query qtype=1 qname=rp463c0b13e21f.example.com sport=56936 bytes=86"
+          ],
+          "filter_word_without_drop": 0,
+          "name": "rp463c0b13e21f.example.com",
+          "nic_frames_dropped": 0,
+          "nic_frames_sent": 2,
+          "nonce": "rp463c0b13e21f",
+          "pcap_responses": 2,
+          "pcap_unparsed": 0,
+          "probe_outcome": "child_exit_code: 1",
+          "txt_records": 2
+        },
+        {
+          "api": "nslookup",
+          "excerpts": [
+            "pcap t=1792901472835355904.000000 DNS query qtype=1 qname=rp4764a7ffaeac.example.com.b3ahmjqv2zaurjd2fja4jkzx4b.gx.internal.cloudapp.net sport=55518 bytes=138",
+            "pcap t=1792901472835358976.000000 DNS query qtype=1 qname=rp4764a7ffaeac.example.com.b3ahmjqv2zaurjd2fja4jkzx4b.gx.internal.cloudapp.net sport=55518 bytes=138",
+            "pcap t=1792901472838998016.000000 DNS query qtype=28 qname=rp4764a7ffaeac.example.com.b3ahmjqv2zaurjd2fja4jkzx4b.gx.internal.cloudapp.net sport=55519 bytes=138"
+          ],
+          "filter_word_without_drop": 0,
+          "name": "rp4764a7ffaeac.example.com",
+          "nic_frames_dropped": 0,
+          "nic_frames_sent": 16,
+          "nonce": "rp4764a7ffaeac",
+          "pcap_responses": 16,
+          "pcap_unparsed": 0,
+          "probe_outcome": "ok",
+          "txt_records": 16
+        }
+      ],
+      "m5_outside_after": [
+        {
+          "api": "getaddrinfo",
+          "excerpts": [
+            "pcap t=1792901493897561088.000000 DNS query qtype=1 qname=rp51bab426dafd.example.com sport=54245 bytes=86",
+            "pcap t=1792901493897565952.000000 DNS query qtype=1 qname=rp51bab426dafd.example.com sport=54245 bytes=86"
+          ],
+          "filter_word_without_drop": 0,
+          "name": "rp51bab426dafd.example.com",
+          "nic_frames_dropped": 0,
+          "nic_frames_sent": 2,
+          "nonce": "rp51bab426dafd",
+          "pcap_responses": 2,
+          "pcap_unparsed": 0,
+          "probe_outcome": "exception: gaierror: [Errno 11001] getaddrinfo failed",
+          "txt_records": 2
+        },
+        {
+          "api": "gethostbyname",
+          "excerpts": [
+            "pcap t=1792901493897561088.000000 DNS query qtype=1 qname=rp52d1e249cc37.example.com sport=49169 bytes=86",
+            "pcap t=1792901493897565952.000000 DNS query qtype=1 qname=rp52d1e249cc37.example.com sport=49169 bytes=86"
+          ],
+          "filter_word_without_drop": 0,
+          "name": "rp52d1e249cc37.example.com",
+          "nic_frames_dropped": 0,
+          "nic_frames_sent": 2,
+          "nonce": "rp52d1e249cc37",
+          "pcap_responses": 2,
+          "pcap_unparsed": 0,
+          "probe_outcome": "exception: gaierror: [Errno 11001] getaddrinfo failed",
+          "txt_records": 2
+        },
+        {
+          "api": "dnsquery_a",
+          "excerpts": [
+            "pcap t=1792901493897564928.000000 DNS query qtype=1 qname=rp53a21e6b30d6.example.com sport=55497 bytes=86",
+            "pcap t=1792901493897569024.000000 DNS query qtype=1 qname=rp53a21e6b30d6.example.com sport=55497 bytes=86"
+          ],
+          "filter_word_without_drop": 0,
+          "name": "rp53a21e6b30d6.example.com",
+          "nic_frames_dropped": 0,
+          "nic_frames_sent": 2,
+          "nonce": "rp53a21e6b30d6",
+          "pcap_responses": 2,
+          "pcap_unparsed": 0,
+          "probe_outcome": "exception: OSError: DnsQuery_W status 9501",
+          "txt_records": 2
+        },
+        {
+          "api": "dnsquery_aaaa",
+          "excerpts": [
+            "pcap t=1792901493897625088.000000 DNS query qtype=28 qname=rp54f15e260812.example.com sport=56936 bytes=86",
+            "pcap t=1792901493897626112.000000 DNS query qtype=28 qname=rp54f15e260812.example.com sport=56936 bytes=86"
+          ],
+          "filter_word_without_drop": 0,
+          "name": "rp54f15e260812.example.com",
+          "nic_frames_dropped": 0,
+          "nic_frames_sent": 2,
+          "nonce": "rp54f15e260812",
+          "pcap_responses": 2,
+          "pcap_unparsed": 0,
+          "probe_outcome": "exception: OSError: DnsQuery_W status 9501",
+          "txt_records": 2
+        },
+        {
+          "api": "resolve_dnsname",
+          "excerpts": [],
+          "filter_word_without_drop": 0,
+          "name": "rp5540bb024096.example.com",
+          "nic_frames_dropped": 0,
+          "nic_frames_sent": 0,
+          "nonce": "rp5540bb024096",
+          "pcap_responses": 0,
+          "pcap_unparsed": 0,
+          "probe_outcome": "timeout",
+          "txt_records": 0
+        },
+        {
+          "api": "net_dns",
+          "excerpts": [
+            "pcap t=1792901494286369024.000000 DNS query qtype=1 qname=rp5608147796e8.example.com sport=54245 bytes=86",
+            "pcap t=1792901494286373120.000000 DNS query qtype=1 qname=rp5608147796e8.example.com sport=54245 bytes=86"
+          ],
+          "filter_word_without_drop": 0,
+          "name": "rp5608147796e8.example.com",
+          "nic_frames_dropped": 0,
+          "nic_frames_sent": 2,
+          "nonce": "rp5608147796e8",
+          "pcap_responses": 2,
+          "pcap_unparsed": 0,
+          "probe_outcome": "child_exit_code: 1",
+          "txt_records": 2
+        },
+        {
+          "api": "nslookup",
+          "excerpts": [
+            "pcap t=1792901493963592960.000000 DNS query qtype=1 qname=rp5746d4e8712e.example.com.b3ahmjqv2zaurjd2fja4jkzx4b.gx.internal.cloudapp.net sport=55527 bytes=138",
+            "pcap t=1792901493963597056.000000 DNS query qtype=1 qname=rp5746d4e8712e.example.com.b3ahmjqv2zaurjd2fja4jkzx4b.gx.internal.cloudapp.net sport=55527 bytes=138",
+            "pcap t=1792901493976160000.000000 DNS query qtype=28 qname=rp5746d4e8712e.example.com.b3ahmjqv2zaurjd2fja4jkzx4b.gx.internal.cloudapp.net sport=55528 bytes=138"
+          ],
+          "filter_word_without_drop": 0,
+          "name": "rp5746d4e8712e.example.com",
+          "nic_frames_dropped": 0,
+          "nic_frames_sent": 16,
+          "nonce": "rp5746d4e8712e",
+          "pcap_responses": 16,
+          "pcap_unparsed": 0,
+          "probe_outcome": "ok",
+          "txt_records": 16
+        }
+      ]
+    },
+    "zero_cap_dns_dropped_by_wfp": false,
+    "zero_cap_dns_reached_nic": false,
+    "zero_cap_wfp_dns_reached_nic": false
+  },
+  "windows": [
+    10,
+    0,
+    26100,
+    2
+  ]
+}
