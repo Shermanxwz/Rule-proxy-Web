@@ -335,12 +335,56 @@ class GateTests(unittest.TestCase):
         gate, api = self.gate()
         self.allow(gate, NAME, 7890, 4321, 555)
         next_boot = str(uuid.uuid4())
-        recovered = ns.NamespaceGate(self.metadata, api=api, relay_factory=FakeRelay, boot_id=next_boot)
-        with self.assertRaises(policy.ProxyError):
-            self.allow(recovered, NAME, 7890, 4321, 556)
+        # While a recorded compartment is still live it is the same boot: the
+        # crashed (dirty) record stays sealed instead of being reset.
+        same_boot = ns.NamespaceGate(self.metadata, api=api, relay_factory=FakeRelay, boot_id=next_boot)
+        with self.assertRaises(policy.ProxyError) as caught:
+            self.allow(same_boot, NAME, 7890, 4321, 556)
+        self.assertEqual(caught.exception.code, "namespace_reboot_required")
+        # A real reboot removes every compartment; only then is the journal
+        # discarded and the per-boot allocation quota reset.
         api.rows.clear()
+        recovered = ns.NamespaceGate(self.metadata, api=api, relay_factory=FakeRelay, boot_id=next_boot)
         self.allow(recovered, NAME, 7890, 4321, 556)
         self.assertEqual(recovered.active[NAME]["cid"], 3)
+        self.assertEqual(json.loads(recovered.path.read_text())["boot_id"], next_boot)
+
+    def test_same_boot_reinstall_adopts_journal_and_reuses_clean_compartment(self):
+        # Uninstall deletes the service registration and its volatile boot key;
+        # a reinstall in the same boot gets a new key while the compartment lives.
+        gate, api = self.gate()
+        self.allow(gate, NAME, 7890, 4321, 555)
+        gate.revoke(NAME)
+        reinstalled = str(uuid.uuid4())
+        recovered = ns.NamespaceGate(self.metadata, api=api, relay_factory=FakeRelay, boot_id=reinstalled)
+        self.assertEqual(recovered.purge(), {"active": False, "purged": [NAME]})
+        self.allow(recovered, NAME, 7890, 4321, 556)
+        self.assertEqual([c for c in api.calls if c[0] == "create"], [("create", 2)])
+        self.assertEqual(recovered.active[NAME]["cid"], 2)
+        self.assertEqual(json.loads(recovered.path.read_text())["boot_id"], reinstalled)
+
+    def test_same_boot_reinstall_keeps_unconfirmed_compartment_sealed(self):
+        gate, api = self.gate()
+        self.allow(gate, NAME, 7890, 4321, 555)  # never revoked: termination unconfirmed
+        recovered = ns.NamespaceGate(self.metadata, api=api, relay_factory=FakeRelay,
+                                     boot_id=str(uuid.uuid4()))
+        self.assertEqual(recovered.purge(), {"active": False, "purged": [NAME]})
+        before = len(FakeRelay.instances)
+        with self.assertRaises(policy.ProxyError) as caught:
+            self.allow(recovered, NAME, 7890, 4321, 556)
+        self.assertEqual(caught.exception.code, "namespace_reboot_required")
+        self.assertEqual(len(FakeRelay.instances), before)
+        self.assertEqual([c for c in api.calls if c[0] == "create"], [("create", 2)])
+
+    def test_same_boot_reinstall_still_refuses_a_changed_compartment_identity(self):
+        gate, api = self.gate()
+        self.allow(gate, NAME, 7890, 4321, 555)
+        gate.revoke(NAME)
+        api.rows[2]["CompartmentDescription"] = "foreign"
+        recovered = ns.NamespaceGate(self.metadata, api=api, relay_factory=FakeRelay,
+                                     boot_id=str(uuid.uuid4()))
+        with self.assertRaises(policy.ProxyError):
+            recovered.purge()
 
     def test_quota_retains_stopped_app_records(self):
         gate, api = self.gate()

@@ -558,8 +558,9 @@ class NamespaceGate:
 
     A bound compartment is never deleted: some Windows builds return 1359 and
     may leave the object unusable. The protected journal limits allocations to
-    128 per boot, retains identities across service restarts and never reopens
-    a compartment whose previous Job termination could not be confirmed.
+    128 per boot, retains identities across service restarts and same-boot
+    reinstalls, and never reopens a compartment whose previous Job termination
+    could not be confirmed.
     """
 
     MAX_COMPARTMENTS = 128
@@ -668,9 +669,14 @@ class NamespaceGate:
             except (OSError, ValueError, TypeError, KeyError) as exc:
                 raise ProxyError("namespace_conflict", "隔间恢复记录损坏，未创建或接管隔间。") from exc
         if raw and raw["boot_id"] != self._boot_id:
-            if any(record["guid"] in inventory for record in raw["compartments"].values()):
-                raise ProxyError("namespace_conflict", "启动身份已改变但旧隔间仍存在，需重启 Windows 后重试。")
-            raw = None
+            if not any(record["guid"] in inventory for record in raw["compartments"].values()):
+                raw = None  # None of the recorded compartments survived: a previous boot.
+            # Otherwise this is still the same boot. Compartments never survive a
+            # reboot, so a live recorded GUID proves that only the volatile boot key
+            # was lost, e.g. uninstall deleted the service registration before a
+            # reinstall. Adopt the journal under the current boot identity; the
+            # identity, CID and phase checks below still refuse any mismatch, and a
+            # dirty record stays sealed until a real reboot.
         records = raw["compartments"] if raw else {}
         known = {record["guid"] for record in records.values()}
         if any(isinstance(description, str) and description.startswith(self.marker) and guid not in known
