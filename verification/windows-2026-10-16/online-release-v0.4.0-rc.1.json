@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "status": "audited_source_prerelease_candidate",
+  "release_tag": "v0.4.0-rc.1",
+  "source_base_commit": "52ba7dc3",
+  "online_zip": {
+    "name": "RuleProxy-Web-0.4.0-windows-x64-online-setup.zip",
+    "sha256": "7a90f64dfa5129d4bf02a1b78160a2093fd49a3fa5e66dc61933530fc9305583",
+    "bytes": 350200
+  },
+  "archive_members": 64,
+  "prior_release": "v0.3.0",
+  "change": "Removed the experimental Windows network compartment; Windows offers compatibility mode (ProxiFyre path routing) only. Saved compartment apps migrate to compatibility mode. The outbound guard stays off by default after a native measurement showed it blocks path-routed programs.",
+  "personal_yaml_or_nodes_included": false,
+  "third_party_binaries_bundled_in_online_zip": false,
+  "local_validation": {
+    "full_suite_tests": 3715,
+    "failures": 4,
+    "failure_scope": "Linux bubblewrap containment tests only; identical failures on unmodified main on the same host (Ubuntu 26.04 restricts unprivileged user namespaces). They pass in the CI matrix below.",
+    "platform_skips": 85
+  },
+  "known_limitations": [
+    "Windows per-application ProxiFyre remains path-based, with DNS/IPv6/fault limits; no Linux-equivalent isolation guarantee.",
+    "The outbound guard blocks programs that rely on ProxiFyre redirection (WinError 10013 on TCP, UDP timeouts); it only suits applications that use the local proxy themselves and is off by default.",
+    "System proxy covers applications honoring current-user WinINet or GNOME gsettings only.",
+    "Windows 11 visible-desktop browser phase has never passed in KVM; Windows 11 qualification remains incomplete."
+  ],
+  "ci_validation": {
+    "check_run": 40307988706,
+    "check_source_commit": "52ba7dc3",
+    "jobs_passed": 8,
+    "installed_product_run": 40285546298,
+    "installed_product_source_commit": "1ecca1d",
+    "installed_product_status": "passed_server_product_qualification",
+    "windows_11_native": "all 16 routing phases passed; visible Edge window phase timed out after 45 s",
+    "full_windows_11_qualification": false,
+    "app_guard_measurement_run": 40304434929,
+    "app_guard_measurement": "guard on: selected and helper TCP WinError 10013, UDP timeout; unselected direct connected; guard off restored routing",
+    "check_flaky_rerun": "40307996632 (same commit) had one Windows py3.14 real-Edge timeout in test_real_sandboxed_edge_executes_panel_state_fetch_under_current_token; failed job rerun"
+  },
+  "post_product_run_changes": [
+    "README.md and CHANGELOG.md document the outbound guard measurement.",
+    "web/index.html adds a warning to the outbound guard description; no execution code changed after the product run."
+  ]
+}
