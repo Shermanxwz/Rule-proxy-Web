@@ -1,6 +1,6 @@
 # Third-party components
 
-The Windows 0.3.0 personal offline package uses the following fixed components. Source checkouts do not commit these runtime binaries or user configuration. Asset URLs and SHA-256 values are recorded in [windows_proxy_pins.py](ruleproxy/windows_proxy_pins.py); the built package records each shipped file in `package-manifest.json`.
+The Windows 0.4.0 personal offline package uses the following fixed components. Source checkouts do not commit these runtime binaries or user configuration. Asset URLs and SHA-256 values are recorded in [windows_proxy_pins.py](ruleproxy/windows_proxy_pins.py); the built package records each shipped file in `package-manifest.json`.
 
 | Component | Version | License and source |
 |---|---|---|

@@ -141,7 +141,7 @@
 
       const appInfo = textElement('div', 'app-info');
       appInfo.append(textElement('strong', 'app-name', app.label || '未命名应用'));
-      const statusText = app.profile_preparing ? '检查应用资料…' : (app.cleanup_pending ? '清理待完成' : (app.active ? (isGlobal() ? '全局代理中运行' : (isWindows() ? (app.windows_container ? '独立网络（实验）运行中' : '代理中运行') : '隔离中运行')) : (app.routed ? (isGlobal() ? '全局接管已启用' : '路径代理已启用') : (app.enabled ? '待启动' : '未启用'))));
+      const statusText = app.profile_preparing ? '检查应用资料…' : (app.cleanup_pending ? '清理待完成' : (app.active ? (isGlobal() ? '全局代理中运行' : (isWindows() ? '代理中运行' : '隔离中运行')) : (app.routed ? (isGlobal() ? '全局接管已启用' : '路径代理已启用') : (app.enabled ? '待启动' : '未启用'))));
       const statusClass = (app.profile_preparing || app.cleanup_pending) ? 'is-pending' : (app.active ? 'is-active' : (app.enabled ? 'is-enabled' : ''));
       appInfo.append(textElement('span', `app-inline-status ${statusClass}`, statusText));
       const appPath = textElement('span', 'app-path', app.path || '未设置路径');
@@ -225,37 +225,7 @@
       profileLabel.append(profile, textElement('span', '', label));
       tools.append(profileLabel);
     }
-    if (isWindows() && !isGlobal() && !app.store_binding && app.use_original_data !== true) {
-      tools.append(isolationOption(app));
-    }
     return tools;
-  }
-
-  function isolationOption(app) {
-    const optionLabel = textElement('label', 'app-profile-option');
-    const label = '独立网络（实验）';
-    optionLabel.title = '隔离本次启动实例的直接网络访问，提供本机代理通道。已知系统 DNS 可外发，WMI 等系统服务仍可代为联网；不提供 Linux 等效防泄漏。商店应用和共用原应用资料模式不支持。';
-    const option = document.createElement('input');
-    option.type = 'checkbox';
-    option.title = optionLabel.title;
-    option.checked = app.windows_container === true;
-    option.disabled = busy || !!app.active || !!app.cleanup_pending || !!app.profile_preparing;
-    option.dataset.appId = String(app.id);
-    option.dataset.appControl = `${app.id}:isolation`;
-    option.setAttribute('aria-label', `${app.label || '应用'}：${label}`);
-    option.addEventListener('change', () => {
-      if (busy || app.active || app.cleanup_pending || app.profile_preparing) {
-        option.checked = app.windows_container === true;
-        return;
-      }
-      mutate(`/api/apps/${encodeURIComponent(app.id)}/isolation`, {
-        body: { windows_container: option.checked },
-      }).then((result) => {
-        if (!result) option.checked = app.windows_container === true;
-      });
-    });
-    optionLabel.append(option, textElement('span', '', label));
-    return optionLabel;
   }
 
   function createShortcut(app) {
@@ -422,7 +392,7 @@
     if (ui.captureMode) ui.captureMode.value = state.capture_mode || 'applications';
     if (ui.captureModeDetail) ui.captureModeDetail.textContent = isGlobal()
       ? '全局把系统代理指向本机核心，不安装 TUN、不改防火墙和 DNS；停止、核心退出或下次打开面板时恢复原系统代理。'
-      : (isWindows() ? '兼容模式按程序及辅助路径代理；独立网络（实验）仅约束本工具启动实例的直接网络访问。'
+      : (isWindows() ? '兼容模式按程序及辅助路径代理。'
                       : '从面板启动的应用进入独立隔离；其他应用继续使用原网络。');
     ui.stop.textContent = state.global_fault === true ? '重试恢复网络与清理'
       : (isGlobal() ? '停止全局代理并恢复系统代理' : (isWindows() ? '关闭本工具启动的应用并停止' : '关闭受保护应用并停止'));
@@ -453,12 +423,12 @@
       $('connection-intro').textContent = '启动后把系统代理指向本机核心，遵循系统代理的程序都会经过规则。';
       $('protection-note').textContent = '不读取系统代理的程序仍会直连。切换模式前请先停止。';
       $('apps-intro').textContent = '全局模式下，从面板启动的应用额外继承代理环境变量；其余程序按系统代理设置联网。';
-      $('compatibility-note').textContent = '全局模式不安装 TUN、不改防火墙和 DNS；恢复系统代理失败时请按提示重试，指向不可用端口期间可能暂时无法联网。独立网络（实验）选项适用于 Windows 按应用模式。';
+      $('compatibility-note').textContent = '全局模式不安装 TUN、不改防火墙和 DNS；恢复系统代理失败时请按提示重试，指向不可用端口期间可能暂时无法联网。';
     } else if (isWindows()) {
-      $('connection-intro').textContent = '启动核心后，兼容模式条目的程序路径交给 ProxiFyre 转发；独立网络（实验）通过本机代理通道联网。';
+      $('connection-intro').textContent = '启动核心后，应用条目的程序路径交给 ProxiFyre 转发。';
       $('protection-note').textContent = '兼容模式下，同一路径的所有实例都会受规则影响。已有连接需重启应用；关闭单个实例不会取消路径规则，关闭对应开关或停止核心才会取消。';
-      $('apps-intro').textContent = '兼容模式打开开关即加入路径代理清单；已识别商店应用同时接管软件包内的辅助程序。独立网络（实验）需从面板或快捷方式启动实例。';
-      $('compatibility-note').textContent = '兼容模式存在 DNS、IPv6 分片和引擎故障后直连限制；独立网络（实验）已知系统 DNS 和系统服务代办可绕过。两者都不提供 Linux 等效隔离。';
+      $('apps-intro').textContent = '兼容模式打开开关即加入路径代理清单；已识别商店应用同时接管软件包内的辅助程序。';
+      $('compatibility-note').textContent = '兼容模式存在 DNS、IPv6 分片和引擎故障后直连限制，不提供 Linux 等效隔离。';
     } else {
       $('connection-intro').textContent = '应用从面板启动并进入独立隔离后使用代理。';
       $('protection-note').textContent = '仅面板或快捷方式启动的隔离实例受保护；其他已有实例保持原网络。';

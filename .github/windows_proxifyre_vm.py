@@ -64,7 +64,7 @@ def selected_install_media(suite, psec_media):
 SOURCE_IDENTITIES = frozenset({"manager.py", "server.py", "launcher.py", "windows_proxy_service.py",
     "windows_proxy_policy.py", "windows_proxy_client.py", "windows_proxy_runtime.py",
     "windows_proxy_pins.py", "windows_app_process.py", "windows_core_process.py",
-    "windows_appcontainer.py", "windows_compartment.py"})
+    "windows_appcontainer.py"})
 GLOBAL_SOURCE_IDENTITIES = frozenset({"ruleproxy/windows_proxy_service.py", "ruleproxy/windows_global_guard.py",
     "ruleproxy/windows_global_dns.py", "ruleproxy/windows_global_runtime.py", "ruleproxy/global_runtime.py",
     "ruleproxy/windows_global_qualification.py", "ruleproxy/windows_app_process.py",

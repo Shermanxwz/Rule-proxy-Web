@@ -7,4 +7,4 @@ vendor = Path(__file__).resolve().parent.parent / "vendor"
 if vendor.is_dir():
     sys.path.insert(0, str(vendor))
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"

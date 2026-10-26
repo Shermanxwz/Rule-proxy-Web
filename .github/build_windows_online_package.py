@@ -68,7 +68,7 @@ def install_instructions() -> str:
         '固定许可证原文已随包附带，安装不为许可证访问 raw.githubusercontent.com。'
         '本包不含用户配置、节点凭据或第三方二进制。\n\n'
         '原生 Windows 11 的完整验收尚未通过；已观察到的部分功能不能替代完整 GUI、启动和卸载重装验收。'
-        '本版本为 0.3.0 正式版；Windows 强隔离（实验）未达成，不宣称 Linux 等价隔离。\n'
+        '本版本为 0.4.0 正式版；Windows 仅提供兼容模式（ProxiFyre 按路径代理），不宣称 Linux 等价隔离。\n'
         '兼容模式的出站守卫（实验）与全部实验功能均未通过原生 Windows 验收。\n'
         '具体能力和限制请阅读随包 README.md。\n'
     )
