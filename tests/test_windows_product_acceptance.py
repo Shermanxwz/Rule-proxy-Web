@@ -364,42 +364,63 @@ class NativeProxyEnvironmentEvidenceTests(unittest.TestCase):
                     acceptance.native_proxy_environment_probe(spec)
 
 
-class AppContainerPipeEvidenceTests(unittest.TestCase):
+class CompartmentRelayEvidenceTests(unittest.TestCase):
     owner = 'S-1-5-21-101-202-303-1001'
-    package = 'S-1-15-2-1-2-3-4-5-6-7'
+    compartment = 7
     nonce, marker = 'a' * 32, 'b' * 16
     executable = str(Path('contained.exe').resolve())
-    runtime_files = {'python314.zip': 'a' * 64, 'contained.exe': 'b' * 64}
+    executable_sha256 = 'c' * 64
 
     def receipt(self):
         environment = {key: 'http://127.0.0.1:20809' for key in ('HTTP_PROXY', 'HTTPS_PROXY', 'ALL_PROXY')}
         environment.update(NO_PROXY='localhost,127.0.0.1,::1', NODE_USE_ENV_PROXY='1')
         def actor(role, pid, parent):
             path = f'/ruleproxy-compare/{self.nonce}/{self.marker}/{role}'
-            return {'sid': self.owner, 'package_sid': self.package, 'elevated': False, 'is_appcontainer': True,
-                    'capability_count': 0, 'pid': pid, 'ppid': parent, 'executable': self.executable,
-                    'runtime_access': dict(self.runtime_files),
+            return {'role': role, 'sid': self.owner, 'elevated': False, 'is_appcontainer': False,
+                    'compartment_id': self.compartment, 'pid': pid, 'ppid': parent,
+                    'executable': self.executable, 'executable_sha256': self.executable_sha256,
                     'proxy_environment': dict(environment), 'target': 'http://1.1.1.1' + path,
+                    'direct': {'connected': False, 'error': 'OSError', 'winerror': 10051, 'elapsed_ms': 1},
                     'response': {'node': 'B', 'nonce': self.nonce, 'request_target': path,
                                  'origin_kind': 'controlled_synthetic_stub'}}
         return {**actor('child', 202, 101), 'grandchild': actor('grandchild', 303, 202), 'grandchild_exit_code': 0}
 
-    def valid(self, receipt):
-        return acceptance.appcontainer_pipe_receipt_valid(receipt, owner_sid=self.owner, package_sid=self.package,
-            panel_pid=101, launched_pid=202, executable=self.executable, nonce=self.nonce,
-            marker=self.marker, proxy_port=20809, runtime_files=self.runtime_files)
+    def valid(self, receipt, compartment=None):
+        return acceptance.compartment_receipt_valid(
+            receipt, owner_sid=self.owner, compartment_id=self.compartment if compartment is None else compartment,
+            panel_pid=101, launched_pid=202, executable=self.executable, executable_sha256=self.executable_sha256,
+            nonce=self.nonce, marker=self.marker, proxy_port=20809)
 
-    def test_both_actual_container_tokens_and_distinct_parent_chain_are_required(self):
+    def test_both_contained_ordinary_processes_and_distinct_parent_chain_are_required(self):
         receipt = self.receipt()
         self.assertTrue(self.valid(receipt))
         for role in ('child', 'grandchild'):
-            for key, value in (('sid', 'S-1-5-18'), ('package_sid', self.package + '-1'), ('elevated', True),
-                               ('elevated', 0), ('is_appcontainer', False), ('is_appcontainer', 1),
-                               ('capability_count', 1), ('capability_count', False), ('pid', True),
-                               ('ppid', 404), ('executable', str(Path('outside.exe').resolve()))):
+            for key, value in (('sid', 'S-1-5-18'), ('elevated', True), ('elevated', 0),
+                               ('is_appcontainer', True), ('is_appcontainer', 0), ('compartment_id', 1),
+                               ('compartment_id', self.compartment + 1), ('compartment_id', True),
+                               ('pid', True), ('ppid', 404), ('role', 'other'),
+                               ('executable', str(Path('outside.exe').resolve())),
+                               ('executable_sha256', 'd' * 64)):
                 changed = copy.deepcopy(receipt)
                 (changed if role == 'child' else changed['grandchild'])[key] = value
                 with self.subTest(role=role, key=key, value=value):
+                    self.assertFalse(self.valid(changed))
+
+    def test_default_compartment_or_unbound_readback_never_qualifies(self):
+        receipt = self.receipt()
+        for compartment in (1, 0, True, '7'):
+            with self.subTest(compartment=compartment):
+                self.assertFalse(self.valid(receipt, compartment))
+        for actor in (receipt, receipt['grandchild']):
+            actor['compartment_id'] = 1
+        self.assertFalse(self.valid(receipt, 1))
+
+    def test_direct_egress_inside_the_compartment_must_fail(self):
+        for role in ('child', 'grandchild'):
+            for direct in ({'connected': True}, {}, None, {'connected': 0}):
+                changed = self.receipt()
+                (changed if role == 'child' else changed['grandchild'])['direct'] = direct
+                with self.subTest(role=role, direct=direct):
                     self.assertFalse(self.valid(changed))
 
     def test_wrong_response_or_untrusted_environment_cannot_qualify(self):
@@ -414,16 +435,12 @@ class AppContainerPipeEvidenceTests(unittest.TestCase):
         receipt['grandchild_exit_code'] = False
         self.assertFalse(self.valid(receipt))
 
-    def test_python_startup_missing_or_unreadable_stdlib_never_counts_as_block_success(self):
+    def test_missing_or_failed_actor_never_counts(self):
         self.assertFalse(self.valid(None))
-        self.assertFalse(self.valid({'error': 'No module named encodings'}))
-        for role in ('child', 'grandchild'):
-            changed = self.receipt()
-            actor = changed if role == 'child' else changed['grandchild']
-            actor.pop('runtime_access')
-            self.assertFalse(self.valid(changed))
-            actor['runtime_access'] = {'python314.zip': '0' * 64}
-            self.assertFalse(self.valid(changed))
+        self.assertFalse(self.valid({'error': 'OSError: [WinError 122]'}))
+        changed = self.receipt()
+        changed['grandchild'].pop('compartment_id')
+        self.assertFalse(self.valid(changed))
 
     def test_independent_receivers_require_one_exact_completed_path_per_descendant(self):
         facts = {'nonce': self.nonce, 'marker': self.marker}
@@ -432,7 +449,7 @@ class AppContainerPipeEvidenceTests(unittest.TestCase):
                     'protocol': 'tcp_http_response', 'evidence_role': 'actor', 'node': 'B', 'response_complete': True}
         child, grandchild = row('child'), row('grandchild')
         def passed(rows):
-            return all(item['passed'] for item in acceptance.appcontainer_receiver_evidence(facts, {'transactions': rows}))
+            return all(item['passed'] for item in acceptance.contained_receiver_evidence(facts, {'transactions': rows}))
         self.assertTrue(passed([child, grandchild]))
         for rows in ([child, child], [], [child, {**grandchild, 'node': 'A'}],
                      [child, {**grandchild, 'evidence_role': 'health'}],
@@ -440,30 +457,76 @@ class AppContainerPipeEvidenceTests(unittest.TestCase):
                      [child, {**grandchild, 'request_target': grandchild['request_target'] + '-other'}]):
             self.assertFalse(passed(rows))
 
-    def test_gate_readbacks_bind_exact_app_and_real_inactive_values(self):
+    def test_journal_readbacks_bind_exact_app_bound_then_sealed(self):
         app_id = 'c' * 32
-        name = 'RuleProxy.' + hashlib.sha256(('appcontainer\0' + app_id).encode()).hexdigest()[:20]
-        facts = {'app_id': app_id, 'package_sid': self.package,
-                 'active_gate': {'container': name, 'sid': self.package, 'filter_count': 4, 'loopback_exempt': True},
-                 'revoked_gate': {'container': name, 'sid': self.package, 'filter_count': 0, 'loopback_exempt': False}}
-        self.assertTrue(acceptance.appcontainer_gate_readbacks_valid(facts))
-        for label, key, value in (('active_gate', 'filter_count', 0), ('active_gate', 'sid', 'S-1-5-18'),
-                                  ('revoked_gate', 'filter_count', False), ('revoked_gate', 'loopback_exempt', 0),
-                                  ('revoked_gate', 'container', 'RuleProxy.' + '0' * 20)):
+        name = acceptance.compartment_namespace(app_id)
+        facts = {'app_id': app_id, 'namespace': name,
+                 'active_gate': {'namespace': name, 'compartment_id': 3, 'phase': 'dirty'},
+                 'revoked_gate': {'namespace': name, 'compartment_id': 3, 'phase': 'clean'}}
+        self.assertTrue(acceptance.compartment_gate_readbacks_valid(facts))
+        for label, key, value in (('active_gate', 'phase', 'clean'), ('revoked_gate', 'phase', 'dirty'),
+                                  ('revoked_gate', 'compartment_id', 4), ('active_gate', 'compartment_id', 1),
+                                  ('active_gate', 'compartment_id', True),
+                                  ('revoked_gate', 'namespace', 'RuleProxyNS.' + '0' * 20)):
             changed = copy.deepcopy(facts)
             changed[label][key] = value
-            self.assertFalse(acceptance.appcontainer_gate_readbacks_valid(changed))
+            if label == 'active_gate' and key == 'compartment_id':
+                changed['revoked_gate'][key] = value
+            with self.subTest(label=label, key=key, value=value):
+                self.assertFalse(acceptance.compartment_gate_readbacks_valid(changed))
+        for broken in ({**facts, 'namespace': 'RuleProxyNS.' + '0' * 20}, {**facts, 'app_id': 'C' * 32},
+                       {**facts, 'active_gate': None}, {k: v for k, v in facts.items() if k != 'revoked_gate'}):
+            self.assertFalse(acceptance.compartment_gate_readbacks_valid(broken))
 
-    def test_standalone_actor_is_valid_and_reads_actual_token_information(self):
-        compile(acceptance.APPCONTAINER_ACTOR, 'appcontainer-actor.py', 'exec')
-        self.assertIn("'sid': sid(1)", acceptance.APPCONTAINER_ACTOR)
-        self.assertIn("'package_sid': sid(31)", acceptance.APPCONTAINER_ACTOR)
-        self.assertNotIn('import ruleproxy', acceptance.APPCONTAINER_ACTOR)
+    def test_namespace_matches_the_product_label(self):
+        from ruleproxy.windows_compartment import namespace_name
+        for app_id in ('c' * 32, '0123456789abcdef0123456789abcdef'):
+            self.assertEqual(acceptance.compartment_namespace(app_id), namespace_name(app_id))
+
+    def test_controller_reads_only_the_installed_journal_record(self):
+        app_id = 'c' * 32
+        name = acceptance.compartment_namespace(app_id)
+        with tempfile.TemporaryDirectory() as value:
+            state = Path(value) / 'compartments'
+            state.mkdir()
+            journal = {'version': 1, 'identity': 'x', 'boot_id': 'y',
+                       'compartments': {name: {'cid': 5, 'guid': 'z', 'phase': 'dirty'}}}
+            (state / 'compartments.json').write_text(json.dumps(journal), encoding='ascii')
+            metadata = {'owner_sid': 'owner', 'namespace_state_dir': str(state)}
+            with mock.patch.object(acceptance, 'INSTALLED', Path(__file__).resolve().parents[1]), \
+                    mock.patch('ruleproxy.windows_proxy_service.load_deployment', return_value=metadata):
+                self.assertEqual(acceptance.inspect_compartment_gate(app_id, 'owner'),
+                                 {'namespace': name, 'compartment_id': 5, 'phase': 'dirty'})
+                with self.assertRaisesRegex(RuntimeError, 'owner changed'):
+                    acceptance.inspect_compartment_gate(app_id, 'other')
+                with self.assertRaises(KeyError):
+                    acceptance.inspect_compartment_gate('d' * 32, 'owner')
+                with self.assertRaises(ValueError):
+                    acceptance.inspect_compartment_gate('../escape', 'owner')
+
+    def test_standalone_actor_is_valid_and_reports_its_actual_compartment(self):
+        compile(acceptance.COMPARTMENT_ACTOR, 'compartment-actor.py', 'exec')
+        self.assertIn('GetCurrentThreadCompartmentId', acceptance.COMPARTMENT_ACTOR)
+        self.assertIn("'is_appcontainer': bool(integer(29))", acceptance.COMPARTMENT_ACTOR)
+        self.assertNotIn('sid(31)', acceptance.COMPARTMENT_ACTOR)  # no AppContainer package SID query
+        self.assertNotIn('import ruleproxy', acceptance.COMPARTMENT_ACTOR)
+
+    def test_compared_sources_match_native_vm_identities(self):
+        import ast
+        tree = ast.parse(SCRIPT.read_text(encoding='utf-8'))
+        controller = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == 'controller')
+        compared = next(ast.literal_eval(node.value) for node in ast.walk(controller)
+                        if isinstance(node, ast.Assign) and any(getattr(target, 'id', None) == 'compared'
+                                                                for target in node.targets))
+        spec = importlib.util.spec_from_file_location('product_native_vm_identities',
+                                                      SCRIPT.parent / 'windows_proxifyre_vm.py')
+        vm = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(vm)
+        self.assertEqual(set(compared), vm.SOURCE_IDENTITIES)
+        self.assertIn('windows_compartment.py', compared)
 
 
-class AppContainerRuntimeFixtureTests(unittest.TestCase):
-    package = 'S-1-15-2-1-2-3-4-5-6-7'
-
+class FixtureRuntimeManifestTests(unittest.TestCase):
     def runtime(self, root):
         source, runtime = root / 'bundle/RuleProxy-Web/python', root / 'runtime'
         source.mkdir(parents=True)
@@ -480,22 +543,22 @@ class AppContainerRuntimeFixtureTests(unittest.TestCase):
     def test_inventory_binds_all_copied_files_and_aliases_to_final_source(self):
         with tempfile.TemporaryDirectory() as value:
             source, runtime = self.runtime(Path(value))
-            files = acceptance.appcontainer_runtime_manifest(runtime, source)
+            files = acceptance.fixture_runtime_manifest(runtime, source)
             self.assertEqual(len(files), 8)
             self.assertEqual(files['contained.exe'], acceptance.digest(source / 'python.exe'))
             (runtime / 'python314.zip').write_bytes(b'tampered')
             with self.assertRaisesRegex(RuntimeError, 'differs'):
-                acceptance.appcontainer_runtime_manifest(runtime, source)
+                acceptance.fixture_runtime_manifest(runtime, source)
 
     def test_extra_missing_source_self_or_linked_runtime_are_rejected(self):
         with tempfile.TemporaryDirectory() as value:
             root = Path(value)
             source, runtime = self.runtime(root)
             with self.assertRaisesRegex(RuntimeError, 'separate'):
-                acceptance.appcontainer_runtime_manifest(source, source)
-            (runtime / 'secret.txt').write_text('never grant unrelated files')
+                acceptance.fixture_runtime_manifest(source, source)
+            (runtime / 'secret.txt').write_text('never bind unrelated files')
             with self.assertRaisesRegex(RuntimeError, 'inventory differs'):
-                acceptance.appcontainer_runtime_manifest(runtime, source)
+                acceptance.fixture_runtime_manifest(runtime, source)
             (runtime / 'secret.txt').unlink()
             (runtime / 'python314.zip').unlink()
             try:
@@ -503,34 +566,7 @@ class AppContainerRuntimeFixtureTests(unittest.TestCase):
             except OSError:
                 return  # Windows unprivileged symlink creation can be disabled.
             with self.assertRaisesRegex(RuntimeError, 'reparse'):
-                acceptance.appcontainer_runtime_manifest(runtime, source)
-
-    def test_controller_grants_only_its_copy_to_exact_package_and_reads_every_acl(self):
-        with tempfile.TemporaryDirectory() as value:
-            root = Path(value)
-            source, runtime = self.runtime(root)
-            files = acceptance.appcontainer_runtime_manifest(runtime, source)
-            rows = [{'path': '', 'rx': True, 'deny': False}] + [
-                {'path': path.relative_to(runtime).as_posix(), 'rx': True, 'deny': False}
-                for path in runtime.rglob('*')]
-            with mock.patch.object(acceptance, 'LAB', root), \
-                    mock.patch.object(acceptance, 'inspect_appcontainer_gate', return_value={'sid': self.package}) as identity, \
-                    mock.patch.object(acceptance.subprocess, 'run') as grant, \
-                    mock.patch.object(acceptance, 'powershell', return_value={
-                        'returncode': 0, 'stdout': json.dumps(rows), 'stderr': ''}) as read:
-                evidence = acceptance.prepare_appcontainer_runtime('c' * 32, 'owner')
-                identity.assert_called_once_with('c' * 32, 'owner')
-                command = grant.call_args.args[0]
-                self.assertEqual(command[1:], [str(runtime), '/grant', '*' + self.package + ':(OI)(CI)(RX)', '/T', '/C', '/Q'])
-                self.assertNotIn('*S-1-15-2-1:', command)  # no broad ALL APPLICATION PACKAGES grant
-                self.assertEqual(read.call_args.kwargs['env']['RULEPROXY_FIXTURE_PACKAGE'], self.package)
-                self.assertTrue(acceptance.appcontainer_runtime_evidence_valid(
-                    evidence, app_id='c' * 32, sid=self.package, files=files))
-                for bad in (rows[:-1], [{**row, 'rx': False} for row in rows],
-                            [{**row, 'deny': True} for row in rows]):
-                    read.return_value = {'returncode': 0, 'stdout': json.dumps(bad)}
-                    with self.assertRaisesRegex(RuntimeError, 'readback incomplete'):
-                        acceptance.prepare_appcontainer_runtime('c' * 32, 'owner')
+                acceptance.fixture_runtime_manifest(runtime, source)
 
 
 class PngDimensionsTests(unittest.TestCase):
