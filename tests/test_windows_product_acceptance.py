@@ -364,168 +364,6 @@ class NativeProxyEnvironmentEvidenceTests(unittest.TestCase):
                     acceptance.native_proxy_environment_probe(spec)
 
 
-class CompartmentRelayEvidenceTests(unittest.TestCase):
-    owner = 'S-1-5-21-101-202-303-1001'
-    compartment = 7
-    nonce, marker = 'a' * 32, 'b' * 16
-    executable = str(Path('contained.exe').resolve())
-    executable_sha256 = 'c' * 64
-
-    def receipt(self):
-        environment = {key: 'http://127.0.0.1:20809' for key in ('HTTP_PROXY', 'HTTPS_PROXY', 'ALL_PROXY')}
-        environment.update(NO_PROXY='localhost,127.0.0.1,::1', NODE_USE_ENV_PROXY='1')
-        def actor(role, pid, parent):
-            path = f'/ruleproxy-compare/{self.nonce}/{self.marker}/{role}'
-            return {'role': role, 'sid': self.owner, 'elevated': False, 'is_appcontainer': False,
-                    'compartment_id': self.compartment, 'pid': pid, 'ppid': parent,
-                    'executable': self.executable, 'executable_sha256': self.executable_sha256,
-                    'proxy_environment': dict(environment), 'target': 'http://1.1.1.1' + path,
-                    'direct': {'connected': False, 'error': 'OSError', 'winerror': 10051, 'elapsed_ms': 1},
-                    'response': {'node': 'B', 'nonce': self.nonce, 'request_target': path,
-                                 'origin_kind': 'controlled_synthetic_stub'}}
-        return {**actor('child', 202, 101), 'grandchild': actor('grandchild', 303, 202), 'grandchild_exit_code': 0}
-
-    def valid(self, receipt, compartment=None):
-        return acceptance.compartment_receipt_valid(
-            receipt, owner_sid=self.owner, compartment_id=self.compartment if compartment is None else compartment,
-            panel_pid=101, launched_pid=202, executable=self.executable, executable_sha256=self.executable_sha256,
-            nonce=self.nonce, marker=self.marker, proxy_port=20809)
-
-    def test_both_contained_ordinary_processes_and_distinct_parent_chain_are_required(self):
-        receipt = self.receipt()
-        self.assertTrue(self.valid(receipt))
-        for role in ('child', 'grandchild'):
-            for key, value in (('sid', 'S-1-5-18'), ('elevated', True), ('elevated', 0),
-                               ('is_appcontainer', True), ('is_appcontainer', 0), ('compartment_id', 1),
-                               ('compartment_id', self.compartment + 1), ('compartment_id', True),
-                               ('pid', True), ('ppid', 404), ('role', 'other'),
-                               ('executable', str(Path('outside.exe').resolve())),
-                               ('executable_sha256', 'd' * 64)):
-                changed = copy.deepcopy(receipt)
-                (changed if role == 'child' else changed['grandchild'])[key] = value
-                with self.subTest(role=role, key=key, value=value):
-                    self.assertFalse(self.valid(changed))
-
-    def test_default_compartment_or_unbound_readback_never_qualifies(self):
-        receipt = self.receipt()
-        for compartment in (1, 0, True, '7'):
-            with self.subTest(compartment=compartment):
-                self.assertFalse(self.valid(receipt, compartment))
-        for actor in (receipt, receipt['grandchild']):
-            actor['compartment_id'] = 1
-        self.assertFalse(self.valid(receipt, 1))
-
-    def test_direct_egress_inside_the_compartment_must_fail(self):
-        for role in ('child', 'grandchild'):
-            for direct in ({'connected': True}, {}, None, {'connected': 0}):
-                changed = self.receipt()
-                (changed if role == 'child' else changed['grandchild'])['direct'] = direct
-                with self.subTest(role=role, direct=direct):
-                    self.assertFalse(self.valid(changed))
-
-    def test_wrong_response_or_untrusted_environment_cannot_qualify(self):
-        receipt = self.receipt()
-        for role in ('child', 'grandchild'):
-            for key, value in (('target', 'http://1.1.1.1/wrong'), ('error', 'probe failed'),
-                               ('proxy_environment', {'HTTP_PROXY': 'http://untrusted.invalid:80'}),
-                               ('response', {'node': 'B'})):
-                changed = copy.deepcopy(receipt)
-                (changed if role == 'child' else changed['grandchild'])[key] = value
-                self.assertFalse(self.valid(changed))
-        receipt['grandchild_exit_code'] = False
-        self.assertFalse(self.valid(receipt))
-
-    def test_missing_or_failed_actor_never_counts(self):
-        self.assertFalse(self.valid(None))
-        self.assertFalse(self.valid({'error': 'OSError: [WinError 122]'}))
-        changed = self.receipt()
-        changed['grandchild'].pop('compartment_id')
-        self.assertFalse(self.valid(changed))
-
-    def test_independent_receivers_require_one_exact_completed_path_per_descendant(self):
-        facts = {'nonce': self.nonce, 'marker': self.marker}
-        def row(role):
-            return {'request_target': f'/ruleproxy-compare/{self.nonce}/{self.marker}/{role}',
-                    'protocol': 'tcp_http_response', 'evidence_role': 'actor', 'node': 'B', 'response_complete': True}
-        child, grandchild = row('child'), row('grandchild')
-        def passed(rows):
-            return all(item['passed'] for item in acceptance.contained_receiver_evidence(facts, {'transactions': rows}))
-        self.assertTrue(passed([child, grandchild]))
-        for rows in ([child, child], [], [child, {**grandchild, 'node': 'A'}],
-                     [child, {**grandchild, 'evidence_role': 'health'}],
-                     [child, {**grandchild, 'response_complete': False}],
-                     [child, {**grandchild, 'request_target': grandchild['request_target'] + '-other'}]):
-            self.assertFalse(passed(rows))
-
-    def test_journal_readbacks_bind_exact_app_bound_then_sealed(self):
-        app_id = 'c' * 32
-        name = acceptance.compartment_namespace(app_id)
-        facts = {'app_id': app_id, 'namespace': name,
-                 'active_gate': {'namespace': name, 'compartment_id': 3, 'phase': 'dirty'},
-                 'revoked_gate': {'namespace': name, 'compartment_id': 3, 'phase': 'clean'}}
-        self.assertTrue(acceptance.compartment_gate_readbacks_valid(facts))
-        for label, key, value in (('active_gate', 'phase', 'clean'), ('revoked_gate', 'phase', 'dirty'),
-                                  ('revoked_gate', 'compartment_id', 4), ('active_gate', 'compartment_id', 1),
-                                  ('active_gate', 'compartment_id', True),
-                                  ('revoked_gate', 'namespace', 'RuleProxyNS.' + '0' * 20)):
-            changed = copy.deepcopy(facts)
-            changed[label][key] = value
-            if label == 'active_gate' and key == 'compartment_id':
-                changed['revoked_gate'][key] = value
-            with self.subTest(label=label, key=key, value=value):
-                self.assertFalse(acceptance.compartment_gate_readbacks_valid(changed))
-        for broken in ({**facts, 'namespace': 'RuleProxyNS.' + '0' * 20}, {**facts, 'app_id': 'C' * 32},
-                       {**facts, 'active_gate': None}, {k: v for k, v in facts.items() if k != 'revoked_gate'}):
-            self.assertFalse(acceptance.compartment_gate_readbacks_valid(broken))
-
-    def test_namespace_matches_the_product_label(self):
-        from ruleproxy.windows_compartment import namespace_name
-        for app_id in ('c' * 32, '0123456789abcdef0123456789abcdef'):
-            self.assertEqual(acceptance.compartment_namespace(app_id), namespace_name(app_id))
-
-    def test_controller_reads_only_the_installed_journal_record(self):
-        app_id = 'c' * 32
-        name = acceptance.compartment_namespace(app_id)
-        with tempfile.TemporaryDirectory() as value:
-            state = Path(value) / 'compartments'
-            state.mkdir()
-            journal = {'version': 1, 'identity': 'x', 'boot_id': 'y',
-                       'compartments': {name: {'cid': 5, 'guid': 'z', 'phase': 'dirty'}}}
-            (state / 'compartments.json').write_text(json.dumps(journal), encoding='ascii')
-            metadata = {'owner_sid': 'owner', 'namespace_state_dir': str(state)}
-            with mock.patch.object(acceptance, 'INSTALLED', Path(__file__).resolve().parents[1]), \
-                    mock.patch('ruleproxy.windows_proxy_service.load_deployment', return_value=metadata):
-                self.assertEqual(acceptance.inspect_compartment_gate(app_id, 'owner'),
-                                 {'namespace': name, 'compartment_id': 5, 'phase': 'dirty'})
-                with self.assertRaisesRegex(RuntimeError, 'owner changed'):
-                    acceptance.inspect_compartment_gate(app_id, 'other')
-                with self.assertRaises(KeyError):
-                    acceptance.inspect_compartment_gate('d' * 32, 'owner')
-                with self.assertRaises(ValueError):
-                    acceptance.inspect_compartment_gate('../escape', 'owner')
-
-    def test_standalone_actor_is_valid_and_reports_its_actual_compartment(self):
-        compile(acceptance.COMPARTMENT_ACTOR, 'compartment-actor.py', 'exec')
-        self.assertIn('GetCurrentThreadCompartmentId', acceptance.COMPARTMENT_ACTOR)
-        self.assertIn("'is_appcontainer': bool(integer(29))", acceptance.COMPARTMENT_ACTOR)
-        self.assertNotIn('sid(31)', acceptance.COMPARTMENT_ACTOR)  # no AppContainer package SID query
-        self.assertNotIn('import ruleproxy', acceptance.COMPARTMENT_ACTOR)
-
-    def test_compared_sources_match_native_vm_identities(self):
-        import ast
-        tree = ast.parse(SCRIPT.read_text(encoding='utf-8'))
-        controller = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == 'controller')
-        compared = next(ast.literal_eval(node.value) for node in ast.walk(controller)
-                        if isinstance(node, ast.Assign) and any(getattr(target, 'id', None) == 'compared'
-                                                                for target in node.targets))
-        spec = importlib.util.spec_from_file_location('product_native_vm_identities',
-                                                      SCRIPT.parent / 'windows_proxifyre_vm.py')
-        vm = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(vm)
-        self.assertEqual(set(compared), vm.SOURCE_IDENTITIES)
-        self.assertIn('windows_compartment.py', compared)
-
-
 class FixtureRuntimeManifestTests(unittest.TestCase):
     def runtime(self, root):
         source, runtime = root / 'bundle/RuleProxy-Web/python', root / 'runtime'
@@ -536,7 +374,7 @@ class FixtureRuntimeManifestTests(unittest.TestCase):
             path.write_bytes(('fixed ' + name).encode())
         import shutil
         shutil.copytree(source, runtime)
-        for alias in ('selected', 'helper', 'outside', 'contained'):
+        for alias in ('selected', 'helper', 'outside'):
             (runtime / (alias + '.exe')).write_bytes((source / 'python.exe').read_bytes())
         return source, runtime
 
@@ -544,8 +382,8 @@ class FixtureRuntimeManifestTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as value:
             source, runtime = self.runtime(Path(value))
             files = acceptance.fixture_runtime_manifest(runtime, source)
-            self.assertEqual(len(files), 8)
-            self.assertEqual(files['contained.exe'], acceptance.digest(source / 'python.exe'))
+            self.assertEqual(len(files), 7)
+            self.assertEqual(files['outside.exe'], acceptance.digest(source / 'python.exe'))
             (runtime / 'python314.zip').write_bytes(b'tampered')
             with self.assertRaisesRegex(RuntimeError, 'differs'):
                 acceptance.fixture_runtime_manifest(runtime, source)

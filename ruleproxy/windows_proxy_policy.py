@@ -33,11 +33,6 @@ APP_GUARD_LIMITATIONS = [
     "规则按程序路径身份匹配；异名子进程需要显式添加其程序路径才会纳入守卫。",
     "启用前已建立的连接需要重启应用后才受守卫约束；守卫尚未通过 Windows 原生不泄漏验收，不提供 Linux 等效隔离。",
 ]
-NAMESPACE_LIMITATIONS = [
-    "独立网络约束本工具新建 Job 内进程的直接网络访问；应用需要支持本机 HTTP/SOCKS 代理。",
-    "已知系统 DNS 可外发，WMI 等系统服务可在隔间外联网；实验模式不提供 Linux 等效防泄漏。",
-    "不支持商店应用和共用原应用资料；隔间清理未确认时会拒绝再次开放。",
-]
 GLOBAL_LIMITATIONS = [
     "全局模式会接管整台设备；应用仍以面板当前账户权限运行。",
     "TUN strict-route 本身不等同于核心或服务故障后的独立防直连保护。",
@@ -145,13 +140,11 @@ def decode_request(raw: bytes) -> dict:
              "global_start": {"source", "secret", "mixed_port", "controller_port", "selected_node", "require_strict"},
              "global_select_node": {"selected_node"},
              "app_guard_apply": {"proxy_port"}, "app_guard_revoke": set(),
-             "container_allow": {"container", "proxy_port"}, "container_revoke": {"container"},
-             "namespace_allow": {"container", "proxy_port", "job_handle"}, "namespace_revoke": {"container"}}
-    extra["namespace_prepare"] = {"proxy_port", "mihomo_pid", "generation"}
+             "container_allow": {"container", "proxy_port"}, "container_revoke": {"container"}}
     expected = common | extra.get(operation, set())
     if (operation not in {"status", "apply", "stop", "global_status", "global_start", "global_stop", "global_select_node",
                           "app_guard_apply", "app_guard_revoke",
-                          "container_allow", "container_revoke", "namespace_allow", "namespace_revoke", "namespace_prepare"}
+                          "container_allow", "container_revoke"}
             or set(request) != expected
             or type(request.get("schema_version")) is not int or request.get("schema_version") != 1
             or not isinstance(request.get("request_id"), str)
@@ -176,19 +169,5 @@ def decode_request(raw: bytes) -> dict:
             raise ProxyError("invalid_request", "AppContainer 名称无效。")
         if operation == "container_allow" and (type(request["proxy_port"]) is not int
                                                or not 1025 <= request["proxy_port"] <= 65535):
-            raise ProxyError("invalid_request", "代理端口无效。")
-    if operation in {"namespace_allow", "namespace_revoke"}:
-        if not isinstance(request["container"], str) or not re.fullmatch(r"RuleProxyNS\.[0-9a-f]{20}", request["container"]):
-            raise ProxyError("invalid_request", "网络隔间名称无效。")
-        if operation == "namespace_allow":
-            if type(request["proxy_port"]) is not int or not 1025 <= request["proxy_port"] <= 65535:
-                raise ProxyError("invalid_request", "代理端口无效。")
-            if type(request["job_handle"]) is not int or not 1 <= request["job_handle"] <= 0xFFFFFFFFFFFFFFFF:
-                raise ProxyError("invalid_request", "Job 句柄无效。")
-    if operation == "namespace_prepare":
-        for key in ("mihomo_pid", "generation"):
-            if type(request[key]) is not int or not 1 <= request[key] <= 0xFFFFFFFF:
-                raise ProxyError("invalid_request", "网络隔间核心身份无效。")
-        if type(request["proxy_port"]) is not int or not 1025 <= request["proxy_port"] <= 65535:
             raise ProxyError("invalid_request", "代理端口无效。")
     return request

@@ -477,11 +477,12 @@ class ValidationTests(unittest.TestCase):
         return {"label": "App", "path": r"C:\Apps\app.exe" if launcher.sys.platform == "win32" else "/opt/app",
                 "adapter": "environment", **extra}
 
-    def test_windows_container_flag_is_boolean_and_exclusive(self):
-        self.assertTrue(launcher.validate_app(self.app(windows_container=True), check_exists=False)["windows_container"])
-        self.assertNotIn("windows_container", launcher.validate_app(self.app(), check_exists=False))
-        with self.assertRaises(ValueError):
-            launcher.validate_app(self.app(windows_container="yes"), check_exists=False)
+    def test_legacy_windows_container_flag_is_dropped(self):
+        # 0.4.0 removed the network compartment; old saved records fall back to
+        # compatibility mode instead of failing to load.
+        for value in (True, False, "yes"):
+            self.assertNotIn("windows_container",
+                             launcher.validate_app(self.app(windows_container=value), check_exists=False))
 
 
 class NativeBindingTests(unittest.TestCase):

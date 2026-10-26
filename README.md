@@ -1,8 +1,8 @@
 # RuleProxy Web
 
-本机 Web 面板：导入自己的 Mihomo YAML、选择节点、自定义应用。按应用模式下，Windows 兼容模式使用 ProxiFyre 按程序路径转发，另提供“独立网络（实验）”；Linux 使用网络命名空间隔离。全局模式使用系统代理，不使用 TUN。
+本机 Web 面板：导入自己的 Mihomo YAML、选择节点、自定义应用。按应用模式下，Windows 兼容模式使用 ProxiFyre 按程序路径转发；Linux 使用网络命名空间隔离。全局模式使用系统代理，不使用 TUN。
 
-**版本 0.3.0。Windows 按应用的兼容模式使用 ProxiFyre 2.6.4 + Mihomo 1.19.32，关闭 TUN。安装前请核对[产品验收记录](https://github.com/Shermanxwz/Rule-proxy-Web/tree/main/verification/windows-2026-10-16/proxifyre-product)中与离线 ZIP 的 SHA-256 一致的报告；只有报告实际通过的项目属于已验证范围。**
+**版本 0.4.0。Windows 按应用的兼容模式使用 ProxiFyre 2.6.4 + Mihomo 1.19.32，关闭 TUN。安装前请核对[产品验收记录](https://github.com/Shermanxwz/Rule-proxy-Web/tree/main/verification/windows-2026-10-16/proxifyre-product)中与离线 ZIP 的 SHA-256 一致的报告；只有报告实际通过的项目属于已验证范围。**
 
 Windows 的目标是让自定义应用走所选代理节点。它不能提供 Linux 同等的 DNS、子进程和故障隔离；具体边界见下文。Linux 按应用功能保持原有实现。
 
@@ -12,11 +12,11 @@ Windows 的目标是让自定义应用走所选代理节点。它不能提供 Li
 
 全局模式只把当前用户的系统代理指向本机核心（Windows：WinINet 系统代理；Linux：GNOME 兼容桌面的 gsettings），不安装 TUN，不改防火墙、路由和 DNS，不需要额外权限组件。开启前保存原系统代理，停止或核心退出时恢复；独立的同用户恢复进程会在面板意外退出后尝试还原，恢复失败时保留记录供重试。系统代理指向不可用端口期间，遵循系统代理的程序可能暂时无法联网。不读取系统代理的程序会直连。
 
-Linux 按应用模式继续使用网络命名空间隔离。Windows 的“独立网络（实验）”由 SYSTEM 服务建立只有回环的网络隔间，把启动前的空 Job 绑定进去，再提供通向所持有 Mihomo 进程的 TCP 中继。实验模式不启动 ProxiFyre 路径转发，安装程序仍会准备兼容模式所需组件。商店应用与共用原应用资料模式不支持。
+Linux 按应用模式继续使用网络命名空间隔离。Windows 从 0.4.0 起只提供兼容模式：“独立网络（实验）”已移除。它和兼容模式存在同样的系统 DNS 与系统服务代办绕过，却只能转发 TCP、不支持商店应用和共用原应用资料，已绑定的隔间无法删除，也未通过产品验收。从 0.3.x 升级时，原先选择独立网络的应用自动转为兼容模式，安装程序会清除旧的隔间日志；已创建的隔间在重启 Windows 后消失。实验结论保留如下。
 
 兼容模式可选开启“出站守卫（实验）”：SYSTEM 控制服务为路径清单中的程序写入自有 WFP 持久规则，仅放行其到本机代理端口的回环连接，其余出站（直连、局域网、其他本机端口、直连 DNS、UDP、IPv6）全部阻断，后端或面板故障时不恢复直连。系统服务代办的 DNS 解析仍可能外发；该功能尚未通过 Windows 原生不泄漏验收，不提供 Linux 等效隔离。
 
-**独立网络（实验）已知存在系统 DNS 和系统服务代办绕过，不能提供 Linux 等效隔离，也未通过产品验收。** [Windows Server 2025 普通用户实验](verification/windows-2026-10-19/compartment/primary-abi-fixed/assessment.json)确认 Edge 在保留低完整性受限子进程的情况下可以渲染代理页面，但同一普通账户仍可通过 WMI 启动隔间外进程并直连。六类系统 DNS 查询均有网卡外发记录，甚至 `getaddrinfo` 返回失败时也会外发。两种受限主令牌配置使 Python、PowerShell 或 Edge 启动失败，不能把这些失败算作防泄漏成功。此前的 [AppContainer 浏览器实验](verification/windows-2026-10-19/appcontainer-browser-experiment.json)同样未通过浏览器兼容验收。2026-10-20 在 Windows Server 2025 上的[诊断实验](verification/windows-2026-10-20/findings.json)用网卡抓包确认：零权限 AppContainer 内六类系统 DNS 查询没有在网卡上出现，带 `internetClient` 的对照容器则有；但 Chrome、Edge、Firefox 整体放进该容器后仍全部无法渲染，崩溃点各不相同。该实验只覆盖 DNS，未测直连 TCP/UDP、其它应用和交互式 Windows 11，不构成 Linux 等效隔离或产品验收。
+**已移除的独立网络（实验）已知存在系统 DNS 和系统服务代办绕过，不能提供 Linux 等效隔离，也未通过产品验收。** [Windows Server 2025 普通用户实验](verification/windows-2026-10-19/compartment/primary-abi-fixed/assessment.json)确认 Edge 在保留低完整性受限子进程的情况下可以渲染代理页面，但同一普通账户仍可通过 WMI 启动隔间外进程并直连。六类系统 DNS 查询均有网卡外发记录，甚至 `getaddrinfo` 返回失败时也会外发。两种受限主令牌配置使 Python、PowerShell 或 Edge 启动失败，不能把这些失败算作防泄漏成功。此前的 [AppContainer 浏览器实验](verification/windows-2026-10-19/appcontainer-browser-experiment.json)同样未通过浏览器兼容验收。2026-10-20 在 Windows Server 2025 上的[诊断实验](verification/windows-2026-10-20/findings.json)用网卡抓包确认：零权限 AppContainer 内六类系统 DNS 查询没有在网卡上出现，带 `internetClient` 的对照容器则有；但 Chrome、Edge、Firefox 整体放进该容器后仍全部无法渲染，崩溃点各不相同。该实验只覆盖 DNS，未测直连 TCP/UDP、其它应用和交互式 Windows 11，不构成 Linux 等效隔离或产品验收。
 
 [Windows 11 补测记录](verification/windows-2026-10-19/compartment/preflight-native/assessment.json)在修复便携 Python 漏文件后，确认六类普通用户系统 DNS 查询外发，以及普通用户 WMI 在默认隔间创建子进程并直连。普通用户 Edge 的隔间内外页面对照仍成功。整轮实验另有状态文件写入失败和 PowerShell 退出超时，仍按失败归档；它不代表安装版产品或可见界面验收通过。[此前含无效 Python 探针的记录](verification/windows-2026-10-19/compartment/native-abi-fixed/assessment.json)保留供对照。
 
@@ -32,7 +32,7 @@ Windows 卸载前请先用原安装账户停止全局代理；如果改用其他
 
 目标系统为 Windows 11 x64；ARM64、x86 未验证，Windows Server 仅作为自动化对照环境。系统需保留正常的驱动签名验证与 .NET Framework 4.7.2 以上组件。
 
-1. 在 [GitHub Releases](https://github.com/Shermanxwz/Rule-proxy-Web/releases) 下载 `RuleProxy-Web-0.3.0-windows-x64-online-setup.zip`，核对同一发布页的 `SHA256SUMS.txt`，完整解压到可写目录。
+1. 在 [GitHub Releases](https://github.com/Shermanxwz/Rule-proxy-Web/releases) 下载 `RuleProxy-Web-0.4.0-windows-x64-online-setup.zip`，核对同一发布页的 `SHA256SUMS.txt`，完整解压到可写目录。
 2. 从日常登录账户双击 `Setup-Windows.cmd`。首次联网下载并校验固定版本的 Python、PyYAML、Mihomo、ProxiFyre、NDIS 驱动和 VC 运行库，无需预装 Python；准备完成后按需允许 UAC 安装。支持以该账户的管理员权限启动安装。固定许可证原文已随包附带，无需访问 GitHub 原始文件站点。
 3. 下载失败时，保留 `.windows-cache`，从同一目录再次运行 `Setup-Windows.cmd`，可复用已经校验的依赖。临时连接中断会有界重试，校验不通过会停止。如果安装返回 `3010`，先重启，再运行同一安装入口续装。
 4. 安装成功后会在后台启动，安装窗口保留结果供查看。需要操作时，以同一安装账户双击桌面的 `RuleProxy Web` 快捷方式，或 `%ProgramFiles%\RuleProxy-Web\Start-Windows.lnk`，即可打开 Web 面板，不弹 CMD、PowerShell 或 Mihomo 控制台。也可手动访问 `http://127.0.0.1:8879`。
@@ -61,7 +61,7 @@ Windows 卸载前请先用原安装账户停止全局代理；如果改用其他
 
 ## Windows 应用规则与边界
 
-以下路径规则及表格描述兼容模式。独立网络（实验）条目不加入路径规则，仅约束本工具新建 Job 中实例的直接网络访问；系统服务代办及其创建的进程仍可能在隔间之外。隔间的状态由受保护日志记录；同次系统启动内仅复用已确认清空的自有隔间，服务异常后无法确认清空时要求重启。已绑定 Job 的隔间目前不会主动删除，避免 Windows 返回 1359 后继续复用不可靠状态；每次启动最多保留 128 个自有隔间。
+以下路径规则及表格描述 Windows 兼容模式。
 
 核心运行时，应用代理开关会同步已启用兼容条目的主 exe 和“相关程序路径”。每个应用最多填写 16 个相关路径，所有启用项去重后合计最多 128 个路径；不接受通配符、系统服务程序或代理组件本身。添加应用时可搜索本机清单，也可手动填写本地 exe 的绝对路径。
 

@@ -217,13 +217,6 @@ def load_deployment(root: Path, *, secure=True) -> dict:
         required |= {"bin/windows-amd64/mihomo.exe", "ruleproxy/config.py", "ruleproxy/windows_app_process.py",
                      "ruleproxy/windows_global_runtime.py", "ruleproxy/windows_global_guard.py",
                      "ruleproxy/windows_global_dns.py", "ruleproxy/windows_global_qualification.py"}
-    if "namespace_backend_version" in value:
-        expected_state = Path(os.environ.get("ProgramData", r"C:\ProgramData")) / "RuleProxy-Web/compartments"
-        if (type(value["namespace_backend_version"]) is not int or value["namespace_backend_version"] != 1
-                or not isinstance(value.get("namespace_state_dir"), str)
-                or os.path.normcase(value["namespace_state_dir"]) != os.path.normcase(str(expected_state))):
-            raise ProxyError("invalid_deployment", "网络隔间安装记录无效，请修复安装。")
-        required |= {"ruleproxy/windows_compartment.py", "ruleproxy/windows_app_process.py"}
     if not required.issubset(value.get("files", {})):
         raise ProxyError("invalid_deployment", "Windows 安装清单缺少控制组件。")
     engine_required = {"ProxiFyre.exe", "socksify.dll", "ProxiFyre.Configuration.dll", "Topshelf.dll", "NLog.dll", "NLog.config"}
@@ -900,14 +893,12 @@ class GlobalCore:
 
 class Broker:
     def __init__(self, metadata, control=None, lease_factory=None, global_factory=None, container_factory=None,
-                 namespace_factory=None, app_guard_factory=None):
+                 app_guard_factory=None):
         self.metadata = metadata
         self.control = control or ServiceControl()
         self.lease_factory = lease_factory or ProcessLease
         self.lock = threading.RLock()
         self.panel = self.core = None
-        # A core lease also exists in namespace-only mode, where this broker
-        # has no authority to stop an independently started path engine.
         self.engine_owned = False
         self.generation = 0
         self.paths = []
@@ -919,9 +910,6 @@ class Broker:
         self.container_factory = container_factory
         self.container_gate = None
         self.containers = set()
-        self.namespace_factory = namespace_factory
-        self.namespace_gate = None
-        self.namespaces = set()
         self.app_guard_factory = app_guard_factory
         self.app_guard_gate = None
         self.app_guard_intent = False
@@ -948,29 +936,6 @@ class Broker:
             if not isinstance(result, dict) or result.get('active') is not False:
                 raise ProxyError('cleanup_incomplete', 'AppContainer 清理未能确认。')
         self.containers.clear()
-
-    def _namespaces(self):
-        if self.namespace_gate is None:
-            if self.namespace_factory is None:
-                from ruleproxy.windows_compartment import NamespaceGate
-                self.namespace_factory = NamespaceGate
-            self.namespace_gate = self.namespace_factory(self.metadata)
-        return self.namespace_gate
-
-    def recover_namespaces(self):
-        """Before accepting clients, seal compartments left by an earlier service."""
-        result = self._namespaces().purge()
-        if not isinstance(result, dict) or result.get('active') is not False:
-            raise ProxyError('cleanup_incomplete', '网络隔间遗留状态恢复未能确认。')
-        self.namespaces.clear()
-        return result
-
-    def _purge_namespaces(self):
-        if self.namespace_gate is not None:
-            result = self.namespace_gate.purge()
-            if not isinstance(result, dict) or result.get('active') is not False:
-                raise ProxyError('cleanup_incomplete', '网络隔间清理未能确认。')
-        self.namespaces.clear()
 
     def _app_guard(self):
         if self.app_guard_gate is None:
@@ -1018,7 +983,6 @@ class Broker:
     def _purge_gates(self):
         failures = []
         for name, cleanup in (("AppContainer", self._purge_containers),
-                              ("网络隔间", self._purge_namespaces),
                               ("出站守卫", self._purge_app_guard)):
             try:
                 cleanup()
@@ -1061,8 +1025,6 @@ class Broker:
         if self.panel is not None and not lease_alive and error is None:
             error = {"code": "lease_expired", "message": "面板或核心已退出，正在关闭代理授权。"}
         external = engine_state != 1 and not self.engine_owned
-        namespace_ready = bool(lease_alive and not self.paths and not self.engine_owned
-                               and not error and not external)
         global_active = self._global_active()
         if error:
             state = "failed"
@@ -1070,7 +1032,7 @@ class Broker:
             state = "global_conflict"
         elif external:
             state = "external_conflict"
-        elif namespace_ready or (lease_alive and self.engine_owned and engine_running):
+        elif lease_alive and self.engine_owned and engine_running:
             state = "running"
         else:
             state = "failed" if self.panel is not None or self.engine_owned else "idle"
@@ -1080,8 +1042,6 @@ class Broker:
             "owner_pid": self.panel.pid if self.panel else None, "path_count": len(self.paths),
             "proxy_port": self.port, "limitations": list(policy.LIMITATIONS), "error": error,
             "global_active": global_active, "container_count": len(self.containers),
-            "namespace_count": len(self.namespaces),
-            "namespace_ready": namespace_ready,
             "app_guard": self._app_guard_status(), "app_guard_intent": self.app_guard_intent,
             "cleanup_pending": error is not None and error.get('code') == 'cleanup_incomplete'}
 
@@ -1096,7 +1056,6 @@ class Broker:
         owned = self.panel is not None or self.engine_owned
         failures = []
         cleanups = [("AppContainer", self._purge_containers),
-                    ("网络隔间", self._purge_namespaces),
                     ("ProxiFyre", self._stop_owned_engine)]
         if not retain_app_guard:
             # An explicit stop restores connectivity. Lease cleanup and broker
@@ -1194,8 +1153,7 @@ class Broker:
                 raise ProxyError("access_denied", "控制请求身份不匹配。")
             self.check_lease()
             if (self.error is not None and self.error.get("code") == "cleanup_incomplete"
-                    and request["op"] in {"container_allow", "namespace_allow", "apply", "namespace_prepare",
-                                          "app_guard_apply"}):
+                    and request["op"] in {"container_allow", "apply", "app_guard_apply"}):
                 raise ProxyError("cleanup_incomplete", "旧授权尚未清理完成，请先停止代理后重试。")
             # A container gate belongs to the same held panel/core lease as the
             # path policy. An arbitrary same-user pipe client cannot choose a
@@ -1220,31 +1178,6 @@ class Broker:
                 if not isinstance(result, dict) or result.get('active') is not False:
                     raise ProxyError('cleanup_incomplete', 'AppContainer 撤销未能确认。')
                 self.containers.discard(request['container'])
-                return result
-            # A compartment gate is bound to the panel's own Job handle and the
-            # held core/port, exactly like the path policy and the container gate.
-            if request["op"] == "namespace_allow":
-                if (self.panel is None or self.core is None or self.panel.pid != caller_pid
-                        or not self.panel.alive() or not self.core.alive()
-                        or request['proxy_port'] != self.port):
-                    raise ProxyError('instance_conflict', '网络隔间必须使用当前面板持有的核心和代理端口。')
-                name = request['container']
-                # Retain intent even if the bind fails midway; explicit stop and
-                # dead-owner cleanup must still seal the compartment afterwards.
-                self.namespaces.add(name)
-                core_pid = self.core.pid
-                result = self._namespaces().allow(name, request["proxy_port"], caller_pid, request["job_handle"],
-                    core_pid=core_pid, core_alive=lambda: self._core_alive(core_pid))
-                if not isinstance(result, dict) or result.get('active') is not True:
-                    raise ProxyError('namespace_failed', '网络隔间授权未能确认。')
-                return result
-            if request["op"] == "namespace_revoke":
-                if self.panel is not None and self.panel.pid != caller_pid:
-                    raise ProxyError('instance_conflict', '另一面板正在管理 Windows 代理。')
-                result = self._namespaces().revoke(request["container"])
-                if not isinstance(result, dict) or result.get('active') is not False:
-                    raise ProxyError('cleanup_incomplete', '网络隔间撤销未能确认。')
-                self.namespaces.discard(request['container'])
                 return result
             # The egress guard binds to the same held panel/core lease and the
             # broker's own routed path set; a caller cannot guard other paths
@@ -1281,8 +1214,6 @@ class Broker:
                 raise ProxyError("mode_conflict", "全局接管或故障保护仍在生效，请先显式停止全局模式。")
             if request["generation"] != self.generation + 1:
                 raise ProxyError("generation_conflict", "配置状态已改变，请刷新后重试。")
-            if request["op"] == "namespace_prepare":
-                return self._prepare_namespace_core(request, caller_pid, caller_sid)
             compiled = policy.build_policy(request["paths"], request["proxy_port"],
                 root=self.metadata["root"], proxifyre_root=self.metadata["proxifyre_root"],
                 windows_root=os.environ.get("SystemRoot", r"C:\Windows"))
@@ -1354,44 +1285,6 @@ class Broker:
                 for process in (panel, core):
                     if process:
                         process.close()
-
-    def _prepare_namespace_core(self, request, caller_pid, caller_sid):
-        """Bind an authenticated core lease without applying any path proxy rule."""
-        state = self.control.status()["state"]
-        if state != 1 and not self.engine_owned:
-            raise ProxyError("external_instance_conflict", "ProxiFyre 已由其他程序启动，不能接管。")
-        if (self.panel is not None and not self.paths and not self.engine_owned
-                and self.core.pid == request["mihomo_pid"]
-                and self.port == request["proxy_port"]):
-            self.generation = request["generation"]
-            return {**self.snapshot(), "unchanged": True}
-        panel = self.lease_factory(caller_pid, caller_sid)
-        core = None
-        try:
-            core = self.lease_factory(request["mihomo_pid"], caller_sid)
-            expected = Path(self.metadata["root"]) / "bin/windows-amd64/mihomo.exe"
-            if os.path.normcase(core.image_path()) != os.path.normcase(str(expected)):
-                raise ProxyError("invalid_process", "必须使用安装包内的 Mihomo 核心。")
-            changed = self.port != request["proxy_port"] or self.core is None or self.core.pid != request["mihomo_pid"]
-            if changed:
-                self._purge_gates()
-            # A transition from compatibility mode releases only our own path
-            # engine. Namespace-only operation never starts the engine.
-            try:
-                self._stop_owned_engine()
-            except Exception as exc:
-                self._cleanup_failed([("ProxiFyre", exc)])
-            self._clear()
-            self.panel, self.core = panel, core
-            panel = core = None
-            self.port, self.paths = request["proxy_port"], []
-            self.generation = request["generation"]
-            self.error = None
-            return self.snapshot()
-        finally:
-            for process in (panel, core):
-                if process:
-                    process.close()
 
 
 class Overlapped(ctypes.Structure):
@@ -1589,7 +1482,6 @@ def service_main():
             control.verify(metadata)
             broker = Broker(metadata, control)
             broker.recover_containers()
-            broker.recover_namespaces()
             report(4)
             serve(broker, stopping)
             report(1)

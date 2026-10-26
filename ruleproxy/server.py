@@ -233,8 +233,6 @@ class Handler(BaseHTTPRequestHandler):
                     return self.reply(200, {**self.state_payload(), "created": created})
                 elif len(parts) == 5 and parts[4] == "profile":
                     manager.set_app_profile(parts[3], data.get("use_original_data"))
-                elif len(parts) == 5 and parts[4] == "isolation":
-                    manager.set_app_isolation(parts[3], data.get("windows_container"))
                 elif len(parts) == 5 and parts[4] == "launch":
                     return self.reply(200, manager.launch(parts[3]))
                 elif len(parts) == 5 and parts[4] == "stop":

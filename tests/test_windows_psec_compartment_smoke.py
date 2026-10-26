@@ -1,5 +1,4 @@
 import copy
-import ctypes
 import hashlib
 import http.client
 import importlib.util
@@ -339,85 +338,6 @@ class PsecCompartmentSmokeTests(unittest.TestCase):
                 api.bind_job.assert_not_called()
                 native.new_job.assert_not_called()
                 account.launch.assert_not_called()
-
-    def test_failed_baseline_still_runs_independent_combination_after_cleanup(self):
-        class Basic(ctypes.Structure):
-            _fields_ = [("LimitFlags", ctypes.c_uint32)]
-
-        class Limits(ctypes.Structure):
-            _fields_ = [("BasicLimitInformation", Basic)]
-
-        with tempfile.TemporaryDirectory() as temporary:
-            work = Path(temporary)
-            for name in ("user", "inputs"):
-                (work / name).mkdir()
-            fixture = smoke.FixedHTTPProxy({"baseline": "a" * 32, "combined": "b" * 32})
-            self.addCleanup(fixture.close)
-            native, api, account, relay = mock.Mock(), mock.Mock(), mock.Mock(), mock.Mock()
-            events, configs = [], []
-            account.identity = {"sid": "S-1-5-21-1-2-3-1001", "elevated": False}
-            native.new_job.side_effect = [11, 22]
-            native.i.GetJobCompartmentId.side_effect = lambda job: 0 if job == 11 else 2
-            native.check.side_effect = lambda value, _: value if value else self.fail("unexpected native failure")
-            native.wait.return_value = (0, False)
-            native.k.CloseHandle.side_effect = lambda handle: events.append(("close", handle)) or True
-
-            def query(job, kind, buffer, *_):
-                if kind == 4:
-                    buffer._obj.value = 0
-                else:
-                    buffer._obj.BasicLimitInformation.LimitFlags = 0x2000
-                return True
-
-            api.k.QueryInformationJobObject.side_effect = query
-            api.create.side_effect = lambda *_: events.append(("create", 2)) or 2
-            api.inspect.return_value = {}
-            api.bind_job.side_effect = lambda pid, job, cid: events.append(("bind", job)) or 99
-            api.terminate_job.side_effect = lambda job: events.append(("terminate", job))
-            api._active_processes.return_value = 0
-            relay.accepted, relay.errors = 1, []
-            relay.start.return_value = ["127.0.0.1"]
-            relay.stop.side_effect = lambda: events.append(("relay_stop", 22))
-
-            def launch(command, cwd, job):
-                cfg = smoke.read(command[-1])
-                configs.append(cfg)
-                events.append(("launch", job))
-                value = passing_case(combined=job == 22)["launcher"]
-                value["relay_control"] = smoke.proxy_get(fixture.port, cfg["marker"], "outside")
-                if job == 11:
-                    value["exit_code"] = 1
-                    value.pop("actor")
-                else:
-                    value["actor"]["proxy"] = smoke.proxy_get(fixture.port, cfg["marker"], "inside")
-                smoke.save(cfg["launcher_report"], value)
-                return 100 + job, 1000 + job
-
-            account.launch.side_effect = launch
-            with mock.patch("ruleproxy.windows_compartment._Relay", return_value=relay):
-                report = smoke.run_cases(native=native, api=api, account=account, fixture=fixture,
-                                         work=work, python=work / "runtime/python.exe",
-                                         executor=work / "inputs/wxc-exec.exe", browser=None, job_limits_type=Limits)
-            self.assertFalse(report["baseline"]["functionality_passed"])
-            self.assertTrue(all(smoke.case_checks(report, combined=True).values()))
-            self.assertFalse(smoke.checks(report)["baseline_success"])
-            self.assertLess(events.index(("terminate", 11)), events.index(("create", 2)))
-            self.assertLess(events.index(("close", 11)), events.index(("launch", 22)))
-            self.assertEqual([call.args[1] for call in api.bind_job.call_args_list], [22])
-            self.assertEqual(api.terminate_job.call_count, 2)
-            self.assertEqual(native.wait.call_args_list, [mock.call(111, 155), mock.call(122, 155)])
-            self.assertEqual(relay.stop.call_count, 1)
-            self.assertNotIn("relay", report["baseline"]["cleanup"])
-            self.assertEqual(report["baseline"]["fixture_requests"]["inside"], 0)
-            self.assertEqual(report["fixture_requests"]["inside"], 1)
-            for key in ("marker", "profile", "config_path", "actor_report", "child_report", "launcher_report"):
-                self.assertNotEqual(configs[0][key], configs[1][key], key)
-            for key in ("runtime", "executor", "inputs", "port", "sid"):
-                self.assertEqual(configs[0][key], configs[1][key], key)
-            policies = [smoke.build_policy(cfg, ["python", cfg["config_path"]]) for cfg in configs]
-            for key in ("network", "runtimeConfig", "fallback", "ui", "processContainer"):
-                self.assertEqual(policies[0][key], policies[1][key], key)
-            account.close.assert_not_called()  # Shared account belongs to the outer controller.
 
     def test_uncertain_baseline_cleanup_stops_second_case(self):
         baseline = passing_case(combined=False)

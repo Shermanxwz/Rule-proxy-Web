@@ -106,7 +106,7 @@ class WindowsOnlinePackageTests(unittest.TestCase):
             first, second = Path(directory) / 'first', Path(directory) / 'second'
             self.assertEqual(builder.main([str(first)]), 0)
             self.assertEqual(builder.main([str(second)]), 0)
-            name = 'RuleProxy-Web-0.3.0-windows-x64-online-setup.zip'
+            name = 'RuleProxy-Web-0.4.0-windows-x64-online-setup.zip'
             self.assertEqual((first / name).read_bytes(), (second / name).read_bytes())
             checksum, checksum_name = (first / 'SHA256SUMS.txt').read_text().split()
             self.assertEqual(checksum_name, name)
