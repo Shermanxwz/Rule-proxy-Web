@@ -14,7 +14,7 @@ Windows 的目标是让自定义应用走所选代理节点。它不能提供 Li
 
 Linux 按应用模式继续使用网络命名空间隔离。Windows 从 0.4.0 起只提供兼容模式：“独立网络（实验）”已移除。它和兼容模式存在同样的系统 DNS 与系统服务代办绕过，却只能转发 TCP、不支持商店应用和共用原应用资料，已绑定的隔间无法删除，也未通过产品验收。从 0.3.x 升级时，原先选择独立网络的应用自动转为兼容模式，安装程序会清除旧的隔间日志；已创建的隔间在重启 Windows 后消失。实验结论保留如下。
 
-兼容模式可选开启“出站守卫（实验）”：SYSTEM 控制服务为路径清单中的程序写入自有 WFP 持久规则，仅放行其到本机代理端口的回环连接，其余出站（直连、局域网、其他本机端口、直连 DNS、UDP、IPv6）全部阻断，后端或面板故障时不恢复直连。系统服务代办的 DNS 解析仍可能外发；该功能尚未通过 Windows 原生不泄漏验收，不提供 Linux 等效隔离。
+兼容模式可选开启“出站守卫（实验）”：SYSTEM 控制服务为路径清单中的程序写入自有 WFP 持久规则，仅放行其到本机代理端口的回环连接，其余出站（直连、局域网、其他本机端口、直连 DNS、UDP、IPv6）全部阻断，后端或面板故障时不恢复直连。系统服务代办的 DNS 解析仍可能外发；该功能尚未通过 Windows 原生不泄漏验收，不提供 Linux 等效隔离。**它与 ProxiFyre 透明转发互斥，默认关闭：**守卫在 WFP 连接授权层拦截，不读代理设置、靠 ProxiFyre 转发的程序发出的连接会先被拒绝，开启后这类应用会断网。[2026-10-26 Server 2025 实测](https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/40304434929)中，开启守卫后所选程序与其辅助程序的 TCP 均返回 WinError 10013、UDP 超时，未选程序照常直连；关闭后路径代理恢复。仅当所选应用本身使用本机 HTTP/SOCKS 代理时才适合开启。
 
 **已移除的独立网络（实验）已知存在系统 DNS 和系统服务代办绕过，不能提供 Linux 等效隔离，也未通过产品验收。** [Windows Server 2025 普通用户实验](verification/windows-2026-10-19/compartment/primary-abi-fixed/assessment.json)确认 Edge 在保留低完整性受限子进程的情况下可以渲染代理页面，但同一普通账户仍可通过 WMI 启动隔间外进程并直连。六类系统 DNS 查询均有网卡外发记录，甚至 `getaddrinfo` 返回失败时也会外发。两种受限主令牌配置使 Python、PowerShell 或 Edge 启动失败，不能把这些失败算作防泄漏成功。此前的 [AppContainer 浏览器实验](verification/windows-2026-10-19/appcontainer-browser-experiment.json)同样未通过浏览器兼容验收。2026-10-20 在 Windows Server 2025 上的[诊断实验](verification/windows-2026-10-20/findings.json)用网卡抓包确认：零权限 AppContainer 内六类系统 DNS 查询没有在网卡上出现，带 `internetClient` 的对照容器则有；但 Chrome、Edge、Firefox 整体放进该容器后仍全部无法渲染，崩溃点各不相同。该实验只覆盖 DNS，未测直连 TCP/UDP、其它应用和交互式 Windows 11，不构成 Linux 等效隔离或产品验收。
 
