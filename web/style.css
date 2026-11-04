@@ -67,6 +67,18 @@ h1 { margin: 0; color: #1c2a27; font-size: clamp(26px, 3vw, 34px); line-height: 
 .divider { height: 1px; margin: 17px 0 14px; background: #edf0ed; }
 .inline-field { display: flex; gap: 8px; }.text-input { width: 100%; min-width: 0; height: 38px; padding: 0 11px; outline: none; border: 1px solid #e2e8e3; border-radius: 9px; background: #fff; color: #36463f; font-size: 11px; transition: box-shadow .15s,border-color .15s; }.text-input:disabled { background: #f7f9f7; color: #9aa49f; }
 .field-hint { min-height: 14px; margin: 7px 0 0; color: #98a29e; font-size: 10px; line-height: 1.5; }
+.node-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:14px; }
+.node-heading .field-label { margin:0; }
+.node-heading .button { min-height:30px; padding:5px 10px; }
+.node-cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,190px),1fr)); gap:8px; margin-top:9px; max-height:340px; overflow:auto; }
+.node-card { display:flex; align-items:stretch; min-width:0; border:1px solid #e2e8e3; border-radius:10px; background:#fff; overflow:hidden; }
+.node-card.is-selected { border-color:#1b8a68; background:#edf8f2; box-shadow:0 0 0 1px #1b8a68; }
+.node-card-select { flex:1; min-width:0; border:0; background:transparent; padding:10px; text-align:left; color:#34483e; cursor:pointer; }
+.node-card-select strong { display:block; overflow-wrap:anywhere; font-size:11px; }
+.node-card-select span { display:block; margin-top:4px; color:#82938a; font-size:10px; }
+.node-card-test { align-self:center; margin:5px; padding:6px 8px; border:0; border-radius:7px; background:#f1f6f2; color:#247454; cursor:pointer; font-size:10px; }
+.node-card-test:disabled, .node-card-select:disabled { opacity:.55; cursor:not-allowed; }
+.node-card-test.is-failed { color:#b44a38; background:#fff2ef; }
 .node-field { margin-top: 1px; }.node-field select { appearance: none; background-image: linear-gradient(45deg, transparent 50%, #89968f 50%),linear-gradient(135deg,#89968f 50%,transparent 50%); background-position: calc(100% - 15px) 16px,calc(100% - 11px) 16px; background-size: 4px 4px,4px 4px; background-repeat: no-repeat; padding-right: 26px; }
 .protection-card { margin: 14px 0 17px; padding: 13px 14px 12px; border: 1px solid #e5e9e6; border-radius: 12px; background: #fafbfa; }
 .protection-card.is-supported { border-color: #d9e9df; background: #f6fbf7; }

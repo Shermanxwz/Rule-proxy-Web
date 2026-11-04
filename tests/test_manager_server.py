@@ -84,6 +84,32 @@ class ManagerTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.manager.select_node("DIRECT")
 
+    def test_node_delay_uses_configured_node_without_changing_selection(self):
+        self.manager.import_yaml(SOURCE.read_text())
+        original = self.manager.compiled.selected_node
+        self.manager.core = Mock(poll=Mock(return_value=None))
+        with patch.object(self.manager, '_controller', return_value={'delay': 123}) as controller:
+            result = self.manager.test_node(original)
+        self.assertEqual(result, {'name': original, 'reachable': True, 'delay': 123})
+        self.assertEqual(self.manager.compiled.selected_node, original)
+        self.assertIn('/delay?', controller.call_args.args[1])
+        self.assertIn('www.gstatic.com', controller.call_args.args[1])
+        self.assertEqual(controller.call_args.kwargs['timeout'], 9)
+        self.manager.core = None
+
+    def test_node_delay_rejects_unconfigured_nodes_and_reports_failed_probe(self):
+        self.manager.import_yaml(SOURCE.read_text())
+        name = self.manager.compiled.selected_node
+        with self.assertRaisesRegex(ValueError, '启动核心'):
+            self.manager.test_node(name)
+        self.manager.core = Mock(poll=Mock(return_value=None))
+        with patch.object(self.manager, '_controller', side_effect=OSError('timeout')) as controller:
+            with self.assertRaises(ValueError):
+                self.manager.test_node('DIRECT')
+            controller.assert_not_called()
+            self.assertEqual(self.manager.test_node(name), {'name': name, 'reachable': False, 'delay': None})
+        self.manager.core = None
+
     def reopen(self):
         self.manager.close()
         self.manager = Manager(Path(self.temp.name), 18879)
@@ -575,6 +601,19 @@ class LocalServerTests(unittest.TestCase):
         with self.assertRaises(urllib.error.HTTPError) as error:
             self.request("/api/import", {"yaml": "bad"}, **{"X-RuleProxy-Token": self.manager.token})
         self.assertEqual(error.exception.code, 400)
+
+    def test_node_test_endpoint_requires_token_and_only_accepts_node_name(self):
+        with patch.object(self.manager, 'test_node', return_value={'name': 'n', 'reachable': True, 'delay': 40}) as probe:
+            with self.assertRaises(urllib.error.HTTPError) as error:
+                self.request('/api/node-test', {'name': 'n'})
+            self.assertEqual(error.exception.code, 403)
+            token = {'X-RuleProxy-Token': self.manager.token}
+            with self.assertRaises(urllib.error.HTTPError) as error:
+                self.request('/api/node-test', {'name': 'n', 'url': 'http://localhost'}, **token)
+            self.assertEqual(error.exception.code, 400)
+            with self.request('/api/node-test', {'name': 'n'}, **token) as response:
+                self.assertEqual(json.load(response)['delay'], 40)
+            probe.assert_called_once_with('n')
 
     def test_capture_mode_endpoint_requires_token_and_switches_only_when_stopped(self):
         backend = Mock()

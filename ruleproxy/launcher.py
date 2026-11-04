@@ -189,6 +189,10 @@ def _pe_console_program(path: Path) -> bool:
 
 
 def _infer_adapter(label: str, path: Path) -> str:
+    if sys.platform == 'win32':
+        from .windows_gemini import is_gemini
+        if is_gemini(path):
+            return 'environment'
     if _pe_console_program(path):
         # A package/label containing ChatGPT or Electron can also expose CLI
         # helpers. Browser flags must never be passed to those executables.
@@ -567,6 +571,7 @@ def _windows_discover() -> list[dict[str, Any]]:
         ("Brave", roots[2] / "BraveSoftware/Brave-Browser/Application/brave.exe"),
         ("Mozilla Firefox", roots[0] / "Mozilla Firefox/firefox.exe"),
         ("Mozilla Firefox", roots[1] / "Mozilla Firefox/firefox.exe"),
+        ("Gemini", roots[2] / "Google/Gemini/Gemini.exe"),
     ]
     for label, path in candidates:
         add(label, path)
@@ -824,6 +829,12 @@ def prepare_app(app: dict, proxy_port: int, profile_dir: Path, *, transparent: b
     privileged broker before the ordinary process is resumed.
     """
     normalized = validate_app(app)
+    if transparent and native_proxy and sys.platform == 'win32':
+        from .windows_gemini import is_gemini
+        if is_gemini(normalized['path']):
+            # Gemini rejects Chromium network-override flags, including
+            # --proxy-server. Existing saved Chromium entries need this too.
+            normalized = {**normalized, 'adapter': 'environment', 'use_original_data': False}
     if transparent and native_proxy and normalized['adapter'] == 'chromium' and _pe_console_program(Path(normalized['path'])):
         normalized = {**normalized, 'adapter': 'environment', 'use_original_data': False}
     proxy_port = _validate_port(proxy_port)

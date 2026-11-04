@@ -212,6 +212,10 @@ class Handler(BaseHTTPRequestHandler):
                 manager.stop()
             elif path == "/api/node":
                 manager.select_node(data.get("name"))
+            elif path == "/api/node-test":
+                if set(data) != {'name'}:
+                    raise ValueError("节点测试请求只能包含 name。")
+                return self.reply(200, manager.test_node(data['name']))
             elif path == "/api/apps":
                 manager.add_app(data)
             elif path == "/api/launch-enabled":

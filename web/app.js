@@ -6,7 +6,7 @@
     platform: $('platform-label'), statusDot: $('status-indicator'), statusTitle: $('status-title'),
     statusDetail: $('status-detail'), error: $('global-error'), configState: $('config-state'),
     file: $('yaml-file'), fileName: $('file-name'), yaml: $('yaml-input'), importButton: $('import-button'),
-    core: $('core-path'), saveCore: $('save-core-button'), node: $('node-select'), saveNode: $('save-node-button'),
+    core: $('core-path'), saveCore: $('save-core-button'), nodeCards: $('node-cards'), testNodes: $('test-nodes-button'),
     captureMode: $('capture-mode'), captureModeDetail: $('capture-mode-detail'),
     nodeHint: $('node-hint'), proxy: $('proxy-address'), ports: $('port-summary'), version: $('version-label'),
     footerVersion: $('footer-version'), start: $('start-button'), stop: $('stop-button'), apps: $('apps-list'),
@@ -31,6 +31,10 @@
   let lastAppsSignature = '';
   let lastAvailableSignature = '';
   let refreshingApps = false;
+  const nodeResults = new Map();
+  const testingNodes = new Set();
+  let lastNodeSignature = '';
+  let testingAllNodes = false;
   const isWindows = () => /windows|win32|win64/i.test(String(state && state.platform || ''));
   const isGlobal = () => state?.capture_mode === 'global';
 
@@ -64,8 +68,12 @@
     ui.importButton.disabled = busy || !ready;
     ui.core.disabled = busy || !ready || running;
     ui.saveCore.disabled = busy || !ready || running;
-    ui.saveNode.disabled = busy || !imported || !ui.node.value;
-    ui.node.disabled = busy || !imported || !((state && state.nodes) || []).length;
+    ui.testNodes.disabled = busy || !running || testingAllNodes || !((state && state.nodes) || []).length;
+    ui.testNodes.textContent = testingAllNodes ? '正在测试…' : '测试全部';
+    ui.nodeCards.querySelectorAll('.node-card-select').forEach((control) => { control.disabled = busy || !imported; });
+    ui.nodeCards.querySelectorAll('.node-card-test').forEach((control) => {
+      control.disabled = busy || !running || testingAllNodes || testingNodes.has(control.dataset.node);
+    });
     ui.start.disabled = busy || !imported || running || recoveryPending || (isGlobal() && !protectedBackend);
     ui.stop.disabled = busy || !ready || !(isGlobal() || running || recoveryPending);
     if (ui.captureMode) ui.captureMode.disabled = busy || !ready || running || recoveryPending
@@ -340,6 +348,78 @@
       ...(app.store_binding ? { store_binding: app.store_binding } : {}) } });
   }
 
+  function renderNodes() {
+    const nodes = Array.isArray(state?.nodes) ? state.nodes : [];
+    const signature = JSON.stringify([nodes, state?.selected_node, state?.running,
+      Array.from(nodeResults), Array.from(testingNodes), testingAllNodes]);
+    if (signature === lastNodeSignature) return;
+    lastNodeSignature = signature;
+    ui.nodeCards.replaceChildren();
+    if (!nodes.length) {
+      ui.nodeCards.append(textElement('div', 'field-hint', state?.imported ? '配置中没有可选择的节点' : '先导入配置'));
+      return;
+    }
+    for (const node of nodes) {
+      const name = typeof node === 'string' ? node : node.name;
+      const type = typeof node === 'string' ? '' : node.type;
+      const selected = name === state.selected_node;
+      const card = textElement('div', `node-card${selected ? ' is-selected' : ''}`);
+      const select = textElement('button', 'node-card-select');
+      select.type = 'button';
+      select.setAttribute('aria-pressed', String(selected));
+      select.append(textElement('strong', '', name), textElement('span', '', selected ? `${type || '节点'} · 当前使用` : (type || '点击选择')));
+      select.addEventListener('click', () => { if (!selected) mutate('/api/node', { body: { name } }); });
+      const result = nodeResults.get(name);
+      const label = testingNodes.has(name) ? '测试中…' : result === null ? '失败' : Number.isInteger(result) ? `${result} ms` : '测速';
+      const test = textElement('button', `node-card-test${result === null ? ' is-failed' : ''}`, label);
+      test.type = 'button';
+      test.dataset.node = name;
+      test.title = `测试 ${name} 到 Google 204 页面的连接`;
+      test.addEventListener('click', () => testNode(name));
+      card.append(select, test);
+      ui.nodeCards.append(card);
+    }
+  }
+
+  async function testNode(name) {
+    if (!state?.running || testingNodes.has(name) || !state.token) return;
+    testingNodes.add(name);
+    renderNodes();
+    renderControls();
+    try {
+      const response = await fetch('/api/node-test', { method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-RuleProxy-Token': state.token },
+        body: JSON.stringify({ name }) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || '节点测试失败');
+      nodeResults.set(name, result.reachable ? result.delay : null);
+    } catch (error) {
+      nodeResults.set(name, null);
+      showError(error.message || '节点测试失败');
+    } finally {
+      testingNodes.delete(name);
+      renderNodes();
+      renderControls();
+    }
+  }
+
+  async function testAllNodes() {
+    if (!state?.running || testingAllNodes) return;
+    const names = (state.nodes || []).map((node) => typeof node === 'string' ? node : node.name);
+    testingAllNodes = true;
+    renderControls();
+    let next = 0;
+    try {
+      await Promise.all(Array.from({ length: Math.min(4, names.length) }, async () => {
+        while (next < names.length && state?.running) await testNode(names[next++]);
+      }));
+    } finally {
+      testingAllNodes = false;
+      renderNodes();
+      renderControls();
+    }
+  }
+
   function render(stateValue) {
     state = stateValue;
     if (!state) return;
@@ -351,26 +431,8 @@
     ui.configState.textContent = state.imported ? '已导入' : '尚未导入';
     ui.configState.className = `pill ${state.imported ? 'pill-ready' : ''}`;
     if (document.activeElement !== ui.core) ui.core.value = state.core_path || '';
-    if (document.activeElement !== ui.node) {
-      const previous = ui.node.value;
-      const selected = state.selected_node || '';
-      const nodes = Array.isArray(state.nodes) ? state.nodes : [];
-      ui.node.replaceChildren();
-      if (!nodes.length) {
-        ui.node.append(new Option(state.imported ? '配置中没有可选择的节点' : '先导入配置', ''));
-      } else {
-        ui.node.append(new Option('选择一个节点', ''));
-        for (const node of nodes) {
-          const name = typeof node === 'string' ? node : node.name;
-          const type = typeof node === 'string' ? '' : node.type;
-          const label = type ? `${name} · ${type}` : name;
-          ui.node.append(new Option(label || '未命名节点', name || ''));
-        }
-        ui.node.value = selected || previous;
-        if (ui.node.value !== selected && selected) ui.node.value = selected;
-      }
-    }
-    ui.nodeHint.textContent = state.primary_group ? `节点来自：${state.primary_group}` : '选择节点后保存，即可作为当前代理线路。';
+    renderNodes();
+    ui.nodeHint.textContent = state.running ? '点击卡片切换节点；测速经该节点访问 Google，失败不一定代表节点不可用。' : '点击卡片选择节点；启动核心后可测试延迟与连通性。';
     ui.proxy.textContent = state.proxy_url || '等待配置';
     const ports = state.ports || {};
     const portParts = [];
@@ -586,6 +648,9 @@
     }
     const result = await mutate('/api/import', { body: { yaml } });
     if (result) {
+      nodeResults.clear();
+      renderNodes();
+      renderControls();
       if (ui.yaml.value.trim() === yaml) {
         ui.yaml.value = '';
         ui.file.value = '';
@@ -603,9 +668,7 @@
   }
 
   ui.saveCore.addEventListener('click', () => mutate('/api/settings', { body: settingsBody() }));
-  ui.saveNode.addEventListener('click', () => {
-    if (ui.node.value) mutate('/api/node', { body: { name: ui.node.value } });
-  });
+  ui.testNodes.addEventListener('click', testAllNodes);
   ui.start.addEventListener('click', () => mutate('/api/start'));
   ui.captureMode?.addEventListener('change', async () => {
     const result = await mutate('/api/mode', { body: { capture_mode: ui.captureMode.value } });

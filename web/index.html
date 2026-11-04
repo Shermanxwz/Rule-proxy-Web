@@ -101,13 +101,10 @@
           <ul id="protection-limitations" class="protection-limitations" hidden></ul>
           <p id="protection-note" class="protection-note">不同平台和接管模式的范围不同，请查看后端状态与限制说明。</p>
         </div>
-        <label class="field-label" for="node-select">代理节点</label>
-        <div class="inline-field node-field">
-          <select id="node-select" class="text-input" aria-label="选择代理节点" disabled>
-            <option value="">先导入配置</option>
-          </select>
-          <button id="save-node-button" class="button button-secondary" type="button" disabled>选择</button>
+        <div class="node-heading"><span class="field-label">代理节点</span>
+          <button id="test-nodes-button" class="button button-secondary" type="button" disabled>测试全部</button>
         </div>
+        <div id="node-cards" class="node-cards" aria-label="代理节点列表"></div>
         <p id="node-hint" class="field-hint">可用节点会显示在这里。</p>
         <div class="connection-card">
           <div class="connection-topline"><span class="connection-label">本机代理地址</span><span class="local-tag small-tag"><span class="local-dot"></span>本机</span></div>

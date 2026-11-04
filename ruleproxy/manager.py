@@ -428,6 +428,9 @@ class Manager:
             app = copy.deepcopy(saved_app)
             self._bind_store_app(app)
             selected = [app["path"], *app.get("related_paths", [])]
+            from .windows_gemini import is_gemini, routing_paths
+            if is_gemini(app['path']):
+                selected = [*routing_paths(app['path']), *app.get('related_paths', [])]
             binding = app.get('store_binding')
             if binding:
                 from .windows_app_family import resolve_store_family
@@ -692,10 +695,10 @@ class Manager:
             raise ValueError("Mihomo 文件没有执行权限。")
         return path.resolve()
 
-    def _controller(self, method, path, data=None):
+    def _controller(self, method, path, data=None, *, timeout=2):
         opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
         req = urllib.request.Request(f"http://127.0.0.1:{self.controller_port}" + path, data=json.dumps(data).encode() if data is not None else None, method=method, headers={"Authorization": "Bearer " + self.secret, "Content-Type": "application/json"})
-        with opener.open(req, timeout=2) as response:
+        with opener.open(req, timeout=timeout) as response:
             body = response.read(2 * 1024 * 1024)
         return json.loads(body) if body else None
 
@@ -830,6 +833,30 @@ class Manager:
             self.compiled = compiled
             self.settings["selected_node"] = name
             self._save()
+
+    def test_node(self, name):
+        """Probe one configured node through Mihomo without changing selection."""
+        with self.lock:
+            if not isinstance(name, str) or not self.compiled or name not in {
+                    node['name'] for node in self.compiled.nodes}:
+                raise ValueError("请选择配置中有效的代理节点。")
+            if not self.core or self.core.poll() is not None:
+                raise ValueError("请先启动核心，再测试节点。")
+            core = self.core
+        path = '/proxies/' + urllib.parse.quote(name, safe='') + '/delay?'
+        path += urllib.parse.urlencode({'url': 'https://www.gstatic.com/generate_204',
+                                       'timeout': 7000, 'expected': '204'})
+        try:
+            result = self._controller('GET', path, timeout=9)
+        except (OSError, ValueError, RuntimeError):
+            return {'name': name, 'reachable': False, 'delay': None}
+        with self.lock:
+            if self.core is not core or core.poll() is not None:
+                raise ValueError("核心已停止或重启，请重新测试。")
+        delay = result.get('delay') if isinstance(result, dict) else None
+        if isinstance(delay, bool) or not isinstance(delay, int) or delay <= 0:
+            return {'name': name, 'reachable': False, 'delay': None}
+        return {'name': name, 'reachable': True, 'delay': delay}
 
     def add_app(self, data):
         with self.lock:
