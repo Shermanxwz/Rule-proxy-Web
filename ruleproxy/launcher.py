@@ -830,11 +830,12 @@ def prepare_app(app: dict, proxy_port: int, profile_dir: Path, *, transparent: b
     """
     normalized = validate_app(app)
     if transparent and native_proxy and sys.platform == 'win32':
-        from .windows_gemini import is_gemini
+        from .windows_gemini import is_gemini, launch_path
         if is_gemini(normalized['path']):
             # Gemini rejects Chromium network-override flags, including
             # --proxy-server. Existing saved Chromium entries need this too.
-            normalized = {**normalized, 'adapter': 'environment', 'use_original_data': False}
+            normalized = {**normalized, 'path': launch_path(normalized['path']),
+                          'adapter': 'environment', 'use_original_data': False}
     if transparent and native_proxy and normalized['adapter'] == 'chromium' and _pe_console_program(Path(normalized['path'])):
         normalized = {**normalized, 'adapter': 'environment', 'use_original_data': False}
     proxy_port = _validate_port(proxy_port)

@@ -47,7 +47,7 @@ class GeminiCompatibilityTests(unittest.TestCase):
         with patch.object(launcher.sys, 'platform', 'win32'):
             command, env, _ = launcher.prepare_app(app, 10809, self.base / 'profiles',
                                                    transparent=True, native_proxy=True)
-        self.assertEqual(command, [str(self.entry.resolve())])
+        self.assertEqual(command, [str(self.main.resolve())])
         self.assertEqual(env['HTTPS_PROXY'], 'http://127.0.0.1:10809')
 
     def test_policy_includes_stable_and_versioned_images(self):
@@ -74,6 +74,17 @@ class GeminiCompatibilityTests(unittest.TestCase):
         self.main.unlink()
         with self.assertRaisesRegex(ValueError, '无法找到 Gemini'):
             routing_paths(self.entry)
+
+    def test_launch_tracks_newest_numeric_version(self):
+        newer = self.root / 'app-1.18.0' / 'Gemini.exe'
+        newer.parent.mkdir()
+        newer.write_bytes(b'MZ fixture')
+        newer.chmod(0o755)
+        app = {'id': 'gemini', 'label': 'Gemini', 'path': str(self.entry), 'adapter': 'environment', 'args': []}
+        with patch.object(launcher.sys, 'platform', 'win32'):
+            command, _, _ = launcher.prepare_app(app, 10809, self.base / 'profiles',
+                                                 transparent=True, native_proxy=True)
+        self.assertEqual(command, [str(newer.resolve())])
 
 
 if __name__ == '__main__':

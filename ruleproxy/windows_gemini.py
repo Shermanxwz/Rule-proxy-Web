@@ -63,3 +63,16 @@ def routing_paths(path: str | Path) -> list[str]:
     if not versions:
         raise ValueError("无法找到 Gemini 的版本程序，无法安全配置代理。")
     return list(dict.fromkeys(paths))
+
+
+def launch_path(path: str | Path) -> str:
+    """Start the real versioned process so the Job outlives the launcher stub."""
+    candidates = []
+    for value in routing_paths(path):
+        candidate = Path(value)
+        if candidate.name.casefold() == 'gemini.exe' and _VERSION.fullmatch(candidate.parent.name):
+            version = tuple(int(part) for part in candidate.parent.name[4:].split('.'))
+            candidates.append((version, value))
+    if not candidates:
+        raise ValueError("无法找到 Gemini 的版本程序，不能启动。")
+    return max(candidates)[1]
