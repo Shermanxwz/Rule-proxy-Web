@@ -4,12 +4,12 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing release-candidate tag with a draft GitHub Release
+        description: Existing version tag with a matching draft GitHub Release
         type: string
         required: true
-        default: v0.4.0
+        default: v0.4.1
       release_id:
-        description: Numeric ID of the existing draft prerelease
+        description: Numeric ID of the existing draft release
         type: string
         required: true
 
@@ -28,12 +28,12 @@ jobs:
       RELEASE_TAG: ${{ inputs.tag }}
       RELEASE_ID: ${{ inputs.release_id }}
     steps:
-      - name: Validate the release-candidate tag
+      - name: Validate the version tag
         run: |
           python3 - <<'PY'
           import os, re
-          if re.fullmatch(r'v[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+', os.environ['RELEASE_TAG']) is None:
-              raise SystemExit('A versioned release-candidate tag is required')
+          if re.fullmatch(r'v[0-9]+\.[0-9]+\.[0-9]+(?:-rc\.[0-9]+)?', os.environ['RELEASE_TAG']) is None:
+              raise SystemExit('A versioned stable or release-candidate tag is required')
           if re.fullmatch(r'[1-9][0-9]*', os.environ['RELEASE_ID']) is None:
               raise SystemExit('A numeric draft release ID is required')
           PY
@@ -50,14 +50,17 @@ jobs:
         run: |
           python - <<'PY'
           import json, os, subprocess
+          from ruleproxy import __version__
           repo, tag = os.environ['GITHUB_REPOSITORY'], os.environ['RELEASE_TAG']
           release_id = os.environ['RELEASE_ID']
           release = json.loads(subprocess.check_output(['gh', 'api', f'repos/{repo}/releases/{release_id}']))
           commit = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
+          prerelease = '-rc.' in tag
           if (str(release['id']) != release_id or release['tag_name'] != tag or release['draft'] is not True
-                  or release['prerelease'] is not True or release['target_commitish'] != commit):
-              raise SystemExit('Only the matching draft prerelease can receive these assets')
-          print('Draft prerelease and checked-out commit match')
+                  or release['prerelease'] != prerelease or release['target_commitish'] != commit
+                  or tag.removeprefix('v').split('-rc.', 1)[0] != __version__):
+              raise SystemExit('Only the matching versioned draft release can receive these assets')
+          print('Draft release, version and checked-out commit match')
           PY
       - name: Build the Windows online setup source package
         run: python -B .github/build_windows_online_package.py windows-online-release
@@ -66,13 +69,19 @@ jobs:
           python - <<'PY'
           import hashlib, json, os
           from pathlib import Path
-          record = json.loads(Path(f'verification/windows-2026-10-16/online-release-{os.environ["RELEASE_TAG"]}.json').read_text())
+          record_path = Path(f'verification/releases/online-release-{os.environ["RELEASE_TAG"]}.json')
+          if not record_path.is_file():
+              record_path = Path(f'verification/windows-2026-10-16/online-release-{os.environ["RELEASE_TAG"]}.json')
+          record = json.loads(record_path.read_text())
           expected = record['online_zip']
           package = Path('windows-online-release') / expected['name']
           data = package.read_bytes()
           if len(data) != expected['bytes'] or hashlib.sha256(data).hexdigest() != expected['sha256']:
               raise SystemExit('Built release asset does not match the reviewed package')
-          print('Release ZIP matches its archived SHA-256 and byte count')
+          sums = (Path('windows-online-release') / 'SHA256SUMS.txt').read_text()
+          if sums != f'{expected["sha256"]}  {expected["name"]}\n':
+              raise SystemExit('Checksum manifest does not match the reviewed package')
+          print('Release ZIP and checksum manifest match the archived identity')
           PY
       - uses: actions/upload-artifact@v7
         with:
@@ -85,4 +94,4 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release upload "$RELEASE_TAG" windows-online-release/*.zip windows-online-release/SHA256SUMS.txt \
-            --repo "$GITHUB_REPOSITORY" --clobber
+            --repo "$GITHUB_REPOSITORY"

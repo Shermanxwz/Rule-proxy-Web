@@ -1,0 +1,14 @@
+{
+  "tag": "v0.4.1",
+  "version": "0.4.1",
+  "compatibility_source_commit": "3f1e5541488ec4065aa50d357b2798ec5d9f4918",
+  "kind": "online-source-bootstrap",
+  "online_zip": {
+    "name": "RuleProxy-Web-0.4.1-windows-x64-online-setup.zip",
+    "bytes": 386369,
+    "sha256": "bd6b12cfa6d3028a0e9fbc3a8440f996e108dae7618806d6fccec033a6d8c9db"
+  },
+  "shipped_source_files": 72,
+  "accepted_compatibility_files_matched": 19,
+  "scope": "Archive layout, file hashes, accepted compatibility source equivalence and deterministic build; not a fresh installation qualification."
+}
