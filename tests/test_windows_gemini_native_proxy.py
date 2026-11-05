@@ -3,6 +3,7 @@ import json
 import os
 from pathlib import Path
 import tempfile
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 from ruleproxy import windows_gemini_native_proxy as n
@@ -41,6 +42,43 @@ class NativeBindingTests(unittest.TestCase):
         with patch.object(n,'VERIFIED_ASAR','changed'), self.assertRaises(ValueError):
             n.prepare(self.command,10809)
         self.assertFalse(self.profile.exists())
+
+    def test_python310_hashes_empty_exact_and_multiple_blocks(self):
+        # Deliberately expose no file_digest, as on Python 3.10. Real fixture
+        # files exercise EOF, a full block and a multi-block trailing fragment.
+        legacy_hashlib = SimpleNamespace(sha256=hashlib.sha256)
+        for size in (0, 1, 256 * 1024, 2 * 256 * 1024 + 17):
+            with self.subTest(size=size):
+                body = (bytes(range(256)) * (size // 256 + 1))[:size]
+                (self.root / 'install/resources/app.asar').write_bytes(body)
+                command = self.command.copy()
+                with patch.object(n, 'hashlib', legacy_hashlib), \
+                        patch.object(n, 'VERIFIED_ASAR', hashlib.sha256(body).hexdigest()):
+                    lease = n.prepare(command, 10809)
+                    try:
+                        self.assertEqual(command[-1], '--user-data-dir=' + str(self.profile))
+                        self.assertIsNotNone(n.pending_receipt())
+                        lease.close()
+                        self.assertIsNone(n.pending_receipt())
+                    finally:
+                        lease.lock.close()
+
+    def test_python310_changed_multiblock_build_before_profile_write(self):
+        body = b'x' * (2 * 256 * 1024 + 17)
+        (self.root / 'install/resources/app.asar').write_bytes(body)
+        self.profile.mkdir(parents=True)
+        preferences = self.profile / 'Preferences'
+        original = b'{"keep":"existing-profile"}'
+        preferences.write_bytes(original)
+        command = self.command.copy()
+        with patch.object(n, 'hashlib', SimpleNamespace(sha256=hashlib.sha256)), \
+                patch.object(n, 'acquire') as acquire, self.assertRaisesRegex(ValueError, '版本已变化'):
+            n.prepare(command, 10809)
+        acquire.assert_not_called()
+        self.idle.assert_not_called()
+        self.assertEqual(command, self.command)
+        self.assertEqual(preferences.read_bytes(), original)
+        self.assertEqual(list(self.profile.iterdir()), [preferences])
 
     def test_custom_profile_rejected(self):
         for flag in ('--user-data-dir=other','--profile-directory=other','/USER-DATA-DIR=other'):

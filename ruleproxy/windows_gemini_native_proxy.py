@@ -96,8 +96,13 @@ def prepare(command, port):
         if option in ('user-data-dir', 'profile-directory'):
             raise ValueError('Gemini 原资料代理与自定义资料参数冲突。')
     asar = _safe(Path(command[0]).parent / 'resources' / 'app.asar')
+    # hashlib.file_digest requires Python 3.11; keep the content gate on 3.10
+    # without loading the entire archive or touching the profile before approval.
+    hasher = hashlib.sha256()
     with asar.open('rb') as source:
-        digest = hashlib.file_digest(source, 'sha256').hexdigest()
+        for chunk in iter(lambda: source.read(256 * 1024), b''):
+            hasher.update(chunk)
+    digest = hasher.hexdigest()
     if digest != VERIFIED_ASAR:
         raise ValueError('Gemini 版本已变化，保留原资料；此版本的原生代理偏好需重新验证。')
     roaming = os.environ.get('APPDATA')

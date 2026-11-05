@@ -1,0 +1,13 @@
+{
+  "tag": "v0.4.2",
+  "version": "0.4.2",
+  "based_on_release_commit": "7fcc958d4750e3f26148c79604c24b4e823f52a6",
+  "kind": "online-source-bootstrap",
+  "online_zip": {
+    "name": "RuleProxy-Web-0.4.2-windows-x64-online-setup.zip",
+    "bytes": 387080,
+    "sha256": "d85fa05749e50708668e35a9c027b6c5586b3226394d36ce27febeead1a421a7"
+  },
+  "shipped_source_files": 72,
+  "scope": "Deterministic package identity and exact source equivalence. Full hosted CI must pass for this commit before publication; no fresh installation qualification is claimed."
+}

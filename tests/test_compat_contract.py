@@ -45,7 +45,8 @@ class GeminiContractTests(unittest.TestCase):
             with patch.dict(os.environ, LOCALAPPDATA=str(root)), patch.object(launcher.sys, 'platform', 'win32'):
                 command, env, _ = launcher.prepare_app(app, 10809, root / 'profiles',
                                                       transparent=True, native_proxy=True)
-            self.assertEqual(command, [str(root / 'Google/Gemini/app-1.17.0/Gemini.exe')])
+            # Launch paths are canonical; Windows may expand a TEMP 8.3 alias.
+            self.assertEqual(command, [str((root / 'Google/Gemini/app-1.17.0/Gemini.exe').resolve())])
             self.assertEqual(env['HTTPS_PROXY'], 'http://127.0.0.1:10809')
             self.assertEqual(env['NO_PROXY'], 'localhost,127.0.0.1,::1')
             self.assertEqual(app['adapter'], 'chromium')  # caller not mutated

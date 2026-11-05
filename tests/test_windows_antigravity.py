@@ -86,6 +86,55 @@ class AntigravityTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 adapter.routing_paths(self.main)
 
+    def test_canonical_boundary_accepts_expanded_ancestor_names(self):
+        # Model 8.3 expansion on every host, including volumes without short names.
+        canonical = self.local / 'expanded ancestor name'
+        original = Path.resolve
+        def expanded(path, *args, **kwargs):
+            if path == self.root or self.root in path.parents:
+                return canonical / path.relative_to(self.local)
+            return original(path, *args, **kwargs)
+        with patch.object(Path, 'resolve', expanded):
+            self.assertEqual(adapter.routing_paths(self.main), [str(self.main), str(self.helper)])
+
+    def test_canonical_boundary_still_rejects_sibling_prefix_escape(self):
+        canonical = self.local / 'expanded ancestor name'
+        original = Path.resolve
+        def expanded(path, *args, **kwargs):
+            if path == self.helper:
+                return canonical / 'Programs' / 'antigravity-evil' / path.name
+            if path == self.root or self.root in path.parents:
+                return canonical / path.relative_to(self.local)
+            return original(path, *args, **kwargs)
+        with patch.object(Path, 'resolve', expanded):
+            with self.assertRaisesRegex(ValueError, '逃逸'):
+                adapter.routing_paths(self.main)
+
+    def test_reparse_root_rejected_before_canonicalization(self):
+        original = Path.lstat
+        def fake(path, *args, **kwargs):
+            if path == self.root:
+                return SimpleNamespace(st_mode=stat.S_IFDIR, st_file_attributes=0x400)
+            return original(path, *args, **kwargs)
+        with patch.object(Path, 'lstat', fake), patch.object(Path, 'resolve') as resolve:
+            with self.assertRaises(ValueError):
+                adapter.routing_paths(self.main)
+            resolve.assert_not_called()
+
+    @unittest.skipUnless(os.name == 'nt', 'Windows 8.3 path API')
+    def test_native_short_path_boundary(self):
+        import ctypes
+        get_short_path = ctypes.WinDLL('kernel32', use_last_error=True).GetShortPathNameW
+        get_short_path.argtypes = (ctypes.c_wchar_p, ctypes.c_wchar_p, ctypes.c_uint32)
+        get_short_path.restype = ctypes.c_uint32
+        buffer = ctypes.create_unicode_buffer(32768)
+        size = get_short_path(str(self.local), buffer, len(buffer))
+        self.assertTrue(0 < size < len(buffer), ctypes.get_last_error())
+        local = Path(buffer.value)
+        main = local / self.main.relative_to(self.local)
+        helper = local / self.helper.relative_to(self.local)
+        self.assertEqual(adapter.routing_paths(main, local_app_data=local), [str(main), str(helper)])
+
     def manager_fixture(self, related=()):
         # Compile the actual selected methods, avoiding application initialization,
         # credentials/config loading, optional dependencies and native side effects.

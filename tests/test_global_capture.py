@@ -110,19 +110,43 @@ class SystemProxyTests(unittest.TestCase):
 class GlobalManagerTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        # Fake Popen PIDs must never reach OS process-group signalling, including
+        # when an assertion fails before the test's local patches exit.
+        self.halt = self._patch('ruleproxy.manager.stop_process')
+        self._patch('ruleproxy.system_proxy.restore')
+        self._patch('ruleproxy.system_proxy.enable')
+        # Port ownership belongs to socket integration tests, not this fixture;
+        # a locally running installation must not affect mocked core startup.
+        self._patch('ruleproxy.manager.socket.socket')
+        # These are synchronous lifecycle tests: do not race the real monitor
+        # or recover unrelated installed desktop state during construction.
+        self._patch('ruleproxy.manager.Manager._watch')
+        self._patch('ruleproxy.manager.Manager._legacy_artifacts_present', return_value=False)
+        self._patch('ruleproxy.windows_gemini_native_proxy.pending_receipt', return_value=None)
+        self._patch('ruleproxy.windows_gemini_native_proxy.recover_pending')
         self.manager = Manager(Path(self.temp.name), 18879)
         self.manager._probe_cache = {'supported': False}
         self.legacy = Mock()
         self.legacy.status.return_value = {'supported': False, 'running': False, 'state': 'setup_required'}
         self.manager._global_backend = self.legacy
 
+    def _patch(self, target, **kwargs):
+        patcher = patch(target, **kwargs)
+        mocked = patcher.start()
+        self.addCleanup(patcher.stop)
+        return mocked
+
+    @staticmethod
+    def _watchdog():
+        return Mock(nonce='a' * 32, process=Mock(poll=Mock(return_value=None)))
+
     def tearDown(self):
         self.manager.active.clear()
         self.legacy.stop.side_effect = None
         self.legacy.status.return_value = {'supported': False, 'running': False, 'state': 'setup_required'}
-        with patch.object(system_proxy, 'restore'):
-            self.manager.close()
-        self.temp.cleanup()
+        # setUp's patches remain active until unittest runs addCleanup callbacks.
+        self.manager.close()
 
     def test_mode_and_node_survive_restore_and_compile_without_tun(self):
         self.manager.import_yaml(SOURCE)
@@ -245,7 +269,7 @@ class GlobalManagerTests(unittest.TestCase):
         self.manager.import_yaml(SOURCE)
         self.manager.set_capture_mode('global')
         events = []
-        watch = Mock(nonce='a' * 32)
+        watch = self._watchdog()
         watch.arm.side_effect = lambda: events.append('armed')
         watch.close.side_effect = lambda: events.append('watch_closed')
         core = Mock(pid=42, poll=Mock(return_value=None))
@@ -267,7 +291,7 @@ class GlobalManagerTests(unittest.TestCase):
         self.manager.import_yaml(SOURCE)
         self.manager.set_capture_mode('global')
         events = []
-        watch = Mock(nonce='a' * 32)
+        watch = self._watchdog()
         watch.arm.side_effect = OSError('core died before ARM')
         watch.close.side_effect = lambda: events.append('watch_closed')
         core = Mock(pid=42, poll=Mock(return_value=None))
@@ -285,10 +309,75 @@ class GlobalManagerTests(unittest.TestCase):
         self.assertEqual(events, ['restore', 'restore', 'watch_closed', 'core_stopped'])
         self.assertIsNone(self.manager.core)
 
+    def test_exited_watchdog_after_arm_restores_before_stopping_core(self):
+        self.manager.import_yaml(SOURCE)
+        self.manager.set_capture_mode('global')
+        events = []
+        watch = self._watchdog()
+        watch.process.poll.return_value = 1
+        watch.arm.side_effect = lambda: events.append('armed')
+        watch.close.side_effect = lambda: events.append('watch_closed')
+        core = Mock(pid=42, poll=Mock(return_value=None))
+        with patch.object(self.manager, 'core_path', return_value=Path(__file__)), \
+                patch.object(self.manager, '_controller', return_value={'version': 'fixture'}), \
+                patch('subprocess.run', return_value=Mock(returncode=0)), \
+                patch('subprocess.Popen', return_value=core), \
+                patch('ruleproxy.windows_core_process.CoreJob'), \
+                patch('ruleproxy.system_proxy_watchdog.start', return_value=watch), \
+                patch.object(system_proxy, 'enable'), \
+                patch.object(system_proxy, 'restore', side_effect=lambda *args: events.append('restore')), \
+                patch('ruleproxy.manager.stop_process', side_effect=lambda *args: events.append('core_stopped')):
+            with self.assertRaisesRegex(ValueError, '独立恢复进程已退出'):
+                self.manager.start()
+        self.assertEqual(events, ['restore', 'armed', 'restore', 'watch_closed', 'core_stopped'])
+        self.assertIsNone(self.manager.core)
+        self.assertIsNone(self.manager._proxy_watchdog)
+        self.assertFalse(self.manager._proxy_watchdog_armed)
+
+    def test_global_launch_rejects_missing_unarmed_exited_or_unreadable_watchdog(self):
+        self.manager.import_yaml(SOURCE)
+        self.manager.set_capture_mode('global')
+        self.manager.core = Mock(pid=1, poll=Mock(return_value=None))
+        self.manager.settings['apps'] = [{'id': 'app', 'label': 'App', 'path': '/bin/true',
+                                          'adapter': 'firefox', 'args': [], 'enabled': True}]
+        for state in ('missing', 'unarmed', 'exited', 'unreadable'):
+            with self.subTest(state=state):
+                self.manager._global_fault = False
+                watch = self._watchdog()
+                if state == 'exited':
+                    watch.process.poll.return_value = 1
+                elif state == 'unreadable':
+                    watch.process.poll.side_effect = OSError('watchdog handle lost')
+                self.manager._proxy_watchdog = None if state == 'missing' else watch
+                self.manager._proxy_watchdog_armed = state != 'unarmed'
+                with patch('ruleproxy.manager.prepare_app') as prepare, \
+                        patch('subprocess.Popen') as popen, \
+                        patch('ruleproxy.windows_app_process.launch') as launch:
+                    with self.assertRaisesRegex(ValueError, '独立恢复进程未就绪'):
+                        self.manager.launch('app')
+                prepare.assert_not_called()
+                popen.assert_not_called()
+                launch.assert_not_called()
+                self.assertTrue(self.manager._global_fault)
+                self.assertEqual(self.manager.active, {})
+
+    def test_close_with_leftover_fake_core_uses_lifecycle_stop_mock(self):
+        # A failed test can leave PID 1 behind after its local patches unwind.
+        core = self.manager.core = Mock(pid=1, poll=Mock(return_value=None))
+        with patch('ruleproxy.manager.stop_process') as local_halt:
+            pass
+        self.manager.close()
+        local_halt.assert_not_called()
+        self.halt.assert_called_once_with(core)
+        self.assertIsNone(self.manager.core)
+        self.assertTrue(self.manager.closed.is_set())
+
     def test_global_launch_hands_the_proxy_to_apps(self):
         self.manager.import_yaml(SOURCE)
         self.manager.set_capture_mode('global')
         self.manager.core = Mock(pid=1, poll=Mock(return_value=None))
+        self.manager._proxy_watchdog = self._watchdog()
+        self.manager._proxy_watchdog_armed = True
         self.manager.settings['apps'] = [{'id': 'app', 'label': 'App', 'path': '/bin/true',
                                           'adapter': 'firefox', 'args': [], 'enabled': True}]
         with patch('ruleproxy.manager.prepare_app', return_value=(['/bin/true'], {}, '')) as prepare, \

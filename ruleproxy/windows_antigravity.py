@@ -48,12 +48,18 @@ def routing_paths(path: str | Path, *, local_app_data=None) -> list[str]:
         return []
     targets = (root / 'Antigravity.exe', root / 'resources' / 'bin' / 'language_server.exe')
     try:
+        # Check the lexical ancestors before canonicalizing the boundary: resolve
+        # expands Windows 8.3 names, but must never hide a junction/symlink.
+        for parent in reversed((root, *root.parents)):
+            _plain(parent, directory=True)
+        canonical_root = root.resolve(strict=True)
         for target in targets:
             for parent in reversed(target.parents):
                 _plain(parent, directory=True)
             _plain(target, directory=False)
             resolved = target.resolve(strict=True)
-            if str(resolved).casefold() != str(target).casefold():
+            expected = canonical_root / target.relative_to(root)
+            if str(resolved).casefold() != str(expected).casefold():
                 raise ValueError('Antigravity 程序路径逃逸标准安装位置。')
         return [str(target) for target in targets]
     except (OSError, RuntimeError) as error:

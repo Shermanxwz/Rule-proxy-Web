@@ -156,13 +156,26 @@ class WindowsPackageTests(unittest.TestCase):
             script = root / 'check.ps1'
             script.write_text("param([string]$stage)\n$ErrorActionPreference = 'Stop'\n" + check.group()
                               + '\n' + hash_block + '\n$files | ConvertTo-Json -Compress\n', encoding='utf-8')
-            def run():
+            def run(stage_argument=stage):
                 return subprocess.run([shell, '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
-                                       '-File', str(script), str(stage)],
+                                       '-File', str(script), str(stage_argument)],
                                       capture_output=True, text=True, timeout=30)
-            result = run()
-            self.assertEqual(result.returncode, 0, result.stderr)
-            hashes = json.loads(result.stdout)
+            # Exercise an 8.3 stage path even when TEMP uses long names.
+            import ctypes
+            get_short_path = ctypes.WinDLL('kernel32', use_last_error=True).GetShortPathNameW
+            get_short_path.argtypes = (ctypes.c_wchar_p, ctypes.c_wchar_p, ctypes.c_uint32)
+            get_short_path.restype = ctypes.c_uint32
+            buffer = ctypes.create_unicode_buffer(32768)
+            size = get_short_path(str(stage), buffer, len(buffer))
+            self.assertTrue(0 < size < len(buffer), ctypes.get_last_error())
+            for stage_argument in (stage, buffer.value, buffer.value + os.sep):
+                with self.subTest(stage_argument=str(stage_argument)):
+                    result = run(stage_argument)
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    hashes = json.loads(result.stdout)
+                    self.assertEqual(set(hashes), {Path(name).as_posix() for name in required})
+                    for name, digest in hashes.items():
+                        self.assertEqual(digest, hashlib.sha256((stage / name).read_bytes()).hexdigest())
             self.assertEqual(set(hashes), {name.replace('\\', '/') for name in required})
             for module in ('windows_antigravity', 'windows_antigravity_ipc', 'windows_ipc_lease'):
                 name = f'ruleproxy/{module}.py'

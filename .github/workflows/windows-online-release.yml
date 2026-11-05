@@ -7,7 +7,7 @@ on:
         description: Existing version tag with a matching draft GitHub Release
         type: string
         required: true
-        default: v0.4.1
+        default: v0.4.2
       release_id:
         description: Numeric ID of the existing draft release
         type: string

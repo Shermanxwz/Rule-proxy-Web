@@ -594,8 +594,14 @@ try {
     & (Join-Path $stage 'python\python.exe') -I -S (Join-Path $stage 'Run-RuleProxy.py') --create-panel-shortcut (Join-Path $stage 'Start-Windows.lnk') --shortcut-root $root
     if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath (Join-Path $stage 'Start-Windows.lnk') -PathType Leaf)) { throw 'Could not create the daily Web panel launcher' }
     $files = @{}
+    # Use the same provider's full spelling for both sides. $stage may contain
+    # an 8.3 alias (RUNNER~1), while Get-ChildItem expands it to runneradmin.
+    $stagePrefix = (Get-Item -LiteralPath $stage).FullName.TrimEnd('\') + '\'
     foreach ($path in Get-ChildItem -LiteralPath $stage -File -Recurse) {
-        $relative = $path.FullName.Substring($stage.Length + 1).Replace('\','/')
+        if (-not $path.FullName.StartsWith($stagePrefix, [StringComparison]::OrdinalIgnoreCase)) {
+            throw 'Staged file escaped the deployment hash root'
+        }
+        $relative = $path.FullName.Substring($stagePrefix.Length).Replace('\','/')
         $files[$relative] = (Get-FileHash -LiteralPath $path.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
     }
     $pfFiles = @{}
