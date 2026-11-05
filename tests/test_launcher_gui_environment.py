@@ -14,6 +14,9 @@ class GuiEnvironmentTests(unittest.TestCase):
         self.root = Path(self.tmp.name)
         self.exe = self.root / 'test-gui.exe'
         self.exe.write_bytes(b'fixture')
+        # Preparation still validates native POSIX permissions even when the
+        # target platform is mocked to Windows. This fixture is never executed.
+        self.exe.chmod(0o700)
 
     def prepare(self, source, *, adapter='chromium', gemini=False,
                 console=False, platform='win32', transparent=True,
