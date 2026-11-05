@@ -75,7 +75,7 @@ _DISCOVERY_WRAPPERS = frozenset(
     }
 )
 _DISCOVERY_HELPER_RE = re.compile(
-    r"(?:^|[-_.])(uninstall(?:er)?|unins\d*|setup|installer|updater?|crashpad|helper|launcher-helper)(?:$|[-_.])",
+    r"(?:^|[-_.\s])(uninstall(?:er)?|unins\d*|setup|installer|updater?|crashpad|helper|launcher-helper)(?:$|[-_.\s])",
     re.IGNORECASE,
 )
 _DESKTOP_FIELD_RE = re.compile(r"%([fFuUickdDnNv%m])")
@@ -224,6 +224,9 @@ def _is_excluded_program(path: Path, label: str) -> bool:
     name = path.name.lower()
     label_lower = label.lower()
     if name in _SHELL_EXECUTABLES or name in _DISCOVERY_WRAPPERS:
+        return True
+    # Electron bundles ship this elevation helper, not a launchable desktop app.
+    if name == "elevate.exe":
         return True
     if _DISCOVERY_HELPER_RE.search(name) or _DISCOVERY_HELPER_RE.search(path.parent.name):
         return True
