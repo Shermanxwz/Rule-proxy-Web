@@ -147,8 +147,10 @@ class Manager:
         self.core_log = None
         self._core_job = None
         self._proxy_watchdog = None
+        self._proxy_watchdog_armed = False
         self.error = ""
         self.active = {}
+        self._antigravity_recovery = {}
         self._profile_preparing: set[str] = set()
         self._windows_backend = None
         self._windows_paths = []
@@ -163,7 +165,8 @@ class Manager:
         # request threads are short lived; all launches must have a stable owner.
         self.launch_owner = ThreadPoolExecutor(max_workers=1, thread_name_prefix="RuleProxyLaunchOwner")
         self.settings = {"core_path": "", "runtime_path": "", "selected_node": None,
-                         "capture_mode": "applications", "windows_app_guard": False, "apps": []}
+                         "capture_mode": "applications", "windows_app_guard": False,
+                         "system_proxy_compat": False, "antigravity_ipc_compat": False, "apps": []}
         self.storage_warnings = []
         self._settings_need_backup = False
         self._restore_settings()
@@ -184,7 +187,11 @@ class Manager:
         self._apps_scan: threading.Thread | None = None
         self.closed = threading.Event()
         from .system_proxy import BACKUP
-        if (self.directory / BACKUP).exists() or self._legacy_artifacts_present():
+        gemini_pending = False
+        if sys.platform == 'win32':
+            from .windows_gemini_native_proxy import pending_receipt
+            gemini_pending = pending_receipt() is not None
+        if (self.directory / BACKUP).exists() or self._legacy_artifacts_present() or gemini_pending:
             # Recovery is independent of the newly selected capture mode.
             # start() also waits for/retries it before launching any core.
             threading.Thread(target=self._recover_global, daemon=True).start()
@@ -203,6 +210,7 @@ class Manager:
         with self.lock:
             if self.core is not None:
                 return
+            self._proxy_watchdog_armed = False
             errors = []
             try:
                 from . import system_proxy
@@ -210,6 +218,13 @@ class Manager:
             except Exception as exc:
                 errors.append(f'上次的系统代理设置未能自动恢复：{exc}')
                 self._restore_pending = True
+            if sys.platform == 'win32':
+                try:
+                    from .windows_gemini_native_proxy import recover_pending
+                    recover_pending()
+                except Exception as exc:
+                    errors.append(f'Gemini 原代理偏好尚未恢复：{exc}')
+                    self._restore_pending = True
             try:
                 self._release_legacy_tun()
             except Exception as exc:
@@ -292,6 +307,16 @@ class Manager:
                 self.settings["windows_app_guard"] = data["windows_app_guard"]
             else:
                 invalid = True
+        if "system_proxy_compat" in data:
+            if isinstance(data["system_proxy_compat"], bool):
+                self.settings["system_proxy_compat"] = data["system_proxy_compat"]
+            else:
+                invalid = True
+        if "antigravity_ipc_compat" in data:
+            if isinstance(data["antigravity_ipc_compat"], bool):
+                self.settings["antigravity_ipc_compat"] = data["antigravity_ipc_compat"]
+            else:
+                invalid = True
         records = data.get("apps", [])
         if not isinstance(records, list):
             records = []
@@ -367,6 +392,81 @@ class Manager:
     def capture_mode(self):
         return self.settings.get("capture_mode", "applications")
 
+    @property
+    def uses_system_proxy(self):
+        """Requested desktop proxy lifecycle, not proof of application connectivity."""
+        return self.capture_mode == 'global' or (
+            sys.platform == 'win32' and self.capture_mode == 'applications'
+            and self.settings.get('system_proxy_compat', False) is True)
+
+    def _proxy_watchdog_healthy(self):
+        """An acknowledged arm and a live child are both required."""
+        if not self._proxy_watchdog_armed or self._proxy_watchdog is None:
+            return False
+        try:
+            return self._proxy_watchdog.process.poll() is None
+        except Exception:
+            return False
+
+    def _require_proxy_ready(self):
+        if self._restore_pending or self._global_fault:
+            raise ValueError(self.error or "系统代理恢复尚未完成，请先点击停止重试。")
+        if self.core and self.core.poll() is None and self.uses_system_proxy:
+            if not self._proxy_watchdog_healthy():
+                self._global_fault = True
+                self.error = "系统代理独立恢复进程未就绪，请先点击停止恢复。"
+                raise ValueError(self.error)
+
+    def set_system_proxy_compat(self, enabled):
+        """Windows user-wide compatibility opt-in; change only while fully stopped."""
+        if not isinstance(enabled, bool):
+            raise ValueError('系统代理兼容选项必须是布尔值。')
+        with self.lock:
+            if sys.platform != 'win32' or self.capture_mode != 'applications':
+                raise ValueError('系统代理兼容选项仅适用于 Windows 按应用模式。')
+            if self.quitting or self.closed.is_set():
+                raise ValueError('面板正在退出，不能修改兼容选项。')
+            if self.core is not None or self.active or self._profile_preparing:
+                raise ValueError('请先关闭本工具启动的应用并停止核心，再修改兼容选项。')
+            if self._global_fault or self._restore_pending or self._proxy_watchdog is not None:
+                raise ValueError('上次网络恢复尚未完成，请先点击停止重试。')
+            previous = self.settings.get('system_proxy_compat', False)
+            if previous == enabled:
+                return
+            self.settings['system_proxy_compat'] = enabled
+            try:
+                self._save()
+            except BaseException:
+                self.settings['system_proxy_compat'] = previous
+                raise
+
+    def set_antigravity_ipc_compat(self, enabled):
+        """Opt into verified local peer leases, without changing system proxy scope."""
+        if type(enabled) is not bool:
+            raise ValueError('Antigravity 本机通信兼容选项必须是布尔值。')
+        with self.lock:
+            if sys.platform != 'win32' or self.capture_mode != 'applications':
+                raise ValueError('本机通信兼容仅适用于 Windows 按应用模式。')
+            if self.quitting or self.closed.is_set():
+                raise ValueError('面板正在退出，请重新打开后修改兼容选项。')
+            if self.core is not None or self.active or self._profile_preparing:
+                raise ValueError('请先关闭本工具启动的应用并停止核心，再修改兼容选项。')
+            if self._global_fault or self._restore_pending or self._proxy_watchdog is not None:
+                raise ValueError('上次网络恢复尚未完成，请先点击停止重试。')
+            previous = self.settings.get('antigravity_ipc_compat', False)
+            if previous == enabled:
+                return
+            if not enabled:
+                # Explicit disable also acknowledges a sticky broker fault. Do it
+                # before saving so failed revocation leaves the option retryable.
+                self.windows_backend().antigravity_ipc(False)
+            self.settings['antigravity_ipc_compat'] = enabled
+            try:
+                self._save()
+            except BaseException:
+                self.settings['antigravity_ipc_compat'] = previous
+                raise
+
     def global_backend(self):
         if self._global_backend is None:
             if sys.platform == 'win32':
@@ -431,6 +531,9 @@ class Manager:
             from .windows_gemini import is_gemini, routing_paths
             if is_gemini(app['path']):
                 selected = [*routing_paths(app['path']), *app.get('related_paths', [])]
+            from .windows_antigravity import is_antigravity, routing_paths as antigravity_paths
+            if is_antigravity(app['path']):
+                selected = [*antigravity_paths(app['path']), *app.get('related_paths', [])]
             binding = app.get('store_binding')
             if binding:
                 from .windows_app_family import resolve_store_family
@@ -480,6 +583,13 @@ class Manager:
             backend.apply(paths, self.mixed_port, self.core.pid)
             if self.settings.get("windows_app_guard"):
                 backend.app_guard_apply(self.mixed_port)
+            if self.settings.get('antigravity_ipc_compat', False) is True:
+                from .windows_antigravity import is_antigravity
+                # Only intent crosses the broker boundary. The broker independently
+                # resolves the owner's pair, identities and current listener ports.
+                selected = any(app.get('enabled') is True and is_antigravity(app['path'])
+                               for app in self.settings['apps'])
+                backend.antigravity_ipc(bool(selected and self.settings.get('windows_app_guard')))
         else:
             backend.stop()
         self._windows_paths = paths
@@ -500,7 +610,7 @@ class Manager:
                 self._sync_windows_policy()
             except Exception:
                 self.error = "应用规则更新失败，旧规则也未能恢复；请停止核心后重试。"
-                self.stop()
+                self.stop(retain_app_guard=True)
             raise
 
     def protection(self):
@@ -629,6 +739,11 @@ class Manager:
                 if sys.platform == "win32" or self.capture_mode == 'global':
                     record["routed"] = running and (self.capture_mode == 'global' or
                         (app["enabled"] and bool(self._windows_paths)))
+                task = getattr(self, '_antigravity_recovery', {}).get(app['id'])
+                if alive and task is not None and task.process is owned[0]:
+                    recovery = task.result
+                    record['startup_recovery'] = {'state': recovery['state'],
+                                                  'reload_attempted': recovery['reload_attempted']}
                 apps.append(record)
             compiled = self.compiled
             return {
@@ -639,6 +754,20 @@ class Manager:
                 "running": running,
                 "capture_mode": self.capture_mode,
                 "windows_app_guard": bool(self.settings.get("windows_app_guard", False)),
+                "system_proxy_compat": self.settings.get("system_proxy_compat", False) is True,
+                "antigravity_ipc_compat": self.settings.get("antigravity_ipc_compat", False) is True,
+                "antigravity_ipc_compat_locked": bool(
+                    sys.platform != 'win32' or self.capture_mode != 'applications'
+                    or self.quitting or self.closed.is_set() or self.core is not None
+                    or self.active or self._profile_preparing or self._global_fault
+                    or self._restore_pending or self._proxy_watchdog is not None),
+                "uses_system_proxy": self.uses_system_proxy,
+                # This is lifecycle state, not a network-success assertion or
+                # a fresh read of user settings (which may be changed externally).
+                "system_proxy_managed": bool(running and self.uses_system_proxy
+                                             and self._proxy_watchdog_healthy()
+                                             and not self._restore_pending and not self._global_fault),
+                "system_proxy_scope": "current_user" if self.uses_system_proxy else None,
                 "effective_capture_mode": self.capture_mode if running else None,
                 "global_fault": self._global_fault,
                 "error": self.error,
@@ -706,10 +835,11 @@ class Manager:
         with self.lock:
             if self.quitting or self.closed.is_set():
                 raise ValueError("面板正在退出，不能启动核心。")
+            self._require_proxy_ready()
             if self.core and self.core.poll() is None:
                 return
             if self.core is not None:
-                self.stop()
+                self.stop(retain_app_guard=True)
             if not self.compiled:
                 raise ValueError("请先导入 YAML。")
             self._recover_global(raise_errors=True)
@@ -775,17 +905,22 @@ class Manager:
                         time.sleep(0.1)
                         continue
                     self._sync_windows_policy()
-                    if self.capture_mode == 'global':
+                    if self.uses_system_proxy:
                         from . import system_proxy
                         from .system_proxy_watchdog import start as watch_proxy
+                        self._proxy_watchdog_armed = False
                         self._proxy_watchdog = watch_proxy(self.directory, self.core.pid)
                         system_proxy.enable(self.directory, self.mixed_port,
                                             watchdog_session=self._proxy_watchdog.nonce)
                         self._proxy_watchdog.arm()
+                        self._proxy_watchdog_armed = True
+                        if not self._proxy_watchdog_healthy():
+                            raise ValueError("系统代理独立恢复进程已退出。")
                     self.error = ""
                     return
                 raise ValueError("Mihomo 未能启动；未启动任何应用。请查看本机 core.log。")
             except Exception as original:
+                self._proxy_watchdog_armed = False
                 proxy_failed = False
                 try:
                     from . import system_proxy
@@ -802,7 +937,7 @@ class Manager:
                         traceback.print_exc()
                 if sys.platform == "win32" and self._windows_backend is not None:
                     try:
-                        self._windows_backend.stop()
+                        self._windows_backend.stop(retain_app_guard=True)
                     except Exception:
                         traceback.print_exc()
                     self._windows_paths = []
@@ -942,10 +1077,65 @@ class Manager:
             self._save()
             return list(app["shortcuts"])
 
+    def _antigravity_recovery_check(self, ident, process, core):
+        def current():
+            owned = self.active.get(ident)
+            app = self.app(ident)
+            return (not self.quitting and not self.closed.is_set()
+                    and self.capture_mode == 'applications'
+                    and self.settings.get('antigravity_ipc_compat') is True
+                    and self.settings.get('windows_app_guard') is True
+                    and owned is not None and owned[0] is process
+                    and process.poll() is None and self.core is core
+                    and core is not None and core.poll() is None
+                    and app is not None and app.get('enabled') is True)
+        with self.lock:
+            if not current():
+                return False
+        # Do not hold the Manager lock across broker I/O; stop must remain free
+        # to cancel this task. Recheck object identities after the status read.
+        report = self.windows_backend().probe()
+        with self.lock:
+            if not current():
+                return False
+        status = report.get('status', {})
+        guard, ipc = status.get('app_guard', {}), status.get('antigravity_ipc', {})
+        if (report.get('supported') is not True or status.get('state') != 'running'
+                or guard.get('active') is not True or ipc.get('supported') is not True
+                or ipc.get('enabled') is not True or ipc.get('state') == 'failed'):
+            return False
+        return True if ipc.get('active') is True else None
+
+    def _start_antigravity_recovery(self, ident, app, process):
+        if (sys.platform != 'win32' or self.capture_mode != 'applications'
+                or self.settings.get('antigravity_ipc_compat') is not True
+                or self.settings.get('windows_app_guard') is not True):
+            return
+        try:
+            from .windows_antigravity import is_antigravity
+            if not is_antigravity(app['path']):
+                return
+            from .windows_antigravity_task import RecoveryTask
+            core = self.core
+            task = RecoveryTask(process, app['path'],
+                                lambda: self._antigravity_recovery_check(ident, process, core))
+            previous = self._antigravity_recovery.get(ident)
+            if previous is not None:
+                previous.cancel()
+            self._antigravity_recovery[ident] = task
+            task.start()
+        except Exception:
+            # Recovery is optional, never grounds to loosen protection or fail
+            # a successful owned launch. No protocol payloads enter logs.
+            task = self._antigravity_recovery.pop(ident, None)
+            if task is not None:
+                task.cancel()
+
     def launch(self, ident):
         with self.lock:
             if self.quitting or self.closed.is_set():
                 raise ValueError("面板正在退出，不能启动应用。")
+            self._require_proxy_ready()
             if ident in self._profile_preparing:
                 raise ValueError("正在检查此应用的原有资料，请完成后再启动。")
             app = self.app(ident)
@@ -973,7 +1163,7 @@ class Manager:
                     # before validating/starting the selected executable.
                     self._sync_windows_policy()
             profile = self.directory / "profiles" / ident
-            options = ({'transparent': True, 'native_proxy': True, 'system_proxy': global_mode}
+            options = ({'transparent': True, 'native_proxy': True, 'system_proxy': self.uses_system_proxy}
                        if sys.platform == 'win32' or global_mode else {})
             command, env, _detail = prepare_app(app, self.mixed_port, self.directory / "profiles", **options)
             if sys.platform == "linux" and not global_mode:
@@ -987,18 +1177,28 @@ class Manager:
                 from .windows_app_process import launch
                 # Native proxy inheritance must be an explicit launch option;
                 # the Windows launcher distrusts all proxy values in ``env``.
-                process = launch(command, env, native_proxy_port=self.mixed_port)
                 resource = None
+                if not global_mode:
+                    from .windows_gemini_native_proxy import prepare as prepare_gemini_proxy
+                    resource = prepare_gemini_proxy(command, self.mixed_port)
+                try:
+                    process = launch(command, env, native_proxy_port=self.mixed_port)
+                except BaseException:
+                    close_resource(resource)
+                    raise
             elif sys.platform == 'linux' and global_mode:
                 process = subprocess.Popen(command, env=env, start_new_session=True)
                 resource = None
             else:
                 raise ValueError("系统不支持应用隔离。")
             self.active[ident] = (process, resource)
+            self._start_antigravity_recovery(ident, app, process)
             self.error = ""
             detail = ('全局系统代理已启用；应用同时继承本机代理设置。' if global_mode else
                       '兼容模式的程序及辅助路径代理已启用；支持原生代理的应用同时使用本机代理。' if sys.platform == 'win32' else
                       '仅此隔离实例受保护。不支持的流量阻断，不会直连。')
+            if not global_mode and self.uses_system_proxy:
+                detail += ' 当前用户级系统代理兼容已启用；应用守卫设置保持不变，联网结果尚需验证。'
             if app.get("use_original_data"):
                 detail += (" 使用原应用资料；启动请求可能交给已有窗口，已有进程不会由面板接管或关闭。"
                            if sys.platform == "win32" else " 直接共用原应用资料；修改会同步到原应用，请勿同时启动原应用。")
@@ -1006,6 +1206,9 @@ class Manager:
 
     def stop_app(self, ident):
         with self.lock:
+            task = getattr(self, '_antigravity_recovery', {}).pop(ident, None)
+            if task is not None:
+                task.cancel()
             owned = self.active.get(ident)
             if owned:
                 process, resource = owned
@@ -1025,8 +1228,10 @@ class Manager:
         with self.lock:
             return any(process.poll() is None for process, _resource in self.active.values())
 
-    def stop(self):
+    def stop(self, *, retain_app_guard=False):
+        """Restore desktop state; fault cleanup must retain the independent guard."""
         with self.lock:
+            self._proxy_watchdog_armed = False
             errors = []
             app_errors = []
             for ident in list(self.active):
@@ -1046,6 +1251,14 @@ class Manager:
                 proxy_failed = self._restore_pending = True
                 self._restore_retry_at = time.monotonic() + 2
                 errors.append(f'原系统代理未能恢复，记录已保留，请点击停止重试：{exc}')
+            if sys.platform == 'win32':
+                try:
+                    from .windows_gemini_native_proxy import recover_pending
+                    recover_pending()
+                except Exception as exc:
+                    proxy_failed = self._restore_pending = True
+                    self._restore_retry_at = time.monotonic() + 2
+                    errors.append(f'Gemini 原代理偏好尚未恢复，记录已保留：{exc}')
             if not proxy_failed and self._proxy_watchdog is not None:
                 try:
                     self._proxy_watchdog.close()
@@ -1059,7 +1272,10 @@ class Manager:
             keep_app_protection = bool(app_errors) and self.capture_mode != 'global'
             if sys.platform == "win32" and self._windows_backend is not None and not keep_app_protection:
                 try:
-                    self._windows_backend.stop()
+                    if retain_app_guard:
+                        self._windows_backend.stop(retain_app_guard=True)
+                    else:
+                        self._windows_backend.stop()
                     self._windows_paths = []
                 except Exception as exc:
                     errors.append(f'Windows 应用代理未能停止：{exc}')
@@ -1097,27 +1313,35 @@ class Manager:
     def _watch(self):
         while not self.closed.wait(0.5):
             with self.lock:
+                if (self.core and self.core.poll() is None and self.uses_system_proxy
+                        and not self._restore_pending and not self._proxy_watchdog_healthy()):
+                    self._global_fault = True
+                    try:
+                        self.stop(retain_app_guard=True)
+                        self.error = '系统代理独立恢复进程未就绪，原系统代理已恢复；故障清理未请求撤销出站守卫。'
+                    except Exception as exc:
+                        self.error = f'系统代理独立恢复进程未就绪；恢复尚未完成：{exc}'
                 if self.core and self.core.poll() is not None:
                     try:
-                        self.stop()
-                        self.error = '代理核心已退出，原系统代理已恢复；本工具启动的应用已关闭。'
+                        self.stop(retain_app_guard=True)
+                        self.error = '代理核心已退出，原系统代理已恢复；本工具启动的应用已关闭，未请求撤销出站守卫。'
                     except Exception as exc:
                         self.error = f'代理核心已退出；网络或应用恢复尚未完成：{exc}'
                 if self._restore_pending and time.monotonic() >= self._restore_retry_at:
                     try:
-                        self.stop()
+                        self.stop(retain_app_guard=True)
                     except Exception:
                         pass  # stop() retains the journal and its precise error.
                 if sys.platform == "win32" and self._windows_paths and self.core:
                     try:
                         status = self.windows_backend().snapshot()
                         if status.get("state") not in {"running", "active"}:
-                            self.error = "ProxiFyre 已停止，正在关闭此面板启动的应用。其他同路径实例可能恢复直连。"
-                            self.stop()
+                            self.error = "Windows 应用代理后端异常，正在关闭此面板启动的应用；故障清理不请求撤销出站守卫，保护状态需另行核实。"
+                            self.stop(retain_app_guard=True)
                     except Exception:
-                        self.error = "Windows 代理服务失去响应，正在关闭此面板启动的应用。其他同路径实例可能恢复直连。"
+                        self.error = "Windows 代理服务状态读取或故障清理失败，正在关闭此面板启动的应用；出站守卫状态尚未确认。"
                         try:
-                            self.stop()
+                            self.stop(retain_app_guard=True)
                         except Exception:
                             traceback.print_exc()
                 for ident, (process, resource) in list(self.active.items()):
@@ -1131,8 +1355,9 @@ class Manager:
                         self.active.pop(ident, None)
 
     def close(self, *, restore_global=True):
-        # Every exit path restores the system proxy; ``restore_global`` is
-        # kept only for callers written against the retired TUN mode.
-        self.stop()
+        # Every exit restores the system proxy. Preserve the application guard
+        # on non-user/fault exits; the existing keyword distinguishes explicit
+        # user restoration from automatic cleanup without changing callers.
+        self.stop(retain_app_guard=not restore_global)
         self.closed.set()
         self.launch_owner.shutdown(wait=True)

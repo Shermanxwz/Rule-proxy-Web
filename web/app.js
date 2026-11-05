@@ -21,6 +21,8 @@
     hostedNote: $('hosted-note'), filesNote: $('files-note'), configNotes: $('config-notes'), configWarnings: $('config-warnings'),
     autostartRow: $('autostart-row'), autostart: $('autostart-toggle'), autostartDetail: $('autostart-detail'), quit: $('quit-button'),
     appGuardRow: $('app-guard-row'), appGuard: $('app-guard-toggle'),
+    systemProxyCompatRow: $('system-proxy-compat-row'), systemProxyCompat: $('system-proxy-compat-toggle'),
+    antigravityIpcCompatRow: $('antigravity-ipc-compat-row'), antigravityIpcCompat: $('antigravity-ipc-compat-toggle'),
   };
   const AUTOSTART_TEXT = '登录系统后自动启动面板，不打开窗口，也不启动核心；从快捷方式或面板启动应用时再启动核心。';
   const AUTOSTART_STALE_TEXT = '已有的自动启动设置指向别的位置或端口（例如移动过文件夹）。打开开关即可改为当前面板。';
@@ -37,6 +39,38 @@
   let testingAllNodes = false;
   const isWindows = () => /windows|win32|win64/i.test(String(state && state.platform || ''));
   const isGlobal = () => state?.capture_mode === 'global';
+
+  function antigravityIpcCompatLocked() {
+    return stopped || busy || !state || !isWindows() || state.capture_mode !== 'applications'
+      || !!state.running || state.global_fault === true || state.antigravity_ipc_compat_locked === true
+      || (state.apps || []).some((app) => app.active || app.cleanup_pending || app.profile_preparing);
+  }
+
+  function antigravityIpcCompatDetail(value) {
+    const scope = '仅所选Antigravity及语言服务的经验证127.0.0.1 TCP端口，不开放任意本地服务；按路径与用户身份匹配。';
+    const recovery = '初始化或故障恢复：退出已有 Antigravity → 完全停止核心 → 关闭本机通信兼容以清错 → 再启用 → 重新启动核心和应用；仅重启应用不会清除故障。';
+    const ipc = value?.protection?.status?.antigravity_ipc;
+    let status;
+    if (!ipc || typeof ipc !== 'object') {
+      status = value?.antigravity_ipc_compat === true ? '已配置开启，组件尚无状态；未确认生效。' : '未启用；组件尚无状态。';
+    } else if (ipc.state === 'failed' || ipc.error) {
+      // Do not echo backend error text: it may contain paths, credentials or markup.
+      status = '本机通信兼容故障，需按下列步骤清错恢复。';
+    } else if (ipc.supported === false || ipc.state === 'unsupported') {
+      status = '当前组件不支持本机通信兼容，未生效。';
+    } else if (value?.antigravity_ipc_compat !== true || ipc.enabled !== true) {
+      status = '当前未启用本机通信兼容。';
+    } else if (ipc.state === 'active' && ipc.active === true && Number.isSafeInteger(ipc.endpoint_count) && ipc.endpoint_count > 0) {
+      status = `已验证 ${ipc.endpoint_count} 个端口；这不代表应用联网成功。`;
+    } else if (ipc.state === 'watching') {
+      status = '等待新实例监听端口；尚未建立端口例外。';
+    } else if (ipc.state === 'inactive') {
+      status = '本机通信兼容当前未活动，未确认端口例外生效。';
+    } else {
+      status = '组件状态待确认，未确认端口例外生效。';
+    }
+    return `${status} ${scope} ${recovery} 仅 Windows 按应用模式，核心与应用完全停止且无待恢复状态时可修改。`;
+  }
 
   function showError(message, source = 'local') {
     if (message) {
@@ -85,6 +119,9 @@
       || !(state.apps || []).some((app) => app.enabled && !app.active && !app.cleanup_pending);
     ui.autostart.disabled = busy || !ready;
     ui.appGuard.disabled = busy || !ready;
+    ui.systemProxyCompat.disabled = busy || !ready || running || recoveryPending
+      || !isWindows() || state?.capture_mode !== 'applications';
+    ui.antigravityIpcCompat.disabled = antigravityIpcCompatLocked();
     ui.quit.disabled = busy || !ready;
     ui.apps.querySelectorAll('.app-toggle input, .remove-app, .app-shortcut').forEach((control) => {
       const app = (state.apps || []).find((item) => String(item.id) === control.dataset.appId);
@@ -477,6 +514,11 @@
     ui.autostartDetail.textContent = autostart === 'stale' ? AUTOSTART_STALE_TEXT : AUTOSTART_TEXT;
     ui.appGuardRow.hidden = !isWindows() || isGlobal();
     ui.appGuard.checked = state.windows_app_guard === true;
+    ui.systemProxyCompatRow.hidden = !isWindows() || state.capture_mode !== 'applications';
+    ui.systemProxyCompat.checked = state.system_proxy_compat === true;
+    ui.antigravityIpcCompatRow.hidden = !isWindows() || state.capture_mode !== 'applications';
+    ui.antigravityIpcCompat.checked = state.antigravity_ipc_compat === true;
+    $('antigravity-ipc-compat-detail').textContent = antigravityIpcCompatDetail(state);
     ui.coreSettings.hidden = isWindows();
     ui.relatedField.hidden = !isWindows();
     const ordinaryOption = ui.appAdapter.querySelector('option[value="environment"]');
@@ -688,10 +730,36 @@
     if (!result && state) render(state);  // put the switch back when the change failed
   });
 
+  ui.systemProxyCompat.addEventListener('change', async () => {
+    if (busy || !state || state.running || state.global_fault === true
+        || (state.apps || []).some((app) => app.cleanup_pending)
+        || !isWindows() || state.capture_mode !== 'applications') {
+      ui.systemProxyCompat.checked = state?.system_proxy_compat === true;
+      return;
+    }
+    const enabled = ui.systemProxyCompat.checked;
+    const result = await mutate('/api/system-proxy-compat', { body: { enabled } }, {
+      notice: enabled ? '系统代理兼容已开启：核心启动后也会影响当前 Windows 用户其他遵循系统代理的应用；保留应用出站守卫。' : '系统代理兼容已关闭。',
+    });
+    if (!result && state) render(state);
+  });
+
+  ui.antigravityIpcCompat.addEventListener('change', async () => {
+    if (antigravityIpcCompatLocked()) {
+      ui.antigravityIpcCompat.checked = state?.antigravity_ipc_compat === true;
+      return;
+    }
+    const enabled = ui.antigravityIpcCompat.checked;
+    const result = await mutate('/api/antigravity-ipc-compat', { body: { enabled } }, {
+      notice: enabled ? 'Antigravity 本机通信兼容已配置开启，尚不代表生效或联网成功。初始化或故障恢复须退出已有 Antigravity、完全停止核心、关闭兼容清错后再启用，并重新启动核心和应用。' : 'Antigravity 本机通信兼容已关闭。',
+    });
+    if (!result && state) render(state);
+  });
+
   ui.appGuard.addEventListener('change', async () => {
     const enabled = ui.appGuard.checked;
     const result = await mutate('/api/app-guard', { body: { enabled } }, {
-      notice: enabled ? '出站守卫已开启：所选程序只能连接本机代理端口。' : '出站守卫已关闭。',
+      notice: enabled ? '基础出站守卫已开启；本机通信兼容例外是否已启用，以组件实际状态为准。' : '出站守卫已关闭。',
     });
     if (!result && state) render(state);  // put the switch back when the change failed
   });

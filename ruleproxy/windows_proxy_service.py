@@ -13,6 +13,7 @@ import http.client
 import importlib.util
 import json
 import os
+import ntpath
 from pathlib import Path, PurePosixPath
 import socket
 import secrets
@@ -387,6 +388,14 @@ class ProcessLease:
             self.kernel.CloseHandle(self.handle)
             self.handle = None
 
+    def creation_time(self):
+        values = [wintypes.FILETIME() for _ in range(4)]
+        self.kernel.GetProcessTimes.argtypes = [wintypes.HANDLE] + [ctypes.POINTER(wintypes.FILETIME)] * 4
+        self.kernel.GetProcessTimes.restype = wintypes.BOOL
+        if not self.kernel.GetProcessTimes(self.handle, *(ctypes.byref(v) for v in values)):
+            raise ctypes.WinError(ctypes.get_last_error())
+        return (values[0].dwHighDateTime << 32) | values[0].dwLowDateTime
+
     def image_path(self):
         self.kernel.QueryFullProcessImageNameW.argtypes = [wintypes.HANDLE, wintypes.DWORD,
             wintypes.LPWSTR, ctypes.POINTER(wintypes.DWORD)]
@@ -395,6 +404,115 @@ class ProcessLease:
         if not self.kernel.QueryFullProcessImageNameW(self.handle, 0, buffer, ctypes.byref(size)):
             raise ctypes.WinError(ctypes.get_last_error())
         return buffer.value
+
+
+def _owner_local_app_data(owner_sid):
+    """Read the loaded owner's hive, never SYSTEM's environment or user input."""
+    import winreg
+    if not policy.SID_RE.fullmatch(owner_sid):
+        raise ProxyError('invalid_owner', 'Invalid installation owner SID')
+    key = owner_sid + r'\Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders'
+    with winreg.OpenKey(winreg.HKEY_USERS, key, 0, winreg.KEY_READ) as handle:
+        value, kind = winreg.QueryValueEx(handle, 'Local AppData')
+    if (kind != winreg.REG_SZ or not isinstance(value, str) or not value
+            or '\0' in value or not ntpath.isabs(value) or not ntpath.splitdrive(value)[0]
+            or value.startswith(('\\', '//')) or '%' in value):
+        raise ProxyError('invalid_owner_profile', 'Owner Local AppData must be a local absolute REG_SZ path')
+    return ntpath.normpath(value)
+
+
+class _PeerLease(ProcessLease):
+    def alive(self):
+        if not self.handle:
+            return False
+        result = self.kernel.WaitForSingleObject(self.handle, 0)
+        if result == 258:
+            return True
+        if result == 0:
+            return False
+        raise ctypes.WinError(ctypes.get_last_error())
+
+    def close(self):
+        if self.handle:
+            if not self.kernel.CloseHandle(self.handle):
+                raise ctypes.WinError(ctypes.get_last_error())
+            self.handle = None
+
+
+def _peer_lease(pid, owner_sid, pair, *, pending=None):
+    # Query the image before the token: unrelated SYSTEM listeners are not peers.
+    value = _PeerLease.__new__(_PeerLease)
+    value.kernel, advapi = _dll('kernel32'), _dll('advapi32')
+    value.kernel.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+    value.kernel.OpenProcess.restype = wintypes.HANDLE
+    value.kernel.CloseHandle.argtypes = [wintypes.HANDLE]
+    value.kernel.WaitForSingleObject.argtypes = [wintypes.HANDLE, wintypes.DWORD]
+    value.pid = pid
+    value.handle = value.kernel.OpenProcess(0x100000 | 0x1000, False, pid)
+    if not value.handle:
+        error = ctypes.get_last_error()
+        if error == 87:  # PID disappeared; access denied is not proof of non-peer.
+            return None
+        raise ctypes.WinError(error)
+    pending = [] if pending is None else pending
+    pending.append(value)
+    token = wintypes.HANDLE()
+    try:
+        if not value.alive() or ntpath.normcase(ntpath.normpath(value.image_path())) not in pair:
+            value.close()
+            pending.remove(value)
+            return None
+        advapi.OpenProcessToken.argtypes = [wintypes.HANDLE, wintypes.DWORD, ctypes.POINTER(wintypes.HANDLE)]
+        if not advapi.OpenProcessToken(value.handle, 8, ctypes.byref(token)):
+            raise ctypes.WinError(ctypes.get_last_error())
+        if _token_sid(token) != owner_sid or not value.alive():
+            value.close()
+            pending.remove(value)
+            return None
+        pending.remove(value)  # Ownership transfers to Tracker.
+        return value
+    except BaseException:
+        value.close()
+        pending.remove(value)
+        raise
+    finally:
+        if token.value:
+            value.kernel.CloseHandle(token)
+
+
+def _new_ipc_tracker(broker, pair, enabled_after):
+    from ruleproxy.windows_antigravity_ipc import Tracker
+    from ruleproxy.windows_ipc_lease import LeaseSet, Endpoint
+    from ruleproxy import windows_global_guard as wfp
+    gate = broker._app_guard()
+    leases = LeaseSet(gate)
+    pending = []
+    def revoke():
+        leases.close()  # Never release pending discovery handles first.
+        errors = []
+        for handle in list(pending):
+            try:
+                handle.close()
+                pending.remove(handle)
+            except Exception as exc:
+                errors.append(exc)
+        if errors:
+            raise errors[0]
+    try:
+        owner_sd = wfp._descriptor('D:(A;;CC;;;' + broker.metadata['owner_sid'] + ')')
+        with wfp._Engine() as engine:
+            identities = {path: engine.app_id(Path(path)) for path in pair}
+        def apply(records):
+            broker._verify_ipc_base(pair)
+            leases.replace(tuple(Endpoint(identities[r.server_path], identities[r.client_path],
+                                          owner_sd, r.port) for r in records))
+        return Tracker(*pair, broker.metadata['owner_sid'], enabled_after,
+                       rows_factory=_tcp_connections,
+                       process_factory=lambda pid, sid: _peer_lease(pid, sid, pair, pending=pending),
+                       apply=apply, revoke=revoke)
+    except BaseException:
+        leases.close()
+        raise
 
 
 def _tcp_connections(family):
@@ -893,7 +1011,7 @@ class GlobalCore:
 
 class Broker:
     def __init__(self, metadata, control=None, lease_factory=None, global_factory=None, container_factory=None,
-                 app_guard_factory=None):
+                 app_guard_factory=None, ipc_factory=None):
         self.metadata = metadata
         self.control = control or ServiceControl()
         self.lease_factory = lease_factory or ProcessLease
@@ -913,6 +1031,127 @@ class Broker:
         self.app_guard_factory = app_guard_factory
         self.app_guard_gate = None
         self.app_guard_intent = False
+        self.ipc_factory = ipc_factory
+        self.ipc_tracker = None
+        self.ipc_pair = ()
+        self.ipc_enabled_after = None
+        self.ipc_error = None
+
+    def _ipc_available(self):
+        return self.ipc_factory is not None or all(name in self.metadata.get('files', {}) for name in (
+            'ruleproxy/windows_antigravity_ipc.py', 'ruleproxy/windows_ipc_lease.py'))
+
+    def _ipc_status(self):
+        records = self.ipc_tracker.records if self.ipc_tracker is not None else ()
+        return {'supported': self._ipc_available(), 'enabled': self.ipc_tracker is not None,
+                'active': bool(records) and self.ipc_error is None, 'strict_isolation': False,
+                'endpoint_count': len(records), 'enabled_after': self.ipc_enabled_after,
+                'error': self.ipc_error, 'state': 'failed' if self.ipc_error else (
+                    'active' if records else 'watching' if self.ipc_tracker is not None else 'inactive')}
+
+    def _close_ipc(self):
+        if self.ipc_tracker is not None:
+            try:
+                self.ipc_tracker.close()
+            except Exception as exc:
+                self.ipc_error = {'code': 'ipc_cleanup_incomplete', 'message': str(exc)}
+                raise ProxyError('ipc_cleanup_incomplete', str(exc)) from exc
+            self.ipc_tracker = None
+        self.ipc_pair = ()
+        self.ipc_enabled_after = None
+
+    def _ipc_pair_from_paths(self):
+        from ruleproxy.windows_antigravity import routing_paths
+        local = _owner_local_app_data(self.metadata['owner_sid'])
+        main = str(Path(local) / 'Programs' / 'antigravity' / 'Antigravity.exe')
+        pair = tuple(ntpath.normcase(ntpath.normpath(p)) for p in routing_paths(main, local_app_data=local))
+        selected = {ntpath.normcase(ntpath.normpath(p)) for p in self.paths}
+        if len(pair) != 2 or not set(pair) <= selected:
+            raise ProxyError('ipc_invalid_pair', 'Both standard Antigravity paths must be routed')
+        return pair
+
+    def _verify_ipc_base(self, pair):
+        # Exact readback: a count/active flag alone cannot attest these paths.
+        from ruleproxy import windows_global_guard as wfp
+        from ruleproxy.windows_app_guard import _plan
+        if (not self.app_guard_intent or not set(pair) <= {
+                ntpath.normcase(ntpath.normpath(p)) for p in self.paths}):
+            raise ProxyError('ipc_guard_missing', 'IPC requires its pair in the guarded path policy')
+        gate = self._app_guard()
+        with gate.lock, wfp._Engine() as engine:
+            if not gate._owned_provider(engine) or not gate._owned_sublayer(engine):
+                raise ProxyError('ipc_guard_missing', 'IPC base guard ownership is missing')
+            observed = gate._scan(engine)
+            count, port = gate._consistent(observed)
+            if not count or port != self.port:
+                raise ProxyError('ipc_guard_changed', 'IPC base guard proxy port differs')
+            for path in pair:
+                expected = gate._expected(_plan([engine.app_id(Path(path))], self.port))
+                for (family, _name), value in expected.items():
+                    if not any(key[0] == family and actual == value for key, actual in observed.items()):
+                        raise ProxyError('ipc_guard_changed', 'IPC pair is missing exact base guard coverage')
+
+    def _refresh_ipc(self):
+        if self.ipc_tracker is None or self.ipc_error is not None:
+            return
+        try:
+            self._verify_ipc_base(self.ipc_pair)
+            self.ipc_tracker.refresh()
+        except Exception as exc:
+            from ruleproxy.windows_antigravity_ipc import PeerRetired
+            pair, enabled_after = self.ipc_pair, self.ipc_enabled_after
+            self.ipc_error = {'code': getattr(exc, 'code', 'ipc_failed'), 'message': str(exc)}
+            # close() must confirm revocation AND handle release before recovery.
+            # Revoke/cleanup failures are not PeerRetired, even if close retries
+            # successfully here: they remain sticky and require operator action.
+            self._close_ipc()
+            if not isinstance(exc, PeerRetired):
+                raise
+            try:
+                self._verify_ipc_base(pair)
+                self.ipc_tracker = (self.ipc_factory or _new_ipc_tracker)(self, pair, enabled_after)
+            except Exception as recovery_error:
+                self.ipc_error = {'code': getattr(recovery_error, 'code', 'ipc_failed'),
+                                  'message': str(recovery_error)}
+                raise
+            self.ipc_pair, self.ipc_enabled_after = pair, enabled_after
+            self.ipc_error = None
+            # One replacement per call; no refresh/grant on the replacement in
+            # this tick. The next serialized call performs full validation.
+
+    def _handle_ipc(self, enabled, caller_pid):
+        if type(enabled) is not bool:
+            raise ProxyError('invalid_request', 'IPC enabled must be a boolean')
+        if self.panel is not None and self.panel.pid != caller_pid:
+            raise ProxyError('instance_conflict', 'Another panel owns IPC')
+        if not enabled:
+            self._close_ipc()
+            self.ipc_error = None
+            return self._ipc_status()
+        if self.error is not None and self.error.get('code') == 'cleanup_incomplete':
+            raise ProxyError('cleanup_incomplete', 'Existing broker cleanup is incomplete')
+        if not self._ipc_available():
+            raise ProxyError('ipc_unsupported', 'IPC component is unavailable')
+        if (self.panel is None or self.core is None or not self.panel.alive() or not self.core.alive()
+                or not self.paths or self.port is None or not self.engine_owned
+                or not self.app_guard_intent or self._app_guard_status().get('active') is not True):
+            raise ProxyError('ipc_guard_missing', 'IPC requires a live owned guarded application policy')
+        if self.ipc_error is not None:
+            raise ProxyError(self.ipc_error['code'], self.ipc_error['message'])
+        if self.ipc_tracker is None:
+            pair = self._ipc_pair_from_paths()
+            self._verify_ipc_base(pair)
+            enabled_after = time.time_ns() // 100 + 116444736000000000
+            self.ipc_pair, self.ipc_enabled_after = pair, enabled_after
+            try:
+                self.ipc_tracker = (self.ipc_factory or _new_ipc_tracker)(self, pair, enabled_after)
+            except Exception as exc:
+                self.ipc_error = {'code': getattr(exc, 'code', 'ipc_failed'), 'message': str(exc)}
+                raise
+            self._refresh_ipc()
+        # Existing trackers were refreshed by handle()->check_lease(). Do not
+        # refresh a just-rebuilt tracker twice in the same incoming request.
+        return self._ipc_status()
 
     def _containers(self):
         if self.container_gate is None:
@@ -953,6 +1192,7 @@ class Broker:
                 or "ruleproxy/windows_app_guard.py" in self.metadata.get("files", {}))
 
     def _purge_app_guard(self):
+        self._close_ipc()
         # Removal goes through AppGuard itself, which deletes only filters it
         # has read back under this installation's marker; a broker whose
         # deployment lacks the component has nothing of its own to remove.
@@ -970,7 +1210,11 @@ class Broker:
             return {"supported": False, "active": False, "state": "idle",
                     "detail": "出站守卫组件未安装。"}
         try:
-            return self._app_guard().status()
+            result = dict(self._app_guard().status())
+            if self.ipc_tracker is not None:
+                result['detail'] = '基础出站守卫保留；另有 Antigravity 精确 loopback IPC 动态例外，状态见 antigravity_ipc。'
+                result['exceptions'] = list(result.get('exceptions', [])) + ['antigravity_dynamic_ipc']
+            return result
         except Exception as exc:
             return {"supported": False, "active": False, "state": "unavailable",
                     "code": getattr(exc, "code", "app_guard_failed"), "detail": str(exc)}
@@ -980,10 +1224,13 @@ class Broker:
         self.error = {"code": "cleanup_incomplete", "message": message}
         raise ProxyError("cleanup_incomplete", message)
 
-    def _purge_gates(self):
+    def _purge_gates(self, *, retain_app_guard=False):
+        self._close_ipc()
         failures = []
-        for name, cleanup in (("AppContainer", self._purge_containers),
-                              ("出站守卫", self._purge_app_guard)):
+        cleanups = [("AppContainer", self._purge_containers)]
+        if not retain_app_guard:
+            cleanups.append(("出站守卫", self._purge_app_guard))
+        for name, cleanup in cleanups:
             try:
                 cleanup()
             except Exception as exc:
@@ -1043,6 +1290,7 @@ class Broker:
             "proxy_port": self.port, "limitations": list(policy.LIMITATIONS), "error": error,
             "global_active": global_active, "container_count": len(self.containers),
             "app_guard": self._app_guard_status(), "app_guard_intent": self.app_guard_intent,
+            "antigravity_ipc": self._ipc_status(),
             "cleanup_pending": error is not None and error.get('code') == 'cleanup_incomplete'}
 
     def _clear(self):
@@ -1053,6 +1301,7 @@ class Broker:
         self.paths, self.port = [], None
 
     def stop(self, *, retain_app_guard=False):
+        self._close_ipc()
         owned = self.panel is not None or self.engine_owned
         failures = []
         cleanups = [("AppContainer", self._purge_containers),
@@ -1078,6 +1327,16 @@ class Broker:
 
     def check_lease(self):
         with self.lock:
+            if self.ipc_tracker is not None:
+                try:
+                    if self.panel is None or self.core is None or not self.panel.alive() or not self.core.alive():
+                        self._close_ipc()
+                    else:
+                        self._refresh_ipc()
+                except Exception:
+                    # Keep precise IPC error and handles; never purge base on failure.
+                    if self.ipc_tracker is not None:
+                        return
             if ((self.panel is not None and (not self.panel.alive() or self.core is None or not self.core.alive()))
                     or (self.error is not None and self.error.get("code") == "cleanup_incomplete")
                     or (self.engine_owned and self.panel is None)):
@@ -1155,6 +1414,11 @@ class Broker:
             if (self.error is not None and self.error.get("code") == "cleanup_incomplete"
                     and request["op"] in {"container_allow", "apply", "app_guard_apply"}):
                 raise ProxyError("cleanup_incomplete", "旧授权尚未清理完成，请先停止代理后重试。")
+            if request['op'] == 'antigravity_ipc':
+                return self._handle_ipc(request['enabled'], caller_pid)
+            if (self.ipc_error and self.ipc_error.get('code') == 'ipc_cleanup_incomplete'
+                    and request['op'] in {'apply', 'app_guard_apply', 'container_allow', 'global_start'}):
+                raise ProxyError('ipc_cleanup_incomplete', self.ipc_error['message'])
             # A container gate belongs to the same held panel/core lease as the
             # path policy. An arbitrary same-user pipe client cannot choose a
             # different port or silently replace another panel's gates.
@@ -1190,13 +1454,22 @@ class Broker:
                 # Retain intent even if apply fails midway; explicit stop and
                 # transition purges must still be able to remove the filters.
                 self.app_guard_intent = True
-                result = self._app_guard().apply(list(self.paths), request["proxy_port"])
-                if not isinstance(result, dict) or result.get('active') is not True:
-                    raise ProxyError('app_guard_failed', '出站守卫启用未能确认。')
+                try:
+                    result = self._app_guard().apply(list(self.paths), request["proxy_port"])
+                    if not isinstance(result, dict) or result.get('active') is not True:
+                        raise ProxyError('app_guard_failed', '出站守卫启用未能确认。')
+                    if self.ipc_tracker is not None:
+                        self._verify_ipc_base(self.ipc_pair)
+                except Exception as exc:
+                    if self.ipc_tracker is not None:
+                        self.ipc_error = {'code': getattr(exc, 'code', 'ipc_base_failed'), 'message': str(exc)}
+                    self._close_ipc()
+                    raise
                 return result
             if request["op"] == "app_guard_revoke":
                 if self.panel is not None and self.panel.pid != caller_pid:
                     raise ProxyError('instance_conflict', '另一面板正在管理 Windows 代理。')
+                self._close_ipc()
                 result = self._app_guard().purge()
                 if not isinstance(result, dict) or result.get('active') is not False:
                     raise ProxyError('cleanup_incomplete', '出站守卫撤销未能确认。')
@@ -1210,6 +1483,8 @@ class Broker:
                 raise ProxyError("instance_conflict", "另一面板正在管理 Windows 代理。")
             if request["op"] == "stop":
                 return self.stop()
+            if request["op"] == "stop_retain_guard":
+                return self.stop(retain_app_guard=True)
             if self._global_active():
                 raise ProxyError("mode_conflict", "全局接管或故障保护仍在生效，请先显式停止全局模式。")
             if request["generation"] != self.generation + 1:
@@ -1218,6 +1493,11 @@ class Broker:
                 root=self.metadata["root"], proxifyre_root=self.metadata["proxifyre_root"],
                 windows_root=os.environ.get("SystemRoot", r"C:\Windows"))
             verify_selected_paths(compiled["proxies"][0]["appNames"])
+            if self.ipc_tracker is not None and (self.core is None
+                    or self.core.pid != request['mihomo_pid'] or self.port != request['proxy_port']
+                    or not set(self.ipc_pair) <= {ntpath.normcase(ntpath.normpath(p))
+                        for p in compiled['proxies'][0]['appNames']}):
+                self._close_ipc()
             if (self.engine_owned and self.panel is not None and self.core.pid == request["mihomo_pid"]
                     and self.port == request["proxy_port"] and self.control.status()["state"] == 4
                     and {os.path.normcase(path) for path in self.paths} == {
@@ -1239,7 +1519,11 @@ class Broker:
                     raise ProxyError("external_instance_conflict", "ProxiFyre 已由其他程序启动，不能接管。")
                 if (self.port != request['proxy_port'] or self.core is None
                         or self.core.pid != request['mihomo_pid']):
-                    self._purge_gates()
+                    # Replacing a core/port is not an explicit guard revoke.
+                    # Keep persistent filters (including a prior broker's) until
+                    # app_guard_apply replaces them in one WFP transaction.
+                    # A failed backend restart must leave those filters intact.
+                    self._purge_gates(retain_app_guard=True)
                 try:
                     self._stop_owned_engine()
                 except Exception as exc:

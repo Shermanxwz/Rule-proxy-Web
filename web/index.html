@@ -180,10 +180,24 @@
         </div>
         <label class="switch-field"><input id="autostart-toggle" type="checkbox"><span>自动启动</span></label>
       </div>
+      <div id="system-proxy-compat-row" class="background-row" hidden>
+        <div>
+          <strong>系统代理兼容（默认关闭）</strong>
+          <p id="system-proxy-compat-detail">系统代理兼容：影响当前Windows用户其他遵循系统代理的应用，保留应用出站守卫；核心停止时可修改。开启后不是仅按应用隔离。</p>
+        </div>
+        <label class="switch-field"><input id="system-proxy-compat-toggle" type="checkbox" aria-describedby="system-proxy-compat-detail" disabled><span>系统代理兼容</span></label>
+      </div>
+      <div id="antigravity-ipc-compat-row" class="background-row" hidden>
+        <div>
+          <strong>Antigravity 本机通信兼容（默认关闭）</strong>
+          <p id="antigravity-ipc-compat-detail">仅所选Antigravity及语言服务的经验证127.0.0.1 TCP端口，不开放任意本地服务；按路径与用户身份匹配。默认未启用。初始化或故障恢复：退出已有 Antigravity → 完全停止核心 → 关闭本机通信兼容以清错 → 再启用 → 重新启动核心和应用；仅重启应用不会清除故障。仅 Windows 按应用模式，核心与应用完全停止且无待恢复状态时可修改。</p>
+        </div>
+        <label class="switch-field"><input id="antigravity-ipc-compat-toggle" type="checkbox" aria-describedby="antigravity-ipc-compat-detail" disabled><span>Antigravity 本机通信兼容</span></label>
+      </div>
       <div id="app-guard-row" class="background-row" hidden>
         <div>
           <strong>出站守卫（实验）</strong>
-          <p>仅 Windows 按应用模式：所选程序只能连接本机代理端口，直连、局域网与 IPv6 出站会被系统防火墙层阻断，代理或面板故障时也不会恢复直连。系统服务代办的 DNS 解析仍可能外发，不提供 Linux 等效隔离。<strong>不读代理设置、靠路径代理联网的程序开启后会断网</strong>，仅适合自身使用本机代理的应用。</p>
+          <p>仅 Windows 按应用模式：基础守卫仅允许所选程序连接本机代理端口；启用本机通信兼容后可增加已验证的本机端口例外，以组件实际状态为准。其他直连、局域网与 IPv6 出站会被系统防火墙层阻断，代理或面板故障时也不会恢复直连。系统服务代办的 DNS 解析仍可能外发，不提供 Linux 等效隔离。<strong>不读代理设置、靠路径代理联网的程序开启后会断网</strong>，仅适合自身使用本机代理的应用。</p>
         </div>
         <label class="switch-field"><input id="app-guard-toggle" type="checkbox"><span>出站守卫</span></label>
       </div>

@@ -7,6 +7,28 @@ import re
 
 _VERSION = re.compile(r"app-\d+(?:\.\d+){1,4}\Z", re.IGNORECASE)
 _BINARIES = ("Gemini.exe", "GeminiAppLauncher.exe")
+# Observed in installed Gemini 1.17.0's packaged switch validator. Reject
+# explicitly rather than silently deleting user arguments or bypassing it.
+_UNSUPPORTED_SWITCHES = frozenset({
+    'remote-debugging-port', 'remote-debugging-pipe', 'remote-allow-origins',
+    'inspect', 'inspect-brk', 'inspect-port', 'inspect-publish-uid',
+    'proxy-server', 'proxy-pac-url', 'host-rules', 'host-resolver-rules',
+    'ignore-certificate-errors', 'disable-web-security',
+})
+
+
+def validate_launch_args(args: list[str]) -> None:
+    for arg in args:
+        token = arg.strip()
+        prefix = next((p for p in ('--', '-', '/')
+                       if token.startswith(p) and len(token) > len(p)), None)
+        if prefix is None:
+            continue
+        option = token[len(prefix):].split('=', 1)[0].lower()
+        if option in _UNSUPPORTED_SWITCHES:
+            # Report only the switch name, never a value (which may be a secret).
+            raise ValueError(f'Gemini 不支持启动参数 --{option}；请从应用参数中移除。'
+                             '代理环境变量不代表该应用已接受代理，联网状态须独立验证。')
 
 
 def _root() -> Path | None:

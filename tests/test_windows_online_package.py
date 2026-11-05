@@ -47,7 +47,12 @@ class WindowsOnlinePackageTests(unittest.TestCase):
             self.assertEqual(set(metadata['files']), expected)
             self.assertTrue({'ruleproxy/windows_app_family.py', 'ruleproxy/global_runtime.py',
                              'ruleproxy/windows_global_runtime.py', 'ruleproxy/windows_global_guard.py',
-                             'ruleproxy/windows_global_dns.py', 'ruleproxy/windows_app_guard.py'} <= expected)
+                             'ruleproxy/windows_global_dns.py', 'ruleproxy/windows_app_guard.py',
+                             'ruleproxy/windows_antigravity.py', 'ruleproxy/windows_gemini.py',
+                             'ruleproxy/windows_antigravity_ipc.py', 'ruleproxy/windows_ipc_lease.py',
+                             'ruleproxy/launcher.py', 'ruleproxy/manager.py',
+                             'ruleproxy/windows_proxy_runtime.py', 'ruleproxy/windows_proxy_policy.py',
+                             'ruleproxy/windows_proxy_service.py'} <= expected)
             self.assertEqual({p.relative_to(target).as_posix() for p in target.rglob('*') if p.is_file()},
                              expected | {'INSTALL-WINDOWS.txt', 'release-source.json'})
             for name in expected:

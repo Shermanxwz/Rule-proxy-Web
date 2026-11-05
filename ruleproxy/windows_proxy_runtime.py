@@ -62,6 +62,18 @@ class Runtime:
             self._generation = result["generation"]
             return result
 
+    def antigravity_ipc(self, enabled: bool) -> dict:
+        if type(enabled) is not bool:
+            raise ValueError('IPC enabled must be a boolean')
+        with self._lock:
+            client = self._connect()
+            state = client.request('status').get('antigravity_ipc', {})
+            if state.get('supported') is not True:
+                if not enabled:
+                    return {'supported': False, 'active': False, 'enabled': False}
+                raise ProxyError('ipc_unsupported', 'Antigravity IPC broker component is unavailable')
+            return client.request('antigravity_ipc', enabled=enabled)
+
     def app_guard_apply(self, proxy_port: int) -> dict:
         with self._lock:
             return self._connect().request("app_guard_apply", proxy_port=proxy_port)
@@ -78,11 +90,13 @@ class Runtime:
         with self._lock:
             return self._connect().request("container_revoke", container=container)
 
-    def stop(self) -> dict:
+    def stop(self, *, retain_app_guard=False) -> dict:
         with self._lock:
             if self._client is None:
                 return {"stopped": True, "not_connected": True}
-            return self._client.request("stop")
+            # Never downgrade a rejected fault-cleanup request to ordinary stop:
+            # older brokers must fail visibly rather than revoke protection.
+            return self._client.request("stop_retain_guard" if retain_app_guard else "stop")
 
     def snapshot(self) -> dict:
         try:

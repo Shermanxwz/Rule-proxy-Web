@@ -195,6 +195,14 @@ class Handler(BaseHTTPRequestHandler):
                 manager.start()
             elif path == "/api/autostart":
                 manager.set_autostart(data.get("enabled"))
+            elif path == "/api/system-proxy-compat":
+                if set(data) != {"enabled"} or type(data["enabled"]) is not bool:
+                    raise ValueError("系统代理兼容请求只能包含布尔值 enabled。")
+                manager.set_system_proxy_compat(data["enabled"])
+            elif path == "/api/antigravity-ipc-compat":
+                if set(data) != {"enabled"} or type(data["enabled"]) is not bool:
+                    raise ValueError("Antigravity 本机通信兼容请求只能包含布尔值 enabled。")
+                manager.set_antigravity_ipc_compat(data["enabled"])
             elif path == "/api/app-guard":
                 if set(data) != {"enabled"}:
                     raise ValueError("出站守卫请求只能包含 enabled。")

@@ -29,6 +29,12 @@ class WindowsManagerTests(unittest.TestCase):
     def use_core(self):
         self.manager.core = Mock(pid=1234, poll=Mock(return_value=None))
 
+    def use_healthy_watchdog(self):
+        self.manager._proxy_watchdog = Mock(
+            nonce='0123456789abcdef0123456789abcdef',
+            process=Mock(poll=Mock(return_value=None)))
+        self.manager._proxy_watchdog_armed = True
+
     def tearDown(self):
         self.manager.active.clear()
         self.manager.core = None
@@ -75,9 +81,50 @@ class WindowsManagerTests(unittest.TestCase):
         launch.assert_called_once_with([self.app['path']], {}, native_proxy_port=self.manager.mixed_port)
         self.assertIsNone(self.manager.active["app"][1])
 
+    def test_native_preference_lease_order_and_cleanup(self):
+        self.use_core()
+        order = []
+        self.backend.apply.side_effect = lambda *a: order.append('policy')
+        lease = Mock(close=Mock(side_effect=lambda: order.append('restore')))
+        process = Mock(pid=5678, poll=Mock(return_value=None),
+                       terminate=Mock(side_effect=lambda: order.append('terminate')),
+                       wait=Mock(side_effect=lambda **kw: order.append('wait')))
+        with patch('ruleproxy.manager.prepare_app', return_value=([self.app['path']], {}, '')), \
+                patch('ruleproxy.windows_gemini_native_proxy.prepare', side_effect=lambda *a: order.append('lease') or lease), \
+                patch('ruleproxy.windows_app_process.launch', side_effect=lambda *a, **kw: order.append('launch') or process):
+            self.manager.launch('app')
+            self.manager.stop_app('app')
+        self.assertEqual(order, ['policy', 'lease', 'launch', 'terminate', 'wait', 'restore'])
+        self.assertNotIn('app', self.manager.active)
+
+    def test_failed_native_launch_restores_preference_lease(self):
+        self.use_core(); lease = Mock()
+        with patch('ruleproxy.manager.prepare_app', return_value=([self.app['path']], {}, '')), \
+                patch('ruleproxy.windows_gemini_native_proxy.prepare', return_value=lease), \
+                patch('ruleproxy.windows_app_process.launch', side_effect=OSError('launch failure')):
+            with self.assertRaises(OSError): self.manager.launch('app')
+        lease.close.assert_called_once()
+        self.assertNotIn('app', self.manager.active)
+
+    def test_preference_failure_prevents_native_launch(self):
+        self.use_core()
+        with patch('ruleproxy.manager.prepare_app', return_value=([self.app['path']], {}, '')), \
+                patch('ruleproxy.windows_gemini_native_proxy.prepare', side_effect=ValueError('preference conflict')), \
+                patch('ruleproxy.windows_app_process.launch') as launch:
+            with self.assertRaises(ValueError): self.manager.launch('app')
+        launch.assert_not_called()
+
+    def test_failed_preference_restore_retains_active_resource(self):
+        process = Mock(); lease = Mock(close=Mock(side_effect=ValueError('conflict')))
+        self.manager.active['app'] = (process, lease)
+        with self.assertRaises(ValueError): self.manager.stop_app('app')
+        self.assertIs(self.manager.active['app'][1], lease)
+        process.terminate.assert_called_once(); process.wait.assert_called_once_with(timeout=10)
+
     def test_global_launch_hands_the_system_proxy_to_the_app_without_path_routing(self):
         self.use_core()
         self.manager.settings['capture_mode'] = 'global'
+        self.use_healthy_watchdog()
         process = Mock(pid=5678, poll=Mock(return_value=None))
         with patch.object(self.manager, 'protection', return_value={'supported': True}), \
                 patch('ruleproxy.manager.prepare_app', return_value=([self.app['path']], {}, '')) as prepare, \
@@ -87,6 +134,33 @@ class WindowsManagerTests(unittest.TestCase):
         self.assertTrue(prepare.call_args.kwargs['system_proxy'])
         launch.assert_called_once_with([self.app['path']], {}, native_proxy_port=self.manager.mixed_port)
         self.backend.apply.assert_not_called()
+
+    def test_global_launch_requires_healthy_armed_watchdog(self):
+        self.use_core()
+        self.manager.settings['capture_mode'] = 'global'
+        with self.manager.lock:
+            for failure in ('dead', 'unarmed', 'poll-error', 'missing'):
+                with self.subTest(failure=failure):
+                    self.manager._global_fault = False
+                    self.manager.error = ''
+                    self.use_healthy_watchdog()
+                    if failure == 'dead':
+                        self.manager._proxy_watchdog.process.poll.return_value = 1
+                    elif failure == 'unarmed':
+                        self.manager._proxy_watchdog_armed = False
+                    elif failure == 'poll-error':
+                        self.manager._proxy_watchdog.process.poll.side_effect = OSError('poll failed')
+                    else:
+                        self.manager._proxy_watchdog = None
+                    with patch('ruleproxy.manager.prepare_app') as prepare, \
+                            patch('ruleproxy.windows_app_process.launch') as launch:
+                        with self.assertRaises(ValueError):
+                            self.manager.launch('app')
+                    prepare.assert_not_called()
+                    launch.assert_not_called()
+                    self.assertTrue(self.manager._global_fault)
+                    self.assertTrue(self.manager.error)
+                    self.backend.apply.assert_not_called()
 
     def test_policy_failure_never_starts_app(self):
         self.use_core()

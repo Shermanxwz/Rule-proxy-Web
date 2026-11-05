@@ -140,10 +140,11 @@ def decode_request(raw: bytes) -> dict:
              "global_start": {"source", "secret", "mixed_port", "controller_port", "selected_node", "require_strict"},
              "global_select_node": {"selected_node"},
              "app_guard_apply": {"proxy_port"}, "app_guard_revoke": set(),
+             "antigravity_ipc": {"enabled"},
              "container_allow": {"container", "proxy_port"}, "container_revoke": {"container"}}
     expected = common | extra.get(operation, set())
-    if (operation not in {"status", "apply", "stop", "global_status", "global_start", "global_stop", "global_select_node",
-                          "app_guard_apply", "app_guard_revoke",
+    if (operation not in {"status", "apply", "stop", "stop_retain_guard", "global_status", "global_start", "global_stop", "global_select_node",
+                          "app_guard_apply", "app_guard_revoke", "antigravity_ipc",
                           "container_allow", "container_revoke"}
             or set(request) != expected
             or type(request.get("schema_version")) is not int or request.get("schema_version") != 1
@@ -151,6 +152,8 @@ def decode_request(raw: bytes) -> dict:
             or not re.fullmatch(r"[0-9a-f]{32}", request["request_id"])
             or type(request.get("client_pid")) is not int or not 1 <= request["client_pid"] <= 0xFFFFFFFF):
         raise ProxyError("invalid_request", "请求协议或字段无效。")
+    if operation == "antigravity_ipc" and type(request["enabled"]) is not bool:
+        raise ProxyError("invalid_request", "IPC enabled must be a boolean")
     if operation == "apply":
         for name in ("generation", "mihomo_pid"):
             if type(request[name]) is not int or not 1 <= request[name] <= 0xFFFFFFFF:

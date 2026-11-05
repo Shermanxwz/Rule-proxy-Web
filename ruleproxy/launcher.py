@@ -829,9 +829,12 @@ def prepare_app(app: dict, proxy_port: int, profile_dir: Path, *, transparent: b
     privileged broker before the ordinary process is resumed.
     """
     normalized = validate_app(app)
+    native_gemini_gui = False
     if transparent and native_proxy and sys.platform == 'win32':
-        from .windows_gemini import is_gemini, launch_path
+        from .windows_gemini import is_gemini, launch_path, validate_launch_args
         if is_gemini(normalized['path']):
+            native_gemini_gui = True
+            validate_launch_args(normalized['args'])
             # Gemini rejects Chromium network-override flags, including
             # --proxy-server. Existing saved Chromium entries need this too.
             normalized = {**normalized, 'path': launch_path(normalized['path']),
@@ -853,6 +856,15 @@ def prepare_app(app: dict, proxy_port: int, profile_dir: Path, *, transparent: b
     # XDG_RUNTIME_DIR, etc.); the platform runtime must apply its own safe
     # environment allowlist when entering isolation.
     env: dict[str, str] = os.environ.copy()
+    if (transparent and native_proxy and sys.platform == 'win32'
+            and (normalized['adapter'] == 'chromium' or native_gemini_gui)):
+        # A maintenance host may itself be Electron's Node runtime. Inheriting
+        # this switch turns a selected GUI into node.exe and rejects browser
+        # flags before a window exists. Strip only from this child's copy;
+        # environment/console adapters retain intentional Node-mode launches.
+        for name in tuple(env):
+            if name.upper() == 'ELECTRON_RUN_AS_NODE':
+                env.pop(name)
     if transparent:
         for name in ("HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "NO_PROXY", "FTP_PROXY"):
             env.pop(name, None)

@@ -111,8 +111,72 @@ class WindowsPackageTests(unittest.TestCase):
         self.assertIn("ruleproxy/windows_proxy_service.py", files)
         self.assertIn("ruleproxy/windows_proxy_policy.py", files)
         self.assertIn("ruleproxy/windows_proxy_runtime.py", files)
+        for name in ("manager", "launcher", "windows_gemini", "windows_antigravity",
+                     "windows_antigravity_ipc", "windows_ipc_lease"):
+            self.assertIn(f"ruleproxy/{name}.py", files)
         self.assertFalse(any(name.endswith((".yaml", ".yml")) for name in files))
         self.assertFalse(any(name.startswith(("verification/", ".github/", "data/")) for name in files))
+
+    def test_setup_requires_all_antigravity_ipc_modules_before_dependencies(self):
+        import re
+        source = (Path(__file__).resolve().parent.parent / 'scripts/windows-setup.ps1').read_text(encoding='utf-8')
+        check = re.search(r"    foreach \(\$required in @\((.*?)\)\) \{\n.*?\n    \}", source, re.S)
+        self.assertIsNotNone(check)
+        required = re.findall(r"'([^']+)'", check.group(1))
+        for module in ('windows_antigravity', 'windows_antigravity_ipc', 'windows_ipc_lease'):
+            self.assertIn(f'ruleproxy\\{module}.py', required)
+        self.assertIn("throw ('Required product file missing: ' + $required)", check.group())
+        self.assertLess(check.end(), source.index("$setupPhase = 'dependencies'"))
+
+    @unittest.skipUnless(os.name == 'nt', 'executes isolated Windows PowerShell file-check/hash fragments only')
+    def test_setup_ipc_required_failure_and_deployment_hashes_with_fixture_files(self):
+        import hashlib
+        import json
+        import re
+        import shutil
+        import subprocess
+        shell = shutil.which('pwsh') or shutil.which('powershell')
+        if not shell:
+            self.skipTest('PowerShell is not installed')
+        source = (Path(__file__).resolve().parent.parent / 'scripts/windows-setup.ps1').read_text(encoding='utf-8')
+        check = re.search(r"    foreach \(\$required in @\((.*?)\)\) \{\n.*?\n    \}", source, re.S)
+        self.assertIsNotNone(check)
+        required = re.findall(r"'([^']+)'", check.group(1))
+        hash_block = source[source.index('    $files = @{}'):source.index('    $pfFiles = @{}')]
+        # Execute only file checks and the real staging hash loop, never setup,
+        # dependency executables, services, shortcut creation, or native helpers.
+        with tempfile.TemporaryDirectory(prefix='ruleproxy-ipc-package-contract-') as directory:
+            root = Path(directory)
+            stage = root / 'fixture stage'
+            stage.mkdir()
+            for name in required:
+                path = stage / name.replace('\\', '/')
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(b'non-executable fixture')
+            script = root / 'check.ps1'
+            script.write_text("param([string]$stage)\n$ErrorActionPreference = 'Stop'\n" + check.group()
+                              + '\n' + hash_block + '\n$files | ConvertTo-Json -Compress\n', encoding='utf-8')
+            def run():
+                return subprocess.run([shell, '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
+                                       '-File', str(script), str(stage)],
+                                      capture_output=True, text=True, timeout=30)
+            result = run()
+            self.assertEqual(result.returncode, 0, result.stderr)
+            hashes = json.loads(result.stdout)
+            self.assertEqual(set(hashes), {name.replace('\\', '/') for name in required})
+            for module in ('windows_antigravity', 'windows_antigravity_ipc', 'windows_ipc_lease'):
+                name = f'ruleproxy/{module}.py'
+                path = stage / name
+                with self.subTest(module=module):
+                    body = path.read_bytes()
+                    self.assertEqual(hashes[name], hashlib.sha256(body).hexdigest())
+                    path.unlink()
+                    result = run()
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn('Required product file missing:', result.stderr)
+                    self.assertIn(module + '.py', result.stderr)
+                    self.assertEqual(result.stdout.strip(), '')
+                    path.write_bytes(body)
 
     def test_staging_refuses_existing_user_configuration_without_reading_it(self):
         builder = self.builder()
@@ -171,6 +235,10 @@ class WindowsPackageTests(unittest.TestCase):
             manifest = json.loads((target / "package-manifest.json").read_text())
             self.assertEqual(manifest["backend"], "proxifyre")
             self.assertFalse(manifest["public_binary_release_eligible"])
+            actual_files = {p.relative_to(target).as_posix() for p in target.rglob('*') if p.is_file()}
+            self.assertEqual(set(manifest['files']), actual_files - {'package-manifest.json'})
+            for module in ('windows_antigravity', 'windows_antigravity_ipc', 'windows_ipc_lease'):
+                self.assertIn(f'ruleproxy/{module}.py', manifest['files'])
             for name, digest in manifest["files"].items():
                 self.assertEqual(hashlib.sha256((target / name).read_bytes()).hexdigest(), digest)
             for asset in builder.pins.ASSETS.values():
