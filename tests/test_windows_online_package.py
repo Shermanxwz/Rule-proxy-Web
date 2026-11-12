@@ -49,10 +49,13 @@ class WindowsOnlinePackageTests(unittest.TestCase):
                              'ruleproxy/windows_global_runtime.py', 'ruleproxy/windows_global_guard.py',
                              'ruleproxy/windows_global_dns.py', 'ruleproxy/windows_app_guard.py',
                              'ruleproxy/windows_antigravity.py', 'ruleproxy/windows_gemini.py',
-                             'ruleproxy/windows_antigravity_ipc.py', 'ruleproxy/windows_ipc_lease.py',
-                             'ruleproxy/launcher.py', 'ruleproxy/manager.py',
+                              'ruleproxy/windows_antigravity_ipc.py', 'ruleproxy/windows_ipc_lease.py',
+                              'ruleproxy/windows_local_ipc.py', 'ruleproxy/windows_web_apps.py',
+                              'ruleproxy/web_app_leveldb.py',
+                              'ruleproxy/launcher.py', 'ruleproxy/manager.py',
                              'ruleproxy/windows_proxy_runtime.py', 'ruleproxy/windows_proxy_policy.py',
-                             'ruleproxy/windows_proxy_service.py'} <= expected)
+                              'ruleproxy/windows_proxy_service.py'} <= expected)
+            self.assertTrue(set(builder.WEB_ASSETS) <= expected)
             self.assertEqual({p.relative_to(target).as_posix() for p in target.rglob('*') if p.is_file()},
                              expected | {'INSTALL-WINDOWS.txt', 'release-source.json'})
             for name in expected:
@@ -95,7 +98,8 @@ class WindowsOnlinePackageTests(unittest.TestCase):
     def test_source_provider_cannot_smuggle_binaries_yaml_manifest_or_state(self):
         for name in ('web/third-party.exe', 'ruleproxy/driver.dll', 'ruleproxy/driver.sys', 'web/installer.msi',
                      'ruleproxy/private.yaml', 'web/profile.yml', 'package-manifest.json', '.windows-cache/secrets.py',
-                     'ruleproxy/licenses/UNREVIEWED-LICENSE'):
+                     'ruleproxy/licenses/UNREVIEWED-LICENSE', 'web/private.png', 'web/extra.ico',
+                     'web/third-party.svg', 'ruleproxy/favicon.ico'):
             with self.subTest(name=name), mock.patch.object(builder.offline, 'project_files', return_value=[name]), \
                     self.assertRaises(ValueError):
                 builder.project_files()

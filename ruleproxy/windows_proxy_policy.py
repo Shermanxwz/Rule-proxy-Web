@@ -15,6 +15,9 @@ ENGINE_SERVICE_NAME = "ProxiFyreService"
 MAX_GLOBAL_SOURCE = 2 * 1024 * 1024
 MAX_MESSAGE = 2 * MAX_GLOBAL_SOURCE + 64 * 1024
 MAX_PATHS = 128
+MAX_IPC_GROUPS = 128
+MAX_IPC_MEMBERSHIPS = 512
+MAX_IPC_CLIENT_RULES = 256
 SID_RE = re.compile(r"S-1-5-21-(?:\d+-){3}\d+\Z")
 HASH_RE = re.compile(r"[0-9a-f]{64}\Z")
 SENSITIVE_NAMES = frozenset({"svchost.exe", "services.exe", "lsass.exe", "winlogon.exe",
@@ -91,6 +94,25 @@ def build_policy(paths, proxy_port, **directories) -> dict:
         "supportedAddressFamilies": ["IPv4", "IPv6"]}]}
 
 
+def normalize_ipc_groups(groups, **directories) -> list[list[str]]:
+    """Application membership only; never accept caller-selected ports or PIDs."""
+    if type(groups) is not list or len(groups) > MAX_IPC_GROUPS:
+        raise ProxyError('invalid_request', 'Local IPC requires at most 128 application groups')
+    result, seen, paths, memberships = [], set(), set(), 0
+    for group in groups:
+        normalized = normalize_paths(group, **directories)
+        key = tuple(sorted(ntpath.normcase(path) for path in normalized))
+        if key in seen:
+            continue
+        seen.add(key)
+        memberships += len(key)
+        paths.update(key)
+        if len(paths) > MAX_PATHS or memberships > MAX_IPC_MEMBERSHIPS:
+            raise ProxyError('invalid_request', 'Local IPC application membership limit exceeded')
+        result.append(list(key))
+    return sorted(result)
+
+
 def validate_global_request(request: dict) -> None:
     """Validate data only; the broker compiles it again before privileged use."""
     source, secret = request.get("source"), request.get("secret")
@@ -140,11 +162,11 @@ def decode_request(raw: bytes) -> dict:
              "global_start": {"source", "secret", "mixed_port", "controller_port", "selected_node", "require_strict"},
              "global_select_node": {"selected_node"},
              "app_guard_apply": {"proxy_port"}, "app_guard_revoke": set(),
-             "antigravity_ipc": {"enabled"},
+              "antigravity_ipc": {"enabled"}, "local_ipc": {"groups"},
              "container_allow": {"container", "proxy_port"}, "container_revoke": {"container"}}
     expected = common | extra.get(operation, set())
     if (operation not in {"status", "apply", "stop", "stop_retain_guard", "global_status", "global_start", "global_stop", "global_select_node",
-                          "app_guard_apply", "app_guard_revoke", "antigravity_ipc",
+                           "app_guard_apply", "app_guard_revoke", "antigravity_ipc", "local_ipc",
                           "container_allow", "container_revoke"}
             or set(request) != expected
             or type(request.get("schema_version")) is not int or request.get("schema_version") != 1
@@ -154,6 +176,8 @@ def decode_request(raw: bytes) -> dict:
         raise ProxyError("invalid_request", "请求协议或字段无效。")
     if operation == "antigravity_ipc" and type(request["enabled"]) is not bool:
         raise ProxyError("invalid_request", "IPC enabled must be a boolean")
+    if operation == 'local_ipc':
+        normalize_ipc_groups(request['groups'])
     if operation == "apply":
         for name in ("generation", "mihomo_pid"):
             if type(request[name]) is not int or not 1 <= request[name] <= 0xFFFFFFFF:

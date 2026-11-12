@@ -17,6 +17,8 @@ _spec.loader.exec_module(offline)
 EXTRA_SOURCES = ('install_runtime.py', '.github/build_windows_package.py')
 QUALIFICATION_SOURCE = 'ruleproxy/windows-global-qualification.json'
 ALLOWED_SUFFIXES = {'.py', '.cmd', '.ps1', '.md', '.txt', '.html', '.css', '.js', '.xml'}
+# First-party, fixed UI media; never admit arbitrary images or runtime binaries.
+WEB_ASSETS = ('web/favicon.svg', 'web/favicon.ico', 'web/favicon-32.png', 'web/apple-touch-icon.png')
 
 
 def project_files() -> list[str]:
@@ -30,7 +32,7 @@ def project_files() -> list[str]:
                 or '__pycache__' in relative.parts
                 or any(part.startswith('.') for part in relative.parts) and name != EXTRA_SOURCES[1]
                 or relative.suffix.lower() not in ALLOWED_SUFFIXES
-                and name not in ('LICENSE', QUALIFICATION_SOURCE, *offline.BUNDLED_LICENSE_SOURCES)):
+                and name not in ('LICENSE', QUALIFICATION_SOURCE, *offline.BUNDLED_LICENSE_SOURCES, *WEB_ASSETS)):
             raise ValueError('Ineligible online package source: ' + name)
         path = ROOT
         for part in relative.parts:
@@ -59,11 +61,14 @@ def install_instructions() -> str:
         '后台错误见 %LOCALAPPDATA%\\RuleProxyWebSafe\\panel.log。\n'
         '浏览器默认使用独立资料；应用行“创建快捷方式”旁可开启“使用原应用数据”，直接共用原资料，修改会同步。'
         '请先关闭原应用；开启后已有窗口也可能接收启动请求。\n'
+        '已安装 Web 应用以独立资料的应用窗口启动，首次需重新登录，不共用原 PWA 安装。'
+        '同一浏览器 exe 的其他窗口和 Web 应用也会受路径代理影响。\n'
         '默认按应用模式，按应用和全局模式均不启用 TUN。商店应用按当前账户的注册身份重新定位版本及包内辅助程序；'
         '兼容 CLI 与子进程同时继承本机 HTTP 代理设置。全局模式仅把当前用户的系统代理指向本机核心，'
         '不安装全局阻断规则、路由或 DNS 策略；不读取系统代理的程序会直连。'
         '停止、核心或面板退出时尝试恢复原系统代理；恢复失败保留记录供重试，'
         '恢复期间遵循系统代理的程序可能暂时无法联网。旧版 TUN 遗留的自有规则仅供恢复清理。\n'
+        '系统代理统一使用全局模式，不再有重复兼容开关；开启出站守卫时，本机通信按应用组自动核验，无需单独勾选。\n'
         '临时下载故障会有界重试；失败后保留 .windows-cache，从同一目录重新运行 Setup-Windows.cmd 可复用校验过的依赖。'
         '固定许可证原文已随包附带，安装不为许可证访问 raw.githubusercontent.com。'
         '本包不含用户配置、节点凭据或第三方二进制。\n\n'

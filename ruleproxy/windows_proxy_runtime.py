@@ -6,7 +6,7 @@ from pathlib import Path
 import threading
 
 from .windows_proxy_client import Client, current_user_sid
-from .windows_proxy_policy import APP_GUARD_LIMITATIONS, LIMITATIONS, ProxyError, build_policy
+from .windows_proxy_policy import APP_GUARD_LIMITATIONS, LIMITATIONS, ProxyError, build_policy, normalize_ipc_groups
 from .windows_proxy_service import load_deployment
 
 
@@ -77,6 +77,18 @@ class Runtime:
     def app_guard_apply(self, proxy_port: int) -> dict:
         with self._lock:
             return self._connect().request("app_guard_apply", proxy_port=proxy_port)
+
+    def local_ipc(self, groups: list[list[str]]) -> dict:
+        """Reconcile automatic local IPC membership; the broker discovers ports."""
+        normalized = normalize_ipc_groups(groups)
+        with self._lock:
+            client = self._connect()
+            state = client.request('status').get('local_ipc', {})
+            if state.get('supported') is not True:
+                return {'supported': False, 'enabled': False, 'active': False,
+                        'state': 'unsupported', 'endpoint_count': 0, 'waiting_restart_count': 0,
+                        'strict_isolation': False, 'error': None}
+            return client.request('local_ipc', groups=normalized)
 
     def app_guard_revoke(self) -> dict:
         with self._lock:

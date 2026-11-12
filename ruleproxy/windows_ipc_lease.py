@@ -1,6 +1,6 @@
 """Broker-owned, dynamic IPv4 IPC exceptions to an existing AppGuard.
 
-Only three rules per endpoint: exact client CONNECT permit and exact server
+Exact client CONNECT permits and one exact server
 RECV_ACCEPT permit above a 127.0.0.1/port/TCP RECV_ACCEPT block. No bind
 reservation, IPv6 rule, LAN exception, discovery, persistence or qualification.
 The broker must validate identities, owner SID, exclusive endpoint ownership,
@@ -22,7 +22,7 @@ import threading
 import uuid
 
 from . import windows_global_guard as wfp
-from .windows_proxy_policy import ProxyError
+from .windows_proxy_policy import MAX_IPC_CLIENT_RULES, MAX_PATHS, ProxyError
 
 _CONNECT4 = wfp._LAYERS[4]
 _ACCEPT4 = 'e1cd9fe7-f4b5-4273-96c0-592e487b8650'
@@ -116,6 +116,26 @@ class Endpoint:
 
 
 @dataclass(frozen=True)
+class GroupEndpoint:
+    server_app_id: bytes
+    client_app_ids: tuple[bytes, ...]
+    owner_sd: bytes
+    port: int
+
+    def __post_init__(self):
+        _app_blob(self.server_app_id)
+        _owner_blob(self.owner_sd)
+        if type(self.client_app_ids) is not tuple or not 1 <= len(self.client_app_ids) <= MAX_PATHS:
+            raise ValueError('IPC clients must be a bounded immutable tuple')
+        for client in self.client_app_ids:
+            _app_blob(client)
+        if len(set(self.client_app_ids)) != len(self.client_app_ids):
+            raise ValueError('Duplicate IPC client identity')
+        if type(self.port) is not int or not 1 <= self.port <= 65535:
+            raise ValueError('IPC port must be an integer in 1..65535')
+
+
+@dataclass(frozen=True)
 class _Rule:
     key: str
     marker: str
@@ -128,15 +148,20 @@ class _Rule:
 def _plan(endpoints, epoch):
     if type(endpoints) not in (list, tuple) or len(endpoints) > _MAX_ENDPOINTS:
         raise ValueError('Expected at most 16 IPC endpoints')
-    if any(type(endpoint) is not Endpoint for endpoint in endpoints):
+    if any(type(endpoint) not in (Endpoint, GroupEndpoint) for endpoint in endpoints):
         raise ValueError('Expected validated Endpoint objects')
     if len({endpoint.port for endpoint in endpoints}) != len(endpoints):
         raise ValueError('Duplicate or ambiguous IPC port')
-    result = []
+    result, client_count = [], 0
     for endpoint in sorted(endpoints, key=lambda item: item.port):
         endpoint.__post_init__()  # Defend even against object.__setattr__ misuse.
+        clients = ((endpoint.client_app_id,) if type(endpoint) is Endpoint
+                   else tuple(sorted(endpoint.client_app_ids)))
+        client_count += len(clients)
+        if client_count > MAX_IPC_CLIENT_RULES:
+            raise ValueError('IPC client rule budget exceeded')
         digest = hashlib.sha256()
-        for blob in (endpoint.server_app_id, endpoint.client_app_id, endpoint.owner_sd):
+        for blob in (endpoint.server_app_id, *clients, endpoint.owner_sd):
             digest.update(len(blob).to_bytes(4, 'little'))
             digest.update(blob)
         digest.update(endpoint.port.to_bytes(2, 'little'))
@@ -146,8 +171,11 @@ def _plan(endpoints, epoch):
         outbound = common + (('remote', 0, 3, _LOOPBACK), ('remote_port', 0, 2, endpoint.port))
         inbound = common + (('local', 0, 3, _LOOPBACK), ('local_port', 0, 2, endpoint.port))
         owner = (('user', 0, 14, endpoint.owner_sd),)
-        for name, layer, action, weight, conditions in (
-            ('connect', _CONNECT4, wfp._PERMIT, 14, (('app', 0, 12, endpoint.client_app_id),) + owner + outbound),
+        connects = tuple(
+            ('connect' if len(clients) == 1 else f'connect-{index}', _CONNECT4,
+             wfp._PERMIT, 14, (('app', 0, 12, client),) + owner + outbound)
+            for index, client in enumerate(clients))
+        for name, layer, action, weight, conditions in (*connects,
             ('accept', _ACCEPT4, wfp._PERMIT, 14, (('app', 0, 12, endpoint.server_app_id),) + owner + inbound),
             ('block', _ACCEPT4, wfp._BLOCK, 13, inbound),
         ):

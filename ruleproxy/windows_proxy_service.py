@@ -515,6 +515,57 @@ def _new_ipc_tracker(broker, pair, enabled_after):
         raise
 
 
+def _local_peer_lease(pid, owner_sid, paths, *, pending):
+    """Inaccessible unverified listeners grant nothing in automatic discovery.
+
+    Only access-denied lookup errors are skippable, and only after any newly
+    opened handle has been released. Cleanup errors retain the normal fault
+    path. The group tracker retires a whole lease if a prior peer is unverified.
+    """
+    before = tuple(pending)
+    try:
+        return _peer_lease(pid, owner_sid, paths, pending=pending)
+    except OSError as exc:
+        if (isinstance(exc, PermissionError) or getattr(exc, 'winerror', None) == 5) and tuple(pending) == before:
+            return None
+        raise
+
+
+def _new_local_ipc_tracker(broker, groups, epochs):
+    from ruleproxy.windows_local_ipc import Tracker
+    from ruleproxy.windows_ipc_lease import LeaseSet, GroupEndpoint
+    from ruleproxy import windows_global_guard as wfp
+    paths = tuple(sorted({path for group in groups for path in group}))
+    leases, pending = LeaseSet(broker._app_guard()), []
+    def revoke():
+        leases.close()
+        errors = []
+        for handle in list(pending):
+            try:
+                handle.close()
+                pending.remove(handle)
+            except Exception as exc:
+                errors.append(exc)
+        if errors:
+            raise errors[0]
+    try:
+        owner_sd = wfp._descriptor('D:(A;;CC;;;' + broker.metadata['owner_sid'] + ')')
+        with wfp._Engine() as engine:
+            identities = {path: engine.app_id(Path(path)) for path in paths}
+        def apply(records):
+            broker._verify_ipc_base(paths)
+            leases.replace(tuple(GroupEndpoint(identities[record.server_path],
+                tuple(dict.fromkeys(identities[path] for path in record.client_paths)),
+                owner_sd, record.port) for record in records))
+        return Tracker(groups, broker.metadata['owner_sid'], epochs,
+                       rows_factory=_tcp_connections,
+                       process_factory=lambda pid, sid: _local_peer_lease(pid, sid, paths, pending=pending),
+                       apply=apply, revoke=revoke)
+    except BaseException:
+        revoke()
+        raise
+
+
 def _tcp_connections(family):
     """Bounded native ownership/management snapshot; no subprocess parsing."""
     class Row4(ctypes.Structure):
@@ -1011,7 +1062,7 @@ class GlobalCore:
 
 class Broker:
     def __init__(self, metadata, control=None, lease_factory=None, global_factory=None, container_factory=None,
-                 app_guard_factory=None, ipc_factory=None):
+                 app_guard_factory=None, ipc_factory=None, local_ipc_factory=None):
         self.metadata = metadata
         self.control = control or ServiceControl()
         self.lease_factory = lease_factory or ProcessLease
@@ -1036,18 +1087,50 @@ class Broker:
         self.ipc_pair = ()
         self.ipc_enabled_after = None
         self.ipc_error = None
+        self.local_ipc_factory = local_ipc_factory
+        self.ipc_mode = 'antigravity'
+        self.ipc_groups = ()
+        self.ipc_path_epochs = {}
 
     def _ipc_available(self):
         return self.ipc_factory is not None or all(name in self.metadata.get('files', {}) for name in (
             'ruleproxy/windows_antigravity_ipc.py', 'ruleproxy/windows_ipc_lease.py'))
 
     def _ipc_status(self):
+        if self.ipc_mode == 'local':
+            return {'supported': self._ipc_available(), 'enabled': False, 'active': False,
+                    'strict_isolation': False, 'endpoint_count': 0, 'enabled_after': None,
+                    'error': None, 'state': 'inactive'}
         records = self.ipc_tracker.records if self.ipc_tracker is not None else ()
         return {'supported': self._ipc_available(), 'enabled': self.ipc_tracker is not None,
                 'active': bool(records) and self.ipc_error is None, 'strict_isolation': False,
                 'endpoint_count': len(records), 'enabled_after': self.ipc_enabled_after,
                 'error': self.ipc_error, 'state': 'failed' if self.ipc_error else (
                     'active' if records else 'watching' if self.ipc_tracker is not None else 'inactive')}
+
+    def _local_ipc_available(self):
+        return self.local_ipc_factory is not None or all(name in self.metadata.get('files', {}) for name in (
+            'ruleproxy/windows_local_ipc.py', 'ruleproxy/windows_antigravity_ipc.py',
+            'ruleproxy/windows_ipc_lease.py'))
+
+    def _local_ipc_status(self):
+        supported = self._local_ipc_available()
+        tracker = self.ipc_tracker if self.ipc_mode == 'local' else None
+        records = tracker.records if tracker is not None else ()
+        # A retained legacy fault also blocks automatic reconciliation. Surface
+        # it here so removing the old UI never hides its recovery requirement.
+        error = self.ipc_error
+        waiting = getattr(tracker, 'waiting_restart_count', 0) if tracker is not None else 0
+        if type(waiting) is not int or waiting < 0:
+            waiting = 0
+        return {'supported': supported, 'enabled': tracker is not None,
+                'active': bool(records) and error is None, 'strict_isolation': False,
+                'endpoint_count': len(records), 'waiting_restart_count': waiting,
+                'group_count': len(self.ipc_groups) if tracker is not None else 0,
+                'enabled_after': self.ipc_enabled_after if self.ipc_mode == 'local' else None,
+                'error': error, 'state': 'failed' if error else 'unsupported' if not supported else (
+                    'active' if records else 'waiting_restart' if waiting else
+                    'watching' if tracker is not None else 'inactive')}
 
     def _close_ipc(self):
         if self.ipc_tracker is not None:
@@ -1059,6 +1142,8 @@ class Broker:
             self.ipc_tracker = None
         self.ipc_pair = ()
         self.ipc_enabled_after = None
+        self.ipc_groups = ()
+        self.ipc_path_epochs = {}
 
     def _ipc_pair_from_paths(self):
         from ruleproxy.windows_antigravity import routing_paths
@@ -1100,6 +1185,7 @@ class Broker:
         except Exception as exc:
             from ruleproxy.windows_antigravity_ipc import PeerRetired
             pair, enabled_after = self.ipc_pair, self.ipc_enabled_after
+            groups, epochs = self.ipc_groups, dict(self.ipc_path_epochs)
             self.ipc_error = {'code': getattr(exc, 'code', 'ipc_failed'), 'message': str(exc)}
             # close() must confirm revocation AND handle release before recovery.
             # Revoke/cleanup failures are not PeerRetired, even if close retries
@@ -1109,12 +1195,15 @@ class Broker:
                 raise
             try:
                 self._verify_ipc_base(pair)
-                self.ipc_tracker = (self.ipc_factory or _new_ipc_tracker)(self, pair, enabled_after)
+                self.ipc_tracker = ((self.local_ipc_factory or _new_local_ipc_tracker)(self, groups, epochs)
+                                    if self.ipc_mode == 'local' else
+                                    (self.ipc_factory or _new_ipc_tracker)(self, pair, enabled_after))
             except Exception as recovery_error:
                 self.ipc_error = {'code': getattr(recovery_error, 'code', 'ipc_failed'),
                                   'message': str(recovery_error)}
                 raise
             self.ipc_pair, self.ipc_enabled_after = pair, enabled_after
+            self.ipc_groups, self.ipc_path_epochs = groups, epochs
             self.ipc_error = None
             # One replacement per call; no refresh/grant on the replacement in
             # this tick. The next serialized call performs full validation.
@@ -1138,6 +1227,9 @@ class Broker:
             raise ProxyError('ipc_guard_missing', 'IPC requires a live owned guarded application policy')
         if self.ipc_error is not None:
             raise ProxyError(self.ipc_error['code'], self.ipc_error['message'])
+        if self.ipc_mode == 'local':
+            self._close_ipc()
+        self.ipc_mode = 'antigravity'
         if self.ipc_tracker is None:
             pair = self._ipc_pair_from_paths()
             self._verify_ipc_base(pair)
@@ -1152,6 +1244,49 @@ class Broker:
         # Existing trackers were refreshed by handle()->check_lease(). Do not
         # refresh a just-rebuilt tracker twice in the same incoming request.
         return self._ipc_status()
+
+    def _handle_local_ipc(self, groups, caller_pid):
+        groups = policy.normalize_ipc_groups(groups, root=self.metadata['root'],
+            proxifyre_root=self.metadata['proxifyre_root'],
+            windows_root=os.environ.get('SystemRoot', r'C:\Windows'))
+        groups = tuple(tuple(group) for group in groups)
+        if self.panel is not None and self.panel.pid != caller_pid:
+            raise ProxyError('instance_conflict', 'Another panel owns local IPC')
+        if not groups:
+            self._close_ipc()
+            # Reconciliation does not acknowledge a sticky fault. Only an
+            # explicit, fully successful stop clears it for the automatic API.
+            return self._local_ipc_status()
+        if not self._local_ipc_available():
+            return self._local_ipc_status()
+        if self.error is not None and self.error.get('code') == 'cleanup_incomplete':
+            raise ProxyError('cleanup_incomplete', 'Existing broker cleanup is incomplete')
+        if (self.panel is None or self.core is None or not self.panel.alive() or not self.core.alive()
+                or not self.paths or self.port is None or not self.engine_owned
+                or not self.app_guard_intent or self._app_guard_status().get('active') is not True):
+            raise ProxyError('ipc_guard_missing', 'Local IPC requires a live owned guarded application policy')
+        paths = tuple(sorted({path for group in groups for path in group}))
+        if not set(paths) <= {ntpath.normcase(ntpath.normpath(path)) for path in self.paths}:
+            raise ProxyError('ipc_invalid_group', 'Local IPC groups must belong to the routed application policy')
+        verify_selected_paths(paths)
+        self._verify_ipc_base(paths)
+        if self.ipc_error is not None:
+            raise ProxyError(self.ipc_error['code'], self.ipc_error['message'])
+        if self.ipc_mode == 'local' and self.ipc_tracker is not None and groups == self.ipc_groups:
+            return self._local_ipc_status()
+        previous = dict(self.ipc_path_epochs) if self.ipc_mode == 'local' else {}
+        self._close_ipc()  # Confirm every old permit is gone before changing membership.
+        now = time.time_ns() // 100 + 116444736000000000
+        epochs = {path: previous.get(path, now) for path in paths}
+        self.ipc_mode, self.ipc_groups, self.ipc_pair = 'local', groups, paths
+        self.ipc_path_epochs, self.ipc_enabled_after = epochs, min(epochs.values())
+        try:
+            self.ipc_tracker = (self.local_ipc_factory or _new_local_ipc_tracker)(self, groups, epochs)
+            self._refresh_ipc()
+        except Exception as exc:
+            self.ipc_error = self.ipc_error or {'code': getattr(exc, 'code', 'ipc_failed'), 'message': str(exc)}
+            raise
+        return self._local_ipc_status()
 
     def _containers(self):
         if self.container_gate is None:
@@ -1212,8 +1347,10 @@ class Broker:
         try:
             result = dict(self._app_guard().status())
             if self.ipc_tracker is not None:
-                result['detail'] = '基础出站守卫保留；另有 Antigravity 精确 loopback IPC 动态例外，状态见 antigravity_ipc。'
-                result['exceptions'] = list(result.get('exceptions', [])) + ['antigravity_dynamic_ipc']
+                name = 'local_ipc' if self.ipc_mode == 'local' else 'antigravity_ipc'
+                result['detail'] = '基础出站守卫保留；另有按应用组验证的精确 loopback IPC 动态例外，状态见 ' + name + '。'
+                result['exceptions'] = list(result.get('exceptions', [])) + [
+                    'application_group_dynamic_ipc' if self.ipc_mode == 'local' else 'antigravity_dynamic_ipc']
             return result
         except Exception as exc:
             return {"supported": False, "active": False, "state": "unavailable",
@@ -1291,6 +1428,7 @@ class Broker:
             "global_active": global_active, "container_count": len(self.containers),
             "app_guard": self._app_guard_status(), "app_guard_intent": self.app_guard_intent,
             "antigravity_ipc": self._ipc_status(),
+            "local_ipc": self._local_ipc_status(),
             "cleanup_pending": error is not None and error.get('code') == 'cleanup_incomplete'}
 
     def _clear(self):
@@ -1323,6 +1461,8 @@ class Broker:
         except Exception as exc:
             self._cleanup_failed([("进程句柄", exc)])
         self.error = None
+        if not retain_app_guard:
+            self.ipc_error = None
         return {"stopped": True, "not_owned": not owned, "generation": self.generation}
 
     def check_lease(self):
@@ -1416,6 +1556,8 @@ class Broker:
                 raise ProxyError("cleanup_incomplete", "旧授权尚未清理完成，请先停止代理后重试。")
             if request['op'] == 'antigravity_ipc':
                 return self._handle_ipc(request['enabled'], caller_pid)
+            if request['op'] == 'local_ipc':
+                return self._handle_local_ipc(request['groups'], caller_pid)
             if (self.ipc_error and self.ipc_error.get('code') == 'ipc_cleanup_incomplete'
                     and request['op'] in {'apply', 'app_guard_apply', 'container_allow', 'global_start'}):
                 raise ProxyError('ipc_cleanup_incomplete', self.ipc_error['message'])

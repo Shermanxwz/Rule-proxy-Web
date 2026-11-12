@@ -19,15 +19,16 @@ class ManagerRecoveryTests(unittest.TestCase):
         self.m.core = self.core
         self.app = {'id': 'a', 'path': 'Antigravity.exe', 'enabled': True, 'adapter': 'chromium'}
         self.m.settings['apps'] = [self.app]
-        self.m.settings['antigravity_ipc_compat'] = True
         self.m.active['a'] = (self.process, None)
         self.report = {'supported': True, 'status': {'state': 'running', 'app_guard': {'active': True},
-                      'antigravity_ipc': {'supported': True, 'enabled': True, 'active': True, 'state': 'active'}}}
+                      'local_ipc': {'supported': True, 'enabled': True, 'active': True, 'state': 'active'}}}
         self.m._windows_backend.probe.return_value = self.report
         self.task_factory = Mock()
         context = patch.dict(sys.modules, {
             'ruleproxy.windows_antigravity': SimpleNamespace(is_antigravity=lambda path: path == 'Antigravity.exe'),
             'ruleproxy.windows_antigravity_task': SimpleNamespace(RecoveryTask=self.task_factory),
+            'ruleproxy.windows_gemini_native_proxy': SimpleNamespace(prepare=Mock(return_value=None),
+                                                                   recover_pending=Mock()),
             'ruleproxy.windows_app_process': SimpleNamespace(launch=Mock(return_value=self.process))})
         context.start()
         self.addCleanup(context.stop)
@@ -40,8 +41,21 @@ class ManagerRecoveryTests(unittest.TestCase):
         self.m._windows_backend.probe.assert_called_once()
 
     def test_waiting_ipc_returns_tristate_none(self):
-        self.report['status']['antigravity_ipc'].update(active=False, state='watching')
+        self.report['status']['local_ipc'].update(active=False, state='watching')
         self.assertIsNone(self.check())
+
+    def test_old_broker_status_does_not_satisfy_automatic_ipc_readiness(self):
+        self.report['status']['antigravity_ipc'] = self.report['status'].pop('local_ipc')
+        self.assertIs(self.check(), False)
+
+    def test_removed_preference_does_not_disable_recovery(self):
+        self.assertNotIn('antigravity_ipc_compat', self.m.settings)
+        for value in (False, True, 'false', None):
+            with self.subTest(value=value):
+                self.m.settings['antigravity_ipc_compat'] = value
+                self.assertIs(self.check(), True)
+                self.m._start_antigravity_recovery('a', self.app, self.process)
+        self.assertEqual(self.task_factory.call_count, 4)
 
     def test_core_replaced_before_probe_cancels(self):
         self.m.core = Mock()
@@ -59,18 +73,21 @@ class ManagerRecoveryTests(unittest.TestCase):
         for target, key, value in ((self.report, 'supported', False),
                                    (self.report['status'], 'state', 'idle'),
                                    (self.report['status']['app_guard'], 'active', False),
-                                   (self.report['status']['antigravity_ipc'], 'enabled', False),
-                                   (self.report['status']['antigravity_ipc'], 'state', 'failed')):
+                                   (self.report['status']['local_ipc'], 'supported', False),
+                                   (self.report['status']['local_ipc'], 'enabled', False),
+                                   (self.report['status']['local_ipc'], 'state', 'failed')):
             old = target[key]
             target[key] = value
             self.assertIs(self.check(), False)
             target[key] = old
 
     def test_stopped_or_disabled_lifecycle_cancels(self):
-        for key in ('windows_app_guard', 'antigravity_ipc_compat'):
-            self.m.settings[key] = False
-            self.assertIs(self.check(), False)
-            self.m.settings[key] = True
+        self.m.settings['windows_app_guard'] = False
+        self.assertIs(self.check(), False)
+        self.m.settings['windows_app_guard'] = True
+        self.m.settings['capture_mode'] = 'global'
+        self.assertIs(self.check(), False)
+        self.m.settings['capture_mode'] = 'applications'
         self.app['enabled'] = False
         self.assertIs(self.check(), False)
         self.app['enabled'] = True
@@ -86,12 +103,14 @@ class ManagerRecoveryTests(unittest.TestCase):
         self.assertIs(callback(), False)
 
     def test_noneligible_launch_does_not_schedule(self):
-        for setting in ('windows_app_guard', 'antigravity_ipc_compat'):
-            self.m.settings[setting] = False
-            self.m._start_antigravity_recovery('a', self.app, self.process)
-            self.m.settings[setting] = True
+        self.m.settings['windows_app_guard'] = False
+        self.m._start_antigravity_recovery('a', self.app, self.process)
+        self.m.settings['windows_app_guard'] = True
         self.m._start_antigravity_recovery('a', {**self.app, 'path': 'Other.exe'}, self.process)
         self.m.settings['capture_mode'] = 'global'
+        self.m._start_antigravity_recovery('a', self.app, self.process)
+        self.m.settings['capture_mode'] = 'applications'
+        self.ns['sys'].platform = 'linux'
         self.m._start_antigravity_recovery('a', self.app, self.process)
         self.task_factory.assert_not_called()
 

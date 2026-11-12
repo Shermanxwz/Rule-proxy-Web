@@ -22,7 +22,7 @@ import uuid
 
 from . import __version__, autostart
 from .config import CAPTURE_MODES, MAX_SOURCE_BYTES, compile_config
-from .launcher import app_profile_directory, discover_apps, validate_app, prepare_app
+from .launcher import app_identity, app_profile_directory, discover_apps, validate_app, prepare_app
 from .shortcuts import create_shortcut_files, remove_shortcut_files
 
 
@@ -154,6 +154,7 @@ class Manager:
         self._profile_preparing: set[str] = set()
         self._windows_backend = None
         self._windows_paths = []
+        self._windows_ipc_groups = []
         self._windows_family_paths = {}
         self._global_backend = None
         self._global_fault = False
@@ -166,7 +167,7 @@ class Manager:
         self.launch_owner = ThreadPoolExecutor(max_workers=1, thread_name_prefix="RuleProxyLaunchOwner")
         self.settings = {"core_path": "", "runtime_path": "", "selected_node": None,
                          "capture_mode": "applications", "windows_app_guard": False,
-                         "system_proxy_compat": False, "antigravity_ipc_compat": False, "apps": []}
+                         "apps": []}
         self.storage_warnings = []
         self._settings_need_backup = False
         self._restore_settings()
@@ -307,21 +308,18 @@ class Manager:
                 self.settings["windows_app_guard"] = data["windows_app_guard"]
             else:
                 invalid = True
-        if "system_proxy_compat" in data:
-            if isinstance(data["system_proxy_compat"], bool):
-                self.settings["system_proxy_compat"] = data["system_proxy_compat"]
-            else:
-                invalid = True
-        if "antigravity_ipc_compat" in data:
-            if isinstance(data["antigravity_ipc_compat"], bool):
-                self.settings["antigravity_ipc_compat"] = data["antigravity_ipc_compat"]
-            else:
-                invalid = True
+        # Old compatibility toggles no longer control networking. In particular,
+        # never silently turn an application-scoped installation into global mode.
+        # Startup recovery above still restores any legacy system-proxy receipt.
+        if data.get("system_proxy_compat") is True:
+            self.storage_warnings.append("旧版系统代理兼容已移除；需要系统代理时，请在接管范围选择全局（系统代理）。")
+        if "system_proxy_compat" in data or "antigravity_ipc_compat" in data:
+            self._settings_need_backup = True
         records = data.get("apps", [])
         if not isinstance(records, list):
             records = []
             invalid = True
-        ids, paths = set(), set()
+        ids, identities = set(), set()
         for record in records[:MAX_APPS]:
             try:
                 if not isinstance(record, dict):
@@ -331,8 +329,8 @@ class Manager:
                 if not isinstance(ident, str) or not _APP_ID_RE.fullmatch(ident) or not isinstance(enabled, bool):
                     raise ValueError("invalid app id or enabled state")
                 app = validate_app(record, check_exists=False)
-                path = os.path.normcase(app["path"])
-                if ident in ids or path in paths:
+                identity = app_identity(app)
+                if ident in ids or identity in identities:
                     raise ValueError("duplicate app")
                 app.update(id=ident, enabled=enabled)
                 shortcuts = record.get("shortcuts", [])
@@ -342,7 +340,7 @@ class Manager:
                     app["shortcuts"] = shortcuts
                 self.settings["apps"].append(app)
                 ids.add(ident)
-                paths.add(path)
+                identities.add(identity)
             except (OSError, ValueError, UnicodeError, RuntimeError):
                 invalid = True
         if len(records) > MAX_APPS:
@@ -369,7 +367,7 @@ class Manager:
                 self._settings_need_backup = True
             raise
         if backup is not None:
-            self.storage_warnings = [f"原设置中的无效内容已忽略，原文件备份为 {backup.name}。"]
+            self.storage_warnings = [f"旧版或不可用的设置已处理，原文件备份为 {backup.name}。"]
 
     def _load_saved_config(self):
         """Compile the saved YAML. One that no longer compiles must not keep the panel from opening."""
@@ -395,9 +393,7 @@ class Manager:
     @property
     def uses_system_proxy(self):
         """Requested desktop proxy lifecycle, not proof of application connectivity."""
-        return self.capture_mode == 'global' or (
-            sys.platform == 'win32' and self.capture_mode == 'applications'
-            and self.settings.get('system_proxy_compat', False) is True)
+        return self.capture_mode == 'global'
 
     def _proxy_watchdog_healthy(self):
         """An acknowledged arm and a live child are both required."""
@@ -416,56 +412,6 @@ class Manager:
                 self._global_fault = True
                 self.error = "系统代理独立恢复进程未就绪，请先点击停止恢复。"
                 raise ValueError(self.error)
-
-    def set_system_proxy_compat(self, enabled):
-        """Windows user-wide compatibility opt-in; change only while fully stopped."""
-        if not isinstance(enabled, bool):
-            raise ValueError('系统代理兼容选项必须是布尔值。')
-        with self.lock:
-            if sys.platform != 'win32' or self.capture_mode != 'applications':
-                raise ValueError('系统代理兼容选项仅适用于 Windows 按应用模式。')
-            if self.quitting or self.closed.is_set():
-                raise ValueError('面板正在退出，不能修改兼容选项。')
-            if self.core is not None or self.active or self._profile_preparing:
-                raise ValueError('请先关闭本工具启动的应用并停止核心，再修改兼容选项。')
-            if self._global_fault or self._restore_pending or self._proxy_watchdog is not None:
-                raise ValueError('上次网络恢复尚未完成，请先点击停止重试。')
-            previous = self.settings.get('system_proxy_compat', False)
-            if previous == enabled:
-                return
-            self.settings['system_proxy_compat'] = enabled
-            try:
-                self._save()
-            except BaseException:
-                self.settings['system_proxy_compat'] = previous
-                raise
-
-    def set_antigravity_ipc_compat(self, enabled):
-        """Opt into verified local peer leases, without changing system proxy scope."""
-        if type(enabled) is not bool:
-            raise ValueError('Antigravity 本机通信兼容选项必须是布尔值。')
-        with self.lock:
-            if sys.platform != 'win32' or self.capture_mode != 'applications':
-                raise ValueError('本机通信兼容仅适用于 Windows 按应用模式。')
-            if self.quitting or self.closed.is_set():
-                raise ValueError('面板正在退出，请重新打开后修改兼容选项。')
-            if self.core is not None or self.active or self._profile_preparing:
-                raise ValueError('请先关闭本工具启动的应用并停止核心，再修改兼容选项。')
-            if self._global_fault or self._restore_pending or self._proxy_watchdog is not None:
-                raise ValueError('上次网络恢复尚未完成，请先点击停止重试。')
-            previous = self.settings.get('antigravity_ipc_compat', False)
-            if previous == enabled:
-                return
-            if not enabled:
-                # Explicit disable also acknowledges a sticky broker fault. Do it
-                # before saving so failed revocation leaves the option retryable.
-                self.windows_backend().antigravity_ipc(False)
-            self.settings['antigravity_ipc_compat'] = enabled
-            try:
-                self._save()
-            except BaseException:
-                self.settings['antigravity_ipc_compat'] = previous
-                raise
 
     def global_backend(self):
         if self._global_backend is None:
@@ -521,6 +467,7 @@ class Manager:
 
     def _selected_windows_paths(self):
         paths, seen = [], set()
+        ipc_groups = []
         families, updates, retained = {}, [], {}
         for saved_app in self.settings["apps"]:
             if not saved_app["enabled"]:
@@ -550,6 +497,7 @@ class Manager:
                     selected.append(app['path'])
                 retained[app['id']] = tuple(dict.fromkeys(selected))
                 app['path'] = str(family.entry_path)
+            ipc_groups.append(list(dict.fromkeys(selected)))
             updates.append((saved_app, app))
             for path in selected:
                 key = path.replace("/", "\\").casefold()
@@ -563,6 +511,7 @@ class Manager:
         for saved_app, app in updates:
             saved_app.update(app)
         self._windows_family_paths = retained
+        self._windows_ipc_groups = ipc_groups
         return paths
 
     @staticmethod
@@ -583,13 +532,9 @@ class Manager:
             backend.apply(paths, self.mixed_port, self.core.pid)
             if self.settings.get("windows_app_guard"):
                 backend.app_guard_apply(self.mixed_port)
-            if self.settings.get('antigravity_ipc_compat', False) is True:
-                from .windows_antigravity import is_antigravity
-                # Only intent crosses the broker boundary. The broker independently
-                # resolves the owner's pair, identities and current listener ports.
-                selected = any(app.get('enabled') is True and is_antigravity(app['path'])
-                               for app in self.settings['apps'])
-                backend.antigravity_ipc(bool(selected and self.settings.get('windows_app_guard')))
+                # Send application boundaries, never ports or process identities.
+                # The broker verifies exact guard coverage and live owned peers.
+                backend.local_ipc(self._windows_ipc_groups)
         else:
             backend.stop()
         self._windows_paths = paths
@@ -681,6 +626,7 @@ class Manager:
                 if enabled:
                     if self._windows_paths:
                         backend.app_guard_apply(self.mixed_port)
+                        backend.local_ipc(self._windows_ipc_groups)
                 else:
                     backend.app_guard_revoke()
 
@@ -729,6 +675,7 @@ class Manager:
         with self.lock:
             running = bool(self.core and self.core.poll() is None)
             apps = []
+            routed_paths = {path.replace('/', '\\').casefold() for path in self._windows_paths}
             for app in self.settings["apps"]:
                 owned = self.active.get(app["id"])
                 alive = bool(owned and owned[0].poll() is None)
@@ -737,8 +684,10 @@ class Manager:
                 record = {**app, "active": alive and not pending, "cleanup_pending": pending,
                           "profile_preparing": app["id"] in self._profile_preparing}
                 if sys.platform == "win32" or self.capture_mode == 'global':
+                    # Different PWA selections share one Windows image rule.
+                    # A disabled row can still share a currently routed exe.
                     record["routed"] = running and (self.capture_mode == 'global' or
-                        (app["enabled"] and bool(self._windows_paths)))
+                        app['path'].replace('/', '\\').casefold() in routed_paths)
                 task = getattr(self, '_antigravity_recovery', {}).get(app['id'])
                 if alive and task is not None and task.process is owned[0]:
                     recovery = task.result
@@ -754,13 +703,7 @@ class Manager:
                 "running": running,
                 "capture_mode": self.capture_mode,
                 "windows_app_guard": bool(self.settings.get("windows_app_guard", False)),
-                "system_proxy_compat": self.settings.get("system_proxy_compat", False) is True,
-                "antigravity_ipc_compat": self.settings.get("antigravity_ipc_compat", False) is True,
-                "antigravity_ipc_compat_locked": bool(
-                    sys.platform != 'win32' or self.capture_mode != 'applications'
-                    or self.quitting or self.closed.is_set() or self.core is not None
-                    or self.active or self._profile_preparing or self._global_fault
-                    or self._restore_pending or self._proxy_watchdog is not None),
+                "local_ipc_automatic": sys.platform == 'win32' and self.capture_mode == 'applications',
                 "uses_system_proxy": self.uses_system_proxy,
                 # This is lifecycle state, not a network-success assertion or
                 # a fresh read of user settings (which may be changed externally).
@@ -1000,7 +943,7 @@ class Manager:
             normalized = validate_app(data)
             if sys.platform == 'win32':
                 self._bind_store_app(normalized)
-            if any(os.path.normcase(app["path"]) == os.path.normcase(normalized["path"]) for app in self.settings["apps"]):
+            if any(app_identity(app) == app_identity(normalized) for app in self.settings["apps"]):
                 raise ValueError("这个应用已在列表中。")
             normalized.update(id=uuid.uuid4().hex, enabled=data.get("enabled", True) is True)
             previous = copy.deepcopy(self.settings["apps"])
@@ -1072,7 +1015,15 @@ class Manager:
             app = self.app(ident)
             if app is None:
                 raise ValueError("应用不存在。")
-            created = create_shortcut_files(app, state_dir=self.directory, ports=(self.panel_port, self.mixed_port, self.controller_port))
+            shortcut_app = app
+            if app.get('web_app'):
+                # Windows shortcut filenames used to be label-only. Two PWA
+                # profiles can have the same label; don't overwrite/delete each
+                # other's launcher. Keep the saved display label unchanged.
+                web_app = app['web_app']
+                shortcut_app = {**app, 'label': (f"{app['label'][:72]} "
+                    f"[{web_app['browser']} - {web_app['profile_directory']} - {ident}]")}
+            created = create_shortcut_files(shortcut_app, state_dir=self.directory, ports=(self.panel_port, self.mixed_port, self.controller_port))
             app["shortcuts"] = [str(path) for path in created]
             self._save()
             return list(app["shortcuts"])
@@ -1083,7 +1034,6 @@ class Manager:
             app = self.app(ident)
             return (not self.quitting and not self.closed.is_set()
                     and self.capture_mode == 'applications'
-                    and self.settings.get('antigravity_ipc_compat') is True
                     and self.settings.get('windows_app_guard') is True
                     and owned is not None and owned[0] is process
                     and process.poll() is None and self.core is core
@@ -1099,7 +1049,7 @@ class Manager:
             if not current():
                 return False
         status = report.get('status', {})
-        guard, ipc = status.get('app_guard', {}), status.get('antigravity_ipc', {})
+        guard, ipc = status.get('app_guard', {}), status.get('local_ipc', {})
         if (report.get('supported') is not True or status.get('state') != 'running'
                 or guard.get('active') is not True or ipc.get('supported') is not True
                 or ipc.get('enabled') is not True or ipc.get('state') == 'failed'):
@@ -1108,7 +1058,6 @@ class Manager:
 
     def _start_antigravity_recovery(self, ident, app, process):
         if (sys.platform != 'win32' or self.capture_mode != 'applications'
-                or self.settings.get('antigravity_ipc_compat') is not True
                 or self.settings.get('windows_app_guard') is not True):
             return
         try:
@@ -1197,8 +1146,9 @@ class Manager:
             detail = ('全局系统代理已启用；应用同时继承本机代理设置。' if global_mode else
                       '兼容模式的程序及辅助路径代理已启用；支持原生代理的应用同时使用本机代理。' if sys.platform == 'win32' else
                       '仅此隔离实例受保护。不支持的流量阻断，不会直连。')
-            if not global_mode and self.uses_system_proxy:
-                detail += ' 当前用户级系统代理兼容已启用；应用守卫设置保持不变，联网结果尚需验证。'
+            if app.get('web_app'):
+                from .windows_web_apps import WEB_APP_DETAIL
+                detail += ' ' + WEB_APP_DETAIL
             if app.get("use_original_data"):
                 detail += (" 使用原应用资料；启动请求可能交给已有窗口，已有进程不会由面板接管或关闭。"
                            if sys.platform == "win32" else " 直接共用原应用资料；修改会同步到原应用，请勿同时启动原应用。")

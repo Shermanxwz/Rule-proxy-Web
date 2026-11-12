@@ -11,6 +11,7 @@ import tempfile
 import threading
 from types import SimpleNamespace, ModuleType
 import unittest
+import uuid
 from unittest.mock import Mock, patch
 
 SOURCE = Path(__file__).resolve().parents[1] / 'ruleproxy' / 'manager.py'
@@ -19,20 +20,20 @@ SOURCE = Path(__file__).resolve().parents[1] / 'ruleproxy' / 'manager.py'
 def fixture(actual_import=False):
     tree = ast.parse(SOURCE.read_text(encoding='utf-8'))
     cls = next(n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == 'Manager')
-    wanted = {'capture_mode', 'uses_system_proxy', 'set_system_proxy_compat',
-              '_restore_settings', 'state', 'start', 'stop', '_watch',
+    wanted = {'capture_mode', 'uses_system_proxy', '_bind_store_app',
+              '_restore_settings', '_save', 'state', 'start', 'stop', '_watch',
               '_sync_windows_policy', 'launch', '_proxy_watchdog_healthy', '_require_proxy_ready',
               '_start_antigravity_recovery', '_antigravity_recovery_check'}
     cls.body = [n for n in cls.body if isinstance(n, ast.FunctionDef) and n.name in wanted]
     ns = dict(__name__='ruleproxy.compat_test', __package__='ruleproxy',
               sys=SimpleNamespace(platform='win32'), os=SimpleNamespace(name='nt'),
               socket=Mock(), subprocess=Mock(CREATE_NEW_PROCESS_GROUP=512, CREATE_NO_WINDOW=0x08000000),
-              time=SimpleNamespace(monotonic=lambda: 100, sleep=Mock()), json=json,
+              time=SimpleNamespace(monotonic=lambda: 100, sleep=Mock()), json=json, uuid=uuid,
               MAX_SETTINGS_BYTES=100000, MAX_APPS=128,
               CAPTURE_MODES=('applications', 'global'), __version__='test',
               read_saved_text=Mock(return_value=None), write_private=Mock(),
               stop_process=Mock(), close_resource=Mock(),
-              traceback=SimpleNamespace(print_exc=Mock()), prepare_app=Mock())
+              traceback=SimpleNamespace(print_exc=Mock()), prepare_app=Mock(), Path=Path)
     exec(compile(ast.Module(body=[cls], type_ignores=[]), str(SOURCE), 'exec'), ns)
     if actual_import:
         package = ModuleType('ruleproxy')
@@ -43,7 +44,7 @@ def fixture(actual_import=False):
             'ruleproxy': package,
             'ruleproxy.config': SimpleNamespace(CAPTURE_MODES=('applications', 'global'),
                                                MAX_SOURCE_BYTES=100000, compile_config=Mock()),
-            'ruleproxy.launcher': SimpleNamespace(app_profile_directory=Mock(), discover_apps=Mock(),
+            'ruleproxy.launcher': SimpleNamespace(app_identity=Mock(), app_profile_directory=Mock(), discover_apps=Mock(),
                                                  validate_app=Mock(), prepare_app=Mock()),
             'ruleproxy.shortcuts': SimpleNamespace(create_shortcut_files=Mock(), remove_shortcut_files=Mock()),
         }
@@ -69,10 +70,12 @@ def fixture(actual_import=False):
     m._global_fault = m._restore_pending = False
     m._restore_retry_at = 0
     m._windows_paths = []
+    m._windows_ipc_groups = []
+    m._windows_family_paths = {}
     m._windows_backend = Mock()
     m._windows_backend.snapshot.return_value = {'state': 'running'}
-    m.settings = dict(capture_mode='applications', system_proxy_compat=False,
-                      windows_app_guard=True, apps=[], core_path='', runtime_path='')
+    m.settings = dict(capture_mode='applications', windows_app_guard=True,
+                      apps=[], core_path='', runtime_path='')
     m.error = ''
     m._save = Mock()
     m._recover_global = Mock()
@@ -114,6 +117,9 @@ class CompatTests(unittest.TestCase):
             'ruleproxy.system_proxy_watchdog': SimpleNamespace(start=self.watch),
             'ruleproxy.windows_core_process': SimpleNamespace(CoreJob=Mock()),
             'ruleproxy.windows_app_process': SimpleNamespace(launch=self.launcher),
+            'ruleproxy.windows_gemini_native_proxy': SimpleNamespace(prepare=Mock(return_value=None),
+                                                                   recover_pending=Mock()),
+            'ruleproxy.windows_antigravity': SimpleNamespace(is_antigravity=Mock(return_value=False)),
         }))
         self.process = Mock(pid=123, poll=Mock(return_value=None))
         self.ns['subprocess'].run.return_value.returncode = 0
@@ -126,64 +132,86 @@ class CompatTests(unittest.TestCase):
 
     def test_default_and_platform_mode_matrix(self):
         self.assertFalse(self.m.uses_system_proxy)
-        self.m.settings['system_proxy_compat'] = True
-        self.assertTrue(self.m.uses_system_proxy)
-        self.ns['sys'].platform = 'linux'
-        self.assertFalse(self.m.uses_system_proxy)
-        self.m.settings['capture_mode'] = 'global'
-        for value in (True, False):
-            self.m.settings['system_proxy_compat'] = value
-            self.assertTrue(self.m.uses_system_proxy)
+        for platform in ('win32', 'linux', 'darwin'):
+            for mode in ('applications', 'global'):
+                for legacy in (True, False, 'true', None):
+                    with self.subTest(platform=platform, mode=mode, legacy=legacy):
+                        self.ns['sys'].platform = platform
+                        self.m.settings.update(capture_mode=mode, system_proxy_compat=legacy)
+                        self.assertIs(self.m.uses_system_proxy, mode == 'global')
+                        state = self.m.state()
+                        self.assertIs(state['uses_system_proxy'], mode == 'global')
+                        self.assertEqual(state['system_proxy_scope'], 'current_user' if mode == 'global' else None)
+                        self.assertNotIn('system_proxy_compat', state)
+                        self.assertNotIn('system_proxy_compat_locked', state)
 
-    def test_setter_saves_boolean_and_rolls_back_failure(self):
-        self.m.set_system_proxy_compat(True)
-        self.m._save.assert_called_once()
-        self.m._save.side_effect = OSError('save')
-        with self.assertRaises(OSError):
-            self.m.set_system_proxy_compat(False)
-        self.assertTrue(self.m.settings['system_proxy_compat'])
-        self.assertTrue(self.m.settings['windows_app_guard'])
+    def test_removed_setter_is_not_part_of_manager(self):
+        self.assertFalse(hasattr(type(self.m), 'set_system_proxy_compat'))
 
-    def test_setter_rejects_nonboolean_and_busy_states(self):
-        for value in (1, 0, 'true', None):
-            with self.assertRaises(ValueError):
-                self.m.set_system_proxy_compat(value)
-        for attribute, value in [('core', self.process), ('active', {'app': object()}),
-                                 ('_profile_preparing', {'app'}), ('_restore_pending', True),
-                                 ('_global_fault', True), ('_proxy_watchdog', self.watchdog),
-                                 ('quitting', True)]:
-            old = getattr(self.m, attribute)
-            setattr(self.m, attribute, value)
-            with self.subTest(attribute=attribute), self.assertRaises(ValueError):
-                self.m.set_system_proxy_compat(True)
-            setattr(self.m, attribute, old)
-        self.m.closed.set()
-        with self.assertRaises(ValueError):
-            self.m.set_system_proxy_compat(True)
+    def test_restore_ignores_legacy_options_without_widening_scope(self):
+        cases = [({}, False)]
+        for key in ('system_proxy_compat', 'antigravity_ipc_compat'):
+            cases.extend(({key: value}, True) for value in (True, False, 0, 1, 'true', None, [], {}))
+        cases.append(({'system_proxy_compat': True, 'antigravity_ipc_compat': True}, True))
+        for data, backup in cases:
+            for mode in (None, 'applications', 'global'):
+                with self.subTest(data=data, mode=mode):
+                    saved = {**data, **({'capture_mode': mode} if mode else {})}
+                    self.m.settings['capture_mode'] = 'applications'
+                    self.m._settings_need_backup = False
+                    self.m.storage_warnings.clear()
+                    self.ns['read_saved_text'].return_value = json.dumps(saved)
+                    self.m._restore_settings()
+                    self.assertEqual(self.m.capture_mode, mode or 'applications')
+                    self.assertIs(self.m.uses_system_proxy, mode == 'global')
+                    self.assertEqual(self.m._settings_need_backup, backup)
+                    for key in ('system_proxy_compat', 'antigravity_ipc_compat'):
+                        self.assertNotIn(key, self.m.settings)
+                    if data.get('system_proxy_compat') is True:
+                        self.assertTrue(any('全局（系统代理）' in message for message in self.m.storage_warnings))
         self.m._save.assert_not_called()
+        self.proxy.enable.assert_not_called()
+        self.m._windows_backend.assert_not_called()
 
-    def test_setter_rejects_global_and_non_windows(self):
+    def test_legacy_settings_are_backed_up_before_first_clean_save(self):
+        original = json.dumps({'system_proxy_compat': True, 'antigravity_ipc_compat': False,
+                               'capture_mode': 'applications', 'windows_app_guard': False})
+        path = self.m.directory / 'settings.json'
+        path.write_text(original, encoding='utf-8')
+        self.ns['read_saved_text'].return_value = original
+        self.m._restore_settings()
+        self.assertEqual(path.read_text(encoding='utf-8'), original)
+        self.assertFalse(self.m.settings['windows_app_guard'])
+        self.ns['write_private'].side_effect = lambda destination, text: destination.write_text(text, encoding='utf-8')
+        type(self.m)._save(self.m)
+        backups = list(self.m.directory.glob('settings.recovery-*.json'))
+        self.assertEqual(len(backups), 1)
+        self.assertEqual(backups[0].read_text(encoding='utf-8'), original)
+        saved = json.loads(path.read_text(encoding='utf-8'))
+        self.assertEqual(saved['capture_mode'], 'applications')
+        self.assertFalse(saved['windows_app_guard'])
+        self.assertNotIn('system_proxy_compat', saved)
+        self.assertNotIn('antigravity_ipc_compat', saved)
+        self.assertFalse(self.m._settings_need_backup)
+        type(self.m)._save(self.m)
+        self.assertEqual(list(self.m.directory.glob('settings.recovery-*.json')), backups)
+
+    def test_failed_clean_save_restores_original_legacy_settings_for_retry(self):
+        path = self.m.directory / 'settings.json'
+        original = '{"system_proxy_compat": true}'
+        path.write_text(original, encoding='utf-8')
+        self.ns['read_saved_text'].return_value = original
+        self.m._restore_settings()
+        self.ns['write_private'].side_effect = OSError('save failed')
+        with self.assertRaisesRegex(OSError, 'save failed'):
+            type(self.m)._save(self.m)
+        self.assertEqual(path.read_text(encoding='utf-8'), original)
+        self.assertEqual(list(self.m.directory.glob('settings.recovery-*.json')), [])
+        self.assertTrue(self.m._settings_need_backup)
+        self.assertEqual(self.m.capture_mode, 'applications')
+
+    def test_global_watchdog_enable_arm_order_has_no_application_policy(self):
         self.m.settings['capture_mode'] = 'global'
-        with self.assertRaises(ValueError):
-            self.m.set_system_proxy_compat(True)
-        self.m.settings['capture_mode'] = 'applications'
-        self.ns['sys'].platform = 'linux'
-        with self.assertRaises(ValueError):
-            self.m.set_system_proxy_compat(True)
-
-    def test_restore_missing_valid_invalid_setting(self):
-        for data, expected, invalid in [({}, False, False),
-                                       ({'system_proxy_compat': True}, True, False),
-                                       ({'system_proxy_compat': 'true'}, False, True)]:
-            self.m.settings['system_proxy_compat'] = False
-            self.m._settings_need_backup = False
-            self.ns['read_saved_text'].return_value = json.dumps(data)
-            self.m._restore_settings()
-            self.assertEqual(self.m.settings['system_proxy_compat'], expected)
-            self.assertEqual(self.m._settings_need_backup, invalid)
-
-    def test_start_policy_and_guard_precede_watchdog_enable_arm(self):
-        self.m.settings['system_proxy_compat'] = True
         order = []
         self.m._windows_backend.apply.side_effect = lambda *a: order.append('capture')
         self.m._windows_backend.app_guard_apply.side_effect = lambda *a: order.append('guard')
@@ -191,7 +219,12 @@ class CompatTests(unittest.TestCase):
         self.proxy.enable.side_effect = lambda *a, **kw: order.append('enable')
         self.watchdog.arm.side_effect = lambda: order.append('arm')
         self.m.start()
-        self.assertEqual(order, ['capture', 'guard', 'watchdog', 'enable', 'arm'])
+        self.assertEqual(order, ['watchdog', 'enable', 'arm'])
+        self.m._selected_windows_paths.assert_not_called()
+        self.m._windows_backend.apply.assert_not_called()
+        self.m._windows_backend.app_guard_apply.assert_not_called()
+        self.m._windows_backend.local_ipc.assert_not_called()
+        self.assertEqual(self.m._windows_paths, [])
         self.proxy.enable.assert_called_once_with(self.m.directory, 10809, watchdog_session='0123456789abcdef0123456789abcdef')
         self.assertTrue(self.m.state()['system_proxy_managed'])
         self.assertEqual(self.m.state()['system_proxy_scope'], 'current_user')
@@ -218,7 +251,7 @@ class CompatTests(unittest.TestCase):
                 for target in targets.values():
                     target.reset_mock(side_effect=True)
                 targets[failing].side_effect = OSError(failing)
-                self.m.settings['system_proxy_compat'] = True
+                self.m.settings['capture_mode'] = 'applications' if failing == 'guard' else 'global'
                 self.m._windows_backend.stop.reset_mock()
                 with self.assertRaises(OSError):
                     self.m.start()
@@ -228,7 +261,7 @@ class CompatTests(unittest.TestCase):
                 self.assertTrue(self.m.settings['windows_app_guard'])
 
     def test_failed_restore_keeps_live_core_and_watchdog_for_retry(self):
-        self.m.settings['system_proxy_compat'] = True
+        self.m.settings['capture_mode'] = 'global'
         self.watchdog.arm.side_effect = OSError('arm')
         self.proxy.restore.side_effect = OSError('restore')
         with self.assertRaises(ValueError):
@@ -245,7 +278,7 @@ class CompatTests(unittest.TestCase):
         self.assertIsNone(self.m._proxy_watchdog)
 
     def test_faulted_start_and_launch_preserve_original_error(self):
-        self.m.settings['system_proxy_compat'] = True
+        self.m.settings['capture_mode'] = 'global'
         self.watchdog.arm.side_effect = OSError('arm failed')
         self.proxy.restore.side_effect = OSError('restore denied')
         with self.assertRaises(ValueError):
@@ -261,7 +294,7 @@ class CompatTests(unittest.TestCase):
         self.assertEqual(self.ns['subprocess'].Popen.call_count, 1)
 
     def test_watchdog_dead_unarmed_missing_and_poll_error(self):
-        self.m.settings['system_proxy_compat'] = True
+        self.m.settings['capture_mode'] = 'global'
         for failure in ('dead', 'unarmed', 'missing', 'poll-error'):
             with self.subTest(failure=failure):
                 self.watchdog.process.poll.side_effect = None
@@ -288,7 +321,7 @@ class CompatTests(unittest.TestCase):
         self.assertEqual(self.proxy.restore.call_count, 4)
 
     def test_dead_watchdog_restore_failure_retains_core_and_error(self):
-        self.m.settings['system_proxy_compat'] = True
+        self.m.settings['capture_mode'] = 'global'
         self.m.start()
         self.watchdog.process.poll.side_effect = OSError('poll failed')
         self.proxy.restore.side_effect = OSError('specific restore failure')
@@ -315,7 +348,7 @@ class CompatTests(unittest.TestCase):
         self.assertIsNone(self.m._proxy_watchdog)
         self.assertFalse(self.m._proxy_watchdog_armed)
 
-    def test_noncompat_live_core_does_not_need_watchdog(self):
+    def test_application_scoped_live_core_does_not_need_watchdog(self):
         self.m.start()
         self.m.start()
         self.assertFalse(self.m.state()['system_proxy_managed'])
@@ -327,7 +360,7 @@ class CompatTests(unittest.TestCase):
         self.assertFalse(self.ns['prepare_app'].call_args.kwargs['system_proxy'])
 
     def test_stop_restores_before_watchdog_backend_and_core(self):
-        self.m.settings['system_proxy_compat'] = True
+        self.m.settings['capture_mode'] = 'global'
         self.m.start()
         order = []
         self.proxy.restore.side_effect = lambda *a: order.append('restore')
@@ -337,8 +370,8 @@ class CompatTests(unittest.TestCase):
         self.m.stop(retain_app_guard=True)
         self.assertEqual(order, ['restore', 'watchdog', ('backend', {'retain_app_guard': True}), 'core'])
 
-    def test_launch_passes_system_proxy_but_keeps_policy(self):
-        self.m.settings['system_proxy_compat'] = True
+    def test_global_launch_passes_system_proxy_without_application_rules(self):
+        self.m.settings['capture_mode'] = 'global'
         self.m.start()
         app = dict(id='app', path='fixture.exe', adapter='environment', enabled=True)
         self.m.app = Mock(return_value=app)
@@ -346,11 +379,13 @@ class CompatTests(unittest.TestCase):
         self.launcher.return_value = Mock(pid=456)
         self.m.launch('app')
         self.assertTrue(self.ns['prepare_app'].call_args.kwargs['system_proxy'])
-        self.assertEqual(self.m._windows_backend.apply.call_count, 2)
-        self.assertEqual(self.m._windows_backend.app_guard_apply.call_count, 2)
+        self.m._windows_backend.apply.assert_not_called()
+        self.m._windows_backend.app_guard_apply.assert_not_called()
+        self.m._windows_backend.local_ipc.assert_not_called()
+        self.m._selected_windows_paths.assert_not_called()
+        self.assertEqual(self.m._windows_paths, [])
 
-    def test_backend_failure_watch_restores_with_guard_retained(self):
-        self.m.settings['system_proxy_compat'] = True
+    def test_application_backend_failure_watch_restores_with_guard_retained(self):
         self.m.start()
         self.m._windows_backend.snapshot.return_value = {'state': 'down'}
         self.m.closed = Mock(wait=Mock(side_effect=[False, True]))
@@ -358,8 +393,20 @@ class CompatTests(unittest.TestCase):
         self.proxy.restore.assert_called_once()
         self.m._windows_backend.stop.assert_called_once_with(retain_app_guard=True)
 
+    def test_global_watch_does_not_probe_an_unused_application_backend(self):
+        self.m.settings['capture_mode'] = 'global'
+        self.m.start()
+        self.m._windows_backend.snapshot.return_value = {'state': 'down'}
+        self.m.closed = Mock(wait=Mock(side_effect=[False, True]))
+        self.m._watch()
+        self.m._windows_backend.snapshot.assert_not_called()
+        self.m._windows_backend.stop.assert_not_called()
+        self.proxy.restore.assert_not_called()
+        self.assertIs(self.m.core, self.process)
+        self.assertTrue(self.m.state()['system_proxy_managed'])
+
     def test_watch_retries_pending_restore_without_revoking_guard(self):
-        self.m.settings['system_proxy_compat'] = True
+        self.m.settings['capture_mode'] = 'global'
         self.m.start()
         self.m._restore_pending = True
         self.m._restore_retry_at = 0
@@ -369,24 +416,30 @@ class CompatTests(unittest.TestCase):
         self.m._windows_backend.stop.assert_called_once_with(retain_app_guard=True)
         self.assertFalse(self.m._restore_pending)
 
-    def test_compat_does_not_enable_disabled_guard(self):
-        self.m.settings.update(system_proxy_compat=True, windows_app_guard=False)
+    def test_global_mode_does_not_enable_disabled_guard(self):
+        self.m.settings.update(capture_mode='global', windows_app_guard=False)
         self.m.start()
-        self.m._windows_backend.apply.assert_called_once()
+        self.m._windows_backend.apply.assert_not_called()
         self.m._windows_backend.app_guard_apply.assert_not_called()
+        self.m._windows_backend.local_ipc.assert_not_called()
         self.assertFalse(self.m.settings['windows_app_guard'])
 
-    def test_constructor_default_is_explicit_false(self):
+    def test_constructor_defaults_have_no_deprecated_preferences(self):
         tree = ast.parse(SOURCE.read_text(encoding='utf-8'))
-        defaults = [node for node in ast.walk(tree) if isinstance(node, ast.Dict)
-                    and any(isinstance(key, ast.Constant) and key.value == 'core_path'
-                            for key in node.keys)]
-        self.assertTrue(any(any(isinstance(key, ast.Constant) and key.value == 'system_proxy_compat'
-                                and isinstance(value, ast.Constant) and value.value is False
-                                for key, value in zip(node.keys, node.values)) for node in defaults))
+        owner = next(node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == 'Manager')
+        constructor = next(node for node in owner.body if isinstance(node, ast.FunctionDef) and node.name == '__init__')
+        assignments = [node for node in ast.walk(constructor) if isinstance(node, ast.Assign)
+                       and any(isinstance(target, ast.Attribute) and target.attr == 'settings'
+                               for target in node.targets)]
+        self.assertEqual(len(assignments), 1)
+        defaults = ast.literal_eval(assignments[0].value)
+        self.assertEqual(defaults['capture_mode'], 'applications')
+        self.assertFalse(defaults['windows_app_guard'])
+        self.assertNotIn('system_proxy_compat', defaults)
+        self.assertNotIn('antigravity_ipc_compat', defaults)
 
     def test_dead_core_watch_restores_with_guard_retained(self):
-        self.m.settings['system_proxy_compat'] = True
+        self.m.settings['capture_mode'] = 'global'
         self.m.start()
         self.process.poll.return_value = 1
         self.m.closed = Mock(wait=Mock(side_effect=[False, True]))

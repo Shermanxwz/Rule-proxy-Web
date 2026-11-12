@@ -219,6 +219,28 @@ class LeaseTests(unittest.TestCase):
         self.addCleanup(self.platform_patch.stop)
         self.lease = ipc.LeaseSet(self.guard)
 
+    def test_group_endpoint_has_multiple_connects_but_one_accept_and_block(self):
+        ep = endpoint()
+        second = endpoint(client='helper.exe')
+        grouped = ipc.GroupEndpoint(ep.server_app_id, (ep.client_app_id, second.client_app_id), ep.owner_sd, ep.port)
+        self.assertEqual(len(self.lease.replace([grouped])), 4)
+        rules = ipc._plan([grouped], self.lease.epoch)
+        self.assertEqual(sum(rule.layer == ipc._CONNECT4 for rule in rules), 2)
+        self.assertEqual(sum(rule.action == wfp._BLOCK for rule in rules), 1)
+        self.assertEqual(sum(rule.layer == ipc._ACCEPT4 and rule.action == wfp._PERMIT for rule in rules), 1)
+        self.assertEqual(self.lease.verify(), tuple(rule.key for rule in rules))
+        self.assertEqual(self.dll.base, {'persistent-base-block': b'unchanged'})
+
+    def test_group_client_budget_and_duplicate_port_are_bounded(self):
+        ep = endpoint()
+        clients = tuple(endpoint(client=f'p{index}.exe').client_app_id for index in range(128))
+        endpoints = [ipc.GroupEndpoint(ep.server_app_id, clients, ep.owner_sd, 5000 + index) for index in range(3)]
+        with self.assertRaisesRegex(ValueError, 'budget'):
+            self.lease.replace(endpoints)
+        with self.assertRaisesRegex(ValueError, 'ambiguous'):
+            self.lease.replace([endpoints[0], endpoints[0]])
+        self.assertEqual(self.dll.opens, 0)
+
     def test_exact_three_rule_plan_and_typed_native_roundtrip(self):
         ep = endpoint()
         keys = self.lease.replace([ep])

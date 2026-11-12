@@ -226,7 +226,9 @@ def _is_excluded_program(path: Path, label: str) -> bool:
     if name in _SHELL_EXECUTABLES or name in _DISCOVERY_WRAPPERS:
         return True
     # Electron bundles ship this elevation helper, not a launchable desktop app.
-    if name == "elevate.exe":
+    if name in {"elevate.exe", "chrome_proxy.exe", "msedge_proxy.exe", "brave_proxy.exe", "vivaldi_proxy.exe"}:
+        # Chromium's *_proxy is a shortcut trampoline, not the browser network
+        # image. Installed web apps resolve it separately to the real browser.
         return True
     if _DISCOVERY_HELPER_RE.search(name) or _DISCOVERY_HELPER_RE.search(path.parent.name):
         return True
@@ -525,6 +527,12 @@ def _win_store_apps() -> list[dict[str, str]]:
         return []
 
 
+def _win_web_apps() -> list[dict[str, Any]]:
+    from .windows_web_apps import discover_web_apps
+
+    return discover_web_apps()
+
+
 def _windows_discover() -> list[dict[str, Any]]:
     found: list[dict[str, Any]] = []
     seen: set[str] = set()
@@ -618,6 +626,14 @@ def _windows_discover() -> list[dict[str, Any]]:
                                 add(child.name, nested)
                     except OSError:
                         pass
+    # A browser and each installed web-app identity are distinct selections,
+    # even though Windows path routing intentionally shares their executable.
+    identities = {app_identity(app) for app in found}
+    for app in _win_web_apps():
+        identity = app_identity(app)
+        if identity not in identities:
+            identities.add(identity)
+            found.append(app)
     return found
 
 
@@ -630,6 +646,9 @@ def _discovery_key() -> tuple[Any, ...]:
         os.environ.get("PROGRAMFILES", ""),
         os.environ.get("PROGRAMFILES(X86)", ""),
         os.environ.get("LOCALAPPDATA", ""),
+        os.environ.get("APPDATA", ""),
+        os.environ.get("PROGRAMDATA", ""),
+        os.environ.get("USERPROFILE", ""),
         id(shutil.which),
     )
 
@@ -694,7 +713,20 @@ def _original_data_mode(app: dict) -> bool:
         raise ValueError('使用原应用数据必须为布尔值。')
     if value and app.get('adapter') not in ('chromium', 'firefox'):
         raise ValueError('这个启动方式不支持切换浏览器数据。')
+    if value and 'web_app' in app:
+        raise ValueError('Web 应用使用独立资料；首次需重新登录，原浏览器资料保持不变。')
     return value
+
+
+def app_identity(app: dict) -> tuple[str, ...]:
+    """Selection identity, deliberately separate from the Windows routing key."""
+    path = app['path']
+    path = path.replace('/', '\\').casefold() if sys.platform == 'win32' else os.path.normcase(path)
+    web_app = app.get('web_app')
+    if web_app is not None:
+        return (path, 'web-app', web_app['profile_directory'].casefold(),
+                web_app['app_id'] or web_app['start_url'])
+    return (path,)
 
 
 def validate_app(data: dict, *, check_exists: bool = True) -> dict[str, Any]:
@@ -740,8 +772,21 @@ def validate_app(data: dict, *, check_exists: bool = True) -> dict[str, Any]:
         raise ValueError("已保存的程序路径必须是绝对路径。")
     if path.name.lower() in _SHELL_EXECUTABLES:
         raise ValueError("不能把命令行解释器（shell）添加为应用。")
+    if path.name.lower() in {'chrome_proxy.exe', 'msedge_proxy.exe', 'brave_proxy.exe', 'vivaldi_proxy.exe'}:
+        raise ValueError('请选择实际浏览器程序，或从已安装 Web 应用列表添加；快捷方式代理程序不负责网络连接。')
     args = _validate_args(data.get("args", []))
     result = {"label": label.strip(), "path": str(path), "adapter": adapter, "args": args}
+    if 'web_app' in data:
+        from .windows_web_apps import WEB_APP_DETAIL, validate_web_app
+        if check_exists and sys.platform != 'win32':
+            raise ValueError('已安装 Web 应用启动目前仅支持 Windows。')
+        if adapter != 'chromium' or args or store_binding is not None or data.get('related_paths', []):
+            raise ValueError('Web 应用须使用 Chromium 独立启动方式，参数和辅助路径由启动器管理。')
+        if 'enabled' in data and not isinstance(data['enabled'], bool):
+            raise ValueError('enabled 必须是布尔值。')
+        result.update(web_app=validate_web_app(data['web_app'], path), use_original_data=False,
+                      source='windows-web-app', category='web-app', launchable=True,
+                      compatibility=WEB_APP_DETAIL)
     if store_binding is not None:
         result['store_binding'] = store_binding
     if 'use_original_data' in data:
@@ -843,6 +888,8 @@ def prepare_app(app: dict, proxy_port: int, profile_dir: Path, *, transparent: b
             normalized = {**normalized, 'path': launch_path(normalized['path']),
                           'adapter': 'environment', 'use_original_data': False}
     if transparent and native_proxy and normalized['adapter'] == 'chromium' and _pe_console_program(Path(normalized['path'])):
+        if 'web_app' in normalized:
+            raise ValueError('Web 应用需要实际的浏览器 GUI 程序。')
         normalized = {**normalized, 'adapter': 'environment', 'use_original_data': False}
     proxy_port = _validate_port(proxy_port)
     _reject_reserved_args(normalized["args"], normalized["adapter"])
@@ -855,6 +902,11 @@ def prepare_app(app: dict, proxy_port: int, profile_dir: Path, *, transparent: b
     if not native_original and not shared_original:
         profile.mkdir(parents=True, exist_ok=True)
     command = [normalized["path"], *normalized["args"]]
+    if 'web_app' in normalized:
+        # The source profile/app-id identify the installed app, but that install
+        # does not exist in our isolated data directory. Do not pass app-id or
+        # source profile switches, and do not copy any browser data.
+        command.append('--app=' + normalized['web_app']['start_url'])
     # Keep the caller's GUI/session environment (DISPLAY, WAYLAND_DISPLAY,
     # XDG_RUNTIME_DIR, etc.); the platform runtime must apply its own safe
     # environment allowlist when entering isolation.
@@ -899,7 +951,11 @@ def prepare_app(app: dict, proxy_port: int, profile_dir: Path, *, transparent: b
                 f'user_pref("network.proxy.type", {5 if system_proxy else 0});\n', encoding="utf-8")
             command.extend(["-no-remote", "-profile", str(profile)])
         browser_proxy()
-        return command, env, "按程序路径透明转发；同路径实例也受规则影响，不能保证 DNS 隔离。"
+        detail = "按程序路径透明转发；同路径实例也受规则影响，不能保证 DNS 隔离。"
+        if 'web_app' in normalized:
+            from .windows_web_apps import WEB_APP_DETAIL
+            detail += ' ' + WEB_APP_DETAIL
+        return command, env, detail
     proxy = f"http://127.0.0.1:{proxy_port}"
     env.update(
         {
@@ -972,4 +1028,7 @@ def prepare_app(app: dict, proxy_port: int, profile_dir: Path, *, transparent: b
             "because strict runtime mode blocks direct egress."
         )
 
+    if 'web_app' in normalized:
+        from .windows_web_apps import WEB_APP_DETAIL
+        detail += ' ' + WEB_APP_DETAIL
     return command, env, detail

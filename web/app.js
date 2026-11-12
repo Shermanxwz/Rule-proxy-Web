@@ -13,7 +13,7 @@
     launchAll: $('launch-all-button'), appLabel: $('app-label'), appPath: $('app-path'),
     appAdapter: $('app-adapter'), appArgs: $('app-args'), addApp: $('add-app-button'), availablePaths: $('available-app-paths'),
     appSearch: $('app-search'), refreshApps: $('refresh-apps-button'), availableApps: $('available-apps-list'),
-    availableAppsCount: $('available-apps-count'), storeAppsNote: $('store-apps-note'),
+    availableAppsCount: $('available-apps-count'), storeAppsNote: $('store-apps-note'), webAppsNote: $('web-apps-note'),
     protectionCard: $('protection-card'), protectionBadge: $('protection-badge'), protectionDetail: $('protection-detail'),
     protectionBackend: $('protection-backend'), protectionLimitations: $('protection-limitations'),
     processPermissionNote: $('process-permission-note'),
@@ -21,8 +21,8 @@
     hostedNote: $('hosted-note'), filesNote: $('files-note'), configNotes: $('config-notes'), configWarnings: $('config-warnings'),
     autostartRow: $('autostart-row'), autostart: $('autostart-toggle'), autostartDetail: $('autostart-detail'), quit: $('quit-button'),
     appGuardRow: $('app-guard-row'), appGuard: $('app-guard-toggle'),
-    systemProxyCompatRow: $('system-proxy-compat-row'), systemProxyCompat: $('system-proxy-compat-toggle'),
-    antigravityIpcCompatRow: $('antigravity-ipc-compat-row'), antigravityIpcCompat: $('antigravity-ipc-compat-toggle'),
+    localIpcRow: $('local-ipc-row'), localIpcSummary: $('local-ipc-summary'),
+    advancedNetwork: $('advanced-network-settings'), advancedNetworkSummary: $('advanced-network-summary'),
   };
   const AUTOSTART_TEXT = '登录系统后自动启动面板，不打开窗口，也不启动核心；从快捷方式或面板启动应用时再启动核心。';
   const AUTOSTART_STALE_TEXT = '已有的自动启动设置指向别的位置或端口（例如移动过文件夹）。打开开关即可改为当前面板。';
@@ -40,36 +40,53 @@
   const isWindows = () => /windows|win32|win64/i.test(String(state && state.platform || ''));
   const isGlobal = () => state?.capture_mode === 'global';
 
-  function antigravityIpcCompatLocked() {
-    return stopped || busy || !state || !isWindows() || state.capture_mode !== 'applications'
-      || !!state.running || state.global_fault === true || state.antigravity_ipc_compat_locked === true
-      || (state.apps || []).some((app) => app.active || app.cleanup_pending || app.profile_preparing);
+  function localIpcSummary(value) {
+    const status = value?.protection?.status || {};
+    const ipc = status.local_ipc;
+    if (ipc?.state === 'failed' || ipc?.error) {
+      // Never echo backend errors containing paths, credentials or markup.
+      return '本机通信核验出现故障。请停止核心，待清理完成后重新启动；原出站限制保留。';
+    }
+    if (status.app_guard?.state === 'failed' || status.app_guard?.state === 'unavailable' || status.app_guard?.error) {
+      return '出站守卫状态异常，本机通信例外尚未确认。请停止核心并重试清理。';
+    }
+    if (status.app_guard?.state === 'unknown') return '出站守卫状态待确认，本机通信例外也尚未确认。';
+    if (status.app_guard?.active !== true) {
+      if (value?.windows_app_guard === true && value?.running) return '出站守卫尚未确认生效；本机通信例外也尚未确认。';
+      return value?.windows_app_guard === true
+        ? '已配置自动处理，启动核心和应用后核验本机通信，无需勾选。'
+        : '未启用出站守卫，无需额外放行；启用守卫后会自动核验应用本机通信。';
+    }
+    if (!ipc || ipc.supported !== true || ipc.state === 'unsupported') return '当前组件尚不支持自动本机通信，请更新 Windows 组件；未开放额外端口。';
+    const waiting = Number.isSafeInteger(ipc.waiting_restart_count) && ipc.waiting_restart_count > 0
+      ? ' 检测到启动前已有的监听进程，请退出原应用后从这里重新启动。' : '';
+    if (ipc.enabled === true && ipc.state === 'active' && ipc.active === true
+        && Number.isSafeInteger(ipc.endpoint_count) && ipc.endpoint_count > 0) {
+      return `已自动核验 ${ipc.endpoint_count} 个同应用本机端口；这不代表应用联网成功。${waiting}`;
+    }
+    if (waiting) return `自动处理已就绪，尚未确认本机通信例外生效。${waiting}`;
+    if (ipc.enabled === true && ipc.state === 'watching') return '自动处理已就绪，等待所选应用监听本机端口。';
+    return '本机通信组件状态待确认，尚未确认额外端口生效。';
   }
 
-  function antigravityIpcCompatDetail(value) {
-    const scope = '仅所选Antigravity及语言服务的经验证127.0.0.1 TCP端口，不开放任意本地服务；按路径与用户身份匹配。';
-    const recovery = '初始化或故障恢复：退出已有 Antigravity → 完全停止核心 → 关闭本机通信兼容以清错 → 再启用 → 重新启动核心和应用；仅重启应用不会清除故障。';
-    const ipc = value?.protection?.status?.antigravity_ipc;
-    let status;
-    if (!ipc || typeof ipc !== 'object') {
-      status = value?.antigravity_ipc_compat === true ? '已配置开启，组件尚无状态；未确认生效。' : '未启用；组件尚无状态。';
-    } else if (ipc.state === 'failed' || ipc.error) {
-      // Do not echo backend error text: it may contain paths, credentials or markup.
-      status = '本机通信兼容故障，需按下列步骤清错恢复。';
-    } else if (ipc.supported === false || ipc.state === 'unsupported') {
-      status = '当前组件不支持本机通信兼容，未生效。';
-    } else if (value?.antigravity_ipc_compat !== true || ipc.enabled !== true) {
-      status = '当前未启用本机通信兼容。';
-    } else if (ipc.state === 'active' && ipc.active === true && Number.isSafeInteger(ipc.endpoint_count) && ipc.endpoint_count > 0) {
-      status = `已验证 ${ipc.endpoint_count} 个端口；这不代表应用联网成功。`;
-    } else if (ipc.state === 'watching') {
-      status = '等待新实例监听端口；尚未建立端口例外。';
-    } else if (ipc.state === 'inactive') {
-      status = '本机通信兼容当前未活动，未确认端口例外生效。';
-    } else {
-      status = '组件状态待确认，未确认端口例外生效。';
-    }
-    return `${status} ${scope} ${recovery} 仅 Windows 按应用模式，核心与应用完全停止且无待恢复状态时可修改。`;
+  function guardSummary(value) {
+    const guard = value?.protection?.status?.app_guard;
+    if (guard?.state === 'failed' || guard?.state === 'unavailable' || guard?.error) return '出站守卫状态异常';
+    if (guard?.state === 'unknown') return '出站守卫状态待确认';
+    if (guard?.active === true && !value?.running) return '核心已停，出站守卫仍保留；请重试清理';
+    if (guard?.active === true) return '出站守卫实际生效中';
+    return value?.windows_app_guard === true ? '出站守卫已配置，尚未确认生效' : '出站守卫未开启';
+  }
+
+  function needsRecovery(value) {
+    const status = value?.protection?.status || {};
+    const guard = status.app_guard || {}, ipc = status.local_ipc || {};
+    return !!value && (value.global_fault === true
+      || (value.apps || []).some((app) => app.cleanup_pending)
+      || status.cleanup_pending === true || status.error?.code === 'cleanup_incomplete'
+      || ipc.state === 'failed' || !!ipc.error
+      || guard.state === 'failed' || guard.state === 'unavailable' || guard.state === 'unknown' || !!guard.error
+      || (!value.running && guard.active === true));
   }
 
   function showError(message, source = 'local') {
@@ -96,14 +113,13 @@
     const ready = !!state;
     const imported = ready && !!state.imported;
     const running = ready && !!state.running;
-    const recoveryPending = ready && (state.global_fault === true
-      || (state.apps || []).some((app) => app.cleanup_pending));
+    const recoveryPending = needsRecovery(state);
     const protectedBackend = ready && !!state.protection && !!state.protection.supported;
     ui.importButton.disabled = busy || !ready;
     ui.core.disabled = busy || !ready || running;
     ui.saveCore.disabled = busy || !ready || running;
     ui.testNodes.disabled = busy || !running || testingAllNodes || !((state && state.nodes) || []).length;
-    ui.testNodes.textContent = testingAllNodes ? '正在测试…' : '测试全部';
+    ui.testNodes.textContent = testingAllNodes ? '正在测试…' : '测试全部延迟';
     ui.nodeCards.querySelectorAll('.node-card-select').forEach((control) => { control.disabled = busy || !imported; });
     ui.nodeCards.querySelectorAll('.node-card-test').forEach((control) => {
       control.disabled = busy || !running || testingAllNodes || testingNodes.has(control.dataset.node);
@@ -115,26 +131,23 @@
     ui.addApp.disabled = busy || !ready;
     ui.refreshApps.disabled = busy || refreshingApps || !ready;
     ui.refreshApps.textContent = refreshingApps ? '正在扫描…' : '重新扫描';
-    ui.launchAll.disabled = busy || !running || !protectedBackend || (state.apps || []).some((app) => app.profile_preparing)
+    ui.launchAll.disabled = busy || !running || recoveryPending || !protectedBackend || (state.apps || []).some((app) => app.profile_preparing)
       || !(state.apps || []).some((app) => app.enabled && !app.active && !app.cleanup_pending);
     ui.autostart.disabled = busy || !ready;
     ui.appGuard.disabled = busy || !ready;
-    ui.systemProxyCompat.disabled = busy || !ready || running || recoveryPending
-      || !isWindows() || state?.capture_mode !== 'applications';
-    ui.antigravityIpcCompat.disabled = antigravityIpcCompatLocked();
     ui.quit.disabled = busy || !ready;
     ui.apps.querySelectorAll('.app-toggle input, .remove-app, .app-shortcut').forEach((control) => {
       const app = (state.apps || []).find((item) => String(item.id) === control.dataset.appId);
       control.disabled = busy || !!app?.profile_preparing;
     });
-    ui.availableApps.querySelectorAll('.discovery-add').forEach((control) => { control.disabled = busy || control.dataset.added === 'true'; });
+    ui.availableApps.querySelectorAll('.discovery-add').forEach((control) => { control.disabled = busy || control.dataset.added === 'true' || control.dataset.unavailable === 'true'; });
     ui.apps.querySelectorAll('.app-profile-option input').forEach((control) => {
       const app = (state.apps || []).find((item) => String(item.id) === control.dataset.appId);
       control.disabled = busy || !app || !!app.active || !!app.cleanup_pending || !!app.profile_preparing;
     });
     ui.apps.querySelectorAll('.app-action').forEach((control) => {
       const app = (state.apps || []).find((item) => String(item.id) === control.dataset.appId);
-      const canLaunch = app && app.enabled && running && protectedBackend;
+      const canLaunch = app && app.enabled && running && protectedBackend && !recoveryPending;
       control.disabled = busy || !!app?.profile_preparing || (!(app?.active || app?.cleanup_pending) && !canLaunch);
       control.title = app?.profile_preparing ? '正在检查应用资料，请稍候' : (app?.active ? '关闭此工具启动的实例' : (!running ? '请先启动核心' : (!protectedBackend ? '本机代理能力不可用' : '启动此应用')));
     });
@@ -192,10 +205,11 @@
       const appPath = textElement('span', 'app-path', app.path || '未设置路径');
       appPath.title = app.path || '未设置路径';
       appInfo.append(appPath);
+      if (app.web_app) appInfo.append(textElement('span', 'app-web-note', 'Web 应用 · 独立资料，首次需重新登录；同浏览器的其他窗口也可能受路径代理影响。'));
       if (app.store_binding) appInfo.append(textElement('span', 'app-path', '自动跟随当前商店软件包版本；包含包内全部辅助程序。'));
       if (app.related_paths?.length) appInfo.append(textElement('span', 'app-path', `相关程序：${app.related_paths.join('；')}`));
       appInfo.append(appTools(app));
-      const adapter = friendlyAdapter(app.adapter, app.use_original_data === true);
+      const adapter = app.web_app ? 'Web 应用 · 独立窗口' : friendlyAdapter(app.adapter, app.use_original_data === true);
       const appMeta = textElement('div', 'app-meta');
       appMeta.append(textElement('span', 'app-adapter', adapter));
       const status = textElement('span', `app-status ${statusClass}`, statusText);
@@ -232,7 +246,7 @@
     shortcut.dataset.appControl = `${app.id}:shortcut`;
     shortcut.addEventListener('click', () => createShortcut(app));
     tools.append(shortcut);
-    if (isBrowserAdapter(app.adapter)) {
+    if (isBrowserAdapter(app.adapter) && !app.web_app) {
       const profileLabel = textElement('label', 'app-profile-option');
       const label = '使用原应用数据';
       profileLabel.title = '直接使用原应用资料，书签、历史和设置的修改会同步到原应用；请先关闭原应用后再使用。';
@@ -307,6 +321,14 @@
     return windows ? a.toLocaleLowerCase() === b.toLocaleLowerCase() : a === b;
   }
 
+  function sameApp(left, right) {
+    if (!sameAppPath(left.path, right.path)) return false;
+    if (!left.web_app || !right.web_app) return !left.web_app && !right.web_app;
+    const a = left.web_app, b = right.web_app;
+    return String(a.profile_directory).toLowerCase() === String(b.profile_directory).toLowerCase()
+      && (a.app_id || a.start_url) === (b.app_id || b.start_url);
+  }
+
   function renderAvailableApps() {
     const available = state && Array.isArray(state.available_apps) ? state.available_apps : [];
     const saved = state && Array.isArray(state.apps) ? state.apps : [];
@@ -315,13 +337,13 @@
     const expandedLimit = Number(ui.availableApps.dataset.limit);
     const limit = ui.availableApps.dataset.query === ui.appSearch.value && Number.isSafeInteger(expandedLimit) && expandedLimit > 0
       ? expandedLimit : (query ? 60 : 24);
-    const signature = JSON.stringify({ available, scanning, limit, saved: saved.map((app) => [app.path, app.enabled, app.active]) });
+    const signature = JSON.stringify({ available, scanning, limit, saved: saved.map((app) => [app.path, app.web_app, app.enabled, app.active]) });
     if (signature === lastAvailableSignature && ui.availableApps.dataset.query === ui.appSearch.value) return;
     lastAvailableSignature = signature;
     ui.availableApps.dataset.query = ui.appSearch.value;
     ui.availableApps.dataset.limit = String(limit);
     ui.availableApps.replaceChildren();
-    const matches = available.filter((app) => `${app.label || ''} ${app.path || ''} ${friendlyAdapter(app.adapter)}`.toLocaleLowerCase().includes(query));
+    const matches = available.filter((app) => `${app.label || ''} ${app.path || ''} ${app.web_app ? 'Web 应用 PWA ' + app.web_app.browser + ' ' + app.web_app.profile_directory : friendlyAdapter(app.adapter)}`.toLocaleLowerCase().includes(query));
     const visible = matches.slice(0, limit);
     ui.availableAppsCount.textContent = available.length
       ? (query ? `找到 ${matches.length} 项` : `发现 ${available.length} 项`)
@@ -335,23 +357,27 @@
       const row = textElement('article', 'available-app-row');
       const info = textElement('div', 'available-app-info');
       info.append(textElement('strong', 'available-app-name', app.label || '未命名应用'));
-      const kind = textElement('span', 'available-app-kind', friendlyAdapter(app.adapter));
+      const kind = textElement('span', 'available-app-kind', app.web_app ? `${app.web_app.browser} · ${app.web_app.profile_directory}` : friendlyAdapter(app.adapter));
       if (app.source === 'windows-store') {
         kind.append(textElement('span', 'available-app-source', '商店应用'));
       }
+      if (app.web_app) kind.append(textElement('span', 'available-app-source', 'Web 应用'));
       info.append(kind);
       if (app.source === 'windows-store') {
         const path = textElement('span', 'available-app-path', app.path || '未设置路径');
         path.title = app.path || '未设置路径';
         info.append(path);
       }
-      info.append(textElement('span', 'available-app-hint', compatibilityHint(app.adapter)));
+      info.append(textElement('span', 'available-app-hint', app.launchable === false ? app.unavailable_reason
+        : (app.web_app ? '独立窗口与资料；首次需重新登录。同浏览器其他窗口也可能走代理。' : compatibilityHint(app.adapter))));
       const button = textElement('button', 'button button-secondary discovery-add');
       button.type = 'button';
-      const alreadyAdded = saved.some((savedApp) => sameAppPath(savedApp.path, app.path));
+      const alreadyAdded = saved.some((savedApp) => sameApp(savedApp, app));
       button.dataset.added = String(alreadyAdded);
-      button.disabled = busy || alreadyAdded;
-      button.textContent = alreadyAdded ? '已添加' : '添加';
+      button.dataset.unavailable = String(app.launchable === false);
+      button.disabled = busy || alreadyAdded || app.launchable === false;
+      button.textContent = alreadyAdded ? '已添加' : (app.launchable === false ? '暂不可用' : '添加');
+      if (app.launchable === false) button.title = app.unavailable_reason || '尚未解析到应用启动网址，请关闭浏览器后重新扫描。';
       button.setAttribute('aria-label', `${alreadyAdded ? '已添加' : '添加'} ${app.label || '应用'}`);
       button.addEventListener('click', () => addDiscoveredApp(app));
       row.append(info, button);
@@ -378,11 +404,12 @@
   }
 
   async function addDiscoveredApp(app) {
-    if (busy || !app || !app.path || !app.adapter) return;
+    if (busy || !app || !app.path || !app.adapter || app.launchable === false) return;
     const label = String(app.label || app.path);
     const args = Array.isArray(app.args) ? app.args : [];
     await mutate('/api/apps', { body: { label, path: app.path, adapter: app.adapter, args, enabled: true,
-      ...(app.store_binding ? { store_binding: app.store_binding } : {}) } });
+      ...(app.store_binding ? { store_binding: app.store_binding } : {}),
+      ...(app.web_app ? { web_app: app.web_app, use_original_data: false } : {}) } });
   }
 
   function renderNodes() {
@@ -462,6 +489,7 @@
     if (!state) return;
     ui.platform.textContent = state.platform || '本机服务';
     ui.storeAppsNote.hidden = !isWindows();
+    ui.webAppsNote.hidden = !isWindows();
     ui.statusDot.className = `status-indicator ${state.running ? 'is-running' : ''}`;
     ui.statusTitle.textContent = state.running ? '核心正在运行' : (state.imported ? '配置已就绪' : '等待导入配置');
     ui.statusDetail.textContent = state.running ? '本机 Mihomo 已启动；应用连接状态见下方' : (state.imported ? '核心尚未启动' : '导入 YAML 配置以开始');
@@ -469,7 +497,7 @@
     ui.configState.className = `pill ${state.imported ? 'pill-ready' : ''}`;
     if (document.activeElement !== ui.core) ui.core.value = state.core_path || '';
     renderNodes();
-    ui.nodeHint.textContent = state.running ? '点击卡片切换节点；测速经该节点访问 Google，失败不一定代表节点不可用。' : '点击卡片选择节点；启动核心后可测试延迟与连通性。';
+    ui.nodeHint.textContent = state.running ? '点击卡片切换节点；延迟测试经该节点访问 Google，不代表下载或上传速度。' : '点击卡片选择节点；启动核心后可测试延迟与连通性。';
     ui.proxy.textContent = state.proxy_url || '等待配置';
     const ports = state.ports || {};
     const portParts = [];
@@ -493,7 +521,7 @@
       ? '全局把系统代理指向本机核心，不安装 TUN、不改防火墙和 DNS；停止、核心退出或下次打开面板时恢复原系统代理。'
       : (isWindows() ? '兼容模式按程序及辅助路径代理。'
                       : '从面板启动的应用进入独立隔离；其他应用继续使用原网络。');
-    ui.stop.textContent = state.global_fault === true ? '重试恢复网络与清理'
+    ui.stop.textContent = needsRecovery(state) ? '重试恢复网络与清理'
       : (isGlobal() ? '停止全局代理并恢复系统代理' : (isWindows() ? '关闭本工具启动的应用并停止' : '关闭受保护应用并停止'));
     ui.protectionCard.className = `protection-card ${supported ? 'is-supported' : 'is-unsupported'}`;
     ui.protectionBadge.textContent = !supported ? '不可用，启动受阻'
@@ -514,11 +542,11 @@
     ui.autostartDetail.textContent = autostart === 'stale' ? AUTOSTART_STALE_TEXT : AUTOSTART_TEXT;
     ui.appGuardRow.hidden = !isWindows() || isGlobal();
     ui.appGuard.checked = state.windows_app_guard === true;
-    ui.systemProxyCompatRow.hidden = !isWindows() || state.capture_mode !== 'applications';
-    ui.systemProxyCompat.checked = state.system_proxy_compat === true;
-    ui.antigravityIpcCompatRow.hidden = !isWindows() || state.capture_mode !== 'applications';
-    ui.antigravityIpcCompat.checked = state.antigravity_ipc_compat === true;
-    $('antigravity-ipc-compat-detail').textContent = antigravityIpcCompatDetail(state);
+    ui.localIpcRow.hidden = !isWindows() || isGlobal();
+    ui.localIpcSummary.textContent = localIpcSummary(state);
+    ui.localIpcRow.classList.toggle('is-stale', !!protection.status?.local_ipc?.error || protection.status?.local_ipc?.state === 'failed');
+    ui.advancedNetwork.hidden = !isWindows() || isGlobal();
+    ui.advancedNetworkSummary.textContent = guardSummary(state);
     ui.coreSettings.hidden = isWindows();
     ui.relatedField.hidden = !isWindows();
     const ordinaryOption = ui.appAdapter.querySelector('option[value="environment"]');
@@ -730,36 +758,10 @@
     if (!result && state) render(state);  // put the switch back when the change failed
   });
 
-  ui.systemProxyCompat.addEventListener('change', async () => {
-    if (busy || !state || state.running || state.global_fault === true
-        || (state.apps || []).some((app) => app.cleanup_pending)
-        || !isWindows() || state.capture_mode !== 'applications') {
-      ui.systemProxyCompat.checked = state?.system_proxy_compat === true;
-      return;
-    }
-    const enabled = ui.systemProxyCompat.checked;
-    const result = await mutate('/api/system-proxy-compat', { body: { enabled } }, {
-      notice: enabled ? '系统代理兼容已开启：核心启动后也会影响当前 Windows 用户其他遵循系统代理的应用；保留应用出站守卫。' : '系统代理兼容已关闭。',
-    });
-    if (!result && state) render(state);
-  });
-
-  ui.antigravityIpcCompat.addEventListener('change', async () => {
-    if (antigravityIpcCompatLocked()) {
-      ui.antigravityIpcCompat.checked = state?.antigravity_ipc_compat === true;
-      return;
-    }
-    const enabled = ui.antigravityIpcCompat.checked;
-    const result = await mutate('/api/antigravity-ipc-compat', { body: { enabled } }, {
-      notice: enabled ? 'Antigravity 本机通信兼容已配置开启，尚不代表生效或联网成功。初始化或故障恢复须退出已有 Antigravity、完全停止核心、关闭兼容清错后再启用，并重新启动核心和应用。' : 'Antigravity 本机通信兼容已关闭。',
-    });
-    if (!result && state) render(state);
-  });
-
   ui.appGuard.addEventListener('change', async () => {
     const enabled = ui.appGuard.checked;
     const result = await mutate('/api/app-guard', { body: { enabled } }, {
-      notice: enabled ? '基础出站守卫已开启；本机通信兼容例外是否已启用，以组件实际状态为准。' : '出站守卫已关闭。',
+      notice: enabled ? '基础出站守卫已配置；本机通信将自动核验，以组件实际状态为准。' : '出站守卫已关闭。',
     });
     if (!result && state) render(state);  // put the switch back when the change failed
   });

@@ -4,7 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light">
+  <meta name="theme-color" content="#167d61">
   <title>RuleProxy · 本机代理</title>
+  <link rel="icon" href="/favicon.ico" sizes="32x32">
+  <link rel="icon" href="/web/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/web/apple-touch-icon.png">
   <link rel="stylesheet" href="/web/style.css">
   <script src="/web/app.js" defer></script>
 </head>
@@ -102,7 +106,7 @@
           <p id="protection-note" class="protection-note">不同平台和接管模式的范围不同，请查看后端状态与限制说明。</p>
         </div>
         <div class="node-heading"><span class="field-label">代理节点</span>
-          <button id="test-nodes-button" class="button button-secondary" type="button" disabled>测试全部</button>
+          <button id="test-nodes-button" class="button button-secondary" type="button" disabled>测试全部延迟</button>
         </div>
         <div id="node-cards" class="node-cards" aria-label="代理节点列表"></div>
         <p id="node-hint" class="field-hint">可用节点会显示在这里。</p>
@@ -149,6 +153,7 @@
         </div>
         <p class="discovery-footnote">列表显示系统已识别的应用，可点“显示更多”或“显示全部”浏览其余项。搜索可查找完整清单；找不到的应用可展开手动添加。</p>
         <p id="store-apps-note" class="discovery-footnote" hidden>Windows 也会识别当前账户已注册、含独立 exe 入口的商店桌面应用。商店更新后若程序路径改变，请先停用旧条目，再重新扫描并添加当前版本。</p>
+        <p id="web-apps-note" class="discovery-footnote" hidden>支持从 Chrome、Edge 等浏览器安装的 Web 应用。通过独立应用窗口和独立资料启动，首次需重新登录；同一浏览器程序的其他窗口也可能受 Windows 路径代理影响。</p>
       </section>
       <details id="manual-app-details" class="manual-app-details">
         <summary>找不到应用？手动添加</summary>
@@ -180,27 +185,27 @@
         </div>
         <label class="switch-field"><input id="autostart-toggle" type="checkbox"><span>自动启动</span></label>
       </div>
-      <div id="system-proxy-compat-row" class="background-row" hidden>
+      <div id="local-ipc-row" class="background-row" hidden>
         <div>
-          <strong>系统代理兼容（默认关闭）</strong>
-          <p id="system-proxy-compat-detail">系统代理兼容：影响当前Windows用户其他遵循系统代理的应用，保留应用出站守卫；核心停止时可修改。开启后不是仅按应用隔离。</p>
+          <strong>应用本机通信 <span class="automatic-badge">自动处理</span></strong>
+          <p id="local-ipc-summary" role="status">随所选应用自动处理，无需勾选。</p>
+          <details class="local-ipc-details">
+            <summary>支持范围与排查</summary>
+            <p>启用出站守卫时，自动核验同一应用及其相关程序的本机 TCP 监听端口、程序路径和所属用户。不开放任意本机服务，也不放行局域网连接。新增联网辅助程序可在应用中填写相关程序路径。</p>
+            <p>原先已运行的应用请先退出，再从这里启动。遇到通信故障时，关闭本工具启动的应用并停止核心，待清理完成后重启；无需切换兼容开关。</p>
+          </details>
         </div>
-        <label class="switch-field"><input id="system-proxy-compat-toggle" type="checkbox" aria-describedby="system-proxy-compat-detail" disabled><span>系统代理兼容</span></label>
       </div>
-      <div id="antigravity-ipc-compat-row" class="background-row" hidden>
-        <div>
-          <strong>Antigravity 本机通信兼容（默认关闭）</strong>
-          <p id="antigravity-ipc-compat-detail">仅所选Antigravity及语言服务的经验证127.0.0.1 TCP端口，不开放任意本地服务；按路径与用户身份匹配。默认未启用。初始化或故障恢复：退出已有 Antigravity → 完全停止核心 → 关闭本机通信兼容以清错 → 再启用 → 重新启动核心和应用；仅重启应用不会清除故障。仅 Windows 按应用模式，核心与应用完全停止且无待恢复状态时可修改。</p>
-        </div>
-        <label class="switch-field"><input id="antigravity-ipc-compat-toggle" type="checkbox" aria-describedby="antigravity-ipc-compat-detail" disabled><span>Antigravity 本机通信兼容</span></label>
-      </div>
+      <details id="advanced-network-settings" class="advanced-network-settings" hidden>
+        <summary>高级网络设置 <span id="advanced-network-summary"></span></summary>
       <div id="app-guard-row" class="background-row" hidden>
         <div>
           <strong>出站守卫（实验）</strong>
-          <p>仅 Windows 按应用模式：基础守卫仅允许所选程序连接本机代理端口；启用本机通信兼容后可增加已验证的本机端口例外，以组件实际状态为准。其他直连、局域网与 IPv6 出站会被系统防火墙层阻断，代理或面板故障时也不会恢复直连。系统服务代办的 DNS 解析仍可能外发，不提供 Linux 等效隔离。<strong>不读代理设置、靠路径代理联网的程序开启后会断网</strong>，仅适合自身使用本机代理的应用。</p>
+          <p>仅 Windows 按应用模式：基础守卫允许所选程序连接本机代理端口，并自动处理经验证的同应用本机通信，以组件实际状态为准。其他直连、局域网与 IPv6 出站会被系统防火墙层阻断。系统服务代办的 DNS 解析仍可能外发。<strong>不读代理设置、靠路径代理联网的程序开启后会断网</strong>；现有设置保持不变，正常使用无需调整。</p>
         </div>
         <label class="switch-field"><input id="app-guard-toggle" type="checkbox"><span>出站守卫</span></label>
       </div>
+      </details>
       <div class="background-row">
         <div>
           <strong>退出面板</strong>

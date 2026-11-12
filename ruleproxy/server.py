@@ -149,11 +149,16 @@ class Handler(BaseHTTPRequestHandler):
                 self.server.last_view = time.monotonic()
             refresh_apps = urllib.parse.parse_qs(url.query).get("refresh_apps") == ["1"]
             return self.reply(200, self.state_payload(refresh_apps=refresh_apps))
-        allowed = {"/": "index.html", "/web/index.html": "index.html", "/web/app.js": "app.js", "/web/style.css": "style.css"}
+        allowed = {"/": "index.html", "/web/index.html": "index.html", "/web/app.js": "app.js", "/web/style.css": "style.css",
+                   "/favicon.ico": "favicon.ico", "/web/favicon.ico": "favicon.ico",
+                   "/web/favicon.svg": "favicon.svg", "/web/favicon-32.png": "favicon-32.png",
+                   "/web/apple-touch-icon.png": "apple-touch-icon.png"}
         if path not in allowed:
             return self.reply(404, {"error": "不存在。"})
         file = ROOT / "web" / allowed[path]
-        self.reply(200, file.read_bytes(), (mimetypes.guess_type(str(file))[0] or "text/plain") + "; charset=utf-8")
+        content_type = {".ico": "image/x-icon", ".svg": "image/svg+xml", ".png": "image/png"}.get(file.suffix)
+        content_type = content_type or (mimetypes.guess_type(str(file))[0] or "text/plain") + "; charset=utf-8"
+        self.reply(200, file.read_bytes(), content_type)
 
     def do_POST(self):
         self.mutate()
@@ -195,14 +200,6 @@ class Handler(BaseHTTPRequestHandler):
                 manager.start()
             elif path == "/api/autostart":
                 manager.set_autostart(data.get("enabled"))
-            elif path == "/api/system-proxy-compat":
-                if set(data) != {"enabled"} or type(data["enabled"]) is not bool:
-                    raise ValueError("系统代理兼容请求只能包含布尔值 enabled。")
-                manager.set_system_proxy_compat(data["enabled"])
-            elif path == "/api/antigravity-ipc-compat":
-                if set(data) != {"enabled"} or type(data["enabled"]) is not bool:
-                    raise ValueError("Antigravity 本机通信兼容请求只能包含布尔值 enabled。")
-                manager.set_antigravity_ipc_compat(data["enabled"])
             elif path == "/api/app-guard":
                 if set(data) != {"enabled"}:
                     raise ValueError("出站守卫请求只能包含 enabled。")
