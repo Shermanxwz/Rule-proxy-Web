@@ -314,18 +314,19 @@
   }
 
   function sameAppPath(left, right) {
-    const normalize = (value) => String(value || '').replaceAll('\\', '/').replace(/\/$/, '');
-    const a = normalize(left);
-    const b = normalize(right);
-    const windows = /windows|win32|win64/i.test(String(state && state.platform || ''));
-    return windows ? a.toLocaleLowerCase() === b.toLocaleLowerCase() : a === b;
+    const normalize = (value) => {
+      const text = String(value || '');
+      return isWindows() ? text.replaceAll('\\', '/').replace(/\/$/, '').toLocaleLowerCase() : text;
+    };
+    return normalize(left) === normalize(right);
   }
 
   function sameApp(left, right) {
     if (!sameAppPath(left.path, right.path)) return false;
     if (!left.web_app || !right.web_app) return !left.web_app && !right.web_app;
     const a = left.web_app, b = right.web_app;
-    return String(a.profile_directory).toLowerCase() === String(b.profile_directory).toLowerCase()
+    const profile = (value) => isWindows() ? String(value).toLowerCase() : String(value);
+    return profile(a.profile_directory) === profile(b.profile_directory)
       && (a.app_id || a.start_url) === (b.app_id || b.start_url);
   }
 

@@ -2,9 +2,9 @@
 
 本机 Web 面板：导入自己的 Mihomo YAML、选择节点、自定义应用。按应用模式下，Windows 兼容模式使用 ProxiFyre 按程序路径转发；Linux 使用网络命名空间隔离。全局模式使用系统代理，不使用 TUN。
 
-**源码版本 0.4.4。Windows 按应用的兼容模式使用 ProxiFyre 2.6.4 + Mihomo 1.19.32，关闭 TUN。源码版本与已发布安装包可能不同；安装前请核对[产品验收记录](https://github.com/Shermanxwz/Rule-proxy-Web/tree/main/verification/windows-2026-10-16/proxifyre-product)中与离线 ZIP 的 SHA-256 一致的报告；只有报告实际通过的项目属于已验证范围。**
+**源码版本 0.4.5。Windows 按应用的兼容模式使用 ProxiFyre 2.6.4 + Mihomo 1.19.32，关闭 TUN。源码版本与已发布安装包可能不同；安装前请核对[产品验收记录](https://github.com/Shermanxwz/Rule-proxy-Web/tree/main/verification/windows-2026-10-16/proxifyre-product)中与离线 ZIP 的 SHA-256 一致的报告；只有报告实际通过的项目属于已验证范围。**
 
-Windows 的目标是让自定义应用走所选代理节点。它不能提供 Linux 同等的 DNS、子进程和故障隔离；具体边界见下文。Linux 按应用功能保持原有实现。
+Windows 的目标是让自定义应用走所选代理节点。它不能提供 Linux 同等的 DNS、子进程和故障隔离；具体边界见下文。Linux 保持原有隔离运行时，0.4.5 增加已安装 Web 应用识别。
 
 ## 选择接管范围
 
@@ -18,7 +18,7 @@ Linux 按应用模式继续使用网络命名空间隔离。Windows 从 0.4.0 �
 
 兼容模式在折叠的“高级网络设置”中保留“出站守卫（实验）”：SYSTEM 控制服务为路径清单中的程序写入自有 WFP 持久规则，允许本机代理连接及下述经过验证的应用本机通信，其余出站（直连、局域网、未经验证的本机端口、直连 DNS、UDP、IPv6）阻断，后端或面板故障时不恢复直连。系统服务代办的 DNS 解析仍可能外发；该功能尚未通过 Windows 原生不泄漏验收，不提供 Linux 等效隔离。**它与 ProxiFyre 透明转发互斥，默认关闭：**守卫在 WFP 连接授权层拦截，不读代理设置、靠 ProxiFyre 转发的程序发出的连接会先被拒绝，开启后这类应用会断网。[2026-10-26 Server 2025 实测](https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/40304434929)中，开启守卫后所选程序与其辅助程序的 TCP 均返回 WinError 10013、UDP 超时，未选程序照常直连；关闭后路径代理恢复。仅当所选应用本身使用本机 HTTP/SOCKS 代理时才适合开启。升级不改变已有守卫设置。
 
-### 自动本机通信
+### Windows 自动本机通信
 
 无需勾选兼容开关，也不限于 Antigravity。出站守卫启用时，以每个已选应用的主 exe、显式相关程序及已解析的软件包辅助程序组成路径组。控制服务确认基础守卫实际覆盖后，自动核验同一组、同一用户的 `127.0.0.1` TCP 监听端口，为确切客户端路径、服务端路径和端口建立动态规则。它不开放任意本地服务、局域网、IPv6 或 UDP，也不把两个无关应用组经共享辅助程序递归合并。
 
@@ -85,6 +85,8 @@ Windows 清单也识别 Chrome、Edge、Brave、Chromium、Vivaldi 的 Web 应�
 
 添加后用真实浏览器 exe、已验证的 HTTP(S) 启动网址及 RuleProxy 独立资料目录打开应用窗口，不把原来的 `--app-id` 直接传进未安装 PWA 的空资料目录。首次需要重新登录，之后独立资料会保留；该类条目不提供“使用原应用数据”开关。未解析到启动网址时展示原因并禁用添加，避免打开错误网址。
 
+0.4.5 起，创建快捷方式时优先使用该 PWA 已安装的原始 ICO 图标，而非浏览器图标。图标经校验后缓存到 RuleProxy 状态目录下的 `shortcut-icons/<应用 ID>/<内容摘要>.ico`，不修改原图标或读取登录数据；原图标缺失、损坏或有歧义时才回退浏览器图标。快捷方式仍启动 RuleProxy 保存的应用，图标变化不改变代理和资料选择。
+
 **这是安装入口识别和独立应用窗口，不是按网站隔离流量。** Web 应用、普通浏览器及其他 PWA 若共用 exe，就共用 Windows 路径代理范围；停用一个条目而另一个同路径条目仍启用时，该路径仍受代理规则影响。完整 PWA 安装能力（如原配置中的扩展、离线缓存和后台通知）不会自动迁移。
 
 源码版识别当前用户安装的 Google Gemini 桌面版：启动时不注入它拒绝的 Chromium 代理参数，按应用模式同步其启动器与版本目录中的主程序和辅助程序路径。Gemini 更新后，应从面板重新启动以刷新路径规则；第三方更新器或系统服务代发的流量不在此保证范围内。此兼容方案仍需针对实际 Gemini 登录和流量完成验收。
@@ -138,6 +140,14 @@ sudo sh scripts/remove-linux-apparmor.sh
 策略来源与背景见 [Ubuntu AppArmor 权限限制](https://documentation.ubuntu.com/security/security-features/privilege-restriction/apparmor/)。默认不开放 D-Bus、桌面门户或音频服务，只按需开放直接的 X11/Wayland 显示连接；选择原应用数据时仅为 Chromium 提供受限的桌面密钥服务连接，不开放完整会话总线。隔离外既有服务不在保护范围内。
 
 隔离应用可读写当前用户的“下载”文件夹，默认 `~/Downloads`，也读取 `user-dirs.dirs` 设置。上传文件请先放到该目录。家目录的其他文件不向隔离应用开放；下载目录若与家目录、面板数据或所有权边界冲突，则拒绝共享。面板会显示实际开放目录。
+
+### Linux 已安装 Web 应用（PWA）
+
+0.4.5 起识别当前用户 XDG 应用目录中的 Chromium 系 Web 应用桌面入口，支持已知安装布局的 Chrome、Chromium、Edge、Brave、Vivaldi 及所列发行渠道。仅核验桌面入口、对应的实际 ELF 程序及必要的 Web 应用安装元数据；不执行入口脚本，不读取 Cookie、密码或历史。原资料目录按 `CHROME_CONFIG_HOME`、`XDG_CONFIG_HOME` 与默认目录规则解析，标准 `Default` / `Profile N` 之外的布局保留未解析状态，不搜索其他资料目录猜测。
+
+普通浏览器、不同 PWA 及不同原资料入口分别列出。添加后使用已核验的 HTTP(S) 网址和 RuleProxy 独立资料目录打开应用窗口，首次重新登录，之后保留独立资料；不把裸 `--app-id` 传给空资料目录，也不显示原应用数据开关。缺少可靠启动网址时显示原因并停用添加按钮。
+
+**按应用模式只接管本工具新建的隔离实例，现有原浏览器保持原样。** 不采用 Windows 的同 exe 路径规则。同一应用及子进程继续共享私有 loopback 与 Unix 通信；宿主 loopback 保持分隔，HTTP 本地请求遵循现有浏览器代理规则。全局模式继续使用系统代理，其启动不附带按应用命名空间隔离。原 PWA 的离线缓存、扩展与系统安装注册不迁移。
 
 ## YAML、节点与本地数据
 
@@ -194,7 +204,7 @@ python3 -B .github/build_windows_package.py /tmp/ruleproxy-personal-package --as
 
 构建器只收集程序文件，拒绝在非空暂存目录中混入旧文件；固定资产下载后校验 SHA-256，生成含逐文件摘要的 `package-manifest.json`。包中包含 ProxiFyre AGPL 许可及依赖说明。完整依赖与来源见 [THIRD-PARTY.md](THIRD-PARTY.md)，资产固定在 [windows_proxy_pins.py](ruleproxy/windows_proxy_pins.py)。Linux 保留自己的安装和测试流程。
 
-常规 CI 检查 Linux 隔离、面板启动和跨平台单元测试。产品验收入口 `.github/windows_proxifyre_product_acceptance.py` 针对实际 ZIP 检查安装、重复安装、卸载后重装、普通用户权限、服务身份、Web 导入、相关程序路径、节点切换、生产启动入口和异常清理。Windows Server 对照与 Windows 11 原生验收分别记录；可见窗口、真实互联网出口、浏览器登录和下载也分别标识。请以[当前验收状态](https://github.com/Shermanxwz/Rule-proxy-Web/blob/main/verification/windows-2026-10-16/proxifyre-product/current-status.json)中与 ZIP SHA-256 相同的证据为准，脚本存在不代表相应项目已经通过。
+当前更新流程先在本地或开发机执行单元测试、构建与设备验收，通过后直接推送；本轮不触发 GitHub CI。历史检查脚本保留供复现。产品验收入口 `.github/windows_proxifyre_product_acceptance.py` 针对实际 ZIP 检查安装、重复安装、卸载后重装、普通用户权限、服务身份、Web 导入、相关程序路径、节点切换、生产启动入口和异常清理。Windows Server 对照与 Windows 11 原生验收分别记录；可见窗口、真实互联网出口、浏览器登录和下载也分别标识。请以[当前验收状态](https://github.com/Shermanxwz/Rule-proxy-Web/blob/main/verification/windows-2026-10-16/proxifyre-product/current-status.json)中与 ZIP SHA-256 相同的证据为准，脚本存在不代表相应项目已经通过。
 
 之前的 Windows Server 候选比较（包括运行 `38770720406`）仅证明其报告实际完成的候选路径，不代表这个最终产品包已通过。旧 MXC/PSEC 脚本与报告保留供历史复现，不是当前 Windows 默认入口；旧产品说明见 [0.2.2 历史文档](https://github.com/Shermanxwz/Rule-proxy-Web/blob/main/verification/windows-2026-10-15/mxc-0.2.2-readme.md)。
 

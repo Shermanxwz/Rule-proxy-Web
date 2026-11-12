@@ -64,6 +64,9 @@ namespace RuleProxyLinks
 
     public static class Links
     {
+        [DllImport("shell32.dll", ExactSpelling = true, CharSet = CharSet.Unicode)]
+        private static extern void SHChangeNotify(uint eventId, uint flags, string item, IntPtr unused);
+
         public static string ReadTarget(string path)
         {
             IShellLinkW link = (IShellLinkW)new ShellLink();
@@ -94,6 +97,7 @@ namespace RuleProxyLinks
                     link.SetIconLocation(iconPath, 0);
                 }
                 ((IPersistFile)link).Save(path, true);
+                SHChangeNotify(0x00002000, 0x0005, path, IntPtr.Zero); // UPDATEITEM, PATHW: this .lnk only
             }
             finally
             {
@@ -226,7 +230,8 @@ def _linux_shortcuts(app_id: str, label: str, argv: list[str], icon: str | None)
 
 
 def _windows_shortcuts(app: dict, label: str, argv: list[str], folders: list[Path] | None = None,
-                       *, shortcut_name: str | None = None, working_directory: Path | None = None) -> list[Path]:
+                       *, shortcut_name: str | None = None, working_directory: Path | None = None,
+                       icon_path: Path | None = None) -> list[Path]:
     """Create .lnk files on the Desktop and in the Start menu, or in ``folders`` when given."""
     safe = _INVALID_FILE_CHARS_RE.sub(" ", shortcut_name or _display_name(label)).strip(" .") or "RuleProxy"
     environment = {
@@ -236,7 +241,7 @@ def _windows_shortcuts(app: dict, label: str, argv: list[str], folders: list[Pat
         "RULEPROXY_SHORTCUT_ARGUMENTS": subprocess.list2cmdline(argv[1:]),
         "RULEPROXY_SHORTCUT_WORKDIR": str(working_directory if working_directory is not None else ROOT),
         "RULEPROXY_SHORTCUT_DESCRIPTION": f"RuleProxy 隔离启动：{label}",
-        "RULEPROXY_SHORTCUT_ICON": str(app.get("path") or ""),
+        "RULEPROXY_SHORTCUT_ICON": str(icon_path if icon_path is not None else app.get("path") or ""),
         "RULEPROXY_SHORTCUT_FOLDERS": "\n".join(str(folder) for folder in folders or []),
     }
     encoded = base64.b64encode(_WINDOWS_SHORTCUT_SCRIPT.encode("utf-16-le")).decode("ascii")
@@ -302,6 +307,11 @@ def create_shortcut_files(app: dict, *, state_dir: Path, ports: tuple[int, int, 
     if sys.platform.startswith("linux"):
         return _linux_shortcuts(app_id, label, argv, linux_desktop_icon(str(app.get("path") or ""), label))
     if sys.platform == "win32":
+        if app.get("web_app") is not None:
+            from .windows_web_app_icons import shortcut_icon
+            icon = shortcut_icon(app, Path(state_dir))
+            if icon is not None:
+                return _windows_shortcuts(app, label, argv, icon_path=icon)
         return _windows_shortcuts(app, label, argv)
     raise ValueError("当前系统不支持创建快捷方式。")
 

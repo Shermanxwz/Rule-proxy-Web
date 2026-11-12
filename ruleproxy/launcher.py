@@ -15,6 +15,7 @@ import sys
 import threading
 import time
 from copy import deepcopy
+from itertools import islice
 from pathlib import Path
 from typing import Any
 
@@ -82,6 +83,9 @@ _DESKTOP_FIELD_RE = re.compile(r"%([fFuUickdDnNv%m])")
 _DISCOVERY_LOCK = threading.Lock()
 _DISCOVERY_CACHE: tuple[tuple[Any, ...], float, list[dict[str, Any]]] | None = None
 _DISCOVERY_CACHE_SECONDS = 30.0
+_LINUX_MAX_DESKTOP_FILES = 2048
+_LINUX_MAX_DIRECTORY_ENTRIES = 4096
+_LINUX_DISCOVERY_SECONDS = 12.0
 
 
 def _category(label: str, path: Path, desktop_categories: str = "") -> str:
@@ -286,27 +290,47 @@ def _desktop_exec_args(value: str) -> tuple[list[str], list[str]] | None:
 
 
 def _desktop_fields(path: Path) -> dict[str, str] | None:
-    """The [Desktop Entry] keys of a .desktop file (first value wins), or None if unreadable."""
+    """Read one bounded, unambiguous desktop entry through held directory handles."""
+    from .web_app_leveldb import _Budget, _MetadataDirectory, _local_path
+
+    if not path.name.endswith('.desktop'):
+        return None
     fields: dict[str, str] = {}
     in_entry = False
+    seen_entry = False
     try:
-        for raw in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        # Reuse the no-follow reader, not the Preferences filename API. Only this
+        # desktop filename is watched; no profile/directory inventory is read.
+        with _MetadataDirectory(_local_path(path.parent), _Budget(), path.name) as owner:
+            with owner.file(path.name, 1024 * 1024) as source:
+                text = source.read(0, source.size).decode('utf-8', errors='strict')
+            owner.finish()
+        if '\0' in text:
+            return None
+        for raw in text.splitlines():
             line = raw.strip()
             if line.startswith("[") and line.endswith("]"):
                 in_entry = line == "[Desktop Entry]"
+                if in_entry:
+                    if seen_entry:
+                        return None
+                    seen_entry = True
                 continue
             if not in_entry or not line or line.startswith("#") or "=" not in line:
                 continue
             key, value = line.split("=", 1)
-            if key not in fields:
-                fields[key] = value
-    except OSError:
+            key = key.strip()
+            if not key or key in fields:
+                return None
+            fields[key] = value
+    except (OSError, ValueError, UnicodeError):
         return None
-    return fields
+    return fields if seen_entry else None
 
 
-def _desktop_entry(path: Path) -> tuple[str, str, str, list[str], str] | None:
-    fields = _desktop_fields(path)
+def _desktop_entry(path: Path, *, fields: dict[str, str] | None = None) -> tuple[str, str, str, list[str], str] | None:
+    if fields is None:
+        fields = _desktop_fields(path)
     if fields is None:
         return None
     if fields.get("Type", "Application") != "Application" or fields.get("Hidden", "false").lower() == "true" or fields.get("NoDisplay", "false").lower() == "true":
@@ -354,9 +378,61 @@ def _linux_applications_dirs() -> list[Path]:
     return result
 
 
+def _linux_desktop_files():
+    """Bound directory enumeration and check the deadline between records."""
+    deadline = time.monotonic() + _LINUX_DISCOVERY_SECONDS
+    count = 0
+    seen: set[str] = set()
+    for directory in _linux_applications_dirs():
+        if time.monotonic() >= deadline:
+            return
+        try:
+            entries = sorted((item for item in islice(directory.iterdir(), _LINUX_MAX_DIRECTORY_ENTRIES)
+                              if item.name.endswith('.desktop')), key=lambda item: item.name.casefold())
+        except OSError:
+            continue
+        for entry in entries:
+            if count >= _LINUX_MAX_DESKTOP_FILES or time.monotonic() >= deadline:
+                return
+            count += 1
+            # XDG directories are ordered by precedence. Even a hidden, invalid,
+            # or unreadable user entry masks the lower-priority desktop identity.
+            if entry.name in seen:
+                continue
+            seen.add(entry.name)
+            yield entry
+
+
 def _linux_discover() -> list[dict[str, Any]]:
+    from .linux_web_apps import from_desktop_entry
+
     found: list[dict[str, Any]] = []
     seen: set[str] = set()
+    web_entries: dict[tuple[str, ...], int] = {}
+    conflicting_web_entries: set[tuple[str, ...]] = set()
+
+    def add_web(candidate: dict[str, Any]) -> None:
+        # Browser paths are routing/executable identities, not PWA identities.
+        # Discard source switches even when a discovered record is unresolved.
+        candidate['args'] = []
+        identity = app_identity(candidate)
+        if identity not in web_entries:
+            web_entries[identity] = len(found)
+            found.append(candidate)
+            return
+        if identity in conflicting_web_entries:
+            return
+        index = web_entries[identity]
+        existing = found[index]
+        old_url = existing['web_app']['start_url']
+        new_url = candidate['web_app']['start_url']
+        if old_url and new_url and old_url != new_url:
+            conflicting_web_entries.add(identity)
+            existing['web_app']['start_url'] = ''
+            existing['launchable'] = False
+            existing['unavailable_reason'] = '同一 Web 应用身份存在多个启动网址，请检查重复的桌面条目。'
+        elif new_url and not old_url:
+            found[index] = candidate
 
     def add(
         label: str,
@@ -412,24 +488,28 @@ def _linux_discover() -> list[dict[str, Any]]:
         if candidate is not None:
             add(label, candidate, adapter)
 
-    for directory in _linux_applications_dirs():
-        try:
-            entries = sorted(directory.glob("*.desktop"), key=lambda item: item.name.casefold())
-        except OSError:
+    for entry in _linux_desktop_files():
+        fields = _desktop_fields(entry)
+        if fields is None:
             continue
-        for entry in entries:
-            parsed = _desktop_entry(entry)
-            if parsed is None:
+        is_web_intent, candidate = from_desktop_entry(fields)
+        if is_web_intent:
+            if candidate is not None:
+                add_web(candidate)
+            # Unsupported/ambiguous PWA arguments never become a plain browser.
+            continue
+        parsed = _desktop_entry(entry, fields=fields)
+        if parsed is None:
+            continue
+        label, raw_path, adapter, args, categories = parsed
+        path = Path(raw_path)
+        if "chatgpt" in f"{label} {path}".lower():
+            # Never list a ChatGPT desktop entry pointing to a wrapper;
+            # only the package's actual GUI binary is eligible.
+            preferred_chatgpt = chatgpt.resolve() if _is_file(chatgpt) else None
+            if preferred_chatgpt is None or path.resolve() != preferred_chatgpt:
                 continue
-            label, raw_path, adapter, args, categories = parsed
-            path = Path(raw_path)
-            if "chatgpt" in f"{label} {path}".lower():
-                # Never list a ChatGPT desktop entry pointing to a wrapper;
-                # only the package's actual GUI binary is eligible.
-                preferred_chatgpt = chatgpt.resolve() if _is_file(chatgpt) else None
-                if preferred_chatgpt is None or path.resolve() != preferred_chatgpt:
-                    continue
-            add(label, path, adapter, args=args, categories=categories)
+        add(label, path, adapter, args=args, categories=categories)
     return found
 
 
@@ -638,7 +718,7 @@ def _windows_discover() -> list[dict[str, Any]]:
 
 
 def _discovery_key() -> tuple[Any, ...]:
-    return (
+    key = (
         sys.platform,
         os.environ.get("PATH", ""),
         os.environ.get("XDG_DATA_HOME", ""),
@@ -651,6 +731,10 @@ def _discovery_key() -> tuple[Any, ...]:
         os.environ.get("USERPROFILE", ""),
         id(shutil.which),
     )
+    if sys.platform.startswith('linux'):
+        key += tuple(os.environ.get(name, '') for name in (
+            'HOME', 'XDG_CONFIG_HOME', 'CHROME_CONFIG_HOME', 'CHROME_USER_DATA_DIR'))
+    return key
 
 
 def discover_apps(*, refresh: bool = False) -> list[dict[str, Any]]:
@@ -777,15 +861,24 @@ def validate_app(data: dict, *, check_exists: bool = True) -> dict[str, Any]:
     args = _validate_args(data.get("args", []))
     result = {"label": label.strip(), "path": str(path), "adapter": adapter, "args": args}
     if 'web_app' in data:
-        from .windows_web_apps import WEB_APP_DETAIL, validate_web_app
-        if check_exists and sys.platform != 'win32':
-            raise ValueError('已安装 Web 应用启动目前仅支持 Windows。')
+        if sys.platform == 'win32' or (not check_exists and path.suffix.lower() == '.exe'):
+            # Restore Windows records in cross-platform tooling without opening
+            # an executable or the original browser profile.
+            from .windows_web_apps import WEB_APP_DETAIL, validate_web_app
+            source = 'windows-web-app'
+        elif sys.platform.startswith('linux'):
+            from .linux_web_apps import WEB_APP_DETAIL, validate_web_app
+            source = 'linux-web-app'
+            if check_exists and not _is_elf_executable(path):
+                raise ValueError('Linux Web 应用需要实际的 ELF 浏览器程序。')
+        else:
+            raise ValueError('当前系统不支持已安装 Web 应用启动。')
         if adapter != 'chromium' or args or store_binding is not None or data.get('related_paths', []):
             raise ValueError('Web 应用须使用 Chromium 独立启动方式，参数和辅助路径由启动器管理。')
         if 'enabled' in data and not isinstance(data['enabled'], bool):
             raise ValueError('enabled 必须是布尔值。')
         result.update(web_app=validate_web_app(data['web_app'], path), use_original_data=False,
-                      source='windows-web-app', category='web-app', launchable=True,
+                      source=source, category='web-app', launchable=True,
                       compatibility=WEB_APP_DETAIL)
     if store_binding is not None:
         result['store_binding'] = store_binding
@@ -953,8 +1046,9 @@ def prepare_app(app: dict, proxy_port: int, profile_dir: Path, *, transparent: b
         browser_proxy()
         detail = "按程序路径透明转发；同路径实例也受规则影响，不能保证 DNS 隔离。"
         if 'web_app' in normalized:
-            from .windows_web_apps import WEB_APP_DETAIL
-            detail += ' ' + WEB_APP_DETAIL
+            if sys.platform.startswith('linux'):
+                detail = '全局模式使用系统代理；应用模式的独立网络命名空间隔离不适用于此启动。'
+            detail += ' ' + normalized['compatibility']
         return command, env, detail
     proxy = f"http://127.0.0.1:{proxy_port}"
     env.update(
@@ -1029,6 +1123,5 @@ def prepare_app(app: dict, proxy_port: int, profile_dir: Path, *, transparent: b
         )
 
     if 'web_app' in normalized:
-        from .windows_web_apps import WEB_APP_DETAIL
-        detail += ' ' + WEB_APP_DETAIL
+        detail += ' ' + normalized['compatibility']
     return command, env, detail
