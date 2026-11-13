@@ -95,6 +95,18 @@ class WindowsOnlinePackageTests(unittest.TestCase):
             for marker in ('首次安装需要联网', '无需预装全局 Python', 'UAC', '3010', '重启', '自行导入 YAML', '完整验收尚未通过'):
                 self.assertIn(marker, text)
 
+    def test_instructions_describe_opt_in_windows_pwa_original_profile_without_migration(self):
+        text = builder.install_instructions()
+        for marker in ('默认仍以独立资料启动', '添加后可显式开启“使用原应用数据”', '原所属 Profile',
+                       '修改互通', '不复制 Cookie、密码或历史数据库', '--app-id=<id>', '--app=<url>',
+                       '已有选择不会批量开启', '本工具启动的实例', '清理或资料检查完成', '下次启动生效',
+                       '已创建快捷方式跟随保存设置', '已有 Chrome', '原有进程不纳入本工具关闭范围',
+                       '关闭共享实例', '同实例的其他 PWA 或普通窗口会一起关闭', '同一浏览器 exe'):
+            with self.subTest(marker=marker):
+                self.assertIn(marker, text)
+        self.assertNotIn('不共用原 PWA 安装', text)
+        self.assertNotIn('不提供“使用原应用数据”开关', text)
+
     def test_source_provider_cannot_smuggle_binaries_yaml_manifest_or_state(self):
         for name in ('web/third-party.exe', 'ruleproxy/driver.dll', 'ruleproxy/driver.sys', 'web/installer.msi',
                      'ruleproxy/private.yaml', 'web/profile.yml', 'package-manifest.json', '.windows-cache/secrets.py',

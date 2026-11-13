@@ -791,13 +791,13 @@ def _validate_args(value: Any) -> list[str]:
     return args
 
 
-def _original_data_mode(app: dict) -> bool:
+def _original_data_mode(app: dict, *, restoring_windows_web_app: bool = False) -> bool:
     value = app.get('use_original_data', False)
     if not isinstance(value, bool):
         raise ValueError('使用原应用数据必须为布尔值。')
     if value and app.get('adapter') not in ('chromium', 'firefox'):
         raise ValueError('这个启动方式不支持切换浏览器数据。')
-    if value and 'web_app' in app:
+    if value and 'web_app' in app and sys.platform != 'win32' and not restoring_windows_web_app:
         raise ValueError('Web 应用使用独立资料；首次需重新登录，原浏览器资料保持不变。')
     return value
 
@@ -832,13 +832,14 @@ def validate_app(data: dict, *, check_exists: bool = True) -> dict[str, Any]:
         raise ValueError("请填写程序路径。")
     if not isinstance(adapter, str) or adapter not in ADAPTERS:
         raise ValueError("启动方式无效。")
-    original_data = _original_data_mode(data)
     try:
         label.encode("utf-8")
         raw_path.encode("utf-8")
     except UnicodeError as exc:
         raise ValueError("应用信息包含无效的 Unicode 字符。") from exc
     path = Path(raw_path).expanduser()
+    original_data = _original_data_mode(data, restoring_windows_web_app=(
+        not check_exists and path.suffix.lower() == '.exe'))
     if check_exists:
         try:
             path = path.resolve(strict=True)
@@ -864,22 +865,24 @@ def validate_app(data: dict, *, check_exists: bool = True) -> dict[str, Any]:
         if sys.platform == 'win32' or (not check_exists and path.suffix.lower() == '.exe'):
             # Restore Windows records in cross-platform tooling without opening
             # an executable or the original browser profile.
-            from .windows_web_apps import WEB_APP_DETAIL, validate_web_app
+            from .windows_web_apps import WEB_APP_DETAIL, WEB_APP_ORIGINAL_DETAIL, validate_web_app
+            detail = WEB_APP_ORIGINAL_DETAIL if original_data else WEB_APP_DETAIL
             source = 'windows-web-app'
         elif sys.platform.startswith('linux'):
             from .linux_web_apps import WEB_APP_DETAIL, validate_web_app
+            detail = WEB_APP_DETAIL
             source = 'linux-web-app'
             if check_exists and not _is_elf_executable(path):
                 raise ValueError('Linux Web 应用需要实际的 ELF 浏览器程序。')
         else:
             raise ValueError('当前系统不支持已安装 Web 应用启动。')
         if adapter != 'chromium' or args or store_binding is not None or data.get('related_paths', []):
-            raise ValueError('Web 应用须使用 Chromium 独立启动方式，参数和辅助路径由启动器管理。')
+            raise ValueError('Web 应用须使用 Chromium 启动方式，参数和辅助路径由启动器管理。')
         if 'enabled' in data and not isinstance(data['enabled'], bool):
             raise ValueError('enabled 必须是布尔值。')
-        result.update(web_app=validate_web_app(data['web_app'], path), use_original_data=False,
+        result.update(web_app=validate_web_app(data['web_app'], path), use_original_data=original_data,
                       source=source, category='web-app', launchable=True,
-                      compatibility=WEB_APP_DETAIL)
+                      compatibility=detail)
     if store_binding is not None:
         result['store_binding'] = store_binding
     if 'use_original_data' in data:
@@ -970,6 +973,9 @@ def prepare_app(app: dict, proxy_port: int, profile_dir: Path, *, transparent: b
     privileged broker before the ordinary process is resumed.
     """
     normalized = validate_app(app)
+    if (normalized.get('use_original_data') and 'web_app' in normalized
+            and sys.platform == 'win32' and not transparent):
+        raise ValueError('Windows 原资料模式需要按程序路径透明代理启动。')
     native_gemini_gui = False
     if transparent and native_proxy and sys.platform == 'win32':
         from .windows_gemini import is_gemini, launch_path, validate_launch_args
@@ -986,20 +992,30 @@ def prepare_app(app: dict, proxy_port: int, profile_dir: Path, *, transparent: b
         normalized = {**normalized, 'adapter': 'environment', 'use_original_data': False}
     proxy_port = _validate_port(proxy_port)
     _reject_reserved_args(normalized["args"], normalized["adapter"])
+    original_data = normalized.get('use_original_data', False)
+    if original_data and 'web_app' in normalized:
+        from .windows_web_apps import original_profile_directory
+        original_profile_directory(normalized['web_app'], Path(normalized['path']))
     profile_app = ({**app, 'adapter': normalized['adapter'], 'use_original_data': False}
                    if normalized['adapter'] != app['adapter'] else app)
     profile = app_profile_directory(profile_dir, profile_app)
-    original_data = normalized.get('use_original_data', False)
     native_original = transparent and original_data
     shared_original = original_data and sys.platform.startswith('linux')
     if not native_original and not shared_original:
         profile.mkdir(parents=True, exist_ok=True)
     command = [normalized["path"], *normalized["args"]]
     if 'web_app' in normalized:
-        # The source profile/app-id identify the installed app, but that install
-        # does not exist in our isolated data directory. Do not pass app-id or
-        # source profile switches, and do not copy any browser data.
-        command.append('--app=' + normalized['web_app']['start_url'])
+        web_app = normalized['web_app']
+        if original_data:
+            # Let the identified browser use its own existing profile. Never
+            # redirect to a guessed user-data-dir or copy login databases.
+            command.append('--profile-directory=' + web_app['profile_directory'])
+            command.append('--app-id=' + web_app['app_id'] if web_app['app_id']
+                           else '--app=' + web_app['start_url'])
+        else:
+            # An installation in the source profile is absent from our isolated
+            # data directory. Keep the URL fallback and private data unchanged.
+            command.append('--app=' + web_app['start_url'])
     # Keep the caller's GUI/session environment (DISPLAY, WAYLAND_DISPLAY,
     # XDG_RUNTIME_DIR, etc.); the platform runtime must apply its own safe
     # environment allowlist when entering isolation.
@@ -1033,7 +1049,10 @@ def prepare_app(app: dict, proxy_port: int, profile_dir: Path, *, transparent: b
                                 '--force-webrtc-ip-handling-policy=disable_non_proxied_udp'])
         if native_original:
             browser_proxy()
-            return command, env, '使用应用原有数据；按程序路径透明转发，同路径实例也受规则影响，不能保证 DNS 隔离。'
+            detail = '使用应用原有数据；按程序路径透明转发，同路径实例也受规则影响，不能保证 DNS 隔离。'
+            if 'web_app' in normalized:
+                detail += ' ' + normalized['compatibility']
+            return command, env, detail
         if normalized["adapter"] == "chromium":
             command.extend([f"--user-data-dir={profile}", "--no-first-run", "--restore-last-session"])
         elif normalized["adapter"] == "firefox":

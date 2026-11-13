@@ -312,7 +312,7 @@ class WebAppValidationTests(WebAppFixture):
             self.assertEqual(normalized['web_app'], self.metadata())
             self.assertIs(normalized['use_original_data'], False)
             self.assertEqual(normalized['source'], 'windows-web-app')
-            for changes in ({'use_original_data': True}, {'args': ['--profile-directory=Profile 1']},
+            for changes in ({'args': ['--profile-directory=Profile 1']},
                             {'args': ['--app-id=' + APP_ID]}, {'args': ['--proxy-server=direct://']},
                             {'adapter': 'environment'}, {'related_paths': [str(self.trampoline)]},
                             {'path': str(self.trampoline)}, {'enabled': 'true'},
@@ -323,6 +323,119 @@ class WebAppValidationTests(WebAppFixture):
         with patch.object(web, 'resolve_start_url', side_effect=AssertionError('No metadata read on restore')):
             normalized = launcher.validate_app(self.app(), check_exists=False)
         self.assertEqual(normalized['web_app'], self.metadata())
+
+    def test_original_mode_preserves_identity_and_strict_schema_without_restore_reads(self):
+        for platform in ('win32', 'linux', 'darwin'):
+            with self.subTest(platform=platform), patch.object(launcher.sys, 'platform', platform), \
+                    patch.object(web, '_profile_path', side_effect=AssertionError('Restore performs no profile checks')), \
+                    patch.object(Path, 'open', side_effect=AssertionError('Restore opens no data')):
+                private = launcher.validate_app(self.app(), check_exists=False)
+                original = launcher.validate_app(self.app(use_original_data=True), check_exists=False)
+                self.assertIs(original['use_original_data'], True)
+                self.assertEqual(original['web_app'], private['web_app'])
+                self.assertEqual(launcher.app_identity(original), launcher.app_identity(private))
+                self.assertEqual(original['compatibility'], web.WEB_APP_ORIGINAL_DETAIL)
+                self.assertNotIn('首次需重新登录', original['compatibility'])
+        with patch.object(launcher.sys, 'platform', 'win32'):
+            for value in (None, 0, 1, 'true', [], {}):
+                with self.subTest(value=value), self.assertRaisesRegex(ValueError, '布尔值'):
+                    launcher.validate_app(self.app(use_original_data=value))
+            for invalid in (None, {}, {**self.metadata(), 'user_data_dir': str(self.profile)},
+                            self.metadata(browser='edge'), self.metadata(profile_directory='../Default'),
+                            self.metadata(profile_directory=''), self.metadata(app_id='z' * 32),
+                            self.metadata(start_url='file:///secret'), self.metadata(launch_mode='original_profile')):
+                with self.subTest(invalid=invalid), self.assertRaises(ValueError):
+                    launcher.validate_app(self.app(use_original_data=True, web_app=invalid))
+            for adapter in ('firefox', 'environment'):
+                with self.subTest(adapter=adapter), self.assertRaises(ValueError):
+                    launcher.validate_app(self.app(use_original_data=True, adapter=adapter))
+
+    def test_original_launch_uses_exact_profile_id_or_url_without_browser_data_io(self):
+        originals = {name: b'original secret fixture' for name in ('Cookies', 'Login Data', 'Preferences')}
+        for name, contents in originals.items():
+            (self.profile / name).write_bytes(contents)
+        original_open = Path.open
+
+        def executable_only(path, *args, **kwargs):
+            self.assertEqual(path, self.chrome, 'Only the executable header may be read')
+            return original_open(path, *args, **kwargs)
+
+        profiles = self.root / 'profiles'
+        for app_id in (APP_ID, ''):
+            for native_proxy in (False, True):
+                with self.subTest(app_id=app_id, native_proxy=native_proxy), \
+                        patch.object(launcher.sys, 'platform', 'win32'), \
+                        patch.object(Path, 'open', executable_only), \
+                        patch.object(web, 'resolve_start_url', side_effect=AssertionError('No registry rescan')):
+                    command, environment, detail = launcher.prepare_app(
+                        self.app(id='pwa-original', use_original_data=True, web_app=self.metadata(app_id=app_id)),
+                        8899, profiles, transparent=True, native_proxy=native_proxy)
+                self.assertEqual(command[:3], [str(self.chrome), '--profile-directory=Profile 1',
+                    '--app-id=' + APP_ID if app_id else '--app=' + START_URL])
+                self.assertFalse(any(arg.startswith('--user-data-dir') for arg in command))
+                self.assertNotIn('--restore-last-session', command)
+                self.assertIn(web.WEB_APP_ORIGINAL_DETAIL, detail)
+                self.assertNotIn('首次需重新登录', detail)
+                if native_proxy:
+                    self.assertIn('--proxy-server=http://127.0.0.1:8899', command)
+                    self.assertIn('--proxy-bypass-list=<-loopback>;localhost;127.0.0.1;[::1]', command)
+                    self.assertIn('--disable-quic', command)
+                    self.assertIn('--force-webrtc-ip-handling-policy=disable_non_proxied_udp', command)
+                    self.assertEqual(environment['NO_PROXY'], 'localhost,127.0.0.1,::1')
+                    self.assertEqual(environment['HTTP_PROXY'], 'http://127.0.0.1:8899')
+                else:
+                    self.assertEqual(len(command), 3)
+                    self.assertNotIn('HTTP_PROXY', environment)
+        self.assertFalse(profiles.exists())
+        self.assertEqual({path.name: path.read_bytes() for path in self.profile.iterdir()}, originals)
+
+    def test_original_launch_matches_each_browser_channel_and_profile(self):
+        for browser, product, executable in (('chrome', 'Google/Chrome Beta', 'chrome.exe'),
+                ('edge', 'Microsoft/Edge Dev', 'msedge.exe'),
+                ('brave', 'BraveSoftware/Brave-Browser-Nightly', 'brave.exe'),
+                ('chromium', 'Chromium', 'chrome.exe'), ('vivaldi', 'Vivaldi', 'vivaldi.exe')):
+            path = self.programs / product / 'Application' / executable
+            path.parent.mkdir(parents=True); path.write_bytes(b'MZ fixture'); path.chmod(0o755)
+            profile = self.local / product / 'User Data/Default'
+            profile.mkdir(parents=True)
+            metadata = self.metadata(browser=browser, profile_directory='Default')
+            with self.subTest(browser=browser), patch.object(launcher.sys, 'platform', 'win32'):
+                self.assertEqual(web.original_profile_directory(metadata, path), profile)
+                command, _, _ = launcher.prepare_app(self.app(id='pwa-original', path=str(path),
+                    web_app=metadata, use_original_data=True), 8899, self.root / 'profiles', transparent=True)
+            self.assertEqual(command, [str(path), '--profile-directory=Default', '--app-id=' + APP_ID])
+
+    def test_missing_or_ambiguous_original_profile_never_creates_or_guesses_one(self):
+        app = self.app(id='pwa-original', use_original_data=True)
+        profiles = self.root / 'profiles'
+        self.profile.rmdir()
+        with patch.object(launcher.sys, 'platform', 'win32'), self.assertRaisesRegex(ValueError, '资料目录缺失'):
+            launcher.prepare_app(app, 8899, profiles, transparent=True)
+        self.assertFalse(self.profile.exists())
+        self.assertFalse(profiles.exists())
+        self.profile.mkdir()
+        for local in ('', 'relative/not-a-profile'):
+            with self.subTest(local=local), patch.object(launcher.sys, 'platform', 'win32'), \
+                    patch.dict(os.environ, {'LOCALAPPDATA': local}), self.assertRaises(ValueError):
+                launcher.prepare_app(app, 8899, profiles, transparent=True)
+        unknown = self.root / 'custom-browser/chrome.exe'
+        unknown.parent.mkdir(); unknown.write_bytes(b'MZ fixture'); unknown.chmod(0o755)
+        with patch.object(launcher.sys, 'platform', 'win32'), self.assertRaisesRegex(ValueError, '身份不明确'):
+            launcher.prepare_app({**app, 'path': str(unknown)}, 8899, profiles, transparent=True)
+        self.assertFalse(profiles.exists())
+
+    def test_original_mode_has_no_nontransparent_or_linux_execution_fallback(self):
+        profiles = self.root / 'profiles'
+        app = self.app(id='pwa-original', use_original_data=True)
+        for native_proxy in (False, True):
+            with self.subTest(native_proxy=native_proxy), patch.object(launcher.sys, 'platform', 'win32'), \
+                    self.assertRaisesRegex(ValueError, '透明代理'):
+                launcher.prepare_app(app, 8899, profiles, native_proxy=native_proxy)
+        for transparent in (False, True):
+            with self.subTest(transparent=transparent), patch.object(launcher.sys, 'platform', 'linux'), \
+                    self.assertRaisesRegex(ValueError, '独立资料'):
+                launcher.prepare_app(app, 8899, profiles, transparent=transparent)
+        self.assertFalse(profiles.exists())
 
     def test_launch_uses_real_browser_verified_url_private_profile_and_full_proxy_flags(self):
         app = self.app(id='pwa-1')
@@ -347,6 +460,27 @@ class WebAppValidationTests(WebAppFixture):
         with patch.object(launcher.sys, 'platform', 'win32'):
             command, _, _ = launcher.prepare_app(app, 8899, profiles, transparent=True, native_proxy=True)
         self.assertEqual((profiles / 'pwa-1' / 'private-login-fixture').read_text(), 'persisted login')
+
+    def test_switching_back_to_explicit_private_mode_reuses_private_data_without_source_profile(self):
+        app = self.app(id='pwa-1', use_original_data=False)
+        profiles = self.root / 'profiles'
+        private = profiles / 'pwa-1'
+        private.mkdir(parents=True)
+        marker = private / 'private-login-fixture'
+        marker.write_text('existing isolated session')
+        with patch.object(launcher.sys, 'platform', 'win32'):
+            command, _, _ = launcher.prepare_app({**app, 'use_original_data': True},
+                8899, profiles, transparent=True, native_proxy=True)
+            self.assertFalse(any(arg.startswith('--user-data-dir') for arg in command))
+            self.profile.rmdir()
+            with patch.object(web, 'original_profile_directory', side_effect=AssertionError('Private mode ignores source')):
+                command, _, detail = launcher.prepare_app(app, 8899, profiles, transparent=True, native_proxy=True)
+        self.assertIn('--user-data-dir=' + str(private), command)
+        self.assertIn('--app=' + START_URL, command)
+        self.assertFalse(any(arg.startswith(('--app-id', '--profile-directory')) for arg in command))
+        self.assertIn(web.WEB_APP_DETAIL, detail)
+        self.assertEqual(marker.read_text(), 'existing isolated session')
+        self.assertFalse(self.profile.exists())
 
     def test_ordinary_chromium_reserved_profile_and_proxy_rules_remain(self):
         app = {'id': 'browser', 'label': 'Chrome', 'path': str(self.chrome), 'adapter': 'chromium'}
@@ -404,12 +538,93 @@ class WebAppManagerTests(WebAppFixture):
             state = self.manager.state()
         self.assertEqual([app.get('web_app') for app in state['apps']], [app.get('web_app') for app in before])
 
-    def test_existing_browser_profile_toggle_does_not_enable_original_pwa_data(self):
+    def test_original_pwa_choice_and_compatibility_survive_save_restore_without_migration(self):
         saved = self.add(self.app())
-        with self.assertRaisesRegex(ValueError, '独立资料'):
+        before_metadata = deepcopy(saved['web_app'])
+        with patch.object(launcher.sys, 'platform', 'win32'):
             self.manager.set_app_profile(saved['id'], True)
+        self.assertIs(saved['use_original_data'], True)
+        self.assertEqual(saved['compatibility'], web.WEB_APP_ORIGINAL_DETAIL)
+        settings_path = self.root / 'state/settings.json'
+        persisted = json.loads(settings_path.read_text())['apps'][0]
+        self.assertEqual(persisted, saved)
+        self.manager.settings['apps'] = []
+        with patch.object(web, 'original_profile_directory', side_effect=AssertionError('No profile reads on restore')):
+            self.manager._restore_settings()
+        restored = self.manager.app(saved['id'])
+        self.assertEqual(restored, persisted)
+        self.profile.rmdir()
+        with patch.object(launcher.sys, 'platform', 'win32'):
+            self.manager.set_app_profile(saved['id'], False)
+        self.assertIs(restored['use_original_data'], False)
+        self.assertEqual(restored['web_app'], before_metadata)
+        self.assertEqual(restored['compatibility'], web.WEB_APP_DETAIL)
+        self.assertFalse((self.root / 'state/profiles').exists())
+        self.assertFalse(self.profile.exists())
+
+    def test_original_pwa_toggle_failures_roll_back_choice_and_compatibility(self):
+        saved = self.add(self.app())
+        before = deepcopy(saved)
+        settings_path = self.root / 'state/settings.json'
+        persisted = settings_path.read_bytes()
+        for value in (None, 'true', 0, 1, [], {}):
+            with self.subTest(value=value), patch.object(launcher.sys, 'platform', 'win32'), \
+                    self.assertRaisesRegex(ValueError, '布尔值'):
+                self.manager.set_app_profile(saved['id'], value)
+        with patch.object(launcher.sys, 'platform', 'win32'), \
+                patch.object(self.manager, '_save', side_effect=OSError('disk full')), \
+                self.assertRaisesRegex(OSError, 'disk full'):
+            self.manager.set_app_profile(saved['id'], True)
+        self.assertEqual(saved, before)
+        self.assertEqual(settings_path.read_bytes(), persisted)
+        self.assertEqual(self.manager._profile_preparing, set())
+        self.profile.rmdir()
+        with patch.object(launcher.sys, 'platform', 'win32'), self.assertRaisesRegex(ValueError, '资料目录缺失'):
+            self.manager.set_app_profile(saved['id'], True)
+        self.assertEqual(saved, before)
+        self.assertEqual(settings_path.read_bytes(), persisted)
+        self.assertEqual(self.manager._profile_preparing, set())
+
+    def test_original_pwa_toggle_keeps_running_instance_and_preparation_guards(self):
+        saved = self.add(self.app())
+        process = Mock(poll=Mock(return_value=None))
+        self.manager.active[saved['id']] = (process, None)
+        with patch.object(launcher.sys, 'platform', 'win32'), self.assertRaisesRegex(ValueError, '先关闭此工具启动'):
+            self.manager.set_app_profile(saved['id'], True)
+        process.terminate.assert_not_called()
         self.assertFalse(saved['use_original_data'])
-        self.manager.set_app_profile(saved['id'], False)
+        self.manager.active.clear()
+        self.manager._profile_preparing.add(saved['id'])
+        with patch.object(launcher.sys, 'platform', 'win32'), self.assertRaisesRegex(ValueError, '正在准备'):
+            self.manager.set_app_profile(saved['id'], True)
+        self.manager._profile_preparing.clear()
+
+    def test_original_profile_stat_check_releases_manager_lock(self):
+        saved = self.add(self.app())
+        acquired = threading.Event()
+
+        def worker():
+            with self.manager.lock:
+                acquired.set()
+
+        def check(metadata, path):
+            self.assertEqual(metadata, self.metadata())
+            self.assertEqual(path, self.chrome)
+            thread = threading.Thread(target=worker)
+            thread.start()
+            try:
+                self.assertTrue(acquired.wait(2))
+                self.assertIn(saved['id'], self.manager._profile_preparing)
+                with self.assertRaisesRegex(ValueError, '正在检查'):
+                    self.manager.launch(saved['id'])
+            finally:
+                thread.join(2)
+            return self.profile
+
+        with patch.object(launcher.sys, 'platform', 'win32'), \
+                patch.object(web, 'original_profile_directory', side_effect=check):
+            self.manager.set_app_profile(saved['id'], True)
+        self.assertEqual(self.manager._profile_preparing, set())
 
     def test_restore_drops_bad_web_metadata_and_duplicate_identity_not_other_profiles(self):
         first = deepcopy(self.add(self.app()))
@@ -477,7 +692,16 @@ class WebAppManagerTests(WebAppFixture):
                     self.assertIn('error', response)
                     self.assertEqual(self.manager.settings['apps'], saved)
                 status, _ = request('/api/apps/' + saved[0]['id'] + '/profile', {'use_original_data': True})
-                self.assertEqual(status, 400)
+                self.assertEqual(status, 200)
+                self.assertTrue(self.manager.settings['apps'][0]['use_original_data'])
+                self.assertEqual(self.manager.settings['apps'][0]['compatibility'], web.WEB_APP_ORIGINAL_DETAIL)
+                for value in (None, 1, 'true'):
+                    status, _ = request('/api/apps/' + saved[0]['id'] + '/profile', {'use_original_data': value})
+                    self.assertEqual(status, 400)
+                    self.assertTrue(self.manager.settings['apps'][0]['use_original_data'])
+                status, state = request('/api/apps/' + saved[0]['id'] + '/profile', {'use_original_data': False})
+                self.assertEqual(status, 200)
+                self.assertEqual(state['apps'][0]['compatibility'], web.WEB_APP_DETAIL)
                 self.assertEqual(self.manager.settings['apps'], saved)
         finally:
             server.shutdown(); server.server_close(); thread.join(5)
@@ -528,6 +752,44 @@ class WebAppManagerTests(WebAppFixture):
                 self.assertRaises(OSError):
             self.manager.launch(saved['id'])
         launch.assert_not_called()
+
+    def test_original_launch_keeps_policy_and_owned_bootstrap_state_honest_after_handoff(self):
+        pwa = self.add(self.app(use_original_data=True))
+        self.manager.core = Mock(pid=1234, poll=Mock(return_value=None))
+        bootstrap = Mock(pid=5678, poll=Mock(return_value=None))
+        with patch.object(launcher.sys, 'platform', 'win32'), \
+                patch('ruleproxy.windows_app_process.launch', return_value=bootstrap) as launch, \
+                patch.object(self.manager, 'protection', return_value={'supported': True}), \
+                patch.object(self.manager, 'available_apps', return_value=([], False)), \
+                patch.object(self.manager, 'autostart_status', return_value=False):
+            result = self.manager.launch(pwa['id'])
+            self.assertEqual(launch.call_args.args[0][:3],
+                [str(self.chrome), '--profile-directory=Profile 1', '--app-id=' + APP_ID])
+            self.assertEqual(launch.call_args.kwargs, {'native_proxy_port': self.manager.mixed_port})
+            self.assertEqual(self.manager._windows_paths, [str(self.chrome)])
+            self.assertIn(web.WEB_APP_ORIGINAL_DETAIL, result['detail'])
+            self.assertNotIn('首次需重新登录', result['detail'])
+            self.assertIn('沿用其启动和代理设置', result['detail'])
+            self.assertIn('已有进程不会由面板接管或关闭', result['detail'])
+            self.assertIn('本工具新建的浏览器实例，其共用窗口会随实例一同关闭。', result['detail'])
+            self.assertIn('Windows 应用模式按浏览器程序路径代理', result['detail'])
+            self.assertEqual(result['pid'], bootstrap.pid)
+            self.assertTrue(self.manager.state()['apps'][0]['active'])
+            # A same-profile browser can accept the request while our new
+            # bootstrap exits. An exit is not evidence that its window closed.
+            bootstrap.poll.return_value = 0
+            state = self.manager.state()['apps'][0]
+            self.assertFalse(state['active'])
+            self.assertFalse(state['cleanup_pending'])
+            self.assertTrue(state['routed'])
+            self.assertFalse(self.manager.has_active_apps())
+            self.assertEqual(self.manager.active, {pwa['id']: (bootstrap, None)})
+            self.manager.stop_app(pwa['id'])
+            bootstrap.terminate.assert_called_once_with()
+            bootstrap.wait.assert_called_once_with(timeout=10)
+            self.assertEqual(self.manager.active, {})
+            self.assertFalse(self.manager.uses_system_proxy)
+        self.assertFalse((self.root / 'state/profiles').exists())
 
 
 if __name__ == '__main__':

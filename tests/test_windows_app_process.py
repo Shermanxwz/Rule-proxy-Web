@@ -221,6 +221,24 @@ class WindowsAppProcessTests(unittest.TestCase):
         process.terminate()
         self.assertEqual(api.calls, previous)
 
+    def test_original_pwa_singleton_handoff_never_adopts_or_stops_existing_browser(self):
+        self.command = [r'C:\Program Files\Google\Chrome\Application\chrome.exe',
+                        '--profile-directory=Profile 1', '--app-id=' + 'a' * 32]
+        api, process = self.start(native_proxy_port=18809)
+        # Chrome's existing browser is external to the new bootstrap Job. Its
+        # singleton may accept these exact launch arguments and leave root=0.
+        api.exited, api.exit_status = True, 0
+        self.assertEqual(process.poll(), 0)
+        assigned = [call for call in api.calls if call[0] == 'assign_job']
+        self.assertEqual(assigned, [('assign_job', 101, 201)])
+        self.assertEqual(api.calls[-3:], [
+            ('exit_code', 201), ('close_handle', 101), ('close_handle', 201)])
+        previous = list(api.calls)
+        process.terminate()
+        self.assertEqual(process.wait(10), 0)
+        self.assertEqual(api.calls, previous)
+        self.assertFalse(any(call[0] in ('terminate_process', 'terminate_job') for call in api.calls))
+
     def test_wait_retains_its_duplicate_when_poll_closes_original(self):
         api, process = self.start()
         api.exited = True

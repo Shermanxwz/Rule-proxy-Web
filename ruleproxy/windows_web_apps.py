@@ -3,8 +3,9 @@
 Only launch identity and HTTP(S) start URLs are retained. The selected profile's
 WebApp registry (or legacy hosted-app manifest) is metadata, not a source of
 cookies, passwords, history or files to copy into the launcher-owned profile.
-An installed app-id is *not* an installation in a new --user-data-dir: we open a
-validated start URL with --app= instead, and explicitly describe that fallback.
+An installed app-id is *not* an installation in a new --user-data-dir: isolated
+mode opens a validated start URL with --app= instead. Explicit original-data
+mode retains the identified browser/profile/app-id, without copying its files.
 
 Metadata schema references (no network access is used at runtime):
 https://chromium.googlesource.com/chromium/src/+/main/chrome/browser/web_applications/proto/web_app.proto
@@ -45,6 +46,15 @@ WEB_APP_DETAIL = ('以已验证的 HTTP(S) 启动网址打开独立应用窗口�
                   '首次需重新登录；后续保留此条目的独立资料，不读取或复制原浏览器登录数据。'
                   'Windows 按浏览器程序路径代理，同一浏览器的其它窗口和 Web 应用也受启用规则影响；'
                   '停用单个条目不代表同路径流量直连。')
+WEB_APP_ORIGINAL_DETAIL = ('使用所选浏览器的原配置；有安装 ID 时按原 PWA 启动，'
+                          '无安装 ID 时在同一配置以网址打开应用窗口。'
+                          '浏览器直接使用原资料，修改会同步；本工具不读取或复制登录数据。'
+                          '启动请求可能交给已有窗口，启动进程退出不表示窗口已关闭；'
+                          '接力到已有浏览器时仍沿用其启动和代理设置；'
+                          '已有进程不会由面板接管或关闭。'
+                          '本工具新建的浏览器实例，其共用窗口会随实例一同关闭。'
+                          'Windows 应用模式按浏览器程序路径代理，同一浏览器的其它窗口和 Web 应用也受启用规则影响；'
+                          '停用单个条目不代表同路径流量直连。')
 
 # GetFolderPath uses the interactive process owner's known folders, including a
 # redirected Desktop. Never enumerate other users or resolve/execute a .lnk.
@@ -261,6 +271,22 @@ def _profile_path(executable: Path, browser: str, profile: str) -> Path:
     result = local.joinpath(*choices[0], 'User Data', profile)
     _plain(result, directory=True)
     return result
+
+
+def original_profile_directory(value, executable: Path) -> Path:
+    """Check an existing native profile without opening any browser data files.
+
+    Called only for an explicit mode change or launch, never settings restore.
+    A missing/ambiguous root must not make Chromium create a new named profile
+    while the panel reports that it reused the original data.
+    """
+    metadata = validate_web_app(value, executable)
+    if sys.platform != 'win32' or not os.environ.get('LOCALAPPDATA'):
+        raise ValueError('请在 Windows 当前用户会话中使用已识别的原浏览器资料。')
+    try:
+        return _profile_path(executable, metadata['browser'], metadata['profile_directory'])
+    except (OSError, ValueError) as exc:
+        raise ValueError('原浏览器资料目录缺失或身份不明确，请刷新 Web 应用列表后重试。') from exc
 
 
 def _protobuf_fields(data: bytes) -> dict[int, list[bytes | int]]:

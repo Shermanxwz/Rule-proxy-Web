@@ -994,11 +994,16 @@ class Manager:
             if use_original_data and sys.platform == "linux":
                 from .app_profile_data import original_profile_source
                 original_profile_source(candidate)
+            elif use_original_data and sys.platform == 'win32' and 'web_app' in candidate:
+                from .windows_web_apps import original_profile_directory
+                original_profile_directory(candidate['web_app'], Path(candidate['path']))
             with self.lock:
                 if self.app(ident) is not app or self.quitting or self.closed.is_set():
                     raise ValueError("应用或面板状态已改变，请重新操作。")
                 old = dict(app)
                 app["use_original_data"] = use_original_data
+                if 'web_app' in candidate:
+                    app['compatibility'] = candidate['compatibility']
                 try:
                     self._save()
                 except BaseException:
@@ -1147,13 +1152,18 @@ class Manager:
             detail = ('全局系统代理已启用；应用同时继承本机代理设置。' if global_mode else
                       '兼容模式的程序及辅助路径代理已启用；支持原生代理的应用同时使用本机代理。' if sys.platform == 'win32' else
                       '仅此隔离实例受保护。不支持的流量阻断，不会直连。')
+            if sys.platform == 'win32' and app.get('web_app') and app.get('use_original_data'):
+                detail = ('全局系统代理已启用；' if global_mode else '兼容模式的程序及辅助路径代理已启用；')
+                detail += '本次启动请求附带本机代理设置。'
             if app.get('web_app'):
                 if sys.platform == 'win32':
-                    from .windows_web_apps import WEB_APP_DETAIL
+                    from .windows_web_apps import WEB_APP_DETAIL, WEB_APP_ORIGINAL_DETAIL
+                    web_detail = WEB_APP_ORIGINAL_DETAIL if app.get('use_original_data') else WEB_APP_DETAIL
                 else:
                     from .linux_web_apps import WEB_APP_DETAIL
-                detail += ' ' + WEB_APP_DETAIL
-            if app.get("use_original_data"):
+                    web_detail = WEB_APP_DETAIL
+                detail += ' ' + web_detail
+            if app.get("use_original_data") and not (sys.platform == 'win32' and app.get('web_app')):
                 detail += (" 使用原应用资料；启动请求可能交给已有窗口，已有进程不会由面板接管或关闭。"
                            if sys.platform == "win32" else " 直接共用原应用资料；修改会同步到原应用，请勿同时启动原应用。")
             return {"pid": process.pid, "adapter": app["adapter"], "detail": detail}
