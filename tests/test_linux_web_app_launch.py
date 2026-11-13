@@ -270,13 +270,17 @@ class LinuxWebAppDiscoveryTests(LinuxWebAppFixture):
 
 
 class LinuxWebAppValidationTests(LinuxWebAppFixture):
-    def test_linux_schema_source_and_no_original_args_or_auxiliary_paths(self):
+    def test_linux_schema_source_and_managed_args_or_auxiliary_paths(self):
         normalized = launcher.validate_app(self.app())
         self.assertEqual(normalized['web_app'], self.metadata())
         self.assertEqual(normalized['source'], 'linux-web-app')
         self.assertEqual(normalized['compatibility'], web.WEB_APP_DETAIL)
         self.assertFalse(normalized['use_original_data'])
-        for change in ({'use_original_data': True}, {'use_original_data': 1},
+        original = launcher.validate_app(self.app(use_original_data=True), check_exists=False)
+        self.assertTrue(original['use_original_data'])
+        self.assertEqual(original['compatibility'], web.WEB_APP_ORIGINAL_DETAIL)
+        self.assertEqual(original['web_app'], normalized['web_app'])
+        for change in ({'use_original_data': 1},
                        {'args': ['--app-id=' + APP_ID]}, {'args': ['--new-window']},
                        {'related_paths': [str(self.chrome)]}, {'adapter': 'environment'},
                        {'enabled': 'true'}, {'store_binding': {'package_family_name': 'Vendor.App_pub',
@@ -421,7 +425,9 @@ class LinuxWebAppManagerTests(LinuxWebAppFixture):
         records = [first, second, {**first, 'id': 'duplicate'},
                    {**first, 'id': 'unresolved', 'web_app': self.metadata(start_url='')},
                    {**first, 'id': 'extra', 'web_app': {**self.metadata(), 'credentials': 'ignored'}},
-                   {**first, 'id': 'original', 'use_original_data': True}]
+                    # Original mode is valid, but cannot duplicate the first
+                    # record's browser/profile/app identity under another ID.
+                    {**first, 'id': 'duplicate-original', 'use_original_data': True}]
         path = self.manager.directory / 'settings.json'
         path.write_text(json.dumps({**self.manager.settings, 'apps': records}))
         before = path.read_bytes()
@@ -463,7 +469,7 @@ class LinuxWebAppManagerTests(LinuxWebAppFixture):
             self.assertEqual(profile, private)
             self.assertEqual(port, self.manager.mixed_port)
             self.assertEqual(folder, downloads)
-            self.assertEqual(kwargs, {}, 'PWA must not pass original_profile or keyring options')
+            self.assertEqual(kwargs, {}, 'Independent PWA must not pass original_profile or keyring options')
             # The real builder is still responsible for the isolation boundary.
             args, isolated = linux_runtime.build_command(command, env, profile, '/tmp/fixture-bridge.sock', folder)
             captured.update(command=command, args=args, env=isolated)

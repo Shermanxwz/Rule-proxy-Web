@@ -38,6 +38,7 @@
   let lastNodeSignature = '';
   let testingAllNodes = false;
   const isWindows = () => /windows|win32|win64/i.test(String(state && state.platform || ''));
+  const isLinux = () => /linux/i.test(String(state && state.platform || ''));
   const isGlobal = () => state?.capture_mode === 'global';
 
   function localIpcSummary(value) {
@@ -165,7 +166,7 @@
 
   function renderApps() {
     const apps = state && Array.isArray(state.apps) ? state.apps : [];
-    const signature = JSON.stringify(apps);
+    const signature = JSON.stringify([state?.platform, state?.capture_mode, apps]);
     if (signature === lastAppsSignature) return;
     lastAppsSignature = signature;
     const active = document.activeElement;
@@ -212,13 +213,14 @@
       if (app.store_binding) appInfo.append(textElement('span', 'app-path', '自动跟随当前商店软件包版本；包含包内全部辅助程序。'));
       if (app.related_paths?.length) appInfo.append(textElement('span', 'app-path', `相关程序：${app.related_paths.join('；')}`));
       appInfo.append(appTools(app));
-      const sharedWebApp = isWindows() && app.web_app && app.use_original_data === true;
-      const adapter = app.web_app ? `Web 应用 · ${sharedWebApp ? '原所属 Profile' : '独立资料'}` : friendlyAdapter(app.adapter, app.use_original_data === true);
+      const originalWebApp = (isWindows() || isLinux()) && app.web_app && app.use_original_data === true;
+      const sharedWebApp = isWindows() && originalWebApp;
+      const adapter = app.web_app ? `Web 应用 · ${originalWebApp ? '原所属 Profile' : '独立资料'}` : friendlyAdapter(app.adapter, app.use_original_data === true);
       const appMeta = textElement('div', 'app-meta');
       appMeta.append(textElement('span', 'app-adapter', adapter));
       const status = textElement('span', `app-status ${statusClass}`, statusText);
       appMeta.append(status);
-      const launch = textElement('button', 'button button-launch app-action', app.profile_preparing ? '检查应用资料…' : (app.cleanup_pending ? '关闭守卫' : (app.active ? (sharedWebApp ? '关闭共享实例' : '关闭实例') : (isWindows() ? '启动应用 ↗' : '启动隔离实例 ↗'))));
+      const launch = textElement('button', 'button button-launch app-action', app.profile_preparing ? '检查应用资料…' : (app.cleanup_pending ? '关闭守卫' : (app.active ? (sharedWebApp ? '关闭共享实例' : '关闭实例') : (isWindows() || isGlobal() ? '启动应用 ↗' : '启动隔离实例 ↗'))));
       launch.type = 'button';
       launch.dataset.appId = String(app.id);
       launch.disabled = busy || !!app.profile_preparing || ((app.active || app.cleanup_pending) ? false : !(app.enabled && state.running && state.protection && state.protection.supported));
@@ -241,6 +243,16 @@
   }
 
   function webAppDataNote(app) {
+    if (isLinux()) {
+      const original = app.use_original_data === true;
+      const profile = original
+        ? `使用原所属 Profile（${app.web_app.profile_directory}）的登录资料；共享经核验的原浏览器资料根，修改互通，不复制数据库。`
+        : '独立资料，首次需重新登录；可开启“使用原应用数据”使用原所属 Profile。';
+      const scope = isGlobal() ? '全局模式使用系统代理，不附带按应用命名空间隔离。'
+        : (original ? '按应用模式保留网络与进程命名空间隔离；原资料根通过受限绑定开放，密钥服务使用受限通道。'
+                    : '按应用模式使用网络与进程命名空间隔离。');
+      return `Web 应用 · ${profile}开启或启动原资料模式前，请完全退出占用原资料根的浏览器（含后台进程）。开关下次启动生效。${scope}`;
+    }
     if (!isWindows()) return 'Web 应用 · 独立资料，首次需重新登录。';
     const profile = app.use_original_data === true
       ? `使用原所属 Profile（${app.web_app.profile_directory}）的登录资料；共享原浏览器配置，资料修改互通。关闭本工具启动的共享实例时，同实例的窗口会一起关闭；已有浏览器接力实例不纳入关闭范围。`
@@ -265,12 +277,14 @@
     shortcut.dataset.appControl = `${app.id}:shortcut`;
     shortcut.addEventListener('click', () => createShortcut(app));
     tools.append(shortcut);
-    if (isBrowserAdapter(app.adapter) && (!app.web_app || isWindows())) {
+    if (isBrowserAdapter(app.adapter) && (!app.web_app || isWindows() || isLinux())) {
       const profileLabel = textElement('label', 'app-profile-option');
       const label = '使用原应用数据';
       const blockedHint = profileSwitchHint(app);
       profileLabel.title = (app.web_app
-        ? '共享此 Web 应用原所属 Profile 的登录资料与浏览器配置，修改互通；已有浏览器进程可能接力打开，不纳入本工具关闭范围。'
+        ? (isLinux()
+          ? '共享此 Web 应用原所属 Profile 的登录资料和经核验的原浏览器资料根，修改互通，不复制数据库；开启或启动前请完全退出占用该资料根的浏览器（含后台进程）。'
+          : '共享此 Web 应用原所属 Profile 的登录资料与浏览器配置，修改互通；已有浏览器进程可能接力打开，不纳入本工具关闭范围。')
         : '直接使用原应用资料，书签、历史和设置的修改会同步到原应用；请先关闭原应用后再使用。')
         + '开关下次启动生效。' + blockedHint;
       const profile = document.createElement('input');
@@ -365,7 +379,7 @@
     const expandedLimit = Number(ui.availableApps.dataset.limit);
     const limit = ui.availableApps.dataset.query === ui.appSearch.value && Number.isSafeInteger(expandedLimit) && expandedLimit > 0
       ? expandedLimit : (query ? 60 : 24);
-    const signature = JSON.stringify({ available, scanning, limit, saved: saved.map((app) => [app.path, app.web_app, app.enabled, app.active]) });
+    const signature = JSON.stringify({ platform: state?.platform, available, scanning, limit, saved: saved.map((app) => [app.path, app.web_app, app.enabled, app.active]) });
     if (signature === lastAvailableSignature && ui.availableApps.dataset.query === ui.appSearch.value) return;
     lastAvailableSignature = signature;
     ui.availableApps.dataset.query = ui.appSearch.value;
@@ -399,7 +413,8 @@
       info.append(textElement('span', 'available-app-hint', app.launchable === false ? app.unavailable_reason
         : (app.web_app ? (isWindows()
           ? '默认独立窗口与资料，首次需重新登录；添加后可开启“使用原应用数据”共享原所属 Profile。同浏览器其他窗口也可能走代理。'
-          : '独立窗口与资料，首次需重新登录。') : compatibilityHint(app.adapter))));
+          : (isLinux() ? '默认独立窗口与资料，首次需重新登录；添加后可开启“使用原应用数据”，开启或启动前请完全退出占用原资料根的浏览器。'
+                       : '独立窗口与资料，首次需重新登录。')) : compatibilityHint(app.adapter))));
       const button = textElement('button', 'button button-secondary discovery-add');
       button.type = 'button';
       const alreadyAdded = saved.some((savedApp) => sameApp(savedApp, app));
@@ -517,10 +532,13 @@
   function render(stateValue) {
     state = stateValue;
     if (!state) return;
+    const linux = /linux/i.test(String(state.platform || ''));
     ui.platform.textContent = state.platform || '本机服务';
     ui.storeAppsNote.hidden = !isWindows();
-    ui.webAppsNote.hidden = !isWindows();
-    ui.webAppsNote.textContent = '支持从 Chrome、Edge 等浏览器安装的 Web 应用。默认使用独立资料，首次需重新登录；添加后可选择“使用原应用数据”，共享原所属 Profile 的登录资料与浏览器配置，资料修改互通。开关下次启动生效；同一浏览器程序的其他窗口也可能受 Windows 路径代理影响。';
+    ui.webAppsNote.hidden = !isWindows() && !linux;
+    ui.webAppsNote.textContent = isWindows()
+      ? '支持从 Chrome、Edge 等浏览器安装的 Web 应用。默认使用独立资料，首次需重新登录；添加后可选择“使用原应用数据”，共享原所属 Profile 的登录资料与浏览器配置，资料修改互通。开关下次启动生效；同一浏览器程序的其他窗口也可能受 Windows 路径代理影响。'
+      : (linux ? '支持已识别的 Chromium 系 Web 应用。默认使用独立资料，首次需重新登录；添加后可选择“使用原应用数据”，精确使用原所属 Profile，资料修改互通。开启或启动前请完全退出占用原资料根的浏览器（含后台进程）；开关下次启动生效，已有快捷方式跟随保存的选择。' : '');
     ui.statusDot.className = `status-indicator ${state.running ? 'is-running' : ''}`;
     ui.statusTitle.textContent = state.running ? '核心正在运行' : (state.imported ? '配置已就绪' : '等待导入配置');
     ui.statusDetail.textContent = state.running ? '本机 Mihomo 已启动；应用连接状态见下方' : (state.imported ? '核心尚未启动' : '导入 YAML 配置以开始');
@@ -660,7 +678,7 @@
         await readState({ quiet: true });
       } else if (options.stopped) {
         showError('');
-        setNotice(`${options.stopped}的${isWindows() ? '实例' : '隔离实例'}已关闭。`);
+        setNotice(`${options.stopped}的${isWindows() || isGlobal() ? '实例' : '隔离实例'}已关闭。`);
         await readState({ quiet: true });
       } else if (options.stoppingCore) {
         showError('');
@@ -706,7 +724,7 @@
     const alreadyRunning = results.filter((item) => item.error && /已经在隔离中运行/.test(item.error));
     const failures = results.filter((item) => item.error && !/已经在隔离中运行/.test(item.error));
     if (!failures.length) {
-      setNotice(`已处理 ${results.length} 个应用${alreadyRunning.length ? `，其中 ${alreadyRunning.length} 个${isWindows() ? '已在运行' : '已在隔离中运行'}` : ''}。`);
+      setNotice(`已处理 ${results.length} 个应用${alreadyRunning.length ? `，其中 ${alreadyRunning.length} 个${isWindows() || isGlobal() ? '已在运行' : '已在隔离中运行'}` : ''}。`);
       return;
     }
     const summary = failures.map((item) => `${item.label || '应用'}：${item.error}`).join('；');

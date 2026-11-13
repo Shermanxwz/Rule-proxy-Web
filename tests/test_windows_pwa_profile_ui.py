@@ -112,6 +112,16 @@ async function mount(initial) {
           return {ok: false, status: 409, json: async () => ({error})};
         }
         if (url === '/api/apps') session.server.apps.push({id: 'added', ...request.body});
+        else if (url.endsWith('/shortcut')) {
+          assert.ok(session.server.apps.some(app => url === `/api/apps/${encodeURIComponent(app.id)}/shortcut`));
+          assert.deepEqual(request.body, {});
+          return {ok: true, status: 200, json: async () => ({created: ['fixture.desktop']})};
+        }
+        else if (url.endsWith('/stop')) {
+          const app = session.server.apps.find(app => url === `/api/apps/${encodeURIComponent(app.id)}/stop`);
+          assert.ok(app); assert.deepEqual(request.body, {});
+          app.active = false;
+        }
         else {
           const app = session.server.apps.find(app => url === `/api/apps/${encodeURIComponent(app.id)}/profile`);
           assert.ok(app, `unexpected mutation: ${url}`);
@@ -182,9 +192,10 @@ for (const [browser, adapter] of [['chrome', 'chrome'], ['edge', 'edge'], ['brav
 
     def test_toggle_uses_existing_boolean_post_and_updates_note_badge_and_focus(self):
         self.run_case(r'''
+for (const platform of ['Windows', 'Linux']) {
 for (const appId of ['a'.repeat(32), '']) {
   const app = pwa(); app.web_app.app_id = appId;
-  const session = await mount(makeState('Windows', [app]));
+  const session = await mount(makeState(platform, [app]));
   for (const choice of [true, false]) {
     await session.change(choice);
     assertMode(session, choice);
@@ -197,13 +208,16 @@ for (const appId of ['a'.repeat(32), '']) {
     assert.deepEqual(session.server.apps[0].web_app, app.web_app);
   }
 }
+}
 ''')
 
     def test_http_and_network_errors_rollback_both_directions_and_keep_error_focus(self):
         self.run_case(r'''
+for (const platform of ['Windows', 'Linux']) {
 for (const initial of [false, true]) {
-  for (const failure of ['fixture profile conflict', new Error('fixture network failure')]) {
-    const session = await mount(makeState('Windows', [pwa({use_original_data: initial})]));
+  for (const failure of ['fixture profile conflict', 'fixture occupied original root',
+                         'fixture keyring unavailable', new Error('fixture network failure')]) {
+    const session = await mount(makeState(platform, [pwa({use_original_data: initial})]));
     session.failNext = failure;
     await session.change(!initial);
     assertMode(session, initial);
@@ -214,11 +228,13 @@ for (const initial of [false, true]) {
     assert.equal(session.requests.filter(r => r.method === 'GET').length, 2);
   }
 }
+}
 ''')
 
     def test_pending_request_keeps_confirmed_mode_and_does_not_steal_moved_focus(self):
         self.run_case(r'''
-const session = await mount(makeState('Windows', [pwa()]));
+for (const platform of ['Windows', 'Linux']) {
+const session = await mount(makeState(platform, [pwa()]));
 let release;
 session.pausePost = new Promise(resolve => { release = resolve; });
 const control = session.profile(); control.focus(); control.checked = true; control.dispatch('change');
@@ -231,25 +247,29 @@ session.element('app-search').focus();
 release(); await flush();
 assertMode(session, true);
 assert.equal(session.document.activeElement, session.element('app-search'));
+}
 ''')
 
     def test_recovery_poll_uses_authoritative_saved_state_after_lost_response(self):
         self.run_case(r'''
-const session = await mount(makeState('Windows', [pwa()]));
+for (const platform of ['Windows', 'Linux']) {
+const session = await mount(makeState(platform, [pwa()]));
 session.server.apps[0].use_original_data = true;
 session.failNext = new Error('fixture lost response');
 await session.change(true);
 assertMode(session, true);
 assert.equal(session.element('global-error').textContent, 'fixture lost response');
 assert.equal(session.document.activeElement, session.profile());
+}
 ''')
 
     def test_active_cleanup_and_preparation_disable_changes_and_show_close_instruction(self):
         self.run_case(r'''
-for (const [field, status] of [['active', '代理中运行'], ['cleanup_pending', '清理待完成'],
+for (const platform of ['Windows', 'Linux']) {
+for (const [field, status] of [['active', platform === 'Windows' ? '代理中运行' : '隔离中运行'], ['cleanup_pending', '清理待完成'],
                               ['profile_preparing', '检查应用资料…']]) {
   for (const original of [false, true]) {
-    const session = await mount(makeState('Windows', [pwa({[field]: true, use_original_data: original})]));
+    const session = await mount(makeState(platform, [pwa({[field]: true, use_original_data: original})]));
     assertMode(session, original);
     assert.equal(session.profile().disabled, true);
     assert.match(session.profile().title, /请先关闭本工具启动的实例/);
@@ -263,6 +283,7 @@ for (const [field, status] of [['active', '代理中运行'], ['cleanup_pending'
     assert.equal(session.profile().disabled, false);
     assert.equal(session.rows()[0].querySelector('.app-profile-hint'), null);
   }
+}
 }
 ''')
 
@@ -286,15 +307,106 @@ assert.equal(ordinary.rows()[0].querySelector('.app-action').textContent, '关�
 assert.equal(ordinary.rows()[0].querySelector('.app-action').title, '关闭此工具启动的实例');
 ''')
 
-    def test_linux_pwa_stays_independent_without_checkbox(self):
+    def test_linux_pwa_defaults_to_independent_with_explicit_original_profile_option(self):
         self.run_case(r'''
-for (const adapter of ['chrome', 'edge', 'brave', 'chromium']) {
-  const session = await mount(makeState('Linux', [pwa({adapter})]));
-  assert.equal(session.profile(), null);
-  assert.match(session.rows()[0].querySelector('.app-web-note').textContent, /独立资料.*首次需重新登录/);
-  assert.match(session.rows()[0].querySelector('.app-adapter').textContent, /独立资料/);
+for (const [browser, adapter] of [['chrome', 'chrome'], ['edge', 'edge'], ['brave', 'brave'],
+                                 ['chromium', 'chromium'], ['vivaldi', 'chromium']]) {
+  for (const profile of ['Default', 'Profile 1']) {
+    for (const original of [false, true, undefined, 'true', 1]) {
+      const app = pwa({adapter, path: '/opt/browser/browser', use_original_data: original});
+      app.web_app.browser = browser; app.web_app.profile_directory = profile;
+      const before = JSON.stringify(app);
+      const session = await mount(makeState('Linux', [app]));
+      assertMode(session, original === true);
+      assert.equal(session.profile().disabled, false);
+      assert.equal(JSON.stringify(app), before);
+      assert.equal(session.posts().length, 0);
+      assert.equal(session.element('web-apps-note').hidden, false);
+      assert.match(session.profile().title, /原所属 Profile.*原浏览器资料根.*修改互通.*完全退出/);
+      const note = session.rows()[0].querySelector('.app-web-note').textContent;
+      assert.match(note, /开启或启动原资料模式前.*完全退出占用原资料根.*后台进程/);
+      assert.match(note, /下次启动生效.*命名空间隔离/);
+      assert.doesNotMatch(note + session.profile().title, /接力|路径代理|关闭共享实例|Windows/);
+      if (original === true) {
+        assert.ok(note.includes(profile));
+        assert.match(note, /原资料根通过受限绑定开放.*密钥服务使用受限通道/);
+      }
+    }
+  }
+}
+''')
+
+    def test_linux_mode_and_platform_poll_refresh_without_app_record_changes(self):
+        self.run_case(r'''
+for (const original of [false, true]) {
+  const session = await mount(makeState('Linux', [pwa({use_original_data: original})], {running: false}));
+  const appRecord = JSON.stringify(session.server.apps);
+  session.profile().focus();
+  for (const mode of ['global', 'applications', 'global']) {
+    const before = session.rows()[0];
+    session.server.capture_mode = mode; await session.poll();
+    assert.equal(JSON.stringify(session.server.apps), appRecord);
+    assert.notEqual(session.rows()[0], before);
+    assertMode(session, original);
+    assert.equal(session.rows()[0].querySelector('.app-action').textContent,
+      mode === 'global' ? '启动应用 ↗' : '启动隔离实例 ↗');
+    const note = session.rows()[0].querySelector('.app-web-note').textContent;
+    if (mode === 'global') {
+      assert.match(note, /全局模式使用系统代理，不附带按应用命名空间隔离/);
+      assert.doesNotMatch(note, /保留网络与进程|受限绑定|密钥服务使用受限通道/);
+    } else assert.match(note, /按应用模式.*网络与进程命名空间隔离/);
+    assert.equal(session.document.activeElement, session.profile());
+    const unchanged = session.rows()[0]; await session.poll();
+    assert.equal(session.rows()[0], unchanged);
+  }
   assert.equal(session.posts().length, 0);
-  assert.equal(session.element('web-apps-note').hidden, true);
+}
+const session = await mount(makeState('Windows', [pwa({active: true, use_original_data: true})]));
+const appRecord = JSON.stringify(session.server.apps);
+for (const platform of ['Linux', 'Windows', 'Darwin']) {
+  session.server.platform = platform; await session.poll();
+  assert.equal(JSON.stringify(session.server.apps), appRecord);
+  const action = session.rows()[0].querySelector('.app-action');
+  assert.equal(action.textContent, platform === 'Windows' ? '关闭共享实例' : '关闭实例');
+  if (platform === 'Linux') {
+    assertMode(session, true);
+    assert.equal(action.title, '关闭此工具启动的实例');
+    assert.doesNotMatch(session.rows()[0].textContent, /接力|路径代理|关闭共享实例/);
+  }
+  if (platform === 'Darwin') {
+    assert.equal(session.profile(), null);
+    assert.equal(session.element('web-apps-note').hidden, true);
+  }
+}
+''')
+
+    def test_linux_shortcut_keeps_saved_app_id_and_current_profile_choice(self):
+        self.run_case(r'''
+const session = await mount(makeState('Linux', [pwa({path: '/opt/browser/browser'})]));
+for (const original of [true, false]) {
+  await session.change(original); assertMode(session, original);
+  const saved = structuredClone(session.server.apps[0]);
+  session.rows()[0].querySelector('.app-shortcut').dispatch('click'); await flush();
+  assert.deepEqual(structuredClone(session.posts().at(-1)), {url: '/api/apps/pwa%2Fone/shortcut', method: 'POST',
+    headers: {'Content-Type': 'application/json', 'X-RuleProxy-Token': 'offline-fixture'}, body: {}});
+  assert.deepEqual(session.server.apps[0], saved);
+  assertMode(session, original);
+}
+''')
+
+    def test_linux_close_notice_matches_mode_without_windows_shared_scope(self):
+        self.run_case(r'''
+for (const mode of ['applications', 'global']) {
+  const session = await mount(makeState('Linux', [pwa({active: true, use_original_data: true})], {capture_mode: mode}));
+  const action = session.rows()[0].querySelector('.app-action');
+  assert.equal(action.textContent, '关闭实例');
+  assert.equal(action.title, '关闭此工具启动的实例');
+  action.dispatch('click'); await flush();
+  assert.equal(session.posts().at(-1).url, '/api/apps/pwa%2Fone/stop');
+  assert.equal(session.element('global-error').textContent,
+    mode === 'global' ? 'Fixture PWA的实例已关闭。' : 'Fixture PWA的隔离实例已关闭。');
+  assertMode(session, true);
+  assert.equal(session.profile().disabled, false);
 }
 ''')
 
@@ -328,7 +440,11 @@ for (const platform of ['Windows', 'Linux']) {
   if (platform === 'Windows') {
     assert.match(hint, /添加后可开启/);
     assert.match(session.element('web-apps-note').textContent, /默认使用独立资料.*添加后可选择/);
-  } else assert.doesNotMatch(hint, /使用原应用数据/);
+  } else {
+    assert.match(hint, /添加后可开启.*使用原应用数据.*完全退出占用原资料根/);
+    assert.match(session.element('web-apps-note').textContent, /默认使用独立资料.*添加后可选择.*已有快捷方式跟随保存/);
+    assert.doesNotMatch(hint, /路径代理|接力/);
+  }
   available.querySelector('.discovery-add').dispatch('click'); await flush();
   assert.equal(session.posts()[0].url, '/api/apps');
   assert.equal(session.posts()[0].body.use_original_data, false);
@@ -343,6 +459,25 @@ const added = () => session.element('available-apps-list').querySelectorAll('.di
 assert.deepEqual(added(), ['true', 'false', 'false', 'false']);
 await session.change(false);
 assert.deepEqual(added(), ['true', 'false', 'false', 'false']);
+''')
+
+    def test_discovery_platform_poll_refreshes_hint_without_record_changes(self):
+        self.run_case(r'''
+const session = await mount(makeState('Windows', [pwa({use_original_data: true})], {available_apps: [pwa()]}));
+const records = JSON.stringify([session.server.apps, session.server.available_apps]);
+const hint = () => session.element('available-apps-list').querySelector('.available-app-hint');
+assert.match(hint().textContent, /同浏览器其他窗口也可能走代理/);
+for (const platform of ['Linux', 'Windows']) {
+  session.server.platform = platform; await session.poll();
+  assert.equal(JSON.stringify([session.server.apps, session.server.available_apps]), records);
+  if (platform === 'Linux') {
+    assert.match(hint().textContent, /使用原应用数据.*完全退出占用原资料根/);
+    assert.doesNotMatch(hint().textContent, /同浏览器其他窗口也可能走代理/);
+  } else assert.match(hint().textContent, /同浏览器其他窗口也可能走代理/);
+}
+const beforeMode = hint(); session.server.capture_mode = 'global'; await session.poll();
+assert.equal(hint(), beforeMode);
+assert.equal(session.posts().length, 0);
 ''')
 
 

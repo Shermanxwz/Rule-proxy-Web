@@ -797,8 +797,9 @@ def _original_data_mode(app: dict, *, restoring_windows_web_app: bool = False) -
         raise ValueError('使用原应用数据必须为布尔值。')
     if value and app.get('adapter') not in ('chromium', 'firefox'):
         raise ValueError('这个启动方式不支持切换浏览器数据。')
-    if value and 'web_app' in app and sys.platform != 'win32' and not restoring_windows_web_app:
-        raise ValueError('Web 应用使用独立资料；首次需重新登录，原浏览器资料保持不变。')
+    if (value and 'web_app' in app and sys.platform != 'win32'
+            and not sys.platform.startswith('linux') and not restoring_windows_web_app):
+        raise ValueError('当前系统不支持已安装 Web 应用使用原资料。')
     return value
 
 
@@ -841,12 +842,18 @@ def validate_app(data: dict, *, check_exists: bool = True) -> dict[str, Any]:
     original_data = _original_data_mode(data, restoring_windows_web_app=(
         not check_exists and path.suffix.lower() == '.exe'))
     if check_exists:
+        selected_path = path
         try:
             path = path.resolve(strict=True)
         except (OSError, RuntimeError) as exc:
             if sys.platform == 'win32' and any(part.casefold() == 'windowsapps' for part in path.parts):
                 raise ValueError('无法访问这个商店应用，可能已更新或卸载。请停用旧条目，刷新应用列表，重新添加当前版本。') from exc
             raise ValueError("找不到这个程序。") from exc
+        if (original_data and 'web_app' in data and sys.platform.startswith('linux')
+                and path != selected_path):
+            # Preserve the saved installation/channel identity instead of
+            # silently rebinding an alias to another known or unknown browser.
+            raise ValueError('原资料 Web 应用的浏览器安装路径身份不明确，请刷新应用列表后使用实际程序路径。')
         if not path.is_file():
             raise ValueError("程序路径必须指向一个文件。")
         if os.name != "nt" and not os.access(path, os.X_OK):
@@ -869,8 +876,8 @@ def validate_app(data: dict, *, check_exists: bool = True) -> dict[str, Any]:
             detail = WEB_APP_ORIGINAL_DETAIL if original_data else WEB_APP_DETAIL
             source = 'windows-web-app'
         elif sys.platform.startswith('linux'):
-            from .linux_web_apps import WEB_APP_DETAIL, validate_web_app
-            detail = WEB_APP_DETAIL
+            from .linux_web_apps import validate_web_app, web_app_detail
+            detail = web_app_detail(original_data)
             source = 'linux-web-app'
             if check_exists and not _is_elf_executable(path):
                 raise ValueError('Linux Web 应用需要实际的 ELF 浏览器程序。')
@@ -968,9 +975,10 @@ def prepare_app(app: dict, proxy_port: int, profile_dir: Path, *, transparent: b
                 native_proxy: bool = False, system_proxy: bool = False) -> tuple[list[str], dict[str, str], str]:
     """Prepare an app command, child-only environment overrides, and limitations.
 
-    The returned command is only safe inside the platform's isolation runtime
-    (bubblewrap on Linux). Windows transparent routing is applied by the
-    privileged broker before the ordinary process is resumed.
+    Application mode requires the platform runtime (bubblewrap on Linux).
+    Linux transparent/global launches instead follow the configured system
+    proxy. Windows transparent routing is applied by the privileged broker
+    before the ordinary process is resumed.
     """
     normalized = validate_app(app)
     if (normalized.get('use_original_data') and 'web_app' in normalized
@@ -993,13 +1001,19 @@ def prepare_app(app: dict, proxy_port: int, profile_dir: Path, *, transparent: b
     proxy_port = _validate_port(proxy_port)
     _reject_reserved_args(normalized["args"], normalized["adapter"])
     original_data = normalized.get('use_original_data', False)
-    if original_data and 'web_app' in normalized:
+    if original_data and 'web_app' in normalized and sys.platform == 'win32':
         from .windows_web_apps import original_profile_directory
         original_profile_directory(normalized['web_app'], Path(normalized['path']))
-    profile_app = ({**app, 'adapter': normalized['adapter'], 'use_original_data': False}
+    linux_original_pwa = original_data and 'web_app' in normalized and sys.platform.startswith('linux')
+    # Only the new Linux original-PWA path binds profile selection to precisely
+    # the executable/metadata used for the command; other adapters stay unchanged.
+    profile_app = ({**app, **normalized} if linux_original_pwa else
+                   {**app, 'adapter': normalized['adapter'], 'use_original_data': False}
                    if normalized['adapter'] != app['adapter'] else app)
     profile = app_profile_directory(profile_dir, profile_app)
-    native_original = transparent and original_data
+    # Windows native-data mode leaves root selection to the browser. Linux
+    # original PWAs still need their validated explicit root in global mode.
+    native_original = transparent and original_data and not linux_original_pwa
     shared_original = original_data and sys.platform.startswith('linux')
     if not native_original and not shared_original:
         profile.mkdir(parents=True, exist_ok=True)
@@ -1007,8 +1021,8 @@ def prepare_app(app: dict, proxy_port: int, profile_dir: Path, *, transparent: b
     if 'web_app' in normalized:
         web_app = normalized['web_app']
         if original_data:
-            # Let the identified browser use its own existing profile. Never
-            # redirect to a guessed user-data-dir or copy login databases.
+            # Use the exact installed identity. Linux adds the validated root
+            # below; Windows lets the identified browser select its native root.
             command.append('--profile-directory=' + web_app['profile_directory'])
             command.append('--app-id=' + web_app['app_id'] if web_app['app_id']
                            else '--app=' + web_app['start_url'])
@@ -1054,7 +1068,9 @@ def prepare_app(app: dict, proxy_port: int, profile_dir: Path, *, transparent: b
                 detail += ' ' + normalized['compatibility']
             return command, env, detail
         if normalized["adapter"] == "chromium":
-            command.extend([f"--user-data-dir={profile}", "--no-first-run", "--restore-last-session"])
+            command.extend([f"--user-data-dir={profile}", "--no-first-run"])
+            if not linux_original_pwa:
+                command.append('--restore-last-session')
         elif normalized["adapter"] == "firefox":
             # user.js belongs to this launcher. Clear the explicit proxy mode
             # from profiles created by the retired Windows runtime.
@@ -1066,8 +1082,10 @@ def prepare_app(app: dict, proxy_port: int, profile_dir: Path, *, transparent: b
         detail = "按程序路径透明转发；同路径实例也受规则影响，不能保证 DNS 隔离。"
         if 'web_app' in normalized:
             if sys.platform.startswith('linux'):
-                detail = '全局模式使用系统代理；应用模式的独立网络命名空间隔离不适用于此启动。'
-            detail += ' ' + normalized['compatibility']
+                from .linux_web_apps import web_app_detail
+                detail = web_app_detail(original_data, global_mode=True)
+            else:
+                detail += ' ' + normalized['compatibility']
         return command, env, detail
     proxy = f"http://127.0.0.1:{proxy_port}"
     env.update(
@@ -1105,8 +1123,10 @@ def prepare_app(app: dict, proxy_port: int, profile_dir: Path, *, transparent: b
             ]
         )
         # Chromium deletes session cookies on exit unless the last session is
-        # restored, so restoring keeps logins across relaunches.
-        command.append("--restore-last-session")
+        # restored, so restoring keeps private/ordinary browser logins. A new
+        # original PWA must not reopen unrelated tabs from the source profile.
+        if not linux_original_pwa:
+            command.append("--restore-last-session")
         detail = (
             "Strict runtime mode allows the configured proxy endpoint and blocks direct egress. "
             "Chromium HTTP/S uses the local proxy; unsupported flows fail closed."

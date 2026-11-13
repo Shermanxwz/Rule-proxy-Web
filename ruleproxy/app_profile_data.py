@@ -242,6 +242,20 @@ def original_profile_source(app: dict) -> Path:
     adapter = app.get('adapter')
     if adapter == 'firefox':
         source = _validate_layout(_firefox_location(app), adapter)
+    elif adapter == 'chromium' and 'web_app' in app:
+        from .linux_web_apps import original_profile_directory
+
+        selected = original_profile_directory(app['web_app'], Path(app.get('path', '')))
+        source = _checked(selected.parent, directory=True)
+        home = Path.home().absolute()
+        if source == home or source in home.parents:
+            raise _error('不能把整个家目录作为应用资料共享。')
+        _checked(selected, directory=True)
+        # A different initialized Default/Profile must not satisfy this PWA's
+        # saved identity. Inspect only these two layout indexes, never enumerate
+        # other profiles or open/copy login, cookie or history databases.
+        _json_object(source / 'Local State')
+        _json_object(selected / 'Preferences')
     elif adapter == 'chromium':
         candidates, electron = _chromium_location(app)
         existing = [path for path in candidates if path.exists() or path.is_symlink()]

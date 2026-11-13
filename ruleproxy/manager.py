@@ -940,7 +940,15 @@ class Manager:
         with self.lock:
             if len(self.settings["apps"]) >= MAX_APPS:
                 raise ValueError(f"最多保存 {MAX_APPS} 个应用，请先删除不再使用的应用。")
-            normalized = validate_app(data)
+        # Executable/profile I/O must not prevent core cleanup. Recheck list
+        # capacity and identity under the lock after these potentially slow reads.
+        normalized = validate_app(data)
+        if sys.platform.startswith('linux') and normalized.get('web_app') and normalized.get('use_original_data'):
+            from .app_profile_data import original_profile_source
+            original_profile_source(normalized)
+        with self.lock:
+            if len(self.settings["apps"]) >= MAX_APPS:
+                raise ValueError(f"最多保存 {MAX_APPS} 个应用，请先删除不再使用的应用。")
             if sys.platform == 'win32':
                 self._bind_store_app(normalized)
             if any(app_identity(app) == app_identity(normalized) for app in self.settings["apps"]):
@@ -991,7 +999,7 @@ class Manager:
             candidate["id"] = ident
             self._profile_preparing.add(ident)
         try:
-            if use_original_data and sys.platform == "linux":
+            if use_original_data and sys.platform.startswith('linux'):
                 from .app_profile_data import original_profile_source
                 original_profile_source(candidate)
             elif use_original_data and sys.platform == 'win32' and 'web_app' in candidate:
@@ -1103,7 +1111,9 @@ class Manager:
             if ident in self.active and self.active[ident][0].poll() is None:
                 if getattr(self.active[ident][1], "failed_process", None) is not None:
                     raise ValueError("上次启动的隔离守卫尚未完成清理，请先点击关闭守卫。")
-                return {"pid": self.active[ident][0].pid, "adapter": app["adapter"], "detail": "这个应用已经在运行。" if sys.platform == "win32" else "这个应用已经在隔离中运行。"}
+                isolated = sys.platform != 'win32' and self.capture_mode != 'global'
+                return {"pid": self.active[ident][0].pid, "adapter": app["adapter"],
+                        "detail": "这个应用已经在隔离中运行。" if isolated else "这个应用已经在运行。"}
             if ident in self.active:
                 self.stop_app(ident)
             global_mode = self.capture_mode == 'global'
@@ -1160,10 +1170,10 @@ class Manager:
                     from .windows_web_apps import WEB_APP_DETAIL, WEB_APP_ORIGINAL_DETAIL
                     web_detail = WEB_APP_ORIGINAL_DETAIL if app.get('use_original_data') else WEB_APP_DETAIL
                 else:
-                    from .linux_web_apps import WEB_APP_DETAIL
-                    web_detail = WEB_APP_DETAIL
+                    from .linux_web_apps import web_app_detail
+                    web_detail = web_app_detail(app.get('use_original_data', False), global_mode=global_mode)
                 detail += ' ' + web_detail
-            if app.get("use_original_data") and not (sys.platform == 'win32' and app.get('web_app')):
+            if app.get("use_original_data") and not app.get('web_app'):
                 detail += (" 使用原应用资料；启动请求可能交给已有窗口，已有进程不会由面板接管或关闭。"
                            if sys.platform == "win32" else " 直接共用原应用资料；修改会同步到原应用，请勿同时启动原应用。")
             return {"pid": process.pid, "adapter": app["adapter"], "detail": detail}

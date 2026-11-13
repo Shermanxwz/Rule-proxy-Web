@@ -433,7 +433,7 @@ class WebAppValidationTests(WebAppFixture):
                 launcher.prepare_app(app, 8899, profiles, native_proxy=native_proxy)
         for transparent in (False, True):
             with self.subTest(transparent=transparent), patch.object(launcher.sys, 'platform', 'linux'), \
-                    self.assertRaisesRegex(ValueError, '独立资料'):
+                    self.assertRaisesRegex(ValueError, 'ELF'):
                 launcher.prepare_app(app, 8899, profiles, transparent=transparent)
         self.assertFalse(profiles.exists())
 

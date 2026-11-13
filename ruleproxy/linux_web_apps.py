@@ -2,8 +2,9 @@
 
 Only fixed desktop switches and the selected app's installation metadata are
 used. System browser wrappers have an explicit binary map, not a script parser.
-The resulting URL opens in a launcher-owned profile; an installed app-id is
-never forwarded into that unrelated profile.
+By default the URL opens in a launcher-owned profile, never forwarding an
+installed app-id into that unrelated profile. Explicit original-data mode uses
+the exact recognized browser/channel and selected profile instead.
 """
 from __future__ import annotations
 
@@ -20,13 +21,34 @@ from .windows_web_apps import (
 )
 
 
-WEB_APP_DETAIL = (
+_WEB_APP_PRIVATE_DATA_DETAIL = (
     '以已验证的 HTTP(S) 启动网址打开独立应用窗口，而非复用原 PWA 安装。'
     '网址来自桌面入口或本地安装元数据，格式校验不代表联网成功。'
     '首次需重新登录；后续保留此条目的独立资料，不读取或复制原浏览器登录数据。'
+)
+_WEB_APP_ORIGINAL_DATA_DETAIL = (
+    '使用所选浏览器及频道的原配置；有安装 ID 时按原 PWA 启动，'
+    '无安装 ID 时在同一配置以网址打开应用窗口。'
+    '浏览器直接使用原资料，修改会同步；本工具不读取或复制登录数据。'
+    '请先完全关闭原浏览器及其后台进程；检测到资料占用时停止启动，不接管或关闭外部已有窗口。'
+)
+WEB_APP_DETAIL = _WEB_APP_PRIVATE_DATA_DETAIL + (
     'Linux 应用模式下仅保护由 RuleProxy 新启动的网络命名空间实例；'
     '系统中已运行的浏览器和原 PWA 窗口不受此条目影响。'
 )
+WEB_APP_ORIGINAL_DETAIL = _WEB_APP_ORIGINAL_DATA_DETAIL + (
+    'Linux 应用模式保留网络、进程和家目录隔离，仅共享已验证的浏览器资料，'
+    '密钥服务使用受限连接；使用期间请勿同时启动原浏览器。'
+)
+
+
+def web_app_detail(use_original_data: bool, *, global_mode: bool = False) -> str:
+    """Describe data selection separately from the actual Linux launch mode."""
+    if not global_mode:
+        return WEB_APP_ORIGINAL_DETAIL if use_original_data else WEB_APP_DETAIL
+    data = _WEB_APP_ORIGINAL_DATA_DETAIL if use_original_data else _WEB_APP_PRIVATE_DATA_DETAIL
+    return data + 'Linux 全局模式使用系统代理；应用模式的独立网络命名空间隔离不适用于此启动。'
+
 
 # Linux names are case-sensitive. These names are accepted only after an ELF
 # check during discovery/launch; a familiar name alone does not admit a script.
@@ -256,6 +278,26 @@ def _profile_path(executable: Path, browser: str, profile: str) -> Path:
     result = config / known[1] / profile
     _plain_directory(result)
     return result
+
+
+def original_profile_directory(value, executable: Path) -> Path:
+    """Resolve one existing installed profile, never during saved-state restore.
+
+    Reuse discovery's exact installation/channel map, not ordinary-browser
+    basename guesses. Only the ELF header and directory metadata are checked
+    here; app_profile_data validates ownership, initialization and root locks.
+    """
+    metadata = validate_web_app(value, executable)
+    try:
+        # A known lexical installation must not alias another executable tree.
+        # _elf rejects a link at the file itself; check every parent as well.
+        _plain_directory(executable.parent)
+        selected = _profile_path(executable, metadata['browser'], metadata['profile_directory'])
+        if not _elf(executable):
+            raise ValueError('Original Web app requires an installed browser ELF')
+        return selected
+    except (OSError, ValueError) as exc:
+        raise ValueError('原浏览器程序或资料目录缺失或身份不明确，请刷新 Web 应用列表后重试。') from exc
 
 
 def resolve_start_url(executable: Path, browser: str, profile: str, app_id: str) -> str | None:
